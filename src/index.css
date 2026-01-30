@@ -1,0 +1,239 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@media (max-width: 768px) {
+    body {
+        overflow-x: hidden;
+        width: 100%;
+        position: relative;
+        padding-bottom: 100px;
+    }
+}
+
+@layer components {
+    .section {
+        @apply py-10 lg:py-24;
+    }
+}
+
+:root {
+    /* Spacing */
+    --space-xs: 0.5rem;
+    --space-sm: 1rem;
+    /* ... */
+
+    /* Colors */
+    --text-main: #1a1a1a;
+    --text-body: #4a4a4a;
+    --text-muted: #64748b;
+    --text-accent: #8b2e2e;
+    --accent-burgundy: #8b2e2e;
+
+    --color-bg: #ffffff;
+    --color-bg-soft: #f9f1d8;
+    --color-surface: #ffffff;
+    --color-border: #e2e8f0;
+}
+
+@layer utilities {
+    .animate-bounce-slow {
+        animation: bounce 3s infinite;
+    }
+
+    .animate-pulse-slow {
+        animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+
+    /* Custom Scrollbar */
+    .custom-scrollbar::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+        background-color: #cbd5e1;
+        /* slate-300 */
+        border-radius: 20px;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background-color: #94a3b8;
+        /* slate-400 */
+    }
+
+    /* Dark Theme Scrollbar for Player */
+    .dark-scrollbar::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .dark-scrollbar::-webkit-scrollbar-track {
+        background: #1e293b;
+        /* slate-800 */
+    }
+
+    .dark-scrollbar::-webkit-scrollbar-thumb {
+        background-color: #475569;
+        /* slate-600 */
+        border-radius: 20px;
+    }
+
+    .dark-scrollbar::-webkit-scrollbar-thumb:hover {
+        background-color: #64748b;
+        /* slate-500 */
+    }
+
+    /* Sticky Nav for Course Detail */
+    .sticky-nav {
+        position: sticky;
+        top: 0;
+        z-index: 40;
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+        border-bottom: 1px solid #e2e8f0;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    }
+}
+
+html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 80px;
+    /* Offset for sticky header */
+}
+
+/* Style cho nội dung từ Rich Editor */
+.content-display h1 {
+    font-size: 2em;
+    font-weight: bold;
+    margin: 1em 0 0.5em;
+}
+
+.content-display h2 {
+    font-size: 1.5em;
+    font-weight: bold;
+    margin: 1em 0 0.5em;
+}
+
+.content-display ul {
+    list-style-type: disc;
+    padding-left: 1.5em;
+    margin: 1em 0;
+}
+
+.content-display ol {
+    list-style-type: decimal;
+    padding-left: 1.5em;
+    margin: 1em 0;
+}
+
+.content-display p {
+    margin-bottom: 1em;
+}
+
+.content-display strong {
+    font-weight: 700;
+    cursor: pointer;
+}
+
+/* ============================================
+   HARPER'S BAZAAR TYPOGRAPHY - NEWS SECTION
+   ============================================ */
+
+/* Apply to all NewsDetail article content */
+.bazaar-typography {
+    font-family: 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-weight: 400;
+    line-height: 1.7;
+    font-size: 18px;
+    color: #2d2d2d;
+}
+
+/* Headings - Playfair Display with tight spacing */
+.bazaar-typography h1,
+.bazaar-typography h2,
+.bazaar-typography h3,
+.bazaar-typography h4,
+.bazaar-typography h5,
+.bazaar-typography h6 {
+    font-family: 'Playfair Display', 'Didot', 'Bodoni MT', serif;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    color: #1a1a1a;
+    margin-top: 2em;
+    margin-bottom: 0.8em;
+    line-height: 1.2;
+}
+
+.bazaar-typography h2 {
+    font-size: 2em;
+}
+
+.bazaar-typography h3 {
+    font-size: 1.5em;
+}
+
+/* Drop Cap Effect - First letter of first paragraph */
+.bazaar-typography .dropcap::first-letter {
+    font-family: 'Playfair Display', serif;
+    font-size: 4.5em;
+    float: left;
+    line-height: 0.8;
+    margin: 0.1em 0.1em 0 0;
+    font-weight: 700;
+    color: #1a1a1a;
+}
+
+/* Paragraphs */
+.bazaar-typography p {
+    margin-bottom: 1.5em;
+    font-size: 18px;
+    line-height: 1.7;
+}
+
+/* Blockquotes - Elegant serif style */
+.bazaar-typography blockquote {
+    font-family: 'Playfair Display', serif;
+    font-style: italic;
+    font-size: 1.3em;
+    line-height: 1.6;
+    border-left: 3px solid #d4af37;
+    padding-left: 1.5em;
+    margin: 2em 0;
+    color: #333;
+}
+
+/* Lists */
+.bazaar-typography ul,
+.bazaar-typography ol {
+    font-family: 'Roboto', sans-serif;
+    margin-bottom: 1.5em;
+    padding-left: 1.5em;
+}
+
+.bazaar-typography li {
+    margin-bottom: 0.5em;
+}
+
+/* Links */
+.bazaar-typography a {
+    color: #8b2e2e;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.bazaar-typography a:hover {
+    color: #d4af37;
+}
+
+/* Strong and Em */
+.bazaar-typography strong {
+    font-weight: 700;
+}
+
+.bazaar-typography em {
+    font-style: italic;
+}

@@ -1,0 +1,270 @@
+.carouselShell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+
+.dots {
+  margin-top: 16px;
+}
+
+.carouselViewport {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+}
+
+.carouselStage {
+  position: relative;
+  height: 680px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  --slide-gap: 220px;
+  --card-width: 380px;
+}
+
+.carouselItem {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  cursor: pointer;
+  transform: translate(-50%, -50%) translateX(calc(var(--offset) * var(--slide-gap) + var(--drag-offset, 0px))) scale(var(--scale));
+  opacity: var(--opacity);
+  z-index: var(--z);
+  transition: transform 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 320ms ease, filter 320ms ease;
+  will-change: transform, opacity;
+  pointer-events: auto;
+}
+
+.cardWrap {
+  width: var(--card-width);
+  max-width: min(90vw, var(--card-width));
+}
+
+.card {
+  border-radius: 20px;
+  overflow: hidden;
+  background: #ffffff;
+  border: 2px solid rgba(201, 162, 39, 0.25);
+  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.08);
+  transition: border-color 300ms ease, box-shadow 300ms ease;
+}
+
+.cardActive {
+  border-color: #c9a227;
+  box-shadow: 0 18px 32px rgba(0, 0, 0, 0.12);
+}
+
+/* Ensure filter transitions smoothly on the card */
+.card {
+  /* ... existing properties ... */
+  transition: border-color 300ms ease, box-shadow 300ms ease, filter 400ms ease;
+}
+
+.thumbnail {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: #dedede;
+}
+
+.thumbnailImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: filter 300ms ease;
+}
+
+.card[data-tier="outer"] {
+  filter: blur(3px) brightness(0.9);
+}
+
+.card[data-tier="inner"] {
+  filter: blur(1px) brightness(0.95);
+}
+
+.card[data-tier="center"] {
+  filter: blur(0px) brightness(1);
+}
+
+.card[data-tier="outer"] .thumbnailImage,
+.card[data-tier="inner"] .thumbnailImage,
+.card[data-tier="center"] .thumbnailImage {
+  filter: none;
+}
+
+.thumbnailOverlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg,
+      rgba(0, 0, 0, 0) 25%,
+      rgba(0, 0, 0, 0.2) 100%);
+  opacity: 0;
+  transition: opacity 300ms ease;
+}
+
+.card[data-tier="center"] .thumbnailOverlay {
+  opacity: 0.3;
+}
+
+.card[data-tier="inner"] .thumbnailOverlay {
+  opacity: 0.15;
+}
+
+.card[data-tier="outer"] .thumbnailOverlay {
+  opacity: 0.08;
+}
+
+.miniContent {
+  margin: 12px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: #fdfaf2;
+  border: 1px solid rgba(201, 162, 39, 0.45);
+  display: grid;
+  gap: 8px;
+  max-height: 150px;
+  overflow: hidden;
+}
+
+.miniStatsPill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: #ffffff;
+  background: #6b0f1a;
+  padding: 3px 9px;
+  border-radius: 999px;
+  opacity: 0.9;
+  width: fit-content;
+}
+
+.miniName {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #6b0f1a;
+  opacity: 0.85;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.miniProgramTag {
+  font-size: 11px;
+  font-weight: 600;
+  color: #6b0f1a;
+  background: #f5f0e8;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(201, 162, 39, 0.5);
+  display: inline-flex;
+  opacity: 0.85;
+  width: fit-content;
+}
+
+.miniHeadline {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #4a4a4a;
+  opacity: 0.85;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.playButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 64px;
+  width: 64px;
+  border-radius: 999px;
+  border: 2px solid #c9a227;
+  background: rgba(255, 255, 255, 0.9);
+  color: #6b0f1a;
+  transition: transform 250ms ease, background 250ms ease, color 250ms ease;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+}
+
+.playButtonCompact {
+  height: 54px;
+  width: 54px;
+}
+
+.playButton:hover {
+  background: #c9a227;
+  color: #ffffff;
+  transform: scale(1.08);
+}
+
+.cardContent {
+  padding: 20px 24px 24px;
+  display: grid;
+  gap: 12px;
+}
+
+.statsPill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #ffffff;
+  background: #6b0f1a;
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
+.programTag {
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b0f1a;
+  background: #f5f0e8;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(201, 162, 39, 0.5);
+  display: inline-flex;
+}
+
+@media (max-width: 1024px) {
+  .carouselStage {
+    height: 640px;
+    --slide-gap: 200px;
+    --card-width: 340px;
+  }
+
+  .carouselItem[data-offset="2"],
+  .carouselItem[data-offset="-2"] {
+    opacity: 0;
+    pointer-events: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .carouselStage {
+    height: 600px;
+    --slide-gap: 0px;
+    --card-width: 92vw;
+  }
+
+  .cardWrap {
+    max-width: 100%;
+  }
+
+  .cardContent {
+    padding: 16px;
+  }
+
+  .carouselItem[data-offset="1"],
+  .carouselItem[data-offset="-1"],
+  .carouselItem[data-offset="2"],
+  .carouselItem[data-offset="-2"] {
+    opacity: 0;
+    pointer-events: none;
+  }
+}

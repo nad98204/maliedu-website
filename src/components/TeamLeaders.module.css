@@ -1,0 +1,136 @@
+.section {
+  background: linear-gradient(180deg, var(--color-bg) 0%, var(--color-bg-soft) 100%);
+}
+
+.header {
+  text-align: center;
+  margin-bottom: var(--space-lg);
+}
+
+.eyebrow {
+  display: inline-block;
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent-burgundy);
+  margin-bottom: var(--space-sm);
+}
+
+.title {
+  font-size: clamp(2rem, 2.6vw, 3rem);
+  line-height: 1.2;
+  margin-bottom: var(--space-sm);
+}
+
+.description {
+  max-width: 760px;
+  margin: 0 auto;
+  line-height: 1.75;
+  color: var(--text-body);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 320px));
+  gap: 20px;
+  justify-content: center;
+}
+
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 14px 28px rgba(31, 41, 55, 0.08);
+  transition: transform 240ms ease, box-shadow 240ms ease, border-color 240ms ease;
+  display: flex;
+  flex-direction: column;
+  max-width: 320px;
+  width: 100%;
+}
+
+.card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 20px 34px rgba(31, 41, 55, 0.12);
+  border-color: rgba(200, 162, 77, 0.45);
+}
+
+.imageWrap {
+  position: relative;
+  height: 260px;
+  overflow: hidden;
+  background: var(--color-bg-soft);
+  border-radius: 16px 16px 0 0;
+}
+
+.imageWrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+  display: block;
+  filter: saturate(1.05) contrast(1.05);
+}
+
+.info {
+  padding: 22px 24px 28px;
+  background: #fffdf9;
+  min-height: 140px;
+  display: grid;
+  align-content: center;
+  gap: 8px;
+  border-top: 1px solid rgba(200, 162, 77, 0.35);
+}
+
+.name {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.role {
+  font-size: 0.75rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-accent);
+  position: relative;
+  padding-top: 10px;
+}
+
+.role::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 44px;
+  height: 2px;
+  background: rgba(200, 162, 77, 0.7);
+}
+
+.tagline {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+@media (max-width: 1024px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 320px));
+    justify-content: center;
+  }
+
+  .imageWrap {
+    height: 250px;
+  }
+}
+
+@media (max-width: 640px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .imageWrap {
+    height: 240px;
+  }
+}
