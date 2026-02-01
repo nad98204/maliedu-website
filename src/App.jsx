@@ -13,7 +13,9 @@ import Header from "./components/Header";
 import FloatingContact from "./components/FloatingContact";
 import AdminLayout from "./layouts/AdminLayout";
 import Home from "./pages/Home";
-import KhoiThongDongTien from "./pages/landing/KhoiThongDongTien";
+import KhoiThongDongTien from "./pages/landingpage/KhoiThongDongTien";
+import LuatHapDan from "./pages/landingpage/LuatHapDan";
+import VutTocMucTieu from "./pages/landingpage/VutTocMucTieu";
 import AdminBanners from "./pages/admin/AdminBanners";
 import AdminPosts from "./pages/admin/AdminPosts";
 import AdminStudents from "./pages/admin/AdminStudents";
@@ -62,8 +64,13 @@ import BottomNav from "./components/BottomNav";
 
 const AppShell = () => {
   const location = useLocation();
-  const hideChrome = location.pathname.startsWith(
-    "/dao-tao/khoi-thong-dong-tien"
+  const hideChromePaths = [
+    "/dao-tao/khoi-thong-dong-tien",
+    "/dao-tao/luat-hap-dan",
+    "/dao-tao/vut-toc-muc-tieu",
+  ];
+  const hideChrome = hideChromePaths.some((path) =>
+    location.pathname.startsWith(path)
   );
 
   return hideChrome ? (
@@ -74,6 +81,8 @@ const AppShell = () => {
             path="/dao-tao/khoi-thong-dong-tien"
             element={<KhoiThongDongTien />}
           />
+          <Route path="/dao-tao/luat-hap-dan" element={<LuatHapDan />} />
+          <Route path="/dao-tao/vut-toc-muc-tieu" element={<VutTocMucTieu />} />
           <Route path="/thanh-toan/:courseId" element={<Checkout />} />
           <Route path="/cart" element={<Cart />} />
           <Route path="/orders" element={<OrderHistory />} />
@@ -97,6 +106,8 @@ const AppShell = () => {
             path="/dao-tao/khoi-thong-dong-tien"
             element={<KhoiThongDongTien />}
           />
+          <Route path="/dao-tao/luat-hap-dan" element={<LuatHapDan />} />
+          <Route path="/dao-tao/vut-toc-muc-tieu" element={<VutTocMucTieu />} />
           <Route path="/gioi-thieu/mong-coaching" element={<MongCoaching />} />
           <Route path="/tin-tuc" element={<News />} />
           <Route path="/tin-tuc/:slug" element={<NewsDetail />} />

@@ -15,9 +15,9 @@ const NAV_ITEMS = [
     {
         id: 'training', label: "Đào tạo", icon: GraduationCap, path: "/dao-tao",
         children: [
-            { label: "Luật Hấp Dẫn", path: "/dao-tao/khoi-thong-dong-tien" },
+            { label: "Luật Hấp Dẫn", path: "/dao-tao/luat-hap-dan" },
             { label: "Khơi Thông Dòng Tiền", path: "/dao-tao/khoi-thong-dong-tien" },
-            { label: "Vút Tốc Mục Tiêu", path: "/dao-tao/khoi-thong-dong-tien" }
+            { label: "Vút Tốc Mục Tiêu", path: "/dao-tao/vut-toc-muc-tieu" }
         ]
     },
     { id: 'courses', label: "Khóa học", icon: PlayCircle, path: "/khoa-hoc" },

@@ -1,11 +1,11 @@
-import Hero from "./components/Hero";
-import PainSection from "./components/PainSection";
-import TargetAudience from "./components/TargetAudience";
-import ScheduleSection from "./components/ScheduleSection";
-import ResultsSection from "./components/ResultsSection";
-import FounderStorySection from "./components/FounderStorySection";
-import StudentTestimonialsVideoSection from "./components/StudentTestimonialsVideoSection";
-import TicketFormSection from "./components/TicketFormSection";
+import Hero from "./sections/Hero";
+import PainSection from "./sections/PainSection";
+import TargetAudience from "./sections/TargetAudience";
+import ScheduleSection from "./sections/ScheduleSection";
+import ResultsSection from "./sections/ResultsSection";
+import FounderStorySection from "./sections/FounderStorySection";
+import StudentTestimonialsVideoSection from "./sections/StudentTestimonialsVideoSection";
+import TicketFormSection from "./sections/TicketFormSection";
 
 const KhoiThongDongTien = () => {
   return (

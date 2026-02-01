@@ -15,9 +15,9 @@ export const MENU_ITEMS = [
     label: "Chương trình đào tạo",
     path: "/dao-tao",
     children: [
-      { label: "Luật Hấp Dẫn", path: "/dao-tao#luat-hap-dan" },
+      { label: "Luật Hấp Dẫn", path: "/dao-tao/luat-hap-dan" },
       { label: "Khơi Thông Dòng Tiền", path: "/dao-tao/khoi-thong-dong-tien" },
-      { label: "Vút Tốc Mục Tiêu", path: "/dao-tao#vut-toc-muc-tieu" },
+      { label: "Vút Tốc Mục Tiêu", path: "/dao-tao/vut-toc-muc-tieu" },
     ],
   },
   {

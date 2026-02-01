@@ -1,9 +1,9 @@
 import { ArrowRight } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { submitToCRM } from "../../../services/crmService";
+import { submitToCRM } from "../../../../services/crmService";
 import { toast } from "react-hot-toast";
-import { crmFirestore } from "../../../firebase";
+import { crmFirestore } from "../../../../firebase";
 import { doc, getDoc } from "firebase/firestore";
 
 const BANNER_URL = "https://res.cloudinary.com/dstukyjzd/image/upload/v1767682614/Kh%C6%A1i_Th%C3%B4ng_D%C3%B2ng_Ti%E1%BB%81n_M%C3%A0u_Xanh_sjajsx.jpg";
