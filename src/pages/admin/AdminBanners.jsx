@@ -32,8 +32,6 @@ const AdminBanners = () => {
   const [contentForm, setContentForm] = useState({
     successStoriesLabel: "CÂU CHUYỆN THỰC TẾ",
     successStoriesTitle: "NHỮNG BƯỚC NGOẶT THAY ĐỔI",
-    successStoriesTitle: "NHỮNG BƯỚC NGOẶT THAY ĐỔI",
-    successStoriesDesc: "Từ những bế tắc trong cuộc sống đến khi tìm thấy lối đi đúng đắn. Lắng nghe hành trình học viên đã áp dụng kiến thức để làm chủ tư duy và gặt hái thành công.",
     successStoriesDesc: "Từ những bế tắc trong cuộc sống đến khi tìm thấy lối đi đúng đắn. Lắng nghe hành trình học viên đã áp dụng kiến thức để làm chủ tư duy và gặt hái thành công.",
   });
   const [stories, setStories] = useState([]);
@@ -41,7 +39,14 @@ const AdminBanners = () => {
 
   const fetchBanners = async () => {
     try {
+      console.log("Starting fetch banners from:", db);
       const snapshot = await getDocs(collection(db, "banners"));
+      console.log("Snapshot size:", snapshot.size);
+      
+      if (snapshot.empty) {
+        toast("Không tìm thấy banner nào trong Database (Collection 'banners' trống)", { icon: "⚠️" });
+      }
+
       const items = snapshot.docs.map((docItem) => ({
         id: docItem.id,
         ...docItem.data(),
@@ -49,6 +54,7 @@ const AdminBanners = () => {
       setBanners(items);
     } catch (err) {
       console.error("Error fetching banners:", err);
+      toast.error(`Lỗi tải dữ liệu: ${err.message}`);
     }
   };
 
@@ -61,8 +67,6 @@ const AdminBanners = () => {
         setContentForm({
           successStoriesLabel: data.label || "CÂU CHUYỆN THỰC TẾ",
           successStoriesTitle: data.title || "NHỮNG BƯỚC NGOẶT THAY ĐỔI",
-          successStoriesTitle: data.title || "NHỮNG BƯỚC NGOẶT THAY ĐỔI",
-          successStoriesDesc: data.description || "Từ những bế tắc trong cuộc sống đến khi tìm thấy lối đi đúng đắn. Lắng nghe hành trình học viên đã áp dụng kiến thức để làm chủ tư duy và gặt hái thành công.",
           successStoriesDesc: data.description || "Từ những bế tắc trong cuộc sống đến khi tìm thấy lối đi đúng đắn. Lắng nghe hành trình học viên đã áp dụng kiến thức để làm chủ tư duy và gặt hái thành công.",
         });
         setStories((data.stories || []).map(s => ({ ...s, _expanded: false })));
@@ -190,7 +194,6 @@ const AdminBanners = () => {
       await setDoc(doc(db, "homepage_content", "success_stories"), {
         label: contentForm.successStoriesLabel,
         title: contentForm.successStoriesTitle,
-        description: contentForm.successStoriesDesc,
         description: contentForm.successStoriesDesc,
         stories: stories.map(({ _expanded, ...rest }) => rest),
         updatedAt: Date.now()

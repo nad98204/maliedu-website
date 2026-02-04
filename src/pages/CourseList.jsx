@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 import { Filter, Search as SearchIcon } from 'lucide-react';
 import { db } from '../firebase';
 import CourseCard from '../components/CourseCard';
