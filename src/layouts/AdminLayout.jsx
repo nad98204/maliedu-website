@@ -1,6 +1,6 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { signOut } from "firebase/auth";
-import { BookOpen, GraduationCap, Users, ShoppingCart, Tag, Layout, Settings } from "lucide-react";
+import { BookOpen, GraduationCap, Users, ShoppingCart, Tag, Layout, Settings, Sparkles } from "lucide-react";
 
 import { auth } from "../firebase";
 
@@ -64,6 +64,10 @@ const AdminLayout = () => {
           <NavLink to="/admin/landings" className={getNavClasses}>
             <Layout className="h-4 w-4" />
             Quản lý Landing Page
+          </NavLink>
+          <NavLink to="/admin/landing-builder" className={getNavClasses}>
+            <Sparkles className="h-4 w-4" />
+            Tạo Landing Page
           </NavLink>
           <NavLink to="/admin/settings" className={getNavClasses}>
             <Settings className="h-4 w-4" />

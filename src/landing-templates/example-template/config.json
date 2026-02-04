@@ -1,0 +1,21 @@
+{
+  "id": "example-template",
+  "name": "Example Landing Page",
+  "description": "Template mẫu để tham khảo cấu trúc. Xóa khi không cần thiết.",
+  "category": "example",
+  "thumbnail": null,
+  "slug": "/example-landing",
+  "createdAt": "2026-02-04",
+  "author": "Mali Edu Team",
+  "status": "draft",
+  "features": [
+    "Responsive design",
+    "SEO optimized",
+    "Form integration ready"
+  ],
+  "metadata": {
+    "targetAudience": "Học viên tiềm năng",
+    "courseTarget": null,
+    "conversionGoal": "Đăng ký khóa học"
+  }
+}

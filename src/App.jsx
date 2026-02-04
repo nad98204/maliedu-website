@@ -21,6 +21,7 @@ import AdminPosts from "./pages/admin/AdminPosts";
 import AdminStudents from "./pages/admin/AdminStudents";
 import AdminRecruitment from "./pages/admin/AdminRecruitment";
 import AdminLandings from "./pages/admin/AdminLandings";
+import AdminLandingBuilder from "./pages/admin/landing-builder/AdminLandingBuilder";
 import AdminSettings from "./pages/admin/AdminSettings";
 
 import RecruitmentDetail from "./pages/RecruitmentDetail";
@@ -47,6 +48,7 @@ import Checkout from "./pages/Checkout";
 import OrderSuccess from "./pages/OrderSuccess";
 import AdminOrders from "./pages/admin/AdminOrders";
 import AdminReviews from "./pages/admin/AdminReviews";
+import LandingPageViewer from "./pages/LandingPageViewer";
 import Profile from "./pages/Profile";
 import AdminCoupons from "./pages/admin/AdminCoupons";
 import AdminCategories from "./pages/admin/AdminCategories";
@@ -68,6 +70,7 @@ const AppShell = () => {
     "/dao-tao/khoi-thong-dong-tien",
     "/dao-tao/luat-hap-dan",
     "/dao-tao/vut-toc-muc-tieu",
+    "/landing",
   ];
   const hideChrome = hideChromePaths.some((path) =>
     location.pathname.startsWith(path)
@@ -83,6 +86,10 @@ const AppShell = () => {
           />
           <Route path="/dao-tao/luat-hap-dan" element={<LuatHapDan />} />
           <Route path="/dao-tao/vut-toc-muc-tieu" element={<VutTocMucTieu />} />
+          
+          {/* Dynamic Landing Pages */}
+          <Route path="/landing/:templateId" element={<LandingPageViewer />} />
+          
           <Route path="/thanh-toan/:courseId" element={<Checkout />} />
           <Route path="/cart" element={<Cart />} />
           <Route path="/orders" element={<OrderHistory />} />
@@ -92,7 +99,6 @@ const AppShell = () => {
           />
         </Routes>
       </main>
-      <Footer />
     </div>
   ) : (
     <div className="min-h-screen flex flex-col bg-white">
@@ -152,6 +158,7 @@ const AppShell = () => {
             <Route path="knowledge" element={<AdminKnowledge />} />
             <Route path="testimonials" element={<AdminTestimonials />} />
             <Route path="landings" element={<AdminLandings />} />
+            <Route path="landing-builder" element={<AdminLandingBuilder />} />
             <Route path="settings" element={<AdminSettings />} />
             <Route path="coupons" element={<AdminCoupons />} />
           </Route>

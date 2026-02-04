@@ -1,0 +1,17 @@
+{
+  "id": "thien-giao-thua",
+  "name": "Thiền Giao Thừa",
+  "description": "Landing page sự kiện Thiền Giao Thừa với CTA tham gia nhóm Zalo",
+  "category": "event",
+  "slug": "/landing/thien-giao-thua",
+  "status": "active",
+  "createdAt": "2026-02-04",
+  "thumbnail": "https://res.cloudinary.com/dstukyjzd/image/upload/v1770190950/Gemini_Generated_Image_6h5i7y6h5i7y6h5i_w1qnrr.png",
+  "features": [
+    "Hero fullscreen với ảnh nền đẹp",
+    "CTA Zalo nổi bật",
+    "Glassmorphism cards",
+    "Responsive design"
+  ],
+  "folderId": null
+}
