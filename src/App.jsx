@@ -13,7 +13,8 @@ import Header from "./components/Header";
 import FloatingContact from "./components/FloatingContact";
 import AdminLayout from "./layouts/AdminLayout";
 import Home from "./pages/Home";
-import KhoiThongDongTien from "./pages/landingpage/KhoiThongDongTien";
+import { KhoiThongDongTien } from "./landing-templates";
+import CamOnKhoiThong from "./landing-templates/khoi-thong-dong-tien/CamOnKhoiThong";
 import LuatHapDan from "./pages/landingpage/LuatHapDan";
 import VutTocMucTieu from "./pages/landingpage/VutTocMucTieu";
 import AdminBanners from "./pages/admin/AdminBanners";
@@ -71,19 +72,21 @@ const AppShell = () => {
     "/dao-tao/luat-hap-dan",
     "/dao-tao/vut-toc-muc-tieu",
     "/landing",
+    "/cam-on-khoi-thong",
   ];
   const hideChrome = hideChromePaths.some((path) =>
     location.pathname.startsWith(path)
   );
 
   return hideChrome ? (
-    <div className="min-h-screen flex flex-col bg-white">
-      <main className="flex-1">
+    <div>
+      <main>
         <Routes>
           <Route
             path="/dao-tao/khoi-thong-dong-tien"
             element={<KhoiThongDongTien />}
           />
+          <Route path="/cam-on-khoi-thong" element={<CamOnKhoiThong />} />
           <Route path="/dao-tao/luat-hap-dan" element={<LuatHapDan />} />
           <Route path="/dao-tao/vut-toc-muc-tieu" element={<VutTocMucTieu />} />
           
@@ -112,6 +115,7 @@ const AppShell = () => {
             path="/dao-tao/khoi-thong-dong-tien"
             element={<KhoiThongDongTien />}
           />
+          <Route path="/cam-on-khoi-thong" element={<CamOnKhoiThong />} />
           <Route path="/dao-tao/luat-hap-dan" element={<LuatHapDan />} />
           <Route path="/dao-tao/vut-toc-muc-tieu" element={<VutTocMucTieu />} />
           <Route path="/gioi-thieu/mong-coaching" element={<MongCoaching />} />

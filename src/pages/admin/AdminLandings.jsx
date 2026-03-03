@@ -26,7 +26,9 @@ const AdminLandings = () => {
         is_maintenance: false,
         targetFunnel: "ADS",
         assignedSale: "Round Robin",
-        zaloLink: ""
+        zaloLink: "",
+        fbPixel: "",
+        fbCapiToken: ""
     });
     const [selectedCourseId, setSelectedCourseId] = useState("");
     const [selectedK, setSelectedK] = useState("");
@@ -76,7 +78,9 @@ const AdminLandings = () => {
             ...landing,
             targetFunnel: mappingData.targetFunnel || "ADS",
             assignedSale: mappingData.assignedSale || "Round Robin",
-            zaloLink: mappingData.targetZalo || landing.zaloLink || ""
+            zaloLink: mappingData.targetZalo || landing.zaloLink || "",
+            fbPixel: landing.fbPixel || "",
+            fbCapiToken: landing.fbCapiToken || ""
         });
 
         const parts = landing.active_source_key.split('_');
@@ -94,7 +98,9 @@ const AdminLandings = () => {
             is_maintenance: false,
             targetFunnel: "ADS",
             assignedSale: "Round Robin",
-            zaloLink: ""
+            zaloLink: "",
+            fbPixel: "",
+            fbCapiToken: ""
         });
         setSelectedCourseId("");
         setSelectedK("");
@@ -130,6 +136,9 @@ const AdminLandings = () => {
                 slug: form.slug,
                 active_source_key: sourceKey,
                 is_maintenance: form.is_maintenance,
+                zaloLink: form.zaloLink || "",
+                fbPixel: form.fbPixel || "",
+                fbCapiToken: form.fbCapiToken || "",
                 updatedAt: serverTimestamp()
             }, { merge: true });
 
@@ -311,6 +320,28 @@ const AdminLandings = () => {
                                     placeholder="https://zalo.me/g/..."
                                     value={form.zaloLink || ""}
                                     onChange={e => setForm({ ...form, zaloLink: e.target.value })}
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-semibold text-slate-600 mb-2">Mã Facebook Pixel (ID)</label>
+                                <input
+                                    type="text"
+                                    className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 outline-none transition-all text-sm"
+                                    placeholder="VD: 123456789012345"
+                                    value={form.fbPixel || ""}
+                                    onChange={e => setForm({ ...form, fbPixel: e.target.value })}
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-semibold text-slate-600 mb-2">Facebook Conversions API (Access Token)</label>
+                                <input
+                                    type="text"
+                                    className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 outline-none transition-all text-sm"
+                                    placeholder="Điền Meta Conversions API Access Token..."
+                                    value={form.fbCapiToken || ""}
+                                    onChange={e => setForm({ ...form, fbCapiToken: e.target.value })}
                                 />
                             </div>
                         </div>

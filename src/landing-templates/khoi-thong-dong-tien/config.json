@@ -1,0 +1,9 @@
+{
+  "id": "khoi-thong-dong-tien",
+  "name": "Khơi Thông Dòng Tiền",
+  "description": "Landing page giúp giải phóng tắc nghẽn tài chính và nâng cao tần số nội tâm.",
+  "category": "event",
+  "thumbnail": "./preview.png",
+  "createdAt": "2026-03-03",
+  "features": ["Giao diện tương thích (Responsive)", "Tối ưu SEO", "Tích hợp biểu mẫu đăng ký", "Bộ đếm ngược sự kiện"]
+}
