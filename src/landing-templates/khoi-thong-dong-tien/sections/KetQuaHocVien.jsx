@@ -78,9 +78,9 @@ export default function KetQuaHocVien() {
           <div className="w-14 h-0.5 mx-auto rounded-full bg-[#C9961A]" />
         </div>
 
-        {/* ── 3-card layout ── */}
+        {/* ── MOBILE: 3-card carousel (hidden on desktop) ── */}
         <div
-          className="relative overflow-hidden"
+          className="relative overflow-hidden lg:hidden"
           onTouchStart={onTouchStart}
           onTouchEnd={onTouchEnd}
         >
@@ -177,6 +177,42 @@ export default function KetQuaHocVien() {
               />
             ))}
           </div>
+        </div>
+
+        {/* ── DESKTOP: Grid layout (hidden on mobile) ── */}
+        <div className="hidden lg:grid grid-cols-5 gap-6 max-w-6xl mx-auto px-10 pb-6">
+          {RESULTS.map((item, idx) => (
+            <div
+              key={idx}
+              className="relative rounded-2xl overflow-hidden w-full transition-transform hover:scale-105"
+              style={{
+                aspectRatio: "9/16",
+                border: "2px solid #C9961A",
+                boxShadow: "0 6px 20px rgba(201,150,26,0.15)",
+              }}
+            >
+              <img
+                src={item.img}
+                alt="Kết quả học viên"
+                className="w-full h-full object-cover"
+                draggable={false}
+              />
+              <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-[rgba(58,34,8,0.65)] to-transparent" />
+              {item.badge && (
+                <div
+                  className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5 rounded-xl px-3 py-1 text-white text-xs font-bold shadow-lg whitespace-nowrap lg:text-[10px] xl:text-xs"
+                  style={{
+                    background: "rgba(122,33,19,0.88)",
+                    backdropFilter: "blur(8px)",
+                    border: "1px solid rgba(201,150,26,0.4)",
+                  }}
+                >
+                  <CheckCircle2 className="w-3 h-3 xl:w-3.5 xl:h-3.5 text-[#C9961A]" />
+                  {item.badge}
+                </div>
+              )}
+            </div>
+          ))}
         </div>
 
         {/* CTA */}

@@ -28,7 +28,7 @@ const DoiTuongPhuHop = () => {
       style={{ background: "linear-gradient(135deg, #FDF5E4 0%, #F7EBCC 100%)", border: "1px solid #D4B572", boxShadow: "0 20px 50px rgba(122,33,19,0.06)" }}
     >
       <div className="absolute inset-0 opacity-25 bg-[radial-gradient(#D4B572_1px,transparent_1px)] bg-[length:32px_32px] pointer-events-none" />
-      <div className="relative max-w-3xl mx-auto px-6 sm:px-10 space-y-10">
+      <div className="relative max-w-3xl lg:max-w-6xl xl:max-w-7xl mx-auto px-6 sm:px-10 space-y-10 lg:space-y-14">
         {/* Header */}
         <div className="text-center space-y-3">
           <h2 className="text-2xl sm:text-3xl font-extrabold uppercase tracking-[0.06em] text-[#7A2113]">

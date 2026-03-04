@@ -66,23 +66,30 @@ const PhanNoiDau = () => (
     style={{ background: "linear-gradient(135deg, #FDF5E4 0%, #F7EBCC 100%)", border: "1px solid #D4B572", boxShadow: "0 20px 50px rgba(122,33,19,0.06)" }}
   >
     <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_15%_20%,rgba(201,150,26,0.12),transparent_35%),radial-gradient(circle_at_80%_15%,rgba(122,33,19,0.1),transparent_38%)]" />
-    <div className="relative max-w-3xl mx-auto space-y-6">
-      <div className="space-y-3 text-center">
-        <p className="text-[11px] tracking-[0.24em] uppercase text-[#7A2113] font-semibold">Bạn đang gặp gì?</p>
+    <div className="relative max-w-3xl lg:max-w-6xl xl:max-w-7xl mx-auto space-y-8 lg:space-y-12">
+      <div className="space-y-3 text-center lg:mb-12">
+        <p className="text-[11px] lg:text-[13px] tracking-[0.24em] uppercase text-[#7A2113] font-semibold">Bạn đang gặp gì?</p>
         <div className="space-y-0.5">
-          <h2 className="text-[2.4rem] sm:text-[2.8rem] font-extrabold leading-[1.16] text-[#3A2208] tracking-[0.04em]">
+          <h2 className="text-[2.4rem] sm:text-[2.8rem] lg:text-[3.2rem] font-extrabold leading-[1.16] text-[#3A2208] tracking-[0.04em]">
             ĐIỀU GÌ ĐANG CẢN TRỞ
           </h2>
-          <h2 className="text-[2.6rem] sm:text-[3rem] font-extrabold leading-[1.05] text-[#7A2113] tracking-[0.06em]">
+          <h2 className="text-[2.6rem] sm:text-[3rem] lg:text-[3.5rem] font-extrabold leading-[1.05] text-[#7A2113] tracking-[0.06em]">
             DÒNG CHẢY TIỀN BẠC
           </h2>
-          <h2 className="text-[2.4rem] sm:text-[2.8rem] font-extrabold leading-[1.16] text-[#3A2208] tracking-[0.04em]">
+          <h2 className="text-[2.4rem] sm:text-[2.8rem] lg:text-[3.2rem] font-extrabold leading-[1.16] text-[#3A2208] tracking-[0.04em]">
             CỦA BẠN?
           </h2>
         </div>
       </div>
-      <PainPoints />
-      <TransformBlock />
+      
+      <div className="flex flex-col lg:flex-row gap-8 lg:gap-12 items-stretch">
+        <div className="w-full lg:w-[60%] flex flex-col justify-center">
+          <PainPoints />
+        </div>
+        <div className="w-full lg:w-[40%] flex flex-col justify-center">
+          <TransformBlock />
+        </div>
+      </div>
     </div>
   </section>
 );

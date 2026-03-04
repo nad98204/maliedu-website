@@ -128,7 +128,7 @@ const FormDangKy = () => {
         <div className="absolute bottom-[-180px] right-[-100px] w-[360px] h-[360px] bg-[#C9961A] rounded-full blur-[140px] opacity-10" />
       </div>
 
-      <div className="relative max-w-3xl mx-auto px-4 sm:px-6">
+      <div className="relative max-w-3xl lg:max-w-5xl mx-auto px-4 sm:px-6">
         {/* Header */}
         <div className="text-center mb-8 space-y-3">
           <span className="inline-block py-1.5 px-4 rounded-full text-[10px] sm:text-xs font-bold tracking-[0.15em] uppercase border border-[#C9961A] bg-white/60 text-[#7A2113] mb-1">

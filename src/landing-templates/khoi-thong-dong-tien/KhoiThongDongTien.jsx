@@ -61,7 +61,7 @@ const KhoiThongDongTien = () => {
       style={{ background: "linear-gradient(180deg, #F5EDD8 0%, #EAD9B8 30%, #F2E6CC 60%, #EAD9B8 100%)" }}
     >
       <BannerChinh />
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10 pt-10 pb-10">
+      <div className="max-w-4xl lg:max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10 lg:space-y-16 pt-10 pb-12">
         <PhanNoiDau />
         <DoiTuongPhuHop />
         <LichTrinhHoc />

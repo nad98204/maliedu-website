@@ -34,7 +34,7 @@ const CauChuyenNguoiSangLap = () => (
       <div className="absolute bottom-[-150px] left-[-100px] w-[320px] h-[320px] rounded-full bg-[#7A2113] blur-[130px]" />
     </div>
 
-    <div className="relative max-w-3xl mx-auto px-6 sm:px-10 space-y-10">
+    <div className="relative max-w-3xl lg:max-w-6xl xl:max-w-7xl mx-auto px-6 sm:px-10 space-y-10 lg:space-y-16">
       {/* Intro - Premium Card */}
       <div
         className="relative group p-[1px] rounded-3xl overflow-hidden"

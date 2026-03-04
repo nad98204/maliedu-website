@@ -148,69 +148,85 @@ const BannerChinh = () => (
       </span>
     </div>
 
-    {/* ── Title image ── */}
-    <div className="w-full flex justify-center">
-      <img
-        src={TITLE_IMG_URL}
-        alt="Khơi Thông Dòng Tiền"
-        className="w-full max-w-[680px] sm:max-w-[820px] h-auto object-contain"
-        style={{ display: "block" }}
-      />
-    </div>
-
     {/* ── Body card ── */}
-    <div className="relative z-10 max-w-[640px] mx-auto px-4 sm:px-6 pb-12 mt-4 sm:mt-6 space-y-6 sm:space-y-8">
+    <div className="relative z-10 max-w-[640px] lg:max-w-7xl mx-auto px-4 sm:px-6 pb-12 mt-4 sm:mt-8 space-y-6 sm:space-y-8 lg:space-y-0 lg:flex lg:flex-row lg:items-center lg:gap-12 lg:pb-16">
+      
+      {/* ── Left Column (Desktop) / Top Section (Mobile) ── */}
+      <div className="w-full lg:w-1/2 flex flex-col items-center lg:items-start space-y-6 sm:space-y-8">
+        
+        {/* Title Image (now inside the column on desktop) */}
+        <div className="w-full flex justify-center lg:justify-start lg:-ml-4">
+          <img
+            src={TITLE_IMG_URL}
+            alt="Khơi Thông Dòng Tiền"
+            className="w-full max-w-[680px] sm:max-w-[820px] lg:max-w-full h-auto object-contain drop-shadow-lg"
+            style={{ display: "block" }}
+          />
+        </div>
 
-      {/* Video */}
-      <VideoPlayer />
+        {/* Video (Mobile Only) */}
+        <div className="w-full lg:hidden">
+          <VideoPlayer />
+        </div>
 
-      {/* Quote */}
-      <div className="text-center px-2">
-        <p className="text-[1rem] sm:text-[1.1rem] leading-[1.8] text-[#3A2208] italic">
-          Giúp bạn giải phóng tắc nghẽn tài chính, nâng cao tần số nội tâm và xây dựng lộ trình đạt mục tiêu tài chính
-        </p>
-      </div>
+        {/* Quote */}
+        <div className="text-center lg:text-left px-2 lg:px-0 max-w-[500px]">
+          <p className="text-[1rem] sm:text-[1.1rem] lg:text-[1.2rem] leading-[1.8] text-[#3A2208] italic font-medium">
+            Giúp bạn giải phóng tắc nghẽn tài chính, nâng cao tần số nội tâm và xây dựng lộ trình đạt mục tiêu tài chính
+          </p>
+        </div>
 
-      {/* CTA */}
-      <div className="flex flex-col items-center gap-3">
-        {/* Glow */}
-        <div className="relative w-full max-w-[360px]">
-          <div className="absolute inset-0 rounded-full blur-xl opacity-50"
-               style={{ background: "#C8282E" }} />
-          <a
-            href="#dang-ky"
-            className="group relative flex flex-col items-center justify-center w-full rounded-full py-4 overflow-hidden transition-transform duration-200 hover:-translate-y-[2px] active:translate-y-0"
-            style={{
-              background: "linear-gradient(180deg, #E8393F 0%, #9C0C12 100%)",
-              boxShadow: "0 10px 30px rgba(160,20,28,0.5), inset 0 1px 0 rgba(255,255,255,0.2)",
-            }}
-          >
-            {/* Shine sweep */}
-            <span className="absolute inset-0 translate-x-[-100%] skew-x-[-20deg] bg-white/20 group-hover:translate-x-[200%] transition-transform duration-700" />
-            <span className="text-[#FFE566] font-black text-[1.05rem] sm:text-[1.2rem] uppercase tracking-[0.08em] drop-shadow">
-              BẤM ĐỂ NHẬN VÉ THAM DỰ
-            </span>
-            <span className="flex items-center gap-1.5 mt-0.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#FFE566] animate-ping opacity-80" />
-              <span className="text-white/90 text-[0.65rem] sm:text-xs font-semibold uppercase tracking-wider">
-                20h00, 16-17-18-19/03
+        {/* CTA Section */}
+        <div className="flex flex-col items-center lg:items-start gap-4 lg:gap-5 w-full">
+          {/* Glow */}
+          <div className="relative w-full max-w-[360px] lg:max-w-[400px]">
+            <div className="absolute inset-0 rounded-full blur-xl opacity-50 transition-opacity hover:opacity-70"
+                 style={{ background: "#C8282E" }} />
+            <a
+              href="#dang-ky"
+              className="group relative flex flex-col items-center justify-center w-full rounded-full py-4 lg:py-4.5 overflow-hidden transition-all duration-300 hover:scale-[1.03] active:scale-[0.98]"
+              style={{
+                background: "linear-gradient(180deg, #E8393F 0%, #9C0C12 100%)",
+                boxShadow: "0 10px 30px rgba(160,20,28,0.5), inset 0 1px 0 rgba(255,255,255,0.2)",
+              }}
+            >
+              <span className="absolute inset-0 translate-x-[-100%] skew-x-[-20deg] bg-white/20 group-hover:translate-x-[200%] transition-transform duration-700" />
+              <span className="text-[#FFE566] font-black text-[1.05rem] sm:text-[1.2rem] lg:text-[1.25rem] uppercase tracking-[0.08em] drop-shadow">
+                BẤM ĐỂ NHẬN VÉ THAM DỰ
               </span>
+              <span className="flex items-center gap-1.5 mt-0.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#FFE566] animate-ping opacity-80" />
+                <span className="text-white/90 text-[0.65rem] sm:text-xs font-semibold uppercase tracking-wider">
+                  20h00, 16-17-18-19/03
+                </span>
+              </span>
+            </a>
+          </div>
+
+          <div className="flex items-center gap-2 text-[0.72rem] sm:text-[0.8rem] lg:text-[0.85rem] text-[#5A3A1A] font-semibold bg-white/60 backdrop-blur-sm px-4 py-1.5 lg:py-2 rounded-full border border-white/70 shadow-sm transition hover:bg-white/80">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-red-600" />
             </span>
-          </a>
+            Đã có <b className="text-[#8C0C12] mx-0.5">500+</b> người đăng ký tham gia
+          </div>
         </div>
 
-        {/* Social proof */}
-        <div className="flex items-center gap-2 text-[0.72rem] sm:text-[0.8rem] text-[#5A3A1A] font-semibold bg-white/60 backdrop-blur-sm px-4 py-1.5 rounded-full border border-white/70 shadow-sm">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-red-600" />
-          </span>
-          Đã có <b className="text-[#8C0C12] mx-0.5">500+</b> người đăng ký tham gia
+        {/* Countdown */}
+        <div className="w-full flex justify-center lg:justify-start">
+          <Countdown />
         </div>
       </div>
 
-      {/* Countdown */}
-      <Countdown />
+      {/* ── Right Column (Desktop Only Video) ── */}
+      <div className="hidden lg:flex w-full lg:w-1/2 justify-center lg:justify-end items-center relative">
+         <div className="w-full max-w-[580px] xl:max-w-[620px] relative z-20 transition-transform duration-500 hover:scale-[1.02]">
+           <VideoPlayer />
+           {/* Decorative background glow behind video on desktop */}
+           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-[#C9961A]/10 blur-[100px] rounded-full pointer-events-none -z-10" />
+         </div>
+      </div>
+
     </div>
 
     {/* Tailwind custom animations */}

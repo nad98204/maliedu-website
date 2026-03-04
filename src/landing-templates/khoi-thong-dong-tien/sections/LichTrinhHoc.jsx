@@ -58,7 +58,7 @@ const LichTrinhHoc = () => (
     <div className="absolute top-0 right-0 -mr-16 -mt-16 w-72 h-72 rounded-full opacity-[0.12] blur-3xl bg-[#C9961A] pointer-events-none" />
     <div className="absolute bottom-0 left-0 -ml-16 -mb-16 w-64 h-64 rounded-full opacity-[0.10] blur-3xl bg-[#7A2113] pointer-events-none" />
 
-    <div className="relative max-w-3xl mx-auto px-4 sm:px-10">
+    <div className="relative max-w-3xl lg:max-w-6xl xl:max-w-7xl mx-auto px-4 sm:px-10">
       {/* Header */}
       <div className="text-center mb-12">
         <span className="inline-block py-1 px-4 rounded-full text-xs font-bold tracking-[0.22em] uppercase mb-3 border border-[#C9961A] bg-white/60 text-[#7A2113]">
