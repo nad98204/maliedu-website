@@ -69,14 +69,14 @@ const PhanNoiDau = () => (
     <div className="relative max-w-3xl lg:max-w-6xl xl:max-w-7xl mx-auto space-y-8 lg:space-y-12">
       <div className="space-y-3 text-center lg:mb-12">
         <p className="text-[11px] lg:text-[13px] tracking-[0.24em] uppercase text-[#7A2113] font-semibold">Bạn đang gặp gì?</p>
-        <div className="space-y-0.5">
-          <h2 className="text-[2.4rem] sm:text-[2.8rem] lg:text-[3.2rem] font-extrabold leading-[1.16] text-[#3A2208] tracking-[0.04em]">
+        <div className="-space-y-2">
+          <h2 className="text-[2.4rem] sm:text-[2.8rem] lg:text-[3.2rem] font-black leading-[1.3] text-transparent bg-clip-text bg-gradient-to-r from-[#3A2208] to-[#7A2113] tracking-[0.04em] py-2">
             ĐIỀU GÌ ĐANG CẢN TRỞ
           </h2>
-          <h2 className="text-[2.6rem] sm:text-[3rem] lg:text-[3.5rem] font-extrabold leading-[1.05] text-[#7A2113] tracking-[0.06em]">
+          <h2 className="text-[2.6rem] sm:text-[3rem] lg:text-[3.5rem] font-black leading-[1.3] text-transparent bg-clip-text bg-gradient-to-r from-[#7A2113] via-[#C9961A] to-[#7A2113] tracking-[0.06em] drop-shadow-sm py-2">
             DÒNG CHẢY TIỀN BẠC
           </h2>
-          <h2 className="text-[2.4rem] sm:text-[2.8rem] lg:text-[3.2rem] font-extrabold leading-[1.16] text-[#3A2208] tracking-[0.04em]">
+          <h2 className="text-[2.4rem] sm:text-[2.8rem] lg:text-[3.2rem] font-black leading-[1.3] text-transparent bg-clip-text bg-gradient-to-r from-[#7A2113] to-[#3A2208] tracking-[0.04em] py-2">
             CỦA BẠN?
           </h2>
         </div>

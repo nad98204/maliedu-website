@@ -57,9 +57,22 @@ const KhoiThongDongTien = () => {
 
   return (
     <div
-      className="relative font-sans"
-      style={{ background: "linear-gradient(180deg, #F5EDD8 0%, #EAD9B8 30%, #F2E6CC 60%, #EAD9B8 100%)" }}
+      className="relative font-sans min-h-screen"
+      style={{ background: "linear-gradient(180deg, #FFFFFF 0%, #FDF7EC 15%, #F5EDD8 50%, #EAD9B8 100%)" }}
     >
+      {/* ── Ảnh nền The Secret mờ tinh tế cho TOÀN BỘ Landing Page (Cố định fixed) ── */}
+      <div 
+        className="absolute inset-0 z-0 pointer-events-none"
+        style={{
+          backgroundImage: `url("https://res.cloudinary.com/dstukyjzd/image/upload/v1772610554/mali-edu/uqs2zpqprj1xhrh3kubu.jpg")`,
+          backgroundSize: "cover",
+          backgroundPosition: "top center",
+          backgroundAttachment: "fixed",
+          backgroundRepeat: "no-repeat",
+          opacity: 0.1,
+          filter: "grayscale(0.5) contrast(1.1)"
+        }}
+      />
       <BannerChinh />
       <div className="max-w-4xl lg:max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10 lg:space-y-16 pt-10 pb-12">
         <PhanNoiDau />
