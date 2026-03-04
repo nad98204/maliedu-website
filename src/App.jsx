@@ -24,6 +24,7 @@ import AdminRecruitment from "./pages/admin/AdminRecruitment";
 import AdminLandings from "./pages/admin/AdminLandings";
 import AdminLandingBuilder from "./pages/admin/landing-builder/AdminLandingBuilder";
 import AdminSettings from "./pages/admin/AdminSettings";
+import AdminStorage from "./pages/admin/AdminStorage";
 
 import RecruitmentDetail from "./pages/RecruitmentDetail";
 import AdminKnowledge from "./pages/admin/AdminKnowledge";
@@ -165,6 +166,7 @@ const AppShell = () => {
             <Route path="landing-builder" element={<AdminLandingBuilder />} />
             <Route path="settings" element={<AdminSettings />} />
             <Route path="coupons" element={<AdminCoupons />} />
+            <Route path="storage" element={<AdminStorage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

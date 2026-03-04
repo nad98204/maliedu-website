@@ -33,6 +33,10 @@ const AdminStudents = () => {
     const [toast, setToast] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+    const [roleFilter, setRoleFilter] = useState('all'); // 'all', 'admin', 'student'
+    const [courseFilter, setCourseFilter] = useState('all'); // 'all' or courseId
+    const [enrollmentSearch, setEnrollmentSearch] = useState('');
+    const [enrollmentCourseFilter, setEnrollmentCourseFilter] = useState('all');
 
     // FORMS
     // 1. Activate Course Form (Modal)
@@ -52,15 +56,21 @@ const AdminStudents = () => {
         setIsLoading(true);
         try {
             // 1. Fetch Users
-            const usersQuery = query(collection(db, 'users'), orderBy('createdAt', 'desc'));
-            const usersSnap = await getDocs(usersQuery);
-            const usersList = usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            const usersSnap = await getDocs(collection(db, 'users'));
+            const usersList = usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })).sort((a, b) => {
+                const timeA = a.createdAt?.seconds ? a.createdAt.seconds * 1000 : (a.createdAt || 0);
+                const timeB = b.createdAt?.seconds ? b.createdAt.seconds * 1000 : (b.createdAt || 0);
+                return timeB - timeA;
+            });
             setUsers(usersList);
 
             // 2. Fetch Enrollments
-            const enrollQuery = query(collection(db, 'enrollments'), orderBy('createdAt', 'desc'));
-            const enrollSnap = await getDocs(enrollQuery);
-            const enrollList = enrollSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            const enrollSnap = await getDocs(collection(db, 'enrollments'));
+            const enrollList = enrollSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })).sort((a, b) => {
+                const timeA = a.createdAt?.seconds ? a.createdAt.seconds * 1000 : (a.createdAt || 0);
+                const timeB = b.createdAt?.seconds ? b.createdAt.seconds * 1000 : (b.createdAt || 0);
+                return timeB - timeA;
+            });
             setEnrollments(enrollList);
 
             // 3. Fetch Courses (For Dropdown)
@@ -88,11 +98,28 @@ const AdminStudents = () => {
     };
 
     // Filter Users
-    const filteredUsers = users.filter(u =>
-        (u.email?.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (u.displayName?.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (u.uid?.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
+    const filteredUsers = users.filter(u => {
+        const matchesSearch = (u.email?.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                              (u.displayName?.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                              (u.uid?.toLowerCase().includes(searchTerm.toLowerCase()));
+        const matchesRole = roleFilter === 'all' || u.role === roleFilter || (!u.role && roleFilter === 'student');
+        
+        let matchesCourse = true;
+        if (courseFilter !== 'all') {
+            const userEnrollments = enrollments.filter(e => e.userId === (u.uid || u.id));
+            matchesCourse = userEnrollments.some(e => e.courseId === courseFilter);
+        }
+
+        return matchesSearch && matchesRole && matchesCourse;
+    });
+
+    // Filter Enrollments
+    const filteredEnrollments = enrollments.filter(e => {
+        const matchesSearch = (e.userEmail?.toLowerCase().includes(enrollmentSearch.toLowerCase())) ||
+                              (e.courseName?.toLowerCase().includes(enrollmentSearch.toLowerCase()));
+        const matchesCourse = enrollmentCourseFilter === 'all' || e.courseId === enrollmentCourseFilter;
+        return matchesSearch && matchesCourse;
+    });
 
     // 1. CREATE ACCOUNT (Secondary App approach)
     const handleCreateUser = async (e) => {
@@ -248,30 +275,28 @@ const AdminStudents = () => {
             </div>
 
             {/* TABS */}
-            <div className="border-b border-slate-200">
-                <nav className="flex gap-6 overflow-x-auto pb-1">
-                    <button
-                        onClick={() => setActiveTab('list')}
-                        className={`pb-3 text-sm font-bold border-b-2 transition-colors whitespace-nowrap ${activeTab === 'list' ? 'border-secret-wax text-secret-wax' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
-                    >
-                        <Users className="w-4 h-4 inline-block mr-2" />
-                        Danh sách Học viên
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('enrollments')}
-                        className={`pb-3 text-sm font-bold border-b-2 transition-colors whitespace-nowrap ${activeTab === 'enrollments' ? 'border-secret-wax text-secret-wax' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
-                    >
-                        <Key className="w-4 h-4 inline-block mr-2" />
-                        Quản lý Kích hoạt (Enrollments)
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('create')}
-                        className={`pb-3 text-sm font-bold border-b-2 transition-colors whitespace-nowrap ${activeTab === 'create' ? 'border-secret-wax text-secret-wax' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
-                    >
-                        <UserPlus className="w-4 h-4 inline-block mr-2" />
-                        Tạo Tài Khoản Mới
-                    </button>
-                </nav>
+            <div className="bg-white p-2 rounded-xl shadow-sm border border-slate-100 flex overflow-x-auto gap-2">
+                <button
+                    onClick={() => setActiveTab('list')}
+                    className={`flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'list' ? 'bg-secret-wax text-white shadow-md' : 'text-slate-600 hover:bg-slate-50'}`}
+                >
+                    <Users className="w-4 h-4" />
+                    Danh sách Học viên
+                </button>
+                <button
+                    onClick={() => setActiveTab('enrollments')}
+                    className={`flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'enrollments' ? 'bg-secret-wax text-white shadow-md' : 'text-slate-600 hover:bg-slate-50'}`}
+                >
+                    <Key className="w-4 h-4" />
+                    Quản lý Kích hoạt
+                </button>
+                <button
+                    onClick={() => setActiveTab('create')}
+                    className={`flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'create' ? 'bg-secret-wax text-white shadow-md' : 'text-slate-600 hover:bg-slate-50'}`}
+                >
+                    <UserPlus className="w-4 h-4" />
+                    Tạo Tài Khoản Mới
+                </button>
             </div>
 
             {/* CONTENT AREA */}
@@ -279,19 +304,40 @@ const AdminStudents = () => {
                 {/* 1. LIST USERS TAB */}
                 {activeTab === 'list' && (
                     <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden flex flex-col">
-                        {/* Search Bar */}
+                        {/* Search Bar & Filters */}
                         <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex flex-col md:flex-row gap-4 justify-between items-center">
-                            <div className="relative w-full md:w-96">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                                <input
-                                    type="text"
-                                    placeholder="Tìm kiếm theo tên hoặc email..."
-                                    className="w-full pl-9 pr-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-secret-wax/20 bg-white"
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                />
+                            <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto flex-1">
+                                <div className="relative flex-1 max-w-md">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                                    <input
+                                        type="text"
+                                        placeholder="Tìm kiếm theo tên hoặc email..."
+                                        className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-secret-wax/20 focus:border-secret-wax bg-white text-sm"
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                    />
+                                </div>
+                                <select 
+                                    className="px-4 py-2.5 rounded-lg border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-secret-wax/20 focus:border-secret-wax"
+                                    value={roleFilter}
+                                    onChange={(e) => setRoleFilter(e.target.value)}
+                                >
+                                    <option value="all">Tất cả vai trò</option>
+                                    <option value="student">Học viên</option>
+                                    <option value="admin">Quản trị viên</option>
+                                </select>
+                                <select 
+                                    className="px-4 py-2.5 rounded-lg border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-secret-wax/20 focus:border-secret-wax truncate max-w-[200px]"
+                                    value={courseFilter}
+                                    onChange={(e) => setCourseFilter(e.target.value)}
+                                >
+                                    <option value="all">Tất cả khóa học</option>
+                                    {courses.map(c => (
+                                        <option key={c.id} value={c.id}>{c.name}</option>
+                                    ))}
+                                </select>
                             </div>
-                            <div className="text-xs text-slate-500 font-medium">
+                            <div className="text-sm border border-secret-wax/20 bg-secret-wax/5 text-secret-wax px-4 py-2 rounded-lg font-bold shrink-0">
                                 Tổng: {filteredUsers.length} học viên
                             </div>
                         </div>
@@ -302,6 +348,7 @@ const AdminStudents = () => {
                                     <tr>
                                         <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase">Họ tên</th>
                                         <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase">Email</th>
+                                        <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase min-w-[200px]">Khóa học kích hoạt</th>
                                         <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase">Vai trò</th>
                                         <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase">Ngày tạo</th>
                                         <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase text-right">Hành động</th>
@@ -313,11 +360,50 @@ const AdminStudents = () => {
                                     ) : (
                                         filteredUsers.map(u => (
                                             <tr key={u.id} className="hover:bg-slate-50 transition-colors">
-                                                <td className="px-6 py-4 font-bold text-slate-900">{u.displayName || 'Unnamed'}</td>
+                                                <td className="px-6 py-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-10 h-10 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0 overflow-hidden">
+                                                            {u.photoURL ? (
+                                                                <img src={u.photoURL} alt={u.displayName} className="w-full h-full object-cover" />
+                                                            ) : (
+                                                                <span className="text-slate-500 font-bold text-sm">{(u.displayName || u.email || 'U').charAt(0).toUpperCase()}</span>
+                                                            )}
+                                                        </div>
+                                                        <div>
+                                                            <div className="font-bold text-slate-900">{u.displayName || 'Unnamed'}</div>
+                                                            <div className="text-xs text-slate-500">{u.email}</div>
+                                                        </div>
+                                                    </div>
+                                                </td>
                                                 <td className="px-6 py-4 text-slate-600">{u.email}</td>
                                                 <td className="px-6 py-4">
-                                                    <span className={`px-2 py-1 rounded-full text-xs font-bold ${u.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-green-100 text-green-700'}`}>
-                                                        {u.role || 'student'}
+                                                    {(() => {
+                                                        const userEnrollments = enrollments.filter(e => e.userId === (u.uid || u.id));
+                                                        if (userEnrollments.length === 0) return <span className="text-slate-400 text-xs italic">Chưa có khóa nào</span>;
+                                                        return (
+                                                            <div className="flex flex-wrap gap-1.5">
+                                                                {userEnrollments.map(e => (
+                                                                    <button 
+                                                                        key={e.id} 
+                                                                        onClick={() => {
+                                                                            setEnrollmentSearch('');
+                                                                            setEnrollmentCourseFilter(e.courseId);
+                                                                            setActiveTab('enrollments');
+                                                                        }}
+                                                                        className="inline-flex items-center gap-1 bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded text-xs font-bold cursor-pointer hover:bg-indigo-100 transition truncate max-w-[150px]"
+                                                                        title={e.courseName}
+                                                                    >
+                                                                        {e.courseName}
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                        )
+                                                    })()}
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <span className={`px-3 py-1 rounded-full text-xs font-bold inline-flex items-center gap-1.5 ${u.role === 'admin' ? 'bg-purple-100 text-purple-700 border border-purple-200' : 'bg-green-100 text-green-700 border border-green-200'}`}>
+                                                        {u.role === 'admin' ? <div className="w-1.5 h-1.5 rounded-full bg-purple-500"></div> : <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>}
+                                                        {u.role === 'admin' ? 'Admin' : 'Học viên'}
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-4 text-slate-500 text-sm">
@@ -357,13 +443,40 @@ const AdminStudents = () => {
                 {/* 2. ENROLLMENTS TAB */}
                 {activeTab === 'enrollments' && (
                     <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-                        <div className="p-4 border-b border-slate-100 flex justify-end">
-                            <button
-                                onClick={() => setIsActivateModalOpen(true)}
-                                className="inline-flex items-center gap-2 rounded-lg bg-secret-wax px-4 py-2 text-sm font-semibold text-white transition hover:bg-secret-ink shadow-sm"
-                            >
-                                <Plus className="h-4 w-4" /> Kích hoạt thủ công
-                            </button>
+                        <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex flex-col md:flex-row justify-between items-center gap-4">
+                            <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto flex-1">
+                                <div className="relative flex-1 max-w-md">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                                    <input
+                                        type="text"
+                                        placeholder="Tìm theo email hoặc tên khóa học..."
+                                        className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-secret-wax/20 focus:border-secret-wax bg-white text-sm"
+                                        value={enrollmentSearch}
+                                        onChange={(e) => setEnrollmentSearch(e.target.value)}
+                                    />
+                                </div>
+                                <select 
+                                    className="px-4 py-2.5 rounded-lg border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-secret-wax/20 focus:border-secret-wax truncate max-w-[200px]"
+                                    value={enrollmentCourseFilter}
+                                    onChange={(e) => setEnrollmentCourseFilter(e.target.value)}
+                                >
+                                    <option value="all">Tất cả khóa học</option>
+                                    {courses.map(c => (
+                                        <option key={c.id} value={c.id}>{c.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="flex items-center gap-3 w-full md:w-auto shrink-0">
+                                <div className="text-sm border border-indigo-200 bg-indigo-50 text-indigo-700 px-4 py-2.5 rounded-lg font-bold shrink-0 hidden sm:block">
+                                    Tổng: {filteredEnrollments.length} kích hoạt
+                                </div>
+                                <button
+                                    onClick={() => setIsActivateModalOpen(true)}
+                                    className="flex-1 md:flex-none inline-flex justify-center items-center gap-2 rounded-lg bg-secret-wax px-4 py-2.5 text-sm font-bold text-white transition hover:bg-secret-ink shadow-sm"
+                                >
+                                    <Plus className="h-4 w-4" /> Kích hoạt thủ công
+                                </button>
+                            </div>
                         </div>
                         <div className="overflow-x-auto">
                             <table className="w-full text-left">
@@ -376,10 +489,10 @@ const AdminStudents = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
-                                    {enrollments.length === 0 ? (
-                                        <tr><td colSpan="4" className="px-6 py-8 text-center text-slate-400">Chưa có kích hoạt nào.</td></tr>
+                                    {filteredEnrollments.length === 0 ? (
+                                        <tr><td colSpan="4" className="px-6 py-8 text-center text-slate-400">Chưa có kích hoạt nào khớp tìm kiếm.</td></tr>
                                     ) : (
-                                        enrollments.map(e => (
+                                        filteredEnrollments.map(e => (
                                             <tr key={e.id} className="hover:bg-slate-50 transition-colors">
                                                 <td className="px-6 py-4 font-medium text-slate-900">{e.userEmail}</td>
                                                 <td className="px-6 py-4 text-slate-600 font-medium">{e.courseName}</td>

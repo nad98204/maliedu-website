@@ -1,7 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { crmFirestore, crmRealtimeDB } from '../../firebase';
-import { collection, doc, onSnapshot, setDoc, deleteDoc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
-import { ref, onValue, set as setRTDB } from 'firebase/database';
+import React, { useState, useEffect } from 'react';
+import { crmFirestore, crmRealtimeDB, db, firebaseConfig } from '../../firebase';
+import { collection, doc, onSnapshot, setDoc, deleteDoc, updateDoc, arrayUnion, arrayRemove, getDocs, serverTimestamp } from 'firebase/firestore';
+import { ref, onValue } from 'firebase/database';
+import { getAuth, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail } from 'firebase/auth';
+import { initializeApp, deleteApp } from 'firebase/app';
 import {
     ChevronDown,
     ChevronRight,
@@ -16,9 +18,38 @@ import {
     Shield,
     AlertCircle,
     Zap,
-    Tag as TagIcon
+    Tag as TagIcon,
+    RefreshCw,
+    Key,
+    Edit,
+    Lock,
+    Mail,
+    Check
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+
+const slugify = (text) => {
+    return text.toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[\u0111\u0110]/g, "d")
+        .replace(/[^a-z0-9\s]/g, "")
+        .replace(/\s+/g, '-');
+};
+
+const ALL_MODULES = [
+    { key: 'dashboard', label: 'Dashboard' },
+    { key: 'banners', label: 'Trang chủ' },
+    { key: 'posts', label: 'Tin Tức & Bài Viết' },
+    { key: 'knowledge', label: 'Kho Kiến Thức' },
+    { key: 'courses', label: 'Khóa học Online' },
+    { key: 'orders', label: 'Đơn hàng' },
+    { key: 'students', label: 'Học viên' },
+    { key: 'recruitment', label: 'Tuyển dụng' },
+    { key: 'testimonials', label: 'Cảm nhận HV' },
+    { key: 'landings', label: 'Landing Page' },
+    { key: 'settings', label: 'C\u1ea5u h\u00ecnh' },
+];
 
 const AdminSettings = () => {
     const [activeTab, setActiveTab] = useState('system'); // 'users', 'system', 'sources'
@@ -27,6 +58,28 @@ const AdminSettings = () => {
     const [newCourseName, setNewCourseName] = useState("");
     const [expandedId, setExpandedId] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [webUserEmails, setWebUserEmails] = useState([]);
+    const [webUsers, setWebUsers] = useState([]);
+    const [isSyncingUser, setIsSyncingUser] = useState(null);
+    const [editingWebUser, setEditingWebUser] = useState(null);
+    const [isSavingUser, setIsSavingUser] = useState(false);
+
+    // Fetch Web Users to cross check
+    const fetchWebUsers = async () => {
+        try {
+            const snap = await getDocs(collection(db, "users"));
+            const emails = snap.docs.map(d => d.data().email?.toLowerCase()).filter(Boolean);
+            const fullUsers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            setWebUserEmails(emails);
+            setWebUsers(fullUsers);
+        } catch (error) {
+            console.error("Error fetching web users:", error);
+        }
+    };
+
+    useEffect(() => {
+        fetchWebUsers();
+    }, []);
 
     // 1. Lắng nghe Khóa Học từ Firestore (Shared across CRM & Web)
     useEffect(() => {
@@ -54,14 +107,6 @@ const AdminSettings = () => {
         return () => unsubscribe();
     }, []);
 
-    const slugify = (text) => {
-        return text.toLowerCase()
-            .normalize("NFD")
-            .replace(/[\u0300-\u036f]/g, "")
-            .replace(/[đĐ]/g, "d")
-            .replace(/[^a-z0-9\s]/g, "")
-            .replace(/\s+/g, '-');
-    };
 
     // Thêm Khóa học mới (Ghi vào Firestore cho cả 2 hệ thống thấy)
     const handleAddCourse = async () => {
@@ -91,7 +136,8 @@ const AdminSettings = () => {
                 batches: arrayUnion(newBatch.toUpperCase())
             });
             toast.success(`Đã thêm ${newBatch}`);
-        } catch (e) {
+        } catch (error) {
+            console.error(error);
             toast.error("Lỗi thêm K");
         }
     };
@@ -102,8 +148,76 @@ const AdminSettings = () => {
             await updateDoc(doc(crmFirestore, "courses_config", courseId), {
                 batches: arrayRemove(tagToRemove)
             });
-        } catch (e) {
+        } catch (error) {
+            console.error(error);
             toast.error("Lỗi xóa K");
+        }
+    };
+
+    // Đồng bộ user (CRM -> Web System as Admin)
+    const handleSyncToWebAdmin = async (user) => {
+        if (!user.email || !user.name) return;
+        setIsSyncingUser(user.email);
+        let secondaryApp = null;
+        try {
+            secondaryApp = initializeApp(firebaseConfig, "SecondaryApp_" + Date.now());
+            const secondaryAuth = getAuth(secondaryApp);
+            
+            const userCredential = await createUserWithEmailAndPassword(secondaryAuth, user.email, "Mali@123");
+            const newWebUser = userCredential.user;
+
+            await setDoc(doc(db, "users", newWebUser.uid), {
+                uid: newWebUser.uid,
+                email: newWebUser.email,
+                displayName: user.name,
+                role: 'admin',
+                createdAt: serverTimestamp()
+            });
+
+            await signOut(secondaryAuth);
+            toast.success(`Đã tạo tài khoản Web Admin cho: ${user.name} (Mật khẩu: Mali@123)`, { duration: 5000 });
+            fetchWebUsers();
+        } catch (error) {
+            console.error("Sync Error:", error);
+            if (error.code === 'auth/email-already-in-use') {
+                toast.error("Email này đã được dùng trên Web (Có thể là học viên hoặc đã tạo).");
+            } else {
+                toast.error("Lỗi đồng bộ: " + error.message);
+            }
+        } finally {
+            if (secondaryApp) deleteApp(secondaryApp);
+            setIsSyncingUser(null);
+        }
+    };
+
+    // Đổi mật khẩu cho nhân viên (gửi email reset)
+    const handleResetPassword = async (email) => {
+        try {
+            const mainAuth = getAuth();
+            await sendPasswordResetEmail(mainAuth, email);
+            toast.success(`Đã gửi email đặt lại mật khẩu đến: ${email}`, { duration: 5000 });
+        } catch (error) {
+            console.error("Reset password error:", error);
+            toast.error("Lỗi gửi email: " + error.message);
+        }
+    };
+
+    // Cập nhật vai trò và modules
+    const handleSaveWebUser = async (userData) => {
+        if (!userData?.id) return;
+        setIsSavingUser(true);
+        try {
+            await updateDoc(doc(db, "users", userData.id), {
+                role: userData.role || 'student',
+                allowedModules: userData.allowedModules || [],
+            });
+            toast.success(`Đã cập nhật quyền cho: ${userData.displayName || userData.email}`);
+            fetchWebUsers();
+            setEditingWebUser(null);
+        } catch (error) {
+            toast.error("Lỗi cập nhật: " + error.message);
+        } finally {
+            setIsSavingUser(false);
         }
     };
 
@@ -132,6 +246,12 @@ const AdminSettings = () => {
                     className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm transition-all ${activeTab === 'users' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-500 hover:bg-white'}`}
                 >
                     <Users size={18} /> NHÂN SỰ CRM
+                </button>
+                <button
+                    onClick={() => setActiveTab('web_accounts')}
+                    className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm transition-all ${activeTab === 'web_accounts' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:bg-white'}`}
+                >
+                    <Lock size={18} /> QUẢN LÝ TÀI KHOẢN WEB
                 </button>
                 <button
                     onClick={() => setActiveTab('system')}
@@ -267,6 +387,7 @@ const AdminSettings = () => {
                                         <th className="p-4">Vai trò / Team</th>
                                         <th className="p-4">Trạng thái</th>
                                         <th className="p-4">Truy cập lần cuối</th>
+                                        <th className="p-4 text-right">Tài Khoản Web</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -288,10 +409,266 @@ const AdminSettings = () => {
                                             <td className="p-4 text-xs text-slate-400 font-mono italic">
                                                 {user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString() : 'Chưa đăng nhập'}
                                             </td>
+                                            <td className="p-4 text-right">
+                                                {webUserEmails.includes(user.email?.toLowerCase()) ? (
+                                                    <span className="px-2.5 py-1 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-bold border border-blue-100">
+                                                        ĐÃ CÓ TÀI KHOẢN
+                                                    </span>
+                                                ) : (
+                                                    <button 
+                                                        onClick={() => handleSyncToWebAdmin(user)}
+                                                        disabled={isSyncingUser === user.email}
+                                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 text-white rounded-lg text-xs font-bold transition hover:bg-slate-800 disabled:opacity-50"
+                                                    >
+                                                        {isSyncingUser === user.email ? (
+                                                            <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                                        ) : (
+                                                            <RefreshCw size={12} />
+                                                        )}
+                                                        Tạo tài khoản
+                                                    </button>
+                                                )}
+                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>
                             </table>
+                        </div>
+                    </div>
+                )}
+
+                {/* TAB: QUẢN LÝ TÀI KHOẢN WEB */}
+                {activeTab === 'web_accounts' && (
+                    <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+                        <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2.5 bg-indigo-50 rounded-xl text-indigo-600">
+                                    <Lock size={24} />
+                                </div>
+                                <div>
+                                    <h2 className="text-lg font-bold text-slate-800 uppercase tracking-tight">Quản lý Tài Khoản Web Admin</h2>
+                                    <p className="text-xs text-slate-400">Thay đổi mật khẩu, vai trò, và quyền truy cập module cho từng nhân viên</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="overflow-x-auto p-4">
+                            {webUsers.filter(u => u.role === 'admin').length === 0 ? (
+                                <div className="text-center py-16 text-slate-400">
+                                    <Lock size={40} className="mx-auto mb-4 text-slate-200" />
+                                    <p className="font-bold">Chưa có tài khoản Admin nào</p>
+                                    <p className="text-xs mt-1">Hãy đồng bộ từ tab Nhân sự CRM trước</p>
+                                </div>
+                            ) : (
+                                <table className="w-full text-sm text-left border-collapse">
+                                    <thead>
+                                        <tr className="text-slate-400 font-bold uppercase text-[10px] tracking-widest border-b">
+                                            <th className="p-4">Tài khoản</th>
+                                            <th className="p-4">Vai trò</th>
+                                            <th className="p-4">Module được phép</th>
+                                            <th className="p-4 text-right">Thao tác</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {webUsers.filter(u => u.role === 'admin').map(user => (
+                                            <tr key={user.id} className="border-b last:border-0 hover:bg-slate-50 transition-colors">
+                                                <td className="p-4">
+                                                    <div className="font-bold text-slate-700">{user.displayName || 'Unnamed'}</div>
+                                                    <div className="text-xs text-slate-400 font-mono">{user.email}</div>
+                                                </td>
+                                                <td className="p-4">
+                                                    <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase ${
+                                                        user.role === 'admin' ? 'bg-purple-100 text-purple-700 border border-purple-200' : 'bg-green-100 text-green-700 border border-green-200'
+                                                    }`}>
+                                                        {user.role === 'admin' ? 'ADMIN' : 'HỌC VIÊN'}
+                                                    </span>
+                                                </td>
+                                                <td className="p-4">
+                                                    <div className="flex flex-wrap gap-1">
+                                                        {(!user.allowedModules || user.allowedModules.length === 0) ? (
+                                                            <span className="text-xs text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">TOÀN QUYỀN</span>
+                                                        ) : (
+                                                            user.allowedModules.map(m => {
+                                                                const mod = ALL_MODULES.find(am => am.key === m);
+                                                                return mod ? (
+                                                                    <span key={m} className="text-[10px] font-bold bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded border border-blue-100">
+                                                                        {mod.label}
+                                                                    </span>
+                                                                ) : null;
+                                                            })
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="p-4 text-right">
+                                                    <button
+                                                        onClick={() => setEditingWebUser({ ...user })}
+                                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-bold transition hover:bg-indigo-700"
+                                                    >
+                                                        <Edit size={12} /> Chỉnh sửa
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {/* MODAL: CHỈNH SỬA TÀI KHOẢN WEB */}
+                {editingWebUser && (
+                    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4" onClick={() => setEditingWebUser(null)}>
+                        <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden" onClick={e => e.stopPropagation()}>
+                            {/* Modal Header */}
+                            <div className="p-6 border-b border-slate-100 bg-slate-50/50">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <h3 className="text-lg font-bold text-slate-800">Chỉnh sửa tài khoản</h3>
+                                        <p className="text-xs text-slate-400 mt-0.5">{editingWebUser.displayName || editingWebUser.email}</p>
+                                    </div>
+                                    <button onClick={() => setEditingWebUser(null)} className="p-2 hover:bg-slate-100 rounded-xl transition">
+                                        <X size={18} />
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="p-6 space-y-6 max-h-[65vh] overflow-y-auto">
+                                {/* 1. MẬT KHẨU */}
+                                <div className="border border-slate-100 rounded-2xl p-4 space-y-3">
+                                    <div className="flex items-center gap-2 text-sm font-bold text-slate-700">
+                                        <Key size={16} className="text-orange-500" />
+                                        Mật khẩu
+                                    </div>
+                                    <p className="text-xs text-slate-400">Gửi email đặt lại mật khẩu cho nhân viên. Họ sẽ nhận được link để tự đặt mật khẩu mới.</p>
+                                    <button
+                                        onClick={() => handleResetPassword(editingWebUser.email)}
+                                        disabled={isSavingUser}
+                                        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-orange-500 text-white rounded-xl text-sm font-bold transition hover:bg-orange-600 disabled:opacity-50"
+                                    >
+                                        <Mail size={14} /> Gửi email đặt lại mật khẩu
+                                    </button>
+                                </div>
+
+                                {/* 2. VAI TRÒ */}
+                                <div className="border border-slate-100 rounded-2xl p-4 space-y-3">
+                                    <div className="flex items-center gap-2 text-sm font-bold text-slate-700">
+                                        <Shield size={16} className="text-purple-500" />
+                                        Vai trò
+                                    </div>
+                                    <div className="flex gap-3">
+                                        <button
+                                            onClick={() => setEditingWebUser(prev => ({ ...prev, role: 'admin' }))}
+                                            className={`flex-1 py-2.5 rounded-xl text-sm font-bold border-2 transition-all ${
+                                                editingWebUser.role === 'admin'
+                                                    ? 'border-purple-500 bg-purple-50 text-purple-700'
+                                                    : 'border-slate-200 text-slate-400 hover:border-slate-300'
+                                            }`}
+                                        >
+                                            🛡️ Admin
+                                        </button>
+                                        <button
+                                            onClick={() => setEditingWebUser(prev => ({ ...prev, role: 'student' }))}
+                                            className={`flex-1 py-2.5 rounded-xl text-sm font-bold border-2 transition-all ${
+                                                editingWebUser.role === 'student'
+                                                    ? 'border-green-500 bg-green-50 text-green-700'
+                                                    : 'border-slate-200 text-slate-400 hover:border-slate-300'
+                                            }`}
+                                        >
+                                            🎓 Học viên
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* 3. PHÂN QUYỀN MODULE */}
+                                {editingWebUser.role === 'admin' && (
+                                    <div className="border border-slate-100 rounded-2xl p-4 space-y-3">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2 text-sm font-bold text-slate-700">
+                                                <Settings size={16} className="text-blue-500" />
+                                                Phân quyền Module
+                                            </div>
+                                            <button
+                                                onClick={() => {
+                                                    const allChecked = !editingWebUser.allowedModules || editingWebUser.allowedModules.length === 0;
+                                                    if (allChecked) {
+                                                        // Currently full access, uncheck all (only give dashboard to prevent lockout)
+                                                        setEditingWebUser(prev => ({ ...prev, allowedModules: ['dashboard'] }));
+                                                    } else {
+                                                        // Give full access
+                                                        setEditingWebUser(prev => ({ ...prev, allowedModules: [] }));
+                                                    }
+                                                }}
+                                                className="text-xs font-bold text-indigo-600 hover:underline"
+                                            >
+                                                {(!editingWebUser.allowedModules || editingWebUser.allowedModules.length === 0) ? 'Tùy chỉnh' : 'Chọn toàn quyền'}
+                                            </button>
+                                        </div>
+
+                                        {(!editingWebUser.allowedModules || editingWebUser.allowedModules.length === 0) ? (
+                                            <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-3 text-center">
+                                                <span className="text-sm font-bold text-emerald-600">✅ TOÀN QUYỀN - Truy cập tất cả module</span>
+                                            </div>
+                                        ) : (
+                                            <div className="grid grid-cols-1 gap-2">
+                                                {ALL_MODULES.map(mod => {
+                                                    const isChecked = editingWebUser.allowedModules?.includes(mod.key);
+                                                    return (
+                                                        <label
+                                                            key={mod.key}
+                                                            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all cursor-pointer ${
+                                                                isChecked
+                                                                    ? 'border-blue-200 bg-blue-50/50'
+                                                                    : 'border-slate-100 hover:border-slate-200'
+                                                            }`}
+                                                        >
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={isChecked}
+                                                                onChange={() => {
+                                                                    setEditingWebUser(prev => {
+                                                                        const current = prev.allowedModules || [];
+                                                                        if (current.includes(mod.key)) {
+                                                                            return { ...prev, allowedModules: current.filter(m => m !== mod.key) };
+                                                                        } else {
+                                                                            return { ...prev, allowedModules: [...current, mod.key] };
+                                                                        }
+                                                                    });
+                                                                }}
+                                                                className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
+                                                            />
+                                                            <span className={`text-sm font-bold ${isChecked ? 'text-blue-700' : 'text-slate-500'}`}>
+                                                                {mod.label}
+                                                            </span>
+                                                        </label>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Modal Footer */}
+                            <div className="p-6 border-t border-slate-100 flex items-center gap-3">
+                                <button
+                                    onClick={() => setEditingWebUser(null)}
+                                    className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold text-sm hover:bg-slate-50 transition"
+                                >
+                                    Hủy
+                                </button>
+                                <button
+                                    onClick={() => handleSaveWebUser(editingWebUser)}
+                                    disabled={isSavingUser}
+                                    className="flex-1 py-2.5 rounded-xl bg-indigo-600 text-white font-bold text-sm hover:bg-indigo-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
+                                >
+                                    {isSavingUser ? (
+                                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                    ) : (
+                                        <Check size={16} />
+                                    )}
+                                    Lưu thay đổi
+                                </button>
+                            </div>
                         </div>
                     </div>
                 )}
@@ -330,7 +707,7 @@ const SourceTable = ({ courses }) => {
     const updateSource = async (id, field, value) => {
         try {
             await updateDoc(doc(crmFirestore, "source_configs", id), { [field]: value });
-        } catch (e) { toast.error("Lỗi cập nhật"); }
+        } catch { toast.error("Lỗi cập nhật"); }
     };
 
     return (

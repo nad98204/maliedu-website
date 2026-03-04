@@ -23,6 +23,7 @@ const CourseDetail = () => {
     const [activeSection, setActiveSection] = useState('intro');
     const [isDescExpanded, setIsDescExpanded] = useState(false);
     const [instructorStats, setInstructorStats] = useState({ courses: 0, students: 0 });
+    const [isEnrolled, setIsEnrolled] = useState(false);
 
     useEffect(() => {
         const handleScroll = () => {
@@ -100,6 +101,11 @@ const CourseDetail = () => {
 
     const handleBuyClick = async () => {
         if (currentUser) {
+            if (isEnrolled) {
+                navigate(`/bai-giang/${course.id}`);
+                return;
+            }
+
             if (course.isForSale === false) {
                 // Free course - Auto Enroll
                 await enrollUser(course);
@@ -179,6 +185,54 @@ const CourseDetail = () => {
         });
         return () => unsubscribe();
     }, [slug]);
+
+    useEffect(() => {
+        const checkEnrollment = async () => {
+            if (!currentUser || !course) {
+                setIsEnrolled(false);
+                return;
+            }
+
+            if (course.students && course.students.includes(currentUser.uid)) {
+                setIsEnrolled(true);
+                return;
+            }
+
+            try {
+                // By UID
+                const uidQuery = query(
+                    collection(db, 'enrollments'),
+                    where('userId', '==', currentUser.uid),
+                    where('courseId', '==', course.id)
+                );
+                const uidSnap = await getDocs(uidQuery);
+                if (!uidSnap.empty) {
+                    setIsEnrolled(true);
+                    return;
+                }
+
+                // By Email
+                if (currentUser.email) {
+                    const emailQuery = query(
+                        collection(db, 'enrollments'),
+                        where('userEmail', '==', currentUser.email),
+                        where('courseId', '==', course.id)
+                    );
+                    const emailSnap = await getDocs(emailQuery);
+                    if (!emailSnap.empty) {
+                        setIsEnrolled(true);
+                        return;
+                    }
+                }
+                
+                setIsEnrolled(false);
+            } catch (err) {
+                console.error("Error checking enrollment:", err);
+            }
+        };
+
+        checkEnrollment();
+    }, [currentUser, course]);
 
     useEffect(() => {
         const fetchInstructorStats = async () => {
@@ -432,7 +486,11 @@ const CourseDetail = () => {
 
                 {/* RIGHT COLUMN (SIDEBAR) */}
                 <div className="lg:col-span-1 relative z-20 lg:sticky lg:top-8 h-fit lg:-mt-20">
-                    <CourseSidebar course={course} onBuyClick={handleBuyClick} />
+                    <CourseSidebar 
+                        course={course} 
+                        onBuyClick={handleBuyClick} 
+                        isEnrolled={isEnrolled}
+                    />
                 </div>
             </div>
 

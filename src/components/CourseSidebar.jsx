@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CheckCircle, ShieldCheck, LifeBuoy, ShoppingCart, Heart } from 'lucide-react';
+import { CheckCircle, ShieldCheck, LifeBuoy, ShoppingCart, Heart, PlayCircle } from 'lucide-react';
 import { formatPrice } from '../utils/orderService';
 import { HOTLINE } from '../menuData';
 import { useCart } from '../context/CartContext';
 
-const CourseSidebar = ({ course, onBuyClick }) => {
+const CourseSidebar = ({ course, onBuyClick, isEnrolled }) => {
     const navigate = useNavigate();
     const { addToCart } = useCart();
     const [wishlist, setWishlist] = useState(false);
@@ -15,7 +15,7 @@ const CourseSidebar = ({ course, onBuyClick }) => {
             onBuyClick();
             return;
         }
-        if (course.isForSale === false) {
+        if (isEnrolled || course.isForSale === false) {
             navigate(`/bai-giang/${course.id}`);
         } else {
             navigate(`/thanh-toan/${course.id}`);
@@ -32,7 +32,7 @@ const CourseSidebar = ({ course, onBuyClick }) => {
                         alt={course.name}
                         className="w-full h-full object-cover"
                     />
-                    {course.isForSale !== false && course.salePrice && (
+                    {!isEnrolled && course.isForSale !== false && course.salePrice && (
                         <div className="absolute top-2 right-2 bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md animate-pulse">
                             Tiết kiệm {Math.round(((course.price - course.salePrice) / course.price) * 100)}%
                         </div>
@@ -42,7 +42,11 @@ const CourseSidebar = ({ course, onBuyClick }) => {
                 <div className="p-6 flex-grow flex flex-col">
                     {/* Price */}
                     <div className="mb-6">
-                        {course.isForSale === false ? (
+                        {isEnrolled ? (
+                            <div className="text-center">
+                                <span className="text-3xl font-extrabold text-[#16a34a]">ĐÃ SỞ HỮU</span>
+                            </div>
+                        ) : course.isForSale === false ? (
                             <div className="text-center">
                                 <span className="text-3xl font-extrabold text-[#16a34a]">MIỄN PHÍ</span>
                             </div>
@@ -64,11 +68,15 @@ const CourseSidebar = ({ course, onBuyClick }) => {
                     <div className="space-y-3 mb-6">
                         <button
                             onClick={handleBuyNow}
-                            className="w-full bg-[#ef4444] text-white font-bold py-4 px-6 rounded-xl hover:bg-red-700 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center gap-2 group"
+                            className={`w-full text-white font-bold py-4 px-6 rounded-xl transition-all shadow-lg transform active:translate-y-0 flex items-center justify-center gap-2 group ${
+                                isEnrolled || course.isForSale === false 
+                                ? "bg-[#16a34a] hover:bg-green-700 hover:shadow-xl hover:-translate-y-0.5" 
+                                : "bg-[#ef4444] hover:bg-red-700 hover:shadow-xl hover:-translate-y-0.5"
+                            }`}
                         >
-                            {course.isForSale === false ? (
+                            {isEnrolled || course.isForSale === false ? (
                                 <>
-                                    VÀO HỌC NGAY
+                                    <PlayCircle className="w-6 h-6" /> VÀO HỌC NGAY
                                 </>
                             ) : (
                                 <>
@@ -77,7 +85,7 @@ const CourseSidebar = ({ course, onBuyClick }) => {
                             )}
                         </button>
 
-                        {course.isForSale !== false && (
+                        {!isEnrolled && course.isForSale !== false && (
                             <button
                                 onClick={() => addToCart(course)}
                                 className="w-full bg-white text-slate-700 font-bold py-3 px-6 rounded-xl border border-slate-200 hover:bg-slate-50 transition-all flex items-center justify-center gap-2 group hover:border-[#FCD34D]"

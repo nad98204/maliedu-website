@@ -44,14 +44,12 @@ const CourseList = () => {
         fetchCourses();
     }, []);
 
-    // Helper: Format Price
-    const formatPrice = (price) => {
-        return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
-    };
+
 
     // Filter & Sort Logic
     const filteredCourses = useMemo(() => {
         let result = courses.filter(course => {
+
             // 1. Search Term (Name)
             if (searchTerm && !course.name.toLowerCase().includes(searchTerm.toLowerCase())) {
                 return false;
