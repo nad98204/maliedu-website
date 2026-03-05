@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRight,
   BriefcaseBusiness,
@@ -11,14 +11,14 @@ import {
 
 /* ─── Floating Gold Particles ───────────────────────────── */
 const GoldParticles = () => {
-  const particles = Array.from({ length: 18 }, (_, i) => ({
+  const particles = useMemo(() => Array.from({ length: 18 }, (_, i) => ({
     id: i,
     left: `${Math.random() * 100}%`,
     top: `${Math.random() * 100}%`,
     size: 2 + Math.random() * 4,
     delay: Math.random() * 6,
     duration: 3 + Math.random() * 4,
-  }));
+  })), []);
 
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -105,13 +105,10 @@ const TargetCard = ({ title, Icon, desc, painPoints, highlight, number, delay })
         {/* Top gradient bar */}
         {highlight && (
           <div
-            className="h-1.5"
+            className="h-1.5 rounded-t-[22px]"
             style={{ background: "linear-gradient(90deg, #7A2113, #C9961A, #F8E08A, #C9961A, #7A2113)" }}
           />
         )}
-
-        {/* Badge */}
-        <AnimBadge number={number} />
 
         {/* Content */}
         <div className="flex flex-col items-center text-center p-5 sm:px-6 sm:py-7 flex-1">
@@ -203,6 +200,7 @@ const TargetCard = ({ title, Icon, desc, painPoints, highlight, number, delay })
           </div>
         </div>
       </div>
+      <AnimBadge number={number} />
     </div>
   );
 };
@@ -273,7 +271,7 @@ const DoiTuongPhuHop = () => {
           </span>
 
           {/* Title group */}
-          <div className="space-y-1">
+          <div className="space-y-3">
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold uppercase tracking-[0.04em] text-[#3A2208] leading-tight">
               KHÓA HỌC NÀY
             </h2>
@@ -281,7 +279,7 @@ const DoiTuongPhuHop = () => {
               <span className="relative inline-block text-[#7A2113]">
                 PHÙ HỢP VỚI BẠN
                 <span
-                  className="absolute bottom-0 left-0 w-full h-2.5 -mb-1 rounded-full opacity-30"
+                  className="absolute bottom-0 left-0 w-full h-1.5 -mb-1 rounded-full opacity-30"
                   style={{ background: "linear-gradient(90deg, transparent, #C9961A, transparent)" }}
                 />
               </span>
@@ -295,14 +293,15 @@ const DoiTuongPhuHop = () => {
         </div>
 
         {/* ── Cards Grid ── */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 sm:gap-6 lg:gap-8 items-start mb-12 lg:mb-16">
+        <div className="flex flex-wrap justify-center gap-6 lg:gap-8 items-stretch mb-12 lg:mb-16">
           {cards.map((card, idx) => (
-            <TargetCard
-              key={card.title}
-              {...card}
-              number={idx + 1}
-              delay={idx * 150}
-            />
+            <div key={card.title} className="w-full md:w-[320px] lg:w-[350px] flex">
+              <TargetCard
+                {...card}
+                number={idx + 1}
+                delay={idx * 150}
+              />
+            </div>
           ))}
         </div>
 
@@ -310,7 +309,8 @@ const DoiTuongPhuHop = () => {
         <div className="flex flex-col items-center gap-4">
           {/* Quote / Empathy statement */}
           <p className="text-center text-sm sm:text-base italic text-[#5C3A1A]/70 max-w-md mb-2">
-            "Bạn không cần phải cố gắng một mình — hãy để chúng tôi đồng hành cùng bạn."
+            "Bạn không cần phải cố gắng một mình <br />
+            hãy để chúng tôi đồng hành cùng bạn."
           </p>
 
           {/* CTA Button */}

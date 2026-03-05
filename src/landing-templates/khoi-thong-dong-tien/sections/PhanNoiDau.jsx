@@ -66,18 +66,31 @@ const PhanNoiDau = () => (
     style={{ background: "linear-gradient(135deg, #FDF5E4 0%, #F7EBCC 100%)", border: "1px solid #D4B572", boxShadow: "0 20px 50px rgba(122,33,19,0.06)" }}
   >
     <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_15%_20%,rgba(201,150,26,0.12),transparent_35%),radial-gradient(circle_at_80%_15%,rgba(122,33,19,0.1),transparent_38%)]" />
-    <div className="relative max-w-3xl lg:max-w-6xl xl:max-w-7xl mx-auto space-y-8 lg:space-y-12">
-      <div className="space-y-3 text-center lg:mb-12">
-        <p className="text-[11px] lg:text-[13px] tracking-[0.24em] uppercase text-[#7A2113] font-semibold">Bạn đang gặp gì?</p>
-        <div className="-space-y-2">
-          <h2 className="text-[2.4rem] sm:text-[2.8rem] lg:text-[3.2rem] font-black leading-[1.3] text-transparent bg-clip-text bg-gradient-to-r from-[#3A2208] to-[#7A2113] tracking-[0.04em] py-2">
-            ĐIỀU GÌ ĐANG CẢN TRỞ
+    <div className="relative max-w-3xl lg:max-w-6xl xl:max-w-7xl mx-auto space-y-6 lg:space-y-8">
+      <div className="flex flex-col items-center space-y-3 text-center mb-6 lg:mb-8">
+        <div>
+          <span className="inline-block py-1.5 px-5 rounded-full text-[11px] font-bold tracking-[0.25em] uppercase border border-[#C9961A] bg-white/70 text-[#7A2113] backdrop-blur-sm">
+            Bạn đang gặp gì?
+          </span>
+        </div>
+        <div className="flex flex-col items-center w-full">
+          <h2
+            className="font-black text-transparent bg-clip-text bg-gradient-to-r from-[#3A2208] to-[#7A2113] py-2"
+            style={{ fontSize: "clamp(2.8rem, 11vw, 5rem)", letterSpacing: "0.15em", lineHeight: 1.3 }}
+          >
+            ĐIỀU GÌ?
           </h2>
-          <h2 className="text-[2.6rem] sm:text-[3rem] lg:text-[3.5rem] font-black leading-[1.3] text-transparent bg-clip-text bg-gradient-to-r from-[#7A2113] via-[#C9961A] to-[#7A2113] tracking-[0.06em] drop-shadow-sm py-2">
-            DÒNG CHẢY TIỀN BẠC
+          <h2
+            className="font-black text-transparent bg-clip-text bg-gradient-to-r from-[#7A2113] via-[#C9961A] to-[#7A2113] tracking-wide -mt-3 sm:-mt-5 lg:-mt-7 py-2"
+            style={{ fontSize: "clamp(1.1rem, 4.5vw, 3.2rem)", lineHeight: 1.4 }}
+          >
+            ĐANG CẢN TRỞ DÒNG CHẢY
           </h2>
-          <h2 className="text-[2.4rem] sm:text-[2.8rem] lg:text-[3.2rem] font-black leading-[1.3] text-transparent bg-clip-text bg-gradient-to-r from-[#7A2113] to-[#3A2208] tracking-[0.04em] py-2">
-            CỦA BẠN?
+          <h2
+            className="font-black text-transparent bg-clip-text bg-gradient-to-r from-[#C9961A] to-[#7A2113] tracking-wide -mt-3 sm:-mt-4 lg:-mt-6 py-2"
+            style={{ fontSize: "clamp(1.4rem, 7vw, 3.5rem)", lineHeight: 1.4 }}
+          >
+            TIỀN BẠC CỦA BẠN
           </h2>
         </div>
       </div>

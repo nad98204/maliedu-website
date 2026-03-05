@@ -248,6 +248,17 @@ export default function AdminStorage() {
     }
   };
   
+  const handleBulkCopyLinks = () => {
+    const selectedFiles = files.filter(f => selectedItems.includes(f.id));
+    const links = selectedFiles.map(f => f.url).join('\n');
+    if (links) {
+      navigator.clipboard.writeText(links);
+      toast.success(`Đã sao chép ${selectedFiles.length} link!`);
+    } else {
+      toast.error('Không tìm thấy link nào.');
+    }
+  };
+
   const handleBulkSoftDelete = async () => {
      if (window.confirm(`Chuyển ${selectedItems.length} mục vào thùng rác?`)) {
        try {
@@ -375,6 +386,7 @@ export default function AdminStorage() {
           {selectedItems.length > 0 && viewMode === 'storage' && (
             <div className="flex flex-wrap items-center gap-2 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100 shrink-0">
               <span className="text-sm text-blue-700 font-medium mr-1 whitespace-nowrap">Đã chọn: {selectedItems.length}</span>
+              <button onClick={handleBulkCopyLinks} className="flex items-center gap-1.5 text-green-600 hover:bg-green-100 px-2 py-1 rounded text-sm transition whitespace-nowrap"><Copy className="w-4 h-4" /> Lấy link</button>
               <button onClick={handleOpenMoveModal} className="flex items-center gap-1.5 text-blue-600 hover:bg-blue-100 px-2 py-1 rounded text-sm transition whitespace-nowrap"><MoveRight className="w-4 h-4" /> Di chuyển</button>
               <button onClick={handleBulkSoftDelete} className="flex items-center gap-1.5 text-red-600 hover:bg-red-50 px-2 py-1 rounded text-sm transition whitespace-nowrap"><Trash2 className="w-4 h-4" /> Xóa</button>
             </div>
