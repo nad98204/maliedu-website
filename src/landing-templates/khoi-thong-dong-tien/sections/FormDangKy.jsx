@@ -51,7 +51,20 @@ const FormDangKy = () => {
     fetchConfig();
   }, []);
 
-  const handleChange = (field) => (e) => setFormState(prev => ({ ...prev, [field]: e.target.value }));
+  const handleChange = (field) => (e) => {
+    let value = e.target.value;
+    if (field === "phone") {
+      let rawValue = value.replace(/\D/g, "");
+      if (rawValue.length > 7) {
+        value = rawValue.replace(/^(\d{4})(\d{3})(\d{0,4}).*/, "$1 $2 $3").trim();
+      } else if (rawValue.length > 4) {
+        value = rawValue.replace(/^(\d{4})(\d{0,3})/, "$1 $2").trim();
+      } else {
+        value = rawValue;
+      }
+    }
+    setFormState(prev => ({ ...prev, [field]: value }));
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -59,7 +72,7 @@ const FormDangKy = () => {
     try {
       const sourceKey = searchParams.get("source_key") || searchParams.get("src") || remoteConfig.active_source_key || "organic_web";
       await submitToCRM({
-        name: formState.name, phone: formState.phone, email: formState.email,
+        name: formState.name, phone: formState.phone.replace(/\s/g, ""), email: formState.email,
         source_key: sourceKey,
         utm_source: searchParams.get("utm_source") || "",
         utm_medium: searchParams.get("utm_medium") || "",
@@ -109,7 +122,6 @@ const FormDangKy = () => {
 
   return (
     <section
-      id="dang-ky"
       className="relative rounded-3xl overflow-hidden py-14 sm:py-20"
       style={{
         background: "linear-gradient(145deg, #1A0A02 0%, #2D1005 40%, #3A1A06 70%, #1E0C03 100%)",
@@ -140,26 +152,26 @@ const FormDangKy = () => {
       <div className="relative max-w-5xl mx-auto px-4 sm:px-8">
 
         {/* ── HEADER ── */}
-        <div className="text-center mb-12 space-y-4">
+        <div id="dang-ky" className="text-center mb-4 sm:mb-12 space-y-2 sm:space-y-4 scroll-mt-2 sm:scroll-mt-4">
           {/* Urgency badge */}
-          <div className="inline-flex items-center gap-2 py-2 px-5 rounded-full text-[11px] font-bold tracking-[0.2em] uppercase border border-[#C9961A]/60 text-[#FFE566] bg-[#C9961A]/10 backdrop-blur-sm">
-            <span className="w-2 h-2 rounded-full bg-[#FFE566] animate-pulse" />
+          <div className="inline-flex items-center gap-1.5 sm:gap-2 py-1.5 sm:py-2 px-3 sm:px-5 rounded-full text-[9px] sm:text-[11px] font-bold tracking-widest sm:tracking-[0.2em] uppercase border border-[#C9961A]/60 text-[#FFE566] bg-[#C9961A]/10 backdrop-blur-sm whitespace-nowrap">
+            <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-[#FFE566] animate-pulse flex-shrink-0" />
             CÒN CÁC SUẤT VÉ CUỐI — ĐĂNG KÝ NGAY
           </div>
 
           {/* Main title */}
-          <div>
+          <div className="py-1 sm:py-0">
             <h2
               className="font-black text-white tracking-tight"
-              style={{ fontSize: "clamp(2rem, 6vw, 4rem)", lineHeight: 1.15 }}
+              style={{ fontSize: "clamp(1.8rem, 6vw, 4rem)", lineHeight: 1.3 }}
             >
               NHẬN VÉ THAM DỰ
             </h2>
             <h2
               className="font-black tracking-tight"
               style={{
-                fontSize: "clamp(2rem, 6vw, 4rem)",
-                lineHeight: 1.15,
+                fontSize: "clamp(1.8rem, 6vw, 4rem)",
+                lineHeight: 1.3,
                 background: "linear-gradient(90deg, #C9961A, #FFE566, #C9961A)",
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor: "transparent",
@@ -170,7 +182,7 @@ const FormDangKy = () => {
           </div>
 
           {/* Subtitle */}
-          <p className="text-[#B89060] text-base sm:text-lg max-w-md mx-auto leading-relaxed">
+          <p className="text-[#B89060] text-[12px] sm:text-lg max-w-md mx-auto leading-relaxed tracking-tighter sm:tracking-normal whitespace-nowrap">
             Để lại thông tin — nhận link tham gia <span className="text-[#FFE566] font-semibold">ngay lập tức</span>
           </p>
         </div>
@@ -189,14 +201,14 @@ const FormDangKy = () => {
           <div className="flex flex-col-reverse md:flex-row md:items-center">
 
             {/* Form column — LEFT */}
-            <div className="flex-1 p-6 sm:p-10 flex flex-col justify-center">
+            <div className="flex-1 p-4 sm:p-10 flex flex-col justify-center">
               {remoteConfig.is_maintenance ? (
                 <div className="rounded-2xl border border-amber-400/30 bg-amber-400/10 p-6 text-center space-y-3">
                   <div className="text-amber-400 font-bold text-lg uppercase tracking-wider">Thông báo bảo trì</div>
                   <p className="text-white/70 text-sm leading-relaxed">Hệ thống đang bảo trì để nâng cấp. Vui lòng quay lại sau!</p>
                 </div>
               ) : (
-                <form className="space-y-5" onSubmit={handleSubmit}>
+                <form className="space-y-4 sm:space-y-5" onSubmit={handleSubmit}>
                   <div className="flex items-center gap-2 mb-1">
                     <Sparkles className="w-4 h-4 text-[#C9961A]" />
                     <span className="text-[#C9961A] text-xs font-bold uppercase tracking-widest">Điền thông tin — Nhận link ngay!</span>
@@ -208,7 +220,7 @@ const FormDangKy = () => {
                     </label>
                     <input
                       type="text" value={formState.name} onChange={handleChange("name")}
-                      placeholder="Nhập họ và tên đầy đủ" required
+                      placeholder="Nhập họ và tên đầy đủ" required autoComplete="name"
                       className="w-full rounded-xl px-4 py-3.5 text-sm text-white placeholder:text-white/30 transition-all duration-200 focus:outline-none"
                       style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(201,150,26,0.25)", boxShadow: "inset 0 1px 2px rgba(0,0,0,0.2)" }}
                       onFocus={e => { e.target.style.border = "1px solid rgba(201,150,26,0.7)"; e.target.style.boxShadow = "0 0 0 3px rgba(201,150,26,0.12)"; e.target.style.background = "rgba(255,255,255,0.1)"; }}
@@ -222,7 +234,7 @@ const FormDangKy = () => {
                     </label>
                     <input
                       type="tel" value={formState.phone} onChange={handleChange("phone")}
-                      placeholder="Nhập số điện thoại" required
+                      placeholder="Nhập số điện thoại" required autoComplete="tel"
                       className="w-full rounded-xl px-4 py-3.5 text-sm text-white placeholder:text-white/30 transition-all duration-200 focus:outline-none"
                       style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(201,150,26,0.25)", boxShadow: "inset 0 1px 2px rgba(0,0,0,0.2)" }}
                       onFocus={e => { e.target.style.border = "1px solid rgba(201,150,26,0.7)"; e.target.style.boxShadow = "0 0 0 3px rgba(201,150,26,0.12)"; e.target.style.background = "rgba(255,255,255,0.1)"; }}
@@ -248,7 +260,7 @@ const FormDangKy = () => {
             </div>
 
             {/* Image column — RIGHT */}
-            <div className="w-full md:w-1/2 p-6 sm:p-10 flex-shrink-0">
+            <div className="w-full md:w-1/2 p-4 pb-0 md:p-10 flex-shrink-0">
               {/* Added rounded corners and shadow to make the 16:9 image look like a embedded card inside its column */}
               <div className="relative w-full aspect-video rounded-2xl overflow-hidden shadow-2xl border border-[#C9961A]/20">
                 <img

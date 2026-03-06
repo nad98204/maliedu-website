@@ -76,7 +76,7 @@ const PhanNoiDau = () => (
         <div className="flex flex-col items-center w-full">
           <h2
             className="font-black text-transparent bg-clip-text bg-gradient-to-r from-[#3A2208] to-[#7A2113] py-2"
-            style={{ fontSize: "clamp(2.8rem, 11vw, 5rem)", letterSpacing: "0.15em", lineHeight: 1.3 }}
+            style={{ fontSize: "clamp(2.8rem, 11vw, 5rem)", letterSpacing: "0.05em", lineHeight: 1.3 }}
           >
             ĐIỀU GÌ?
           </h2>

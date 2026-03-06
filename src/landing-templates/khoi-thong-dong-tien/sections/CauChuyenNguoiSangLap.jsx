@@ -192,32 +192,28 @@ const CauChuyenNguoiSangLap = () => (
           <span className="text-[12rem] font-serif text-[#7A2113]">“</span>
         </div>
         
-        <div className="relative z-10 max-w-[640px] mx-auto text-center space-y-8">
-          <div className="space-y-6">
-            <p className="text-[15px] sm:text-[17px] leading-[1.8] text-[#5C3A1A] font-medium px-4">
-              Từ một người <span className="text-[#7A2113] font-bold">trắng tay</span>, hôm nay tôi đã có một cuộc sống mới: tài chính vững vàng, năng lượng tích cực và một sứ mệnh trọn vẹn.
+        <div className="relative z-10 max-w-[640px] mx-auto text-center space-y-6">
+          
+          <p className="text-[13px] sm:text-[15px] leading-[1.7] text-[#5C3A1A] font-medium px-4 sm:px-2 sm:tracking-tight">
+            Từ một người <span className="text-[#7A2113] font-bold">trắng tay</span>, hôm nay tôi đã có một cuộc sống mới: tài chính vững vàng, năng lượng tích cực và một sứ mệnh trọn vẹn. 
+            Tôi khao khát được chia sẻ lại cho bạn chính:
+          </p>
+          
+          {/* Highlight Card */}
+          <div className="bg-white/50 border border-[#D4B572]/50 rounded-[2rem] p-5 sm:p-8 backdrop-blur-sm shadow-sm space-y-3 mx-4">
+            <h4 className="text-[22px] sm:text-[32px] font-black text-[#7A2113] leading-[1.25] tracking-tight">
+              LỘ TRÌNH 3 BƯỚC <br />
+              <span className="text-[#C9961A]">KHƠI THÔNG DÒNG TIỀN</span>
+            </h4>
+            <div className="w-12 h-1 bg-[#C9961A]/40 mx-auto rounded-full my-2" />
+            <p className="text-[14.5px] sm:text-base text-[#5C3A1A] leading-relaxed max-w-[480px] mx-auto">
+              Để bạn sớm tìm thấy sự thịnh vượng mà không cần phải mất cả chục năm bế tắc như tôi đã từng.
             </p>
-            
-            <div className="space-y-2 px-2">
-              <p className="text-[14px] sm:text-base text-[#5C3A1A] leading-relaxed">
-                Tôi khao khát được chia sẻ lại cho bạn chính:
-              </p>
-              <h4 className="text-[22px] sm:text-[28px] font-extrabold text-[#7A2113] leading-tight tracking-tight px-4">
-                LỘ TRÌNH 3 BƯỚC <br className="sm:hidden" />
-                <span className="text-[#C9961A]">KHƠI THÔNG DÒNG TIỀN</span>
-              </h4>
-              <p className="text-[14px] sm:text-base text-[#5C3A1A] leading-relaxed max-w-[480px] mx-auto pt-1">
-                Để bạn sớm tìm thấy sự thịnh vượng mà không cần phải mất cả chục năm bế tắc như tôi đã từng.
-              </p>
-            </div>
           </div>
 
-          <div className="relative inline-block py-6 px-8 sm:px-12">
-            <div className="absolute inset-0 bg-[#C9961A]/10 rounded-3xl transform skew-x-[-8deg] border border-[#C9961A]/20 shadow-sm" />
-            <p className="relative text-[17px] sm:text-[20px] text-[#7A2113] italic font-black tracking-tight leading-snug">
-              "Bạn hoàn toàn có thể thay đổi – <br /> ngay khi bạn chọn bắt đầu hôm nay."
-            </p>
-          </div>
+          <p className="relative text-[14.5px] sm:text-[17px] text-[#7A2113] italic font-bold tracking-tight leading-snug px-6 pt-2 sm:whitespace-nowrap">
+            "Bạn hoàn toàn có thể thay đổi – <br className="sm:hidden" /> ngay khi bạn chọn bắt đầu hôm nay."
+          </p>
         </div>
       </div>
 

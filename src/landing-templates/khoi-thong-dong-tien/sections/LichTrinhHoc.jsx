@@ -38,7 +38,7 @@ const sessions = [
       "Tạo kế hoạch tài chính khả thi, nhẹ nhàng, nhưng đủ lực để tiền chảy về tự nhiên.",
     ],
     color: "#A07020",
-    pos: { top: "58%", left: "1%", width: "27%" },
+    pos: { top: "53%", left: "1%", width: "27%" },
   },
   {
     badge: "BUỔI 4",
@@ -51,7 +51,7 @@ const sessions = [
     ],
     highlight: true,
     color: "#7A2113",
-    pos: { top: "58%", right: "1%", width: "27%" },
+    pos: { top: "53%", right: "1%", width: "27%" },
   },
 ];
 
@@ -64,7 +64,7 @@ const LichTrinhHoc = () => (
       boxShadow: "0 20px 50px rgba(122,33,19,0.06)",
       marginTop: "3rem",
       paddingTop: "7rem",
-      paddingBottom: "1rem",
+      paddingBottom: "4rem",
     }}
   >
     {/* Background orbs */}
@@ -95,7 +95,7 @@ const LichTrinhHoc = () => (
       </div>
 
       {/* ── DESKTOP: tree + overlaid cards ── */}
-      <div className="hidden md:block relative" style={{ height: "920px" }}>
+      <div className="hidden md:block relative" style={{ height: "980px" }}>
 
         {/* Tree image — centered in the container */}
         <div
