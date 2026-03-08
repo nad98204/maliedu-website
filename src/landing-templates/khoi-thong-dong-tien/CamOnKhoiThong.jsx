@@ -7,7 +7,7 @@ import { useSearchParams } from "react-router-dom";
 const CamOnKhoiThong = () => {
   // Bộ đếm ngược 5 phút
   const [timeLeft, setTimeLeft] = useState(5 * 60);
-  const [zaloLink, setZaloLink] = useState("https://zalo.me/g/");
+  const [zaloLink, setZaloLink] = useState("https://zalo.me/g/iquxgv057");
   const [pixelId, setPixelId] = useState("");
   const [searchParams] = useSearchParams();
   const eventId = searchParams.get("eventId") || "";
@@ -16,8 +16,8 @@ const CamOnKhoiThong = () => {
     const fetchConfig = async () => {
       try {
         const querySnap = await getDocs(collection(crmFirestore, "landing_pages"));
-        const matchDoc = querySnap.docs.find(d => 
-          d.id === "khoi-thong-dong-tien" || 
+        const matchDoc = querySnap.docs.find(d =>
+          d.id === "khoi-thong-dong-tien" ||
           (d.data().slug && d.data().slug.includes("khoi-thong-dong-tien"))
         );
         if (matchDoc) {
@@ -40,15 +40,18 @@ const CamOnKhoiThong = () => {
   // Thực thi FB Pixel
   useEffect(() => {
     if (pixelId) {
-      !function(f,b,e,v,n,t,s)
-      {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-      n.callMethod.apply(n,arguments):n.queue.push(arguments)};
-      if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-      n.queue=[];t=b.createElement(e);t.async=!0;
-      t.src=v;s=b.getElementsByTagName(e)[0];
-      s.parentNode.insertBefore(t,s)}(window, document,'script',
-      'https://connect.facebook.net/en_US/fbevents.js');
-      
+      !function (f, b, e, v, n, t, s) {
+        if (f.fbq) return; n = f.fbq = function () {
+          n.callMethod ?
+          n.callMethod.apply(n, arguments) : n.queue.push(arguments)
+        };
+        if (!f._fbq) f._fbq = n; n.push = n; n.loaded = !0; n.version = '2.0';
+        n.queue = []; t = b.createElement(e); t.async = !0;
+        t.src = v; s = b.getElementsByTagName(e)[0];
+        s.parentNode.insertBefore(t, s)
+      }(window, document, 'script',
+        'https://connect.facebook.net/en_US/fbevents.js');
+
       window.fbq('init', pixelId);
       window.fbq('track', 'PageView');
       if (eventId) {
@@ -66,9 +69,9 @@ const CamOnKhoiThong = () => {
   const seconds = timeLeft % 60;
 
   return (
-    <div className="min-h-screen font-sans relative flex items-center justify-center py-10 px-4 scroll-smooth" 
-         style={{ background: "linear-gradient(180deg, #F5EDD8 0%, #EAD9B8 30%, #F2E6CC 60%, #EAD9B8 100%)" }}>
-      
+    <div className="min-h-screen font-sans relative flex items-center justify-center py-10 px-4 scroll-smooth"
+      style={{ background: "linear-gradient(180deg, #F5EDD8 0%, #EAD9B8 30%, #F2E6CC 60%, #EAD9B8 100%)" }}>
+
       {/* Background Orbs */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <div className="absolute top-[-10%] left-[-10%] w-[400px] h-[400px] bg-[#7A2113] rounded-full blur-[120px] opacity-10" />
@@ -76,7 +79,7 @@ const CamOnKhoiThong = () => {
       </div>
 
       <div className="relative z-10 w-full max-w-md bg-white rounded-[2.5rem] shadow-[0_30px_60px_rgba(122,33,19,0.08)] border border-[#D4B572]/40 overflow-hidden flex flex-col items-center p-8 sm:p-10 text-center">
-        
+
         {/* Success Icon */}
         <div className="relative w-24 h-24 mb-6 flex items-center justify-center">
           <div className="absolute inset-0 bg-[#C9961A]/20 rounded-full animate-ping opacity-50" style={{ animationDuration: '3s' }} />
@@ -98,13 +101,13 @@ const CamOnKhoiThong = () => {
             <ShieldAlert className="w-3.5 h-3.5" />
             BƯỚC CHUẨN BỊ CUỐI CÙNG
           </div>
-          
+
           <h2 className="text-[#3A2208] text-[15px] sm:text-[17px] font-bold leading-snug mt-3">
             Vào Nhóm Zalo để nhận Tài Liệu Thực Hành & Hướng Dẫn Kèm Cặp
           </h2>
-          
+
           <div className="w-full h-px bg-[#D4B572]/30 my-3" />
-          
+
           <p className="text-[#7A2113] text-xs sm:text-[13px] font-medium leading-relaxed italic">
             *Chúng tôi không thể gửi thông tin lớp học nếu bạn chưa có mặt trong nhóm.
           </p>
@@ -126,7 +129,7 @@ const CamOnKhoiThong = () => {
               <span className="text-3xl font-black text-[#7A2113] animate-pulse">:</span>
             </div>
             <div className="flex flex-col items-center w-[72px] h-[72px] justify-center bg-gradient-to-b from-[#4A1F08] to-[#2E1202] rounded-2xl shadow-[0_10px_20px_rgba(58,34,8,0.3)] text-white border border-[#D4B572]/20 relative overflow-hidden">
-               <div className="absolute top-0 w-full h-1/2 bg-white/5" />
+              <div className="absolute top-0 w-full h-1/2 bg-white/5" />
               <span className="text-4xl font-black leading-none drop-shadow-md z-10">{String(seconds).padStart(2, '0')}</span>
               <span className="text-[9px] uppercase tracking-widest text-[#D4B572] mt-1 z-10">Giây</span>
             </div>
@@ -151,7 +154,7 @@ const CamOnKhoiThong = () => {
             </div>
           </a>
         </div>
-        
+
         <p className="text-[#5C3A1A] text-[11px] mt-4 opacity-60 italic">
           (Vui lòng kiên nhẫn bấm lại vài lần nếu Zalo chưa mở)
         </p>
