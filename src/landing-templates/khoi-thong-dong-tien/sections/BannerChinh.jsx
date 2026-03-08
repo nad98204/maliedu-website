@@ -11,6 +11,7 @@ const VideoPlayer = () => {
   const videoRef = useRef(null);
   const [playing, setPlaying] = useState(true);
   const [muted, setMuted] = useState(true);
+  const [volume, setVolume] = useState(0.7);
   const [showPause, setShowPause] = useState(false);
   let hideTimer = useRef(null);
 
@@ -31,7 +32,40 @@ const VideoPlayer = () => {
     if (!v) return;
     v.muted = !v.muted;
     setMuted(v.muted);
+    if (!v.muted && volume === 0) {
+      v.volume = 0.5;
+      setVolume(0.5);
+    }
   };
+
+  const handleVolumeChange = (e) => {
+    e.stopPropagation();
+    const val = parseFloat(e.target.value);
+    setVolume(val);
+    const v = videoRef.current;
+    if (v) {
+      v.volume = val;
+      if (val > 0) {
+        v.muted = false;
+        setMuted(false);
+      } else {
+        v.muted = true;
+        setMuted(true);
+      }
+    }
+  };
+
+  useEffect(() => {
+    const v = videoRef.current;
+    if (v) {
+      v.muted = true;
+      v.volume = 0.7;
+      v.play().catch(() => {
+        v.muted = true;
+        v.play();
+      });
+    }
+  }, []);
 
   useEffect(() => () => clearTimeout(hideTimer.current), []);
 
@@ -67,23 +101,78 @@ const VideoPlayer = () => {
           </div>
         </div>
 
-        {/* ── Mute/Unmute Button – always visible, prominent ── */}
-        <button
-          onClick={toggleMute}
-          className="absolute top-3 right-3 z-30 flex items-center gap-1.5 rounded-full px-3 py-1.5 text-white font-bold text-xs sm:text-sm transition-all duration-200 active:scale-95"
+        {/* ── Overlay bật tiếng ── */}
+        {muted && (
+          <div
+            className="absolute inset-0 flex items-end justify-center pb-4 z-20"
+            style={{ pointerEvents: 'none' }}
+          >
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                const v = videoRef.current;
+                if (v) {
+                  v.muted = false;
+                  v.volume = 0.7;
+                  setMuted(false);
+                  setVolume(0.7);
+                }
+              }}
+              className="flex items-center gap-2 px-4 py-2 rounded-full font-bold text-sm animate-bounce"
+              style={{
+                background: 'rgba(0,0,0,0.7)',
+                border: '1.5px solid #C9961A',
+                color: '#FFE566',
+                backdropFilter: 'blur(8px)',
+                pointerEvents: 'all',
+              }}
+            >
+              <span className="text-lg">🔊</span>
+              Bấm để bật tiếng
+            </button>
+          </div>
+        )}
+
+        {/* ── Mute/Volume Controls ── */}
+        <div
+          className="absolute top-3 right-3 z-30 flex items-center gap-2 p-1.5 rounded-full transition-all duration-300"
           style={{
-            background: muted
-              ? "rgba(30,30,30,0.85)"
-              : "linear-gradient(135deg, #C9961A, #F8E08A)",
-            color: muted ? "#fff" : "#3A1A00",
-            boxShadow: "0 2px 12px rgba(0,0,0,0.4)",
-            backdropFilter: "blur(6px)",
+            background: "rgba(30,30,30,0.6)",
+            backdropFilter: "blur(8px)",
+            border: "1px solid rgba(255,255,255,0.1)"
           }}
-          aria-label={muted ? "Bật tiếng" : "Tắt tiếng"}
+          onClick={(e) => e.stopPropagation()}
         >
-          <span className="text-base leading-none">{muted ? "🔇" : "🔊"}</span>
-          <span className="tracking-wide">{muted ? "Bật tiếng" : "Tắt tiếng"}</span>
-        </button>
+          {/* Volume Slider - Chỉ hiển thị trên desktop */}
+          <div className="hidden md:flex items-center pl-2 group/vol">
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.05"
+              value={muted ? 0 : volume}
+              onChange={handleVolumeChange}
+              className="w-0 group-hover/vol:w-20 h-1.5 transition-all duration-300 accent-[#C9961A] cursor-pointer"
+              style={{ padding: 0 }}
+            />
+          </div>
+
+          <button
+            onClick={toggleMute}
+            className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-white font-bold text-xs sm:text-sm transition-all duration-200 active:scale-95"
+            style={{
+              background: (muted || volume === 0)
+                ? "rgba(50,50,50,0.8)"
+                : "linear-gradient(135deg, #C9961A, #F8E08A)",
+              color: (muted || volume === 0) ? "#fff" : "#3A1A00",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+            }}
+            aria-label={muted ? "Bật tiếng" : "Tắt tiếng"}
+          >
+            <span className="text-base leading-none">{(muted || volume === 0) ? "🔇" : "🔊"}</span>
+            <span className="tracking-wide hidden sm:inline">{(muted || volume === 0) ? "Bật tiếng" : "Tắt tiếng"}</span>
+          </button>
+        </div>
 
 
 
@@ -107,7 +196,7 @@ const Countdown = () => {
   const s = Math.floor(left / 1000);
   const parts = [
     { label: "NGÀY", value: Math.floor(s / 86400) },
-    { label: "GIỜ",  value: Math.floor((s % 86400) / 3600) },
+    { label: "GIỜ", value: Math.floor((s % 86400) / 3600) },
     { label: "PHÚT", value: Math.floor((s % 3600) / 60) },
     { label: "GIÂY", value: s % 60 },
   ];
@@ -147,7 +236,7 @@ const BannerChinh = () => (
     {/* ── Top bar ── */}
     <div
       className="relative w-full py-2.5 sm:py-3 text-center z-10 border-b border-[#F8E08A]/30 overflow-hidden"
-      style={{ 
+      style={{
         backgroundImage: `linear-gradient(90deg, rgba(74, 31, 8, 0.85), rgba(124, 57, 16, 0.8), rgba(74, 31, 8, 0.85)), url("https://res.cloudinary.com/dstukyjzd/image/upload/v1772610554/mali-edu/uqs2zpqprj1xhrh3kubu.jpg")`,
         backgroundSize: "cover",
         backgroundPosition: "center",
@@ -161,10 +250,10 @@ const BannerChinh = () => (
 
     {/* ── Body card ── */}
     <div className="relative z-10 max-w-[640px] lg:max-w-7xl mx-auto px-4 sm:px-6 pb-12 mt-4 sm:mt-8 space-y-6 sm:space-y-8 lg:space-y-0 lg:flex lg:flex-row lg:items-center lg:gap-12 lg:pb-16">
-      
+
       {/* ── Left Column (Desktop) / Top Section (Mobile) ── */}
       <div className="w-full lg:w-1/2 flex flex-col items-center space-y-6 sm:space-y-8">
-        
+
         {/* Title Image (now inside the column on desktop) */}
         <div className="w-full flex justify-center">
           <img
@@ -185,7 +274,7 @@ const BannerChinh = () => (
           {/* Dấu ngoặc kép trang trí */}
           <div className="absolute top-2 left-3 text-[#C9961A] opacity-40 text-4xl font-serif leading-none">“</div>
           <div className="absolute bottom-[-10px] right-3 text-[#C9961A] opacity-40 text-4xl font-serif leading-none">”</div>
-          
+
           <p className="text-[0.8rem] sm:text-[0.85rem] lg:text-[0.9rem] leading-[1.6] text-[#5A3A1A] italic font-medium px-2">
             Giúp bạn giải phóng tắc nghẽn tài chính, nâng cao tần số nội tâm và xây dựng lộ trình đạt mục tiêu tài chính
           </p>
@@ -196,7 +285,7 @@ const BannerChinh = () => (
           {/* Glow */}
           <div className="relative w-full max-w-[360px] lg:max-w-[400px] mx-auto">
             <div className="absolute inset-0 rounded-full blur-xl opacity-50 transition-opacity hover:opacity-70"
-                 style={{ background: "#C8282E" }} />
+              style={{ background: "#C8282E" }} />
             <a
               href="#dang-ky"
               className="group relative flex flex-col items-center justify-center w-full rounded-full py-4 lg:py-4.5 overflow-hidden transition-all duration-300 hover:scale-[1.03] active:scale-[0.98]"
@@ -235,49 +324,49 @@ const BannerChinh = () => (
 
       {/* ── Right Column (Desktop Only Video) ── */}
       <div className="hidden lg:flex w-full lg:w-1/2 justify-center lg:justify-end items-center relative">
-         <div className="w-full max-w-[580px] xl:max-w-[620px] relative z-20 flex flex-col gap-6 lg:gap-8">
-           
-           <div className="w-full transition-transform duration-500 hover:scale-[1.02]">
-             <VideoPlayer />
-           </div>
+        <div className="w-full max-w-[580px] xl:max-w-[620px] relative z-20 flex flex-col gap-6 lg:gap-8">
 
-           {/* Thêm phần nội dung dưới video */}
-           <div className="w-full bg-white/70 backdrop-blur-xl rounded-2xl p-6 lg:p-7 border border-white/80 text-left transition-transform duration-500 hover:scale-[1.02]" style={{ boxShadow: "0 10px 40px rgba(0,0,0,0.06)" }}>
-              <h3 className="text-[#8C0C12] font-black text-lg mb-4 uppercase tracking-[0.05em] flex items-center gap-3">
-                <span className="w-8 h-[3px] bg-gradient-to-r from-[#8C0C12] to-transparent inline-block rounded-full"></span>
-                Trong 4 ngày bạn sẽ nhận được
-              </h3>
-              <ul className="space-y-4">
-                 <li className="flex items-start gap-4">
-                    <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#C9961A] to-[#F8E08A] flex items-center justify-center flex-shrink-0 mt-0.5 shadow-md">
-                       <span className="text-[#3A1A00] text-sm font-bold">✓</span>
-                    </div>
-                    <p className="text-[#4A2F1D] text-[1rem] leading-[1.5]">
-                       <strong>Giải mã gốc rễ</strong> nguyên nhân khiến dòng tiền tắc nghẽn trong tâm thức.
-                    </p>
-                 </li>
-                 <li className="flex items-start gap-4">
-                    <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#C9961A] to-[#F8E08A] flex items-center justify-center flex-shrink-0 mt-0.5 shadow-md">
-                       <span className="text-[#3A1A00] text-sm font-bold">✓</span>
-                    </div>
-                    <p className="text-[#4A2F1D] text-[1rem] leading-[1.5]">
-                       <strong>Bộ công cụ thực hành</strong> chuyển hóa năng lượng, gia tăng tần số thu hút sự thịnh vượng.
-                    </p>
-                 </li>
-                 <li className="flex items-start gap-4">
-                    <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#C9961A] to-[#F8E08A] flex items-center justify-center flex-shrink-0 mt-0.5 shadow-md">
-                       <span className="text-[#3A1A00] text-sm font-bold">✓</span>
-                    </div>
-                    <p className="text-[#4A2F1D] text-[1rem] leading-[1.5]">
-                       <strong>Xây dựng bản đồ tài chính</strong> cá nhân bền vững, hướng tới tự do tài chính.
-                    </p>
-                 </li>
-              </ul>
-           </div>
-           
-           {/* Decorative background glow behind video on desktop */}
-           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-[#C9961A]/10 blur-[100px] rounded-full pointer-events-none -z-10" />
-         </div>
+          <div className="w-full transition-transform duration-500 hover:scale-[1.02]">
+            <VideoPlayer />
+          </div>
+
+          {/* Thêm phần nội dung dưới video */}
+          <div className="w-full bg-white/70 backdrop-blur-xl rounded-2xl p-6 lg:p-7 border border-white/80 text-left transition-transform duration-500 hover:scale-[1.02]" style={{ boxShadow: "0 10px 40px rgba(0,0,0,0.06)" }}>
+            <h3 className="text-[#8C0C12] font-black text-lg mb-4 uppercase tracking-[0.05em] flex items-center gap-3">
+              <span className="w-8 h-[3px] bg-gradient-to-r from-[#8C0C12] to-transparent inline-block rounded-full"></span>
+              Trong 4 ngày bạn sẽ nhận được
+            </h3>
+            <ul className="space-y-4">
+              <li className="flex items-start gap-4">
+                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#C9961A] to-[#F8E08A] flex items-center justify-center flex-shrink-0 mt-0.5 shadow-md">
+                  <span className="text-[#3A1A00] text-sm font-bold">✓</span>
+                </div>
+                <p className="text-[#4A2F1D] text-[1rem] leading-[1.5]">
+                  <strong>Giải mã gốc rễ</strong> nguyên nhân khiến dòng tiền tắc nghẽn trong tâm thức.
+                </p>
+              </li>
+              <li className="flex items-start gap-4">
+                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#C9961A] to-[#F8E08A] flex items-center justify-center flex-shrink-0 mt-0.5 shadow-md">
+                  <span className="text-[#3A1A00] text-sm font-bold">✓</span>
+                </div>
+                <p className="text-[#4A2F1D] text-[1rem] leading-[1.5]">
+                  <strong>Bộ công cụ thực hành</strong> chuyển hóa năng lượng, gia tăng tần số thu hút sự thịnh vượng.
+                </p>
+              </li>
+              <li className="flex items-start gap-4">
+                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#C9961A] to-[#F8E08A] flex items-center justify-center flex-shrink-0 mt-0.5 shadow-md">
+                  <span className="text-[#3A1A00] text-sm font-bold">✓</span>
+                </div>
+                <p className="text-[#4A2F1D] text-[1rem] leading-[1.5]">
+                  <strong>Xây dựng bản đồ tài chính</strong> cá nhân bền vững, hướng tới tự do tài chính.
+                </p>
+              </li>
+            </ul>
+          </div>
+
+          {/* Decorative background glow behind video on desktop */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-[#C9961A]/10 blur-[100px] rounded-full pointer-events-none -z-10" />
+        </div>
       </div>
 
     </div>
