@@ -149,6 +149,11 @@ const CamOnKhoiThong = () => {
             href={zaloLink}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={() => {
+              if (window.fbq) {
+                window.fbq('track', 'Contact', { content_name: 'Bấm vào nhóm Zalo' });
+              }
+            }}
             className="relative w-full flex flex-col items-center justify-center gap-1 rounded-full py-3.5 px-6 text-white overflow-hidden transition-all duration-300 transform group-hover:scale-[1.02] shadow-[0_10px_25px_rgba(0,104,255,0.4)]"
             style={{ background: "linear-gradient(180deg, #1877F2 0%, #0056D2 100%)" }}
           >

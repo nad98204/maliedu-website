@@ -94,11 +94,30 @@ const FormDangKy = () => {
         return hashArray.map((bytes) => bytes.toString(16).padStart(2, '0')).join('');
       };
 
+      // Chuẩn hóa và Hash dữ liệu
+      const normalizeForHash = (str) => str.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "");
       const hashedPhone = await sha256(formState.phone.replace(/\D/g, '').replace(/^0/, '84'));
+      
+      const nameParts = formState.name.trim().split(/\s+/);
+      const firstName = nameParts.length > 0 ? nameParts[nameParts.length - 1] : "";
+      const lastName = nameParts.length > 1 ? nameParts.slice(0, nameParts.length - 1).join(" ") : "";
+      const hashedFn = await sha256(normalizeForHash(firstName));
+      const hashedLn = await sha256(normalizeForHash(lastName));
+
       const eventId = 'register_' + Date.now() + Math.random().toString(36).substr(2, 5);
 
       if (remoteConfig.fbPixel && remoteConfig.fbCapiToken) {
         try {
+          // Lấy IP Client
+          let clientIp = "";
+          try {
+            const ipRes = await fetch("https://api64.ipify.org?format=json");
+            const ipData = await ipRes.json();
+            clientIp = ipData.ip;
+          } catch (e) {
+            console.error("IP Fetch Error:", e);
+          }
+
           const fbCapiUrl = `https://graph.facebook.com/v19.0/${remoteConfig.fbPixel}/events?access_token=${remoteConfig.fbCapiToken}`;
           const payload = {
             data: [{
@@ -106,7 +125,13 @@ const FormDangKy = () => {
               event_time: Math.floor(Date.now() / 1000),
               action_source: "website",
               event_id: eventId,
-              user_data: { ph: [hashedPhone] },
+              user_data: { 
+                ph: [hashedPhone],
+                fn: [hashedFn],
+                ln: [hashedLn],
+                client_ip_address: clientIp,
+                client_user_agent: navigator.userAgent
+              },
               custom_data: { value: 0, currency: "VND" }
             }]
           };
@@ -229,7 +254,12 @@ const FormDangKy = () => {
                       placeholder="Nhập họ và tên đầy đủ" required autoComplete="name"
                       className="w-full rounded-xl px-4 py-3.5 text-sm text-white placeholder:text-white/30 transition-all duration-200 focus:outline-none"
                       style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(201,150,26,0.25)", boxShadow: "inset 0 1px 2px rgba(0,0,0,0.2)" }}
-                      onFocus={e => { e.target.style.border = "1px solid rgba(201,150,26,0.7)"; e.target.style.boxShadow = "0 0 0 3px rgba(201,150,26,0.12)"; e.target.style.background = "rgba(255,255,255,0.1)"; }}
+                      onFocus={e => { 
+                        e.target.style.border = "1px solid rgba(201,150,26,0.7)"; 
+                        e.target.style.boxShadow = "0 0 0 3px rgba(201,150,26,0.12)"; 
+                        e.target.style.background = "rgba(255,255,255,0.1)"; 
+                        if (window.fbq) window.fbq('track', 'Lead', { content_name: 'Bắt đầu điền Form' });
+                      }}
                       onBlur={e => { e.target.style.border = "1px solid rgba(201,150,26,0.25)"; e.target.style.boxShadow = "inset 0 1px 2px rgba(0,0,0,0.2)"; e.target.style.background = "rgba(255,255,255,0.07)"; }}
                     />
                   </div>
@@ -243,7 +273,12 @@ const FormDangKy = () => {
                       placeholder="Nhập số điện thoại" required autoComplete="tel"
                       className="w-full rounded-xl px-4 py-3.5 text-sm text-white placeholder:text-white/30 transition-all duration-200 focus:outline-none"
                       style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(201,150,26,0.25)", boxShadow: "inset 0 1px 2px rgba(0,0,0,0.2)" }}
-                      onFocus={e => { e.target.style.border = "1px solid rgba(201,150,26,0.7)"; e.target.style.boxShadow = "0 0 0 3px rgba(201,150,26,0.12)"; e.target.style.background = "rgba(255,255,255,0.1)"; }}
+                      onFocus={e => { 
+                        e.target.style.border = "1px solid rgba(201,150,26,0.7)"; 
+                        e.target.style.boxShadow = "0 0 0 3px rgba(201,150,26,0.12)"; 
+                        e.target.style.background = "rgba(255,255,255,0.1)"; 
+                        if (window.fbq) window.fbq('track', 'Lead', { content_name: 'Bắt đầu điền Form' });
+                      }}
                       onBlur={e => { e.target.style.border = "1px solid rgba(201,150,26,0.25)"; e.target.style.boxShadow = "inset 0 1px 2px rgba(0,0,0,0.2)"; e.target.style.background = "rgba(255,255,255,0.07)"; }}
                     />
                   </div>
