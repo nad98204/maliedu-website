@@ -8,7 +8,8 @@ const CamOnKhoiThong = () => {
   // Bộ đếm ngược 5 phút
   const [timeLeft, setTimeLeft] = useState(5 * 60);
   const [zaloLink, setZaloLink] = useState("https://zalo.me/g/iquxgv057");
-  const [pixelId, setPixelId] = useState("");
+  const [pixelId, setPixelId] = useState("1526874981588150");
+  const [fbCapiToken, setFbCapiToken] = useState("EAAOUx21ZARaYBQ6jZAiffdq7ZCsCj7Xko24I8De60ufxpJ0ZBNGE1dbbJBI8MDDeZB8n37IhzpUPZAahSZA69WFnDiTAB9wwfriQIoeKQUjVj6pzIumRzDCXHLGATDxJOAlZAiz3wIdYhwo0aTwoZAEFNTBZCRVKDZC7OvjtZBfQ1TUHXAdWFAii06GZBGRRe5I8ZBSsm51QZDZD");
   const [searchParams] = useSearchParams();
   const eventId = searchParams.get("eventId") || "";
 
@@ -71,6 +72,11 @@ const CamOnKhoiThong = () => {
   return (
     <div className="min-h-screen font-sans relative flex items-center justify-center py-10 px-4 scroll-smooth"
       style={{ background: "linear-gradient(180deg, #F5EDD8 0%, #EAD9B8 30%, #F2E6CC 60%, #EAD9B8 100%)" }}>
+      <noscript>
+        <img height="1" width="1" style={{ display: "none" }}
+          src={`https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1`}
+        />
+      </noscript>
 
       {/* Background Orbs */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">

@@ -11,7 +11,7 @@ import React, { useEffect, useState } from "react";
 import { crmFirestore } from "../../firebase";
 import { collection, getDocs } from "firebase/firestore";/* ─── Main Page ──────────────────────────────────────────────── */
 const KhoiThongDongTien = () => {
-  const [pixelId, setPixelId] = useState("");
+  const [pixelId, setPixelId] = useState("1526874981588150");
 
   useEffect(() => {
     const fetchConfig = async () => {
@@ -60,6 +60,11 @@ const KhoiThongDongTien = () => {
       className="relative font-sans min-h-screen"
       style={{ background: "linear-gradient(180deg, #FFFFFF 0%, #FDF7EC 15%, #F5EDD8 50%, #EAD9B8 100%)" }}
     >
+      <noscript>
+        <img height="1" width="1" style={{ display: "none" }}
+          src={`https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1`}
+        />
+      </noscript>
       {/* ── Ảnh nền The Secret mờ tinh tế cho TOÀN BỘ Landing Page (Cố định fixed) ── */}
       <div 
         className="absolute inset-0 z-0 pointer-events-none"

@@ -19,7 +19,13 @@ const FormDangKy = () => {
   const [formState, setFormState] = useState({ name: "", phone: "" });
   const [searchParams] = useSearchParams();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [remoteConfig, setRemoteConfig] = useState({ active_source_key: "", is_maintenance: false, isLoading: true });
+  const [remoteConfig, setRemoteConfig] = useState({ 
+    fbPixel: "1526874981588150", 
+    fbCapiToken: "EAAOUx21ZARaYBQ6jZAiffdq7ZCsCj7Xko24I8De60ufxpJ0ZBNGE1dbbJBI8MDDeZB8n37IhzpUPZAahSZA69WFnDiTAB9wwfriQIoeKQUjVj6pzIumRzDCXHLGATDxJOAlZAiz3wIdYhwo0aTwoZAEFNTBZCRVKDZC7OvjtZBfQ1TUHXAdWFAii06GZBGRRe5I8ZBSsm51QZDZD",
+    active_source_key: "", 
+    is_maintenance: false, 
+    isLoading: true 
+  });
 
   useEffect(() => {
     const fetchConfig = async () => {
