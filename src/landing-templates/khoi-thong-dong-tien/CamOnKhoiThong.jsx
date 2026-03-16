@@ -1,103 +1,144 @@
-import React, { useState, useEffect } from "react";
-import { CheckCircle2, ArrowRight, Clock, ShieldAlert } from "lucide-react";
-import { crmFirestore } from "../../firebase";
+import React, { useEffect, useState } from "react";
+import { ArrowRight, CheckCircle2, Clock, ShieldAlert } from "lucide-react";
 import { collection, getDocs } from "firebase/firestore";
 import { useSearchParams } from "react-router-dom";
+import { crmFirestore } from "../../firebase";
+import {
+  initMetaPixel,
+  trackMetaEvent,
+  trackMetaEventOnce,
+} from "../../utils/metaPixel";
+
+const DEFAULT_ZALO_LINK = "https://zalo.me/g/iquxgv057";
+const DEFAULT_PIXEL_ID = "1526874981588150";
+const DEFAULT_TRACK_CONFIG = {
+  fbCurrency: "VND",
+  fbEventValue: 0,
+};
+
+const resolveMetaEventData = (config) => {
+  const numericValue = Number(config?.fbEventValue ?? config?.eventValue ?? 0);
+
+  return {
+    value: Number.isFinite(numericValue) ? numericValue : 0,
+    currency: String(config?.fbCurrency || config?.currency || "VND").toUpperCase(),
+  };
+};
 
 const CamOnKhoiThong = () => {
-  // Bộ đếm ngược 5 phút
   const [timeLeft, setTimeLeft] = useState(5 * 60);
-  const [zaloLink, setZaloLink] = useState("https://zalo.me/g/iquxgv057");
-  const [pixelId, setPixelId] = useState("1526874981588150");
-  const [fbCapiToken, setFbCapiToken] = useState("EAAOUx21ZARaYBQ6jZAiffdq7ZCsCj7Xko24I8De60ufxpJ0ZBNGE1dbbJBI8MDDeZB8n37IhzpUPZAahSZA69WFnDiTAB9wwfriQIoeKQUjVj6pzIumRzDCXHLGATDxJOAlZAiz3wIdYhwo0aTwoZAEFNTBZCRVKDZC7OvjtZBfQ1TUHXAdWFAii06GZBGRRe5I8ZBSsm51QZDZD");
+  const [zaloLink, setZaloLink] = useState(DEFAULT_ZALO_LINK);
+  const [pixelId, setPixelId] = useState("");
+  const [trackConfig, setTrackConfig] = useState(DEFAULT_TRACK_CONFIG);
+  const [isConfigReady, setIsConfigReady] = useState(false);
   const [searchParams] = useSearchParams();
   const eventId = searchParams.get("eventId") || "";
 
   useEffect(() => {
+    let isCancelled = false;
+
     const fetchConfig = async () => {
       try {
         const querySnap = await getDocs(collection(crmFirestore, "landing_pages"));
-        const matchDoc = querySnap.docs.find(d =>
-          d.id === "khoi-thong-dong-tien" ||
-          (d.data().slug && d.data().slug.includes("khoi-thong-dong-tien"))
+        const matchDoc = querySnap.docs.find(
+          (item) =>
+            item.id === "khoi-thong-dong-tien" ||
+            item.data().slug?.includes("khoi-thong-dong-tien")
         );
+
+        if (isCancelled) return;
+
         if (matchDoc) {
           const data = matchDoc.data();
           if (data.zaloLink) setZaloLink(data.zaloLink);
-          if (data.fbPixel) setPixelId(data.fbPixel);
+          setPixelId(data.fbPixel || DEFAULT_PIXEL_ID);
+          setTrackConfig((prev) => ({ ...prev, ...data }));
+        } else {
+          setPixelId(DEFAULT_PIXEL_ID);
         }
-      } catch (e) {
-        console.error("Lỗi lấy config thank you:", e);
+        setIsConfigReady(true);
+      } catch (error) {
+        console.error("Loi lay config thank you:", error);
+        if (!isCancelled) {
+          setPixelId(DEFAULT_PIXEL_ID);
+          setIsConfigReady(true);
+        }
       }
     };
+
     fetchConfig();
 
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => (prev > 0 ? prev - 1 : 0));
-    }, 1000);
-    return () => clearInterval(timer);
+    return () => {
+      isCancelled = true;
+    };
   }, []);
 
-  // Thực thi FB Pixel
   useEffect(() => {
-    if (pixelId) {
-      !function (f, b, e, v, n, t, s) {
-        if (f.fbq) return; n = f.fbq = function () {
-          n.callMethod ?
-            n.callMethod.apply(n, arguments) : n.queue.push(arguments)
-        };
-        if (!f._fbq) f._fbq = n; n.push = n; n.loaded = !0; n.version = '2.0';
-        n.queue = []; t = b.createElement(e); t.async = !0;
-        t.src = v; s = b.getElementsByTagName(e)[0];
-        s.parentNode.insertBefore(t, s)
-      }(window, document, 'script',
-        'https://connect.facebook.net/en_US/fbevents.js');
+    const timer = window.setInterval(() => {
+      setTimeLeft((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
 
-      window.fbq('init', pixelId);
-      window.fbq('track', 'PageView');
-      if (eventId) {
-        window.fbq('track', 'CompleteRegistration', {
-          value: 0,
-          currency: 'VND'
-        }, { eventID: eventId });
-      } else {
-        window.fbq('track', 'CompleteRegistration');
-      }
-    }
-  }, [pixelId, eventId]);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    if (!isConfigReady || !pixelId) return;
+
+    initMetaPixel(pixelId);
+    trackMetaEvent("PageView");
+
+    if (!eventId) return;
+
+    const storageKey = `khoi-thong-dong-tien:complete-registration:${eventId}`;
+    trackMetaEventOnce({
+      storageKey,
+      eventName: "CompleteRegistration",
+      params: resolveMetaEventData(trackConfig),
+      options: { eventID: eventId },
+    });
+  }, [eventId, isConfigReady, pixelId, trackConfig]);
 
   const minutes = Math.floor(timeLeft / 60);
   const seconds = timeLeft % 60;
 
   return (
-    <div className="min-h-screen font-sans relative flex items-center justify-center py-10 px-4 scroll-smooth"
-      style={{ background: "linear-gradient(180deg, #F5EDD8 0%, #EAD9B8 30%, #F2E6CC 60%, #EAD9B8 100%)" }}>
+    <div
+      className="min-h-screen font-sans relative flex items-center justify-center py-10 px-4 scroll-smooth"
+      style={{ background: "linear-gradient(180deg, #F5EDD8 0%, #EAD9B8 30%, #F2E6CC 60%, #EAD9B8 100%)" }}
+    >
       <noscript>
-        <img height="1" width="1" style={{ display: "none" }}
+        <img
+          height="1"
+          width="1"
+          style={{ display: "none" }}
           src={`https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1`}
         />
       </noscript>
 
-      {/* Background Orbs */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <div className="absolute top-[-10%] left-[-10%] w-[400px] h-[400px] bg-[#7A2113] rounded-full blur-[120px] opacity-10" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-[#C9961A] rounded-full blur-[150px] opacity-15" />
       </div>
 
       <div className="relative z-10 w-full max-w-md bg-white rounded-[2.5rem] shadow-[0_30px_60px_rgba(122,33,19,0.08)] border border-[#D4B572]/40 overflow-hidden flex flex-col items-center p-8 sm:p-10 text-center">
-
-        {/* Success Icon */}
         <div className="relative w-24 h-24 mb-6 flex items-center justify-center">
-          <div className="absolute inset-0 bg-[#C9961A]/20 rounded-full animate-ping opacity-50" style={{ animationDuration: '3s' }} />
-          <div className="absolute inset-2 bg-[#C9961A]/30 rounded-full animate-ping opacity-70" style={{ animationDuration: '2s' }} />
+          <div
+            className="absolute inset-0 bg-[#C9961A]/20 rounded-full animate-ping opacity-50"
+            style={{ animationDuration: "3s" }}
+          />
+          <div
+            className="absolute inset-2 bg-[#C9961A]/30 rounded-full animate-ping opacity-70"
+            style={{ animationDuration: "2s" }}
+          />
           <div className="relative w-full h-full bg-gradient-to-b from-[#C9961A] to-[#A07840] rounded-full flex items-center justify-center shadow-lg border-4 border-white">
             <CheckCircle2 className="w-12 h-12 text-white" />
           </div>
         </div>
 
-        {/* Header */}
         <h1 className="text-2xl sm:text-[28px] font-black text-[#7A2113] uppercase tracking-wide leading-tight mb-2">
-          ĐĂNG KÝ<br />THÀNH CÔNG!
+          ĐĂNG KÝ
+          <br />
+          THÀNH CÔNG!
         </h1>
 
         <div className="w-16 h-1 bg-[#D4B572] rounded-full mb-6 opacity-50" />
@@ -109,7 +150,7 @@ const CamOnKhoiThong = () => {
           </div>
 
           <h2 className="text-[#3A2208] text-[15px] sm:text-[17px] font-bold leading-snug mt-3">
-            Vào Nhóm Zalo để nhận Tài Liệu Thực Hành & Hướng Dẫn Kèm Cặp
+            Vào Nhóm Zalo để nhận Tài Liệu Thực Hành và Hướng Dẫn Kèm Cặp
           </h2>
 
           <div className="w-full h-px bg-[#D4B572]/30 my-3" />
@@ -119,7 +160,6 @@ const CamOnKhoiThong = () => {
           </p>
         </div>
 
-        {/* Countdown */}
         <div className="flex flex-col items-center mb-8 w-full">
           <p className="text-[#5C3A1A] text-xs font-bold uppercase tracking-widest opacity-80 mb-3 flex items-center gap-1.5">
             <Clock className="w-4 h-4 text-[#7A2113]" />
@@ -128,7 +168,9 @@ const CamOnKhoiThong = () => {
           <div className="flex gap-4 items-center">
             <div className="flex flex-col items-center w-[72px] h-[72px] justify-center bg-gradient-to-b from-[#4A1F08] to-[#2E1202] rounded-2xl shadow-[0_10px_20px_rgba(58,34,8,0.3)] text-white border border-[#D4B572]/20 relative overflow-hidden">
               <div className="absolute top-0 w-full h-1/2 bg-white/5" />
-              <span className="text-4xl font-black leading-none drop-shadow-md z-10">{String(minutes).padStart(2, '0')}</span>
+              <span className="text-4xl font-black leading-none drop-shadow-md z-10">
+                {String(minutes).padStart(2, "0")}
+              </span>
               <span className="text-[9px] uppercase tracking-widest text-[#D4B572] mt-1 z-10">Phút</span>
             </div>
             <div className="flex flex-col items-center justify-center">
@@ -136,23 +178,22 @@ const CamOnKhoiThong = () => {
             </div>
             <div className="flex flex-col items-center w-[72px] h-[72px] justify-center bg-gradient-to-b from-[#4A1F08] to-[#2E1202] rounded-2xl shadow-[0_10px_20px_rgba(58,34,8,0.3)] text-white border border-[#D4B572]/20 relative overflow-hidden">
               <div className="absolute top-0 w-full h-1/2 bg-white/5" />
-              <span className="text-4xl font-black leading-none drop-shadow-md z-10">{String(seconds).padStart(2, '0')}</span>
+              <span className="text-4xl font-black leading-none drop-shadow-md z-10">
+                {String(seconds).padStart(2, "0")}
+              </span>
               <span className="text-[9px] uppercase tracking-widest text-[#D4B572] mt-1 z-10">Giây</span>
             </div>
           </div>
         </div>
 
-        {/* CTA */}
         <div className="w-full relative group">
-          <div className="absolute -inset-1 bg-[#0068FF] rounded-full blur opacity-40 group-hover:opacity-70 transition duration-500 group-hover:duration-200"></div>
+          <div className="absolute -inset-1 bg-[#0068FF] rounded-full blur opacity-40 group-hover:opacity-70 transition duration-500 group-hover:duration-200" />
           <a
             href={zaloLink}
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => {
-              if (window.fbq) {
-                window.fbq('track', 'Contact', { content_name: 'Bấm vào nhóm Zalo' });
-              }
+              trackMetaEvent("Contact", { content_name: "Bam vao nhom Zalo" });
             }}
             className="relative w-full flex flex-col items-center justify-center gap-1 rounded-full py-3.5 px-6 text-white overflow-hidden transition-all duration-300 transform group-hover:scale-[1.02] shadow-[0_10px_25px_rgba(0,104,255,0.4)]"
             style={{ background: "linear-gradient(180deg, #1877F2 0%, #0056D2 100%)" }}
@@ -169,7 +210,6 @@ const CamOnKhoiThong = () => {
         <p className="text-[#5C3A1A] text-[11px] mt-4 opacity-60 italic">
           (Vui lòng kiên nhẫn bấm lại vài lần nếu Zalo chưa mở)
         </p>
-
       </div>
     </div>
   );
