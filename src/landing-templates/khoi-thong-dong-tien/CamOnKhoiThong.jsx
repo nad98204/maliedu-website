@@ -9,7 +9,7 @@ import {
   trackMetaEventOnce,
 } from "../../utils/metaPixel";
 
-const DEFAULT_ZALO_LINK = "https://zalo.me/g/iquxgv057";
+const DEFAULT_ZALO_LINK = "https://zalo.me/g/fedjcewig0zvk3kkvvp0";
 const DEFAULT_PIXEL_ID = "1526874981588150";
 const DEFAULT_TRACK_CONFIG = {
   fbCurrency: "VND",
@@ -50,16 +50,18 @@ const CamOnKhoiThong = () => {
 
         if (matchDoc) {
           const data = matchDoc.data();
-          if (data.zaloLink) setZaloLink(data.zaloLink);
+          setZaloLink(DEFAULT_ZALO_LINK);
           setPixelId(data.fbPixel || DEFAULT_PIXEL_ID);
           setTrackConfig((prev) => ({ ...prev, ...data }));
         } else {
+          setZaloLink(DEFAULT_ZALO_LINK);
           setPixelId(DEFAULT_PIXEL_ID);
         }
         setIsConfigReady(true);
       } catch (error) {
         console.error("Loi lay config thank you:", error);
         if (!isCancelled) {
+          setZaloLink(DEFAULT_ZALO_LINK);
           setPixelId(DEFAULT_PIXEL_ID);
           setIsConfigReady(true);
         }
