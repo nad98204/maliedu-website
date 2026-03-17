@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { KHOI_THONG_DONG_TIEN_CONFIG } from "../landingConfig";
 
-const EVENT_START = "2026-03-24T20:00:00+07:00";
 const VIDEO_URL =
   "https://storage.googleapis.com/msgsndr/Ap9y6wdpftIPKJBsddZ2/media/689611b86346f43e6e53ff86.mp4";
 const TITLE_IMG_URL =
@@ -185,7 +185,10 @@ const VideoPlayer = () => {
 
 /* ─── Countdown ─────────────────────────────────────────────── */
 const Countdown = () => {
-  const target = useMemo(() => new Date(EVENT_START).getTime(), []);
+  const target = useMemo(
+    () => new Date(KHOI_THONG_DONG_TIEN_CONFIG.eventStart).getTime(),
+    []
+  );
   const [left, setLeft] = useState(() => Math.max(0, target - Date.now()));
 
   useEffect(() => {
@@ -301,7 +304,7 @@ const BannerChinh = () => (
               <span className="flex items-center gap-1.5 mt-0.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#FFE566] animate-ping opacity-80" />
                 <span className="text-white/90 text-[0.65rem] sm:text-xs font-semibold uppercase tracking-wider">
-                  20h00, 24-25-26-27/03
+                  {KHOI_THONG_DONG_TIEN_CONFIG.ctaScheduleLabel}
                 </span>
               </span>
             </a>

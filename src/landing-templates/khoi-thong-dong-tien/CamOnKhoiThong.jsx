@@ -8,8 +8,9 @@ import {
   trackMetaEvent,
   trackMetaEventOnce,
 } from "../../utils/metaPixel";
+import { KHOI_THONG_DONG_TIEN_CONFIG } from "./landingConfig";
 
-const DEFAULT_ZALO_LINK = "https://zalo.me/g/fedjcewig0zvk3kkvvp0";
+const DEFAULT_ZALO_LINK = KHOI_THONG_DONG_TIEN_CONFIG.zaloLink;
 const DEFAULT_PIXEL_ID = "1526874981588150";
 const DEFAULT_TRACK_CONFIG = {
   fbCurrency: "VND",
