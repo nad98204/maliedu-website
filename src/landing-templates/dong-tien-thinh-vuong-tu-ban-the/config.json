@@ -1,0 +1,17 @@
+{
+  "id": "dong-tien-thinh-vuong-tu-ban-the",
+  "name": "Dòng Tiền Thịnh Vượng Từ Bản Thể",
+  "description": "Landing template trống để phát triển nội dung cho chương trình Dòng Tiền Thịnh Vượng Từ Bản Thể.",
+  "category": "course",
+  "thumbnail": "https://s3-hn1-api.longvan.vn/video-khoa-hoc/videos/1773736929295-661078967--o-Tr-ng-C--i-Gh-p-Banner.png",
+  "slug": "/landing/dong-tien-thinh-vuong-tu-ban-the",
+  "status": "draft",
+  "createdAt": "2026-03-17",
+  "author": "Mali Edu Team",
+  "features": [
+    "Khung landing trống",
+    "Sẵn sàng thêm section",
+    "Responsive cơ bản"
+  ],
+  "folderId": null
+}

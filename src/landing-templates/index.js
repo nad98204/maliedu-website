@@ -22,4 +22,5 @@ export { default as ThienGiaoThua } from './thien-giao-thua';
 
 // Khơi Thông Dòng Tiền - Sự kiện tài chính
 export { default as KhoiThongDongTien } from './khoi-thong-dong-tien';
+export { default as DongTienThinhVuongTuBanThe } from './dong-tien-thinh-vuong-tu-ban-the/DòngTiềnThịnhVượngTừBảnThể';
 

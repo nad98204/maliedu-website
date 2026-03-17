@@ -5,6 +5,7 @@ import CreateTemplateModal from "./components/CreateTemplateModal";
 import CreateFolderModal from "./components/CreateFolderModal";
 import FolderSidebar from "./components/FolderSidebar";
 import * as LandingTemplates from "../../../landing-templates";
+import dongTienThinhVuongTuBanTheConfig from "../../../landing-templates/dong-tien-thinh-vuong-tu-ban-the/config.json";
 import exampleConfig from "../../../landing-templates/example-template/config.json";
 import thienGiaoThuaConfig from "../../../landing-templates/thien-giao-thua/config.json";
 
@@ -25,6 +26,11 @@ const AdminLandingBuilder = () => {
                 id: 'thien-giao-thua',
                 component: LandingTemplates.ThienGiaoThua,
                 config: {...thienGiaoThuaConfig, folderId: null}
+            },
+            {
+                id: 'dong-tien-thinh-vuong-tu-ban-the',
+                component: LandingTemplates.DongTienThinhVuongTuBanThe,
+                config: {...dongTienThinhVuongTuBanTheConfig, folderId: null}
             }
         ];
     });
