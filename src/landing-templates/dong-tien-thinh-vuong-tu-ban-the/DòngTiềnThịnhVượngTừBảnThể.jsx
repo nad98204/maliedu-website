@@ -22,7 +22,7 @@ const ZALO_GROUP_LINK = "https://zalo.me/g/fedjcewig0zvk3kkvvp0";
 const heroHighlights = [
   {
     icon: Clock3,
-    title: "12 buổi tối học online",
+    title: "12 buổi học online qua Zoom & Livestream",
     description: "22h30 - 23h30",
   },
   {
@@ -238,9 +238,24 @@ const DongTienThinhVuongTuBanThe = () => {
                   </span>
                 </motion.div>
 
-                <motion.div variants={itemVariants} className="mb-6">
+                {/* Mobile-only Banner Title */}
+                <motion.div 
+                  variants={itemVariants} 
+                  className="mb-8 block lg:hidden w-full px-0"
+                >
+                  <div className="relative overflow-hidden rounded-[24px] border border-[#ecd9b6]/30 bg-white/10 p-1 shadow-2xl backdrop-blur-sm">
+                    <img 
+                      src={BANNER_IMAGE} 
+                      alt="Dòng Tiền Thịnh Vượng Từ Bản Thể" 
+                      className="w-full h-auto object-contain rounded-[20px] shadow-inner"
+                    />
+                    <div className="absolute inset-0 ring-1 ring-inset ring-white/20 rounded-[20px]" />
+                  </div>
+                </motion.div>
+
+                <motion.div variants={itemVariants} className="mb-6 hidden lg:flex">
                   <h1
-                    className="relative flex flex-col font-extrabold tracking-tight text-[clamp(3.2rem,15vw,5.5rem)] lg:text-[clamp(2.6rem,6.8vw,4.8rem)] leading-[1.1]"
+                    className="relative flex flex-col font-extrabold tracking-tight lg:text-[clamp(2.6rem,6.8vw,4.8rem)] leading-[1.1]"
                     style={titleStyle}
                   >
                     <span className="block text-[#4c3218] story-script py-2 -my-2">Dòng Tiền</span>
@@ -252,7 +267,7 @@ const DongTienThinhVuongTuBanThe = () => {
                       whileInView={{ width: "130px" }}
                       viewport={{ once: true }}
                       transition={{ delay: 1, duration: 1 }}
-                      className="absolute -bottom-4 left-1/2 -translate-x-1/2 lg:left-0 lg:translate-x-0 h-1 bg-[#daa34a]/35 rounded-full" 
+                      className="absolute -bottom-4 left-0 h-1 bg-[#daa34a]/35 rounded-full" 
                     />
                   </h1>
                 </motion.div>
@@ -350,7 +365,7 @@ const DongTienThinhVuongTuBanThe = () => {
                     >
                       <PlayCircle size={22} fill="rgba(182, 123, 34, 0.1)" />
                     </motion.div>
-                    <span className="text-[13px] font-black uppercase tracking-[0.2em]">Học trực tiếp Zoom tối</span>
+                    <span className="text-[13px] font-black uppercase tracking-[0.2em]">Học trực tiếp Zoom & Livestream</span>
                   </div>
                 </motion.div>
 
@@ -529,7 +544,7 @@ const DongTienThinhVuongTuBanThe = () => {
                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#f7dc98] to-[#daa34a] text-[#4c3218] shadow-lg">
                               <PlayCircle size={24} />
                            </div>
-                           <span className="text-xs font-black uppercase tracking-[0.2em] text-[#f7dc98]">Zoom Chuyên Sâu</span>
+                           <span className="text-xs font-black uppercase tracking-[0.2em] text-[#f7dc98]">Zoom & Livestream Chuyên Sâu</span>
                         </div>
 
                         <h4 className="text-xl font-bold mb-6 leading-tight">
