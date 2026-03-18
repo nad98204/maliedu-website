@@ -322,13 +322,20 @@ const DongTienThinhVuongTuBanThe = () => {
                   initial={{ opacity: 0, y: 15 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 1, duration: 0.8 }}
-                  className="mt-8 flex flex-col items-center gap-5"
+                  className="mt-8 flex flex-col items-center gap-4"
                 >
+                  <motion.p 
+                    animate={{ scale: [1, 1.1, 1], opacity: [0.8, 1, 0.8] }}
+                    transition={{ duration: 1.5, repeat: Infinity }}
+                    className="text-[16px] font-black uppercase tracking-[0.4em] text-red-600 drop-shadow-sm"
+                  >
+                    HOÀN TOÀN MIỄN PHÍ
+                  </motion.p>
                   <a
                     href={ZALO_GROUP_LINK}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="group relative flex items-center justify-center gap-2.5 overflow-hidden rounded-full bg-[linear-gradient(135deg,_#f7dc98_0%,_#daa34a_60%,_#bb7922_100%)] px-10 py-4 text-base font-black text-[#2f1b0b] shadow-[0_20px_50px_rgba(192,128,40,0.25)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_25px_60px_rgba(192,128,40,0.35)]"
+                    className="group relative flex items-center justify-center gap-2.5 overflow-hidden rounded-full bg-red-600 px-10 py-4 text-base font-black text-white shadow-[0_20px_50px_rgba(192,128,40,0.25)] transition-all duration-300 hover:-translate-y-1 hover:bg-red-700 hover:shadow-[0_25px_60px_rgba(192,128,40,0.35)]"
                   >
                     <span className="absolute inset-0 block h-full w-full animate-[shimmer_2s_infinite] bg-[linear-gradient(120deg,rgba(255,255,255,0)_30%,rgba(255,255,255,0.4)_50%,rgba(255,255,255,0)_70%)] opacity-0 group-hover:opacity-100" />
                     THAM GIA NHÓM ZALO
@@ -361,12 +368,19 @@ const DongTienThinhVuongTuBanThe = () => {
               >
 
                 {/* Nút CTA nằm dướdi banner chỉ hiện trên mobile */}
-                <div className="flex justify-center">
+                <div className="flex flex-col items-center gap-3">
+                  <motion.p 
+                    animate={{ scale: [1, 1.1, 1] }}
+                    transition={{ duration: 1.5, repeat: Infinity }}
+                    className="text-[14px] font-black uppercase tracking-[0.2em] text-red-600"
+                  >
+                    HOÀN TOÀN MIỄN PHÍ
+                  </motion.p>
                   <a
                     href={ZALO_GROUP_LINK}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="group relative inline-flex items-center justify-center gap-2.5 overflow-hidden rounded-full bg-[linear-gradient(135deg,_#f7dc98_0%,_#daa34a_60%,_#bb7922_100%)] px-8 py-3.5 text-sm font-black text-[#2f1b0b] shadow-[0_12px_35px_rgba(192,128,40,0.2)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_18px_45px_rgba(192,128,40,0.3)]"
+                    className="group relative inline-flex items-center justify-center gap-2.5 overflow-hidden rounded-full bg-red-600 px-8 py-3.5 text-sm font-black text-white shadow-[0_12px_35px_rgba(192,128,40,0.2)] transition-all duration-300 hover:-translate-y-0.5 hover:bg-red-700 hover:shadow-[0_18px_45px_rgba(192,128,40,0.3)]"
                   >
                     <span className="absolute inset-0 block h-full w-full animate-[shimmer_2s_infinite] bg-[linear-gradient(120deg,rgba(255,255,255,0)_30%,rgba(255,255,255,0.4)_50%,rgba(255,255,255,0)_70%)] opacity-0 group-hover:opacity-100" />
                     THAM GIA NHÓM ZALO
@@ -560,11 +574,18 @@ const DongTienThinhVuongTuBanThe = () => {
             viewport={{ once: true }}
             className="mt-12 lg:mt-24 text-center"
           >
+             <motion.p 
+               animate={{ scale: [1, 1.1, 1], opacity: [0.9, 1, 0.9] }}
+               transition={{ duration: 1.5, repeat: Infinity }}
+               className="text-base sm:text-2xl font-black uppercase tracking-[0.4em] text-red-600 mb-6 drop-shadow-md"
+             >
+               HOÀN TOÀN MIỄN PHÍ
+             </motion.p>
              <a
               href={ZALO_GROUP_LINK}
               target="_blank"
               rel="noopener noreferrer"
-              className="group relative inline-flex items-center justify-center gap-3 overflow-hidden rounded-full bg-[linear-gradient(135deg,_#4c3218_0%,_#2f1b0b_100%)] px-12 py-5 text-lg font-black text-white shadow-[0_20px_50px_rgba(47,27,11,0.25)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_25px_60px_rgba(47,27,11,0.35)]"
+              className="group relative inline-flex items-center justify-center gap-3 overflow-hidden rounded-full bg-red-600 px-12 py-5 text-lg font-black text-white shadow-[0_20px_50px_rgba(47,27,11,0.25)] transition-all duration-300 hover:-translate-y-1 hover:bg-red-700 hover:shadow-[0_25px_60px_rgba(47,27,11,0.35)]"
             >
               THAM GIA NHÓM ZALO
               <ArrowRight size={22} className="transition-transform duration-300 group-hover:translate-x-2" />
