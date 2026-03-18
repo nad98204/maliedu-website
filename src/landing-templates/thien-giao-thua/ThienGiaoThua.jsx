@@ -1,5 +1,7 @@
 import React from 'react';
 import Footer from '../../components/Footer';
+import SEO from '../../components/SEO';
+import { getRouteSeo } from '../../seo/routeSeo';
 
 const RoadmapItem = ({ phase, date, title, items, icon }) => (
   // Mobile: Timeline Left aligned | Desktop: Horizontal/Grid hybrid or keep vertical but centered styled
@@ -68,12 +70,15 @@ const RoadmapItem = ({ phase, date, title, items, icon }) => (
  * Design: Timeline & Mobile-First
  */
 const ThienGiaoThua = () => {
+  const seo = getRouteSeo('/landing/thien-giao-thua');
+
   const handleJoinZalo = () => {
     window.open('https://zalo.me/g/mqdxfb035', '_blank');
   };
 
   return (
     <div className="min-h-screen flex flex-col relative overflow-hidden bg-slate-900 font-sans selection:bg-amber-500/30 text-white">
+      <SEO {...seo} />
       {/* Keyframes Style Injection for simple entry animations */}
       <style>{`
         @keyframes fadeUp {

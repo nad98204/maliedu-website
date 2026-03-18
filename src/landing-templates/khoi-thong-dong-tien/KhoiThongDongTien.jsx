@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { collection, getDocs } from "firebase/firestore";
 import Footer from "../../components/Footer";
+import SEO from "../../components/SEO";
 import { crmFirestore } from "../../firebase";
+import { getRouteSeo } from "../../seo/routeSeo";
 import { initMetaPixel, trackMetaEvent } from "../../utils/metaPixel";
 import BannerChinh from "./sections/BannerChinh";
 import CauChuyenNguoiSangLap from "./sections/CauChuyenNguoiSangLap";
@@ -24,6 +26,7 @@ const normalizePath = (path) => {
 const KhoiThongDongTien = () => {
   const [pixelId, setPixelId] = useState("");
   const [isPixelReady, setIsPixelReady] = useState(false);
+  const seo = getRouteSeo("/dao-tao/khoi-thong-dong-tien");
 
   useEffect(() => {
     let isCancelled = false;
@@ -75,6 +78,7 @@ const KhoiThongDongTien = () => {
         background: "linear-gradient(180deg, #FFFFFF 0%, #FDF7EC 15%, #F5EDD8 50%, #EAD9B8 100%)",
       }}
     >
+      <SEO {...seo} />
       <noscript>
         <img
           height="1"
