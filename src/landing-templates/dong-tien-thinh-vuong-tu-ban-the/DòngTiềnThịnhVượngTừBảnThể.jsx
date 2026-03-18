@@ -1,5 +1,5 @@
-import React from "react";
 import { motion } from "framer-motion";
+import { Helmet } from "react-helmet-async";
 import {
   ArrowRight,
   ChevronDown,
@@ -152,6 +152,15 @@ const DongTienThinhVuongTuBanThe = () => {
 
   return (
     <main className="min-h-screen bg-[#fffdfa] text-[#3f2a15] selection:bg-[#f6e4bf] selection:text-[#5a3812]">
+      <Helmet>
+        <title>Dòng Tiền Thịnh Vượng Từ Bản Thể - Mali Edu</title>
+        <meta name="description" content="Khai mở tư duy, hoá giải nghẽn tắc và thiếp lập sự thông tuệ tài chính từ gốc rễ nội lực, mang lại sự thịnh vượng bền vững." />
+        <meta property="og:title" content="Dòng Tiền Thịnh Vượng Từ Bản Thể - Mali Edu" />
+        <meta property="og:description" content="Khai mở tư duy, hoá giải nghẽn tắc và thiếp lập sự thông tuệ tài chính từ gốc rễ nội lực, mang lại sự thịnh vượng bền vững." />
+        <meta property="og:image" content={BANNER_IMAGE} />
+        <meta property="og:url" content={window.location.href} />
+        <meta property="og:type" content="website" />
+      </Helmet>
       <style>{shimmerKeyframes}</style>
       {/* Premium Hero Section */}
       <section className="relative isolate flex flex-col overflow-hidden lg:h-screen lg:max-h-[950px]">

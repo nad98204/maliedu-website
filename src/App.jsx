@@ -6,6 +6,7 @@ import {
   useLocation,
 } from "react-router-dom";
 import { Toaster } from 'react-hot-toast';
+import { HelmetProvider } from 'react-helmet-async';
 
 import AdminRoute from "./components/AdminRoute";
 import Footer from "./components/Footer";
@@ -182,9 +183,11 @@ function App() {
   return (
     <BrowserRouter>
       <CartProvider>
-        <ScrollToTop />
-        <AppShell />
-        <Toaster position="top-center" />
+        <HelmetProvider>
+          <ScrollToTop />
+          <AppShell />
+          <Toaster position="top-center" />
+        </HelmetProvider>
       </CartProvider>
     </BrowserRouter>
   );
