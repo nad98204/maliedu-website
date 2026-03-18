@@ -204,7 +204,7 @@ const DongTienThinhVuongTuBanThe = () => {
           />
         </div>
 
-        <div className="relative mx-auto flex w-full max-w-[1260px] lg:flex-1 flex-col px-5 pt-10 pb-12 sm:px-10 lg:pt-6 lg:pb-16">
+        <div className="relative mx-auto flex w-full max-w-[1260px] lg:flex-1 flex-col px-0 pt-10 pb-12 sm:px-10 lg:pt-6 lg:pb-16">
           {/* Header/Logo */}
           <motion.div 
             initial={{ opacity: 0, y: -15 }}
@@ -219,7 +219,7 @@ const DongTienThinhVuongTuBanThe = () => {
             />
           </motion.div>
 
-          <div className="mt-6 flex flex-1 flex-col justify-center lg:justify-center lg:mt-5 px-4 sm:px-6 lg:px-8 gap-8 lg:gap-0">
+          <div className="mt-6 flex flex-1 flex-col justify-center lg:justify-center lg:mt-5 px-0 sm:px-6 lg:px-8 gap-8 lg:gap-0">
             <div className="grid items-center gap-10 lg:grid-cols-[1.1fr_0.9fr] xl:gap-20">
               {/* Content Column */}
               <motion.div
@@ -228,7 +228,7 @@ const DongTienThinhVuongTuBanThe = () => {
                 animate="visible"
                 className="relative z-10 flex flex-col items-center text-center lg:items-start lg:text-left lg:scale-[0.96] origin-center lg:origin-left"
               >
-                <motion.div variants={itemVariants} className="mb-4 inline-flex items-center space-x-2 rounded-full border border-[#efd8af]/40 bg-[#fff5e1]/55 px-3 py-1 backdrop-blur-md">
+                <motion.div variants={itemVariants} className="mb-4 mx-4 inline-flex items-center space-x-2 rounded-full border border-[#efd8af]/40 bg-[#fff5e1]/55 px-3 py-1 backdrop-blur-md lg:mx-0">
                   <span className="relative flex h-1.5 w-1.5">
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#cd9228] opacity-75"></span>
                     <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#cd9228]"></span>
@@ -241,7 +241,7 @@ const DongTienThinhVuongTuBanThe = () => {
                 {/* Mobile-only Banner Title */}
                 <motion.div 
                   variants={itemVariants} 
-                  className="mb-8 block lg:hidden w-full px-0"
+                  className="mb-8 block lg:hidden w-full px-4"
                 >
                   <div className="relative overflow-hidden rounded-[24px] border border-[#ecd9b6]/30 bg-white/10 p-1 shadow-2xl backdrop-blur-sm">
                     <img 
@@ -272,12 +272,12 @@ const DongTienThinhVuongTuBanThe = () => {
                   </h1>
                 </motion.div>
 
-                <motion.p variants={itemVariants} className="mb-8 text-[10px] sm:text-[12px] lg:text-[15px] leading-relaxed text-[#6b4e2f]/80 font-medium">
+                <motion.p variants={itemVariants} className="mb-8 px-4 text-[10px] sm:text-[12px] lg:text-[15px] lg:px-0 leading-relaxed text-[#6b4e2f]/80 font-medium">
                   <span className="block">Khai mở tư duy, hoá giải nghẽn tắc và thiếp lập sự thông tuệ tài chính</span>
                   <span className="block">từ gốc rễ nội lực, mang lại sự thịnh vượng bền vững.</span>
                 </motion.p>
 
-                <motion.div variants={itemVariants} className="flex flex-wrap justify-center gap-4 lg:justify-start">
+                <motion.div variants={itemVariants} className="flex flex-wrap justify-center gap-2.5 px-2 lg:gap-4 lg:justify-start lg:px-0 lg:w-fit">
                   {heroHighlights.map(({ icon: Icon, title, description }) => (
                     <div
                       key={title}
