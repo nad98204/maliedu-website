@@ -104,9 +104,7 @@ const courseRoadmap = [
   }
 ];
 
-const heroLinks = [
-  { label: "Lộ trình học", href: "#lo-trinh-hoc" },
-];
+const heroLinks = [];
 
 const titleStyle = {
   color: "#b07d2b",
@@ -156,7 +154,7 @@ const DongTienThinhVuongTuBanThe = () => {
     <main className="min-h-screen bg-[#fffdfa] text-[#3f2a15] selection:bg-[#f6e4bf] selection:text-[#5a3812]">
       <style>{shimmerKeyframes}</style>
       {/* Premium Hero Section */}
-      <section className="relative isolate flex min-h-screen flex-col overflow-hidden lg:h-screen lg:max-h-[950px]">
+      <section className="relative isolate flex flex-col overflow-hidden lg:h-screen lg:max-h-[950px]">
         {/* Background Layers */}
         <div className="absolute inset-0 -z-10 overflow-hidden">
           {/* Restore Original Rich Gradients */}
@@ -197,7 +195,7 @@ const DongTienThinhVuongTuBanThe = () => {
           />
         </div>
 
-        <div className="relative mx-auto flex w-full max-w-[1260px] flex-1 flex-col px-5 pt-4 pb-12 sm:px-10 lg:pt-6 lg:pb-24">
+        <div className="relative mx-auto flex w-full max-w-[1260px] lg:flex-1 flex-col px-5 pt-10 pb-12 sm:px-10 lg:pt-6 lg:pb-16">
           {/* Header/Logo */}
           <motion.div 
             initial={{ opacity: 0, y: -15 }}
@@ -212,14 +210,14 @@ const DongTienThinhVuongTuBanThe = () => {
             />
           </motion.div>
 
-          <div className="mt-4 flex flex-1 flex-col justify-center lg:mt-5 px-4 sm:px-6 lg:px-8">
+          <div className="mt-6 flex flex-1 flex-col justify-center lg:justify-center lg:mt-5 px-4 sm:px-6 lg:px-8 gap-8 lg:gap-0">
             <div className="grid items-center gap-10 lg:grid-cols-[1.1fr_0.9fr] xl:gap-20">
               {/* Content Column */}
               <motion.div
                 variants={containerVariants}
                 initial="hidden"
                 animate="visible"
-                className="relative z-10 flex flex-col items-center text-center lg:items-start lg:text-left scale-[0.96] origin-center lg:origin-left"
+                className="relative z-10 flex flex-col items-center text-center lg:items-start lg:text-left lg:scale-[0.96] origin-center lg:origin-left"
               >
                 <motion.div variants={itemVariants} className="mb-4 inline-flex items-center space-x-2 rounded-full border border-[#efd8af]/40 bg-[#fff5e1]/55 px-3 py-1 backdrop-blur-md">
                   <span className="relative flex h-1.5 w-1.5">
@@ -233,12 +231,12 @@ const DongTienThinhVuongTuBanThe = () => {
 
                 <motion.div variants={itemVariants} className="mb-6">
                   <h1
-                    className="relative flex flex-col font-extrabold tracking-tight text-[clamp(3.2rem,10vw,3.8rem)] lg:text-[clamp(2.6rem,6.8vw,4.8rem)] leading-[1.1]"
+                    className="relative flex flex-col font-extrabold tracking-tight text-[clamp(3.2rem,15vw,5.5rem)] lg:text-[clamp(2.6rem,6.8vw,4.8rem)] leading-[1.1]"
                     style={titleStyle}
                   >
                     <span className="block text-[#4c3218] story-script py-2 -my-2">Dòng Tiền</span>
                     <span className="block text-transparent bg-clip-text bg-[linear-gradient(to_right,#b07d2b,#daa34a,#b07d2b)] story-script py-3 -my-3 px-4 -mx-4">Thịnh Vượng</span>
-                    <span className="block text-[#4c3218] story-script py-2 -my-2">Từ Bản Thể</span>
+                    <span className="block text-[#4c3218] story-script py-2 -my-2 mt-1 lg:mt-0">Từ Bản Thể</span>
                     
                     <motion.div 
                       initial={{ width: 0 }}
@@ -250,7 +248,7 @@ const DongTienThinhVuongTuBanThe = () => {
                   </h1>
                 </motion.div>
 
-                <motion.p variants={itemVariants} className="mb-8 text-[11px] sm:text-[12px] lg:text-[15px] leading-relaxed text-[#6b4e2f]/80 font-medium">
+                <motion.p variants={itemVariants} className="mb-8 text-[10px] sm:text-[12px] lg:text-[15px] leading-relaxed text-[#6b4e2f]/80 font-medium">
                   <span className="block">Khai mở tư duy, hoá giải nghẽn tắc và thiếp lập sự thông tuệ tài chính</span>
                   <span className="block">từ gốc rễ nội lực, mang lại sự thịnh vượng bền vững.</span>
                 </motion.p>
@@ -352,13 +350,7 @@ const DongTienThinhVuongTuBanThe = () => {
                 transition={{ delay: 0.4, duration: 0.8 }}
                 className="lg:hidden mb-4 flex flex-col gap-4"
               >
-                <div className="overflow-hidden rounded-[24px] border border-[#ecd9b6]/20 bg-white/10 p-1 shadow-lg">
-                  <img
-                    src={BANNER_IMAGE}
-                    alt="Dòng Tiền Thịnh Vượng"
-                    className="aspect-video w-full object-cover rounded-[18px]"
-                  />
-                </div>
+
                 {/* Nút CTA nằm dướdi banner chỉ hiện trên mobile */}
                 <div className="flex justify-center">
                   <a
@@ -380,7 +372,7 @@ const DongTienThinhVuongTuBanThe = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 1.2, duration: 1 }}
-            className="mt-6 hidden sm:flex flex-col items-center justify-between gap-4 border-t border-[#f0e0c4]/30 pt-4 sm:flex-row"
+            className="mt-6 hidden sm:flex flex-col items-center justify-between gap-4 border-t border-[#f0e0c4]/30 pt-4 sm:flex-row lg:mb-8"
           >
             <div className="flex flex-wrap justify-center gap-3 sm:justify-start">
               {heroLinks.map((link) => (
@@ -431,7 +423,7 @@ const DongTienThinhVuongTuBanThe = () => {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: 0.1 }}
-              className="text-4xl md:text-5xl font-extrabold text-[#4c3218] tracking-tight mb-6 leading-[1.2]"
+              className="text-[30px] md:text-5xl font-extrabold text-[#4c3218] tracking-tight mb-6 leading-[1.2]"
             >
               Hành Trình Khai Thông <br className="hidden md:block" />
               <span className="mt-2 block text-transparent bg-clip-text bg-[linear-gradient(to_right,#8a5e1d,#b07d2b,#8a5e1d)] story-script text-[1.3em] pb-4 leading-normal">Dòng Tiền Thịnh Vượng</span>
@@ -568,7 +560,7 @@ const DongTienThinhVuongTuBanThe = () => {
               THAM GIA NHÓM ZALO
               <ArrowRight size={22} className="transition-transform duration-300 group-hover:translate-x-2" />
             </a>
-            <p className="mt-6 text-[11px] uppercase font-black tracking-[0.4em] text-[#a06d24]">Cơ hội chuyển hóa tài chính duy nhất trong năm</p>
+            <p className="mt-6 text-[9px] sm:text-[11px] uppercase font-black tracking-[0.1em] sm:tracking-[0.4em] text-[#a06d24]">Cơ hội chuyển hóa tài chính duy nhất trong năm</p>
           </motion.div>
         </div>
       </section>
