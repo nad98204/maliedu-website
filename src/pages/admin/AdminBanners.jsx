@@ -10,6 +10,7 @@ import {
 import { Trash2, ChevronDown, ChevronUp } from "lucide-react";
 
 import { db } from "../../firebase";
+import { writeHomeBannerCache } from "../../utils/homeBannerCache";
 import { deleteFromCloudinary, uploadToCloudinary } from "../../utils/uploadService";
 import { getDoc, setDoc } from "firebase/firestore";
 import { toast } from "react-hot-toast";
@@ -52,6 +53,7 @@ const AdminBanners = () => {
         ...docItem.data(),
       }));
       setBanners(items);
+      writeHomeBannerCache(items);
     } catch (err) {
       console.error("Error fetching banners:", err);
       toast.error(`Lỗi tải dữ liệu: ${err.message}`);
@@ -168,18 +170,24 @@ const AdminBanners = () => {
     if (bannerToDelete?.mobileDeleteToken) {
       await deleteFromCloudinary(bannerToDelete.mobileDeleteToken);
     }
-    setBanners((prev) => prev.filter((banner) => banner.id !== bannerId));
+    setBanners((prev) => {
+      const nextBanners = prev.filter((banner) => banner.id !== bannerId);
+      writeHomeBannerCache(nextBanners);
+      return nextBanners;
+    });
   };
 
   const handleToggleActive = async (bannerId, currentValue) => {
     await updateDoc(doc(db, "banners", bannerId), { active: !currentValue });
-    setBanners((prev) =>
-      prev.map((banner) =>
+    setBanners((prev) => {
+      const nextBanners = prev.map((banner) =>
         banner.id === bannerId
           ? { ...banner, active: !currentValue }
           : banner
-      )
-    );
+      );
+      writeHomeBannerCache(nextBanners);
+      return nextBanners;
+    });
   };
 
   const handleContentChange = (e) => {

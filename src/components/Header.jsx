@@ -22,6 +22,7 @@ import { auth } from "../firebase";
 import { HOTLINE, MENU_ITEMS, SOCIALS } from "../menuData";
 import { useCart } from "../context/CartContext";
 import GlobalSearch from "./GlobalSearch";
+import AuthModal from "./AuthModal";
 import { logoutSession } from "../utils/sessionService";
 
 const SOCIAL_LINKS = [
@@ -35,6 +36,7 @@ const Header = () => {
   const [openSubmenus, setOpenSubmenus] = useState({});
   const [currentUser, setCurrentUser] = useState(null);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
   const { cartCount = 0 } = useCart() || {};
   const navigate = useNavigate();
 
@@ -177,13 +179,14 @@ const Header = () => {
                 )}
               </div>
             ) : (
-              <Link
-                to="/admin/login"
+              <button
+                type="button"
+                onClick={() => setAuthModalOpen(true)}
                 className="inline-flex items-center gap-1.5 px-2 py-1 text-[10px] sm:gap-2 sm:px-3 sm:py-1.5 sm:text-xs rounded-full border border-secret-paper/80 text-secret-paper font-medium hover:bg-white/10 transition"
               >
                 <LogIn className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                 Đăng nhập
-              </Link>
+              </button>
             )}
 
           </div>
@@ -400,13 +403,16 @@ const Header = () => {
                     </button>
                   </div>
                 ) : (
-                  <Link
-                    to="/admin/login"
-                    onClick={closeMobileMenu}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      closeMobileMenu();
+                      setAuthModalOpen(true);
+                    }}
                     className="w-full text-center px-4 py-2 rounded-full border border-secret-wax text-secret-wax text-sm font-semibold hover:bg-secret-wax/10 transition"
                   >
                     Đăng nhập
-                  </Link>
+                  </button>
                 )}
               </div>
 
@@ -428,6 +434,7 @@ const Header = () => {
           </div>
         </div>
       )}
+      <AuthModal isOpen={authModalOpen} onClose={() => setAuthModalOpen(false)} />
     </div >
   );
 };

@@ -4,6 +4,7 @@ import { signInWithEmailAndPassword, signOut } from "firebase/auth";
 
 import { auth, db } from "../../firebase";
 import { ensureUserProfile } from "../../utils/userService";
+import { getFirebaseAuthMessage } from "../../utils/firebaseAuthErrors";
 import { registerSession } from "../../utils/sessionService";
 
 const Login = () => {
@@ -47,11 +48,7 @@ const Login = () => {
       }
     } catch (err) {
       console.error(err);
-      if (err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found') {
-        setError("Email hoặc mật khẩu không chính xác.");
-      } else {
-        setError("Đăng nhập thất bại. Vui lòng thử lại.");
-      }
+      setError(getFirebaseAuthMessage(err));
     } finally {
       setIsSubmitting(false);
     }

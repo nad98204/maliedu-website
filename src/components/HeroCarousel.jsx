@@ -1,12 +1,60 @@
 import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { collection, getDocs, query, where } from "firebase/firestore";
 
-import { db } from "../firebase";
+import { HERO_SLIDES } from "../data/heroData";
+import { readHomeBannerCache } from "../utils/homeBannerCache";
+
+const normalizeCloudinaryImage = (url, transform) => {
+  if (!url || typeof url !== "string" || !url.includes("res.cloudinary.com")) {
+    return url ?? "";
+  }
+
+  const marker = "/upload/";
+  const markerIndex = url.indexOf(marker);
+  if (markerIndex === -1) {
+    return url;
+  }
+
+  const prefix = url.slice(0, markerIndex + marker.length);
+  const rest = url.slice(markerIndex + marker.length);
+
+  if (rest.startsWith("f_") || rest.startsWith("q_") || rest.startsWith("c_") || rest.startsWith("w_") || rest.startsWith("h_") || rest.startsWith("g_")) {
+    return `${prefix}${transform}/${rest}`;
+  }
+
+  return `${prefix}${transform}/${rest}`;
+};
+
+const normalizeSlide = (slide, index) => ({
+  id: slide.id ?? `fallback-slide-${index}`,
+  image: normalizeCloudinaryImage(
+    slide.imageUrl ?? slide.image ?? "",
+    "f_auto,q_auto,c_fill,g_auto,w_1920,h_525"
+  ),
+  mobileImage: normalizeCloudinaryImage(
+    slide.mobileImageUrl ?? slide.mobileImage ?? slide.imageUrl ?? slide.image ?? "",
+    "f_auto,q_auto,c_fill,g_auto,w_900,h_1200"
+  ),
+  title: slide.title ?? "",
+  subtitle: slide.subtitle ?? "",
+  ctaText: slide.ctaText ?? "",
+  ctaLink: slide.ctaLink ?? "#",
+});
+
+const buildSlides = (items) =>
+  items
+    .filter((slide) => (slide.active ?? true) && (slide.imageUrl ?? slide.image))
+    .map((slide, index) => normalizeSlide(slide, index));
+
+const FALLBACK_SLIDES = buildSlides(HERO_SLIDES);
+
+const getSlides = () => {
+  const cachedSlides = buildSlides(readHomeBannerCache());
+  return cachedSlides.length > 0 ? cachedSlides : FALLBACK_SLIDES;
+};
 
 const HeroCarousel = () => {
-  const [slides, setSlides] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [slides, setSlides] = useState(getSlides);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [dragStartX, setDragStartX] = useState(null);
   const [dragging, setDragging] = useState(false);
@@ -14,8 +62,19 @@ const HeroCarousel = () => {
   const slideCount = slides.length;
   const activeSlide = useMemo(
     () => (slideCount > 0 ? slides[currentIndex] : null),
-    [slides, currentIndex, slideCount]
+    [currentIndex, slideCount, slides]
   );
+
+  useEffect(() => {
+    const syncSlides = () => {
+      setSlides(getSlides());
+    };
+
+    syncSlides();
+    window.addEventListener("storage", syncSlides);
+
+    return () => window.removeEventListener("storage", syncSlides);
+  }, []);
 
   const goToSlide = (index) => {
     if (slideCount === 0) return;
@@ -25,37 +84,6 @@ const HeroCarousel = () => {
 
   const handleNext = () => goToSlide(currentIndex + 1);
   const handlePrev = () => goToSlide(currentIndex - 1);
-
-  useEffect(() => {
-    const fetchSlides = async () => {
-      try {
-        const bannerQuery = query(
-          collection(db, "banners"),
-          where("active", "==", true)
-        );
-        const snapshot = await getDocs(bannerQuery);
-        const items = snapshot.docs.map((docItem) => {
-          const data = docItem.data();
-          return {
-            id: docItem.id,
-            image: data.imageUrl,
-            mobileImage: data.mobileImageUrl,
-            title: data.title,
-            subtitle: data.subtitle,
-            ctaText: data.ctaText,
-            ctaLink: data.ctaLink,
-          };
-        });
-        setSlides(items);
-      } catch (error) {
-        console.error("Khong the tai banner:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchSlides();
-  }, []);
 
   useEffect(() => {
     if (slideCount <= 1) return;
@@ -109,21 +137,13 @@ const HeroCarousel = () => {
     setDragStartX(null);
   };
 
-  if (isLoading) {
-    return (
-      <section className="min-h-[70vh] md:min-h-[90vh] bg-[#0d0a08] text-white flex items-center justify-center">
-        Dang tai banner...
-      </section>
-    );
-  }
-
   if (!activeSlide) {
     return null;
   }
 
   return (
     <section
-      className="relative isolate overflow-hidden bg-[#0d0a08] text-white select-none"
+      className="relative isolate aspect-[4/5] w-full overflow-hidden bg-[#0d0a08] text-white select-none sm:aspect-[472/129]"
       onMouseDown={handleDragStart}
       onMouseUp={handleDragEnd}
       onMouseLeave={handleDragCancel}
@@ -147,23 +167,34 @@ const HeroCarousel = () => {
               : "opacity-0 z-0 scale-[1.04] pointer-events-none"
               }`}
           >
-            <picture>
+            <img
+              src={slide.image}
+              alt=""
+              aria-hidden="true"
+              className="absolute inset-0 h-full w-full object-cover object-center scale-105 blur-xl opacity-25"
+              loading={isActive ? "eager" : "lazy"}
+              fetchPriority={isActive ? "high" : "auto"}
+              draggable={false}
+            />
+            <picture className="absolute inset-0 block h-full w-full">
               <source media="(max-width: 768px)" srcSet={slide.mobileImage || slide.image} />
               <img
                 src={slide.image}
                 alt={slide.title}
-                className="h-full w-full object-cover"
-                loading="lazy"
+                className="h-full w-full object-cover object-center"
+                loading={isActive ? "eager" : "lazy"}
+                fetchPriority={isActive ? "high" : "auto"}
                 draggable={false}
               />
             </picture>
+            <div className="absolute inset-0 z-0 bg-gradient-to-t from-black/30 via-transparent to-black/10" />
             <div
-              className={`absolute inset-0 flex items-end justify-center pb-14 sm:pb-16 transition-opacity duration-500 ${isActive ? "opacity-100" : "opacity-0 pointer-events-none"
+              className={`absolute inset-x-0 bottom-4 z-20 flex justify-center px-4 sm:bottom-4 md:bottom-5 transition-opacity duration-500 ${isActive ? "opacity-100" : "opacity-0 pointer-events-none"
                 }`}
             >
               <a
                 href={slide.ctaLink || "#"}
-                className="pointer-events-auto inline-flex items-center justify-center px-7 sm:px-9 py-3 rounded-full bg-gradient-to-r from-[#c4472f] via-[#b32a1f] to-[#8b1f2e] text-sm sm:text-base font-semibold uppercase tracking-[0.12em] shadow-[0_16px_40px_rgba(139,46,46,0.45)] transition hover:-translate-y-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                className="pointer-events-auto inline-flex items-center justify-center px-6 py-3 sm:px-7 sm:py-2.5 md:px-8 rounded-full bg-gradient-to-r from-[#c4472f] via-[#b32a1f] to-[#8b1f2e] text-xs sm:text-sm md:text-base font-semibold uppercase tracking-[0.12em] shadow-[0_16px_40px_rgba(139,46,46,0.45)] transition hover:-translate-y-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
               >
                 {slide.ctaText || "Dang ky ngay"}
               </a>
@@ -172,63 +203,12 @@ const HeroCarousel = () => {
         );
       })}
 
-      <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-14 md:py-24 min-h-[72vh] md:min-h-[82vh] flex items-center">
-        <div className="grid md:grid-cols-2 items-center gap-10 lg:gap-12 w-full">
-          <div className="bg-white/6 backdrop-blur-xl border border-white/10 shadow-[0_24px_70px_rgba(0,0,0,0.4)] rounded-3xl p-8 sm:p-10 space-y-5">
-            <div className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.3em] text-[#f3c272] bg-white/5 border border-white/10 px-4 py-2 rounded-full">
-              Mali Edu
-              <span className="w-1.5 h-1.5 rounded-full bg-[#f3c272] animate-pulse" />
-            </div>
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold leading-tight text-white drop-shadow-[0_8px_30px_rgba(0,0,0,0.35)]">
-              {activeSlide.title || "Chuong trinh noi bat"}
-            </h1>
-            <p className="text-base sm:text-lg text-white/80 leading-relaxed">
-              {activeSlide.subtitle ||
-                "Kham pha hanh trinh chuyen hoa cung huan luyen vien chu dong va nhiet huyet."}
-            </p>
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-              <a
-                href={activeSlide.ctaLink || "#"}
-                className="inline-flex items-center justify-center px-6 sm:px-8 py-3 rounded-full bg-gradient-to-r from-[#c4472f] via-[#b32a1f] to-[#8b1f2e] text-sm font-semibold uppercase tracking-[0.12em] shadow-[0_16px_40px_rgba(139,46,46,0.45)] transition hover:-translate-y-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-              >
-                {activeSlide.ctaText || "Dang ky ngay"}
-              </a>
-              <span className="text-sm text-white/70">
-                Hoc online cung chuyen gia Mali Edu
-              </span>
-            </div>
-          </div>
-
-          <div className="relative">
-            <div className="absolute -left-8 -right-6 -bottom-10 h-1/2 rounded-3xl bg-gradient-to-r from-[#f3c272]/30 via-transparent to-[#c4472f]/30 blur-3xl" />
-            <div className="relative overflow-hidden rounded-3xl border border-white/15 shadow-[0_30px_80px_rgba(0,0,0,0.45)]">
-              <img
-                src={activeSlide.image}
-                alt={activeSlide.title}
-                className="w-full h-[280px] sm:h-[340px] lg:h-[380px] object-cover"
-                loading="lazy"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/20 to-transparent" />
-              <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between">
-                <div className="text-[11px] sm:text-xs uppercase tracking-[0.14em] text-white/80">
-                  Truc tuyen - tu van ca nhan hoa
-                </div>
-                <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-[11px] text-white shadow-sm backdrop-blur-md">
-                  Live
-                  <span className="w-2 h-2 rounded-full bg-[#34d399] animate-pulse" />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {slideCount > 1 && (
         <>
           <button
             type="button"
             onClick={handlePrev}
-            className="absolute left-4 top-1/2 -translate-y-1/2 z-30 rounded-full border border-white/20 bg-white/5 p-3 text-white shadow-lg backdrop-blur-md transition hover:border-white/50 hover:bg-white/15"
+            className="absolute left-3 top-1/2 -translate-y-1/2 z-30 rounded-full border border-white/20 bg-white/5 p-3 text-white shadow-lg backdrop-blur-md transition hover:border-white/50 hover:bg-white/15 sm:left-4 md:left-5"
             aria-label="Slide truoc"
           >
             <ChevronLeft className="h-5 w-5" />
@@ -236,13 +216,13 @@ const HeroCarousel = () => {
           <button
             type="button"
             onClick={handleNext}
-            className="absolute right-4 top-1/2 -translate-y-1/2 z-30 rounded-full border border-white/20 bg-white/5 p-3 text-white shadow-lg backdrop-blur-md transition hover:border-white/50 hover:bg-white/15"
+            className="absolute right-3 top-1/2 -translate-y-1/2 z-30 rounded-full border border-white/20 bg-white/5 p-3 text-white shadow-lg backdrop-blur-md transition hover:border-white/50 hover:bg-white/15 sm:right-4 md:right-5"
             aria-label="Slide tiep"
           >
             <ChevronRight className="h-5 w-5" />
           </button>
 
-          <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2">
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 sm:bottom-3.5 md:bottom-4">
             {slides.map((slide, index) => {
               const isActive = index === currentIndex;
               return (

@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { X, Mail, Lock, User, ArrowRight } from 'lucide-react';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
-import { auth, db } from '../firebase';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
+import { auth, db, googleProvider } from '../firebase';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { getFirebaseAuthMessage } from '../utils/firebaseAuthErrors';
 
 const AuthModal = ({ isOpen, onClose }) => {
     const [isLogin, setIsLogin] = useState(true);
@@ -20,8 +21,8 @@ const AuthModal = ({ isOpen, onClose }) => {
         setLoading(true);
         setError('');
         try {
-            const provider = new GoogleAuthProvider();
-            const result = await signInWithPopup(auth, provider);
+            googleProvider.setCustomParameters({ prompt: 'select_account' });
+            const result = await signInWithPopup(auth, googleProvider);
             const user = result.user;
 
             // Save user to Firestore if new
@@ -36,8 +37,8 @@ const AuthModal = ({ isOpen, onClose }) => {
 
             onClose();
         } catch (err) {
-            console.error(err);
-            setError('Đăng nhập Google thất bại. Vui lòng thử lại.');
+            console.error('Google login failed:', err?.code, err?.message, err);
+            setError(getFirebaseAuthMessage(err));
         } finally {
             setLoading(false);
         }
@@ -67,14 +68,8 @@ const AuthModal = ({ isOpen, onClose }) => {
             }
             onClose();
         } catch (err) {
-            console.error(err);
-            if (err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found') {
-                setError('Email hoặc mật khẩu không đúng.');
-            } else if (err.code === 'auth/email-already-in-use') {
-                setError('Email này đã được sử dụng.');
-            } else {
-                setError('Đã có lỗi xảy ra. Vui lòng thử lại sau.');
-            }
+            console.error('Email auth failed:', err?.code, err?.message, err);
+            setError(getFirebaseAuthMessage(err));
         } finally {
             setLoading(false);
         }
