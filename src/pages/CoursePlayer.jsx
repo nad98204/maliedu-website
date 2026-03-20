@@ -1,18 +1,40 @@
-import React, { useEffect, useState, useMemo } from 'react';
-import { useParams, Navigate, Link, useNavigate } from 'react-router-dom';
-import { doc, getDoc, query, collection, where, getDocs, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
-import { ArrowLeft, Menu, Star, CheckCircle, ChevronLeft } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Link, Navigate, useParams } from 'react-router-dom';
+import {
+    arrayRemove,
+    arrayUnion,
+    collection,
+    doc,
+    getDoc,
+    getDocs,
+    query,
+    updateDoc,
+    where
+} from 'firebase/firestore';
+import { ChevronLeft, Menu, Star } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
-import { db, auth } from '../firebase';
-import VideoWrapper from '../components/VideoWrapper';
-import PlayerTabs from '../components/PlayerTabs';
+import { auth, db } from '../firebase';
 import PlayerSidebar from '../components/PlayerSidebar';
+import PlayerTabs from '../components/PlayerTabs';
+import VideoWrapper from '../components/VideoWrapper';
+
+const DEFAULT_SECTION_TITLE = 'Nội dung khóa học';
+
+const normalizeSections = (curriculum = []) => {
+    if (!Array.isArray(curriculum) || curriculum.length === 0) {
+        return [];
+    }
+
+    if (curriculum[0]?.lessons) {
+        return curriculum;
+    }
+
+    return [{ title: DEFAULT_SECTION_TITLE, lessons: curriculum }];
+};
 
 const CoursePlayer = () => {
     const { courseId } = useParams();
-    const navigate = useNavigate();
 
-    // Data State
     const [course, setCourse] = useState(null);
     const [sections, setSections] = useState([]);
     const [currentLesson, setCurrentLesson] = useState(null);
@@ -20,34 +42,29 @@ const CoursePlayer = () => {
     const [currentUser, setCurrentUser] = useState(null);
     const [enrollmentId, setEnrollmentId] = useState(null);
 
-    // Player State
     const [playing, setPlaying] = useState(false);
     const [autoPlay, setAutoPlay] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
-    // Progress State { lessonId: true }
     const [progress, setProgress] = useState({});
 
-    // Auth Listener
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
             setCurrentUser(user);
         });
+
         return () => unsubscribe();
     }, []);
 
-    // Anti-Theft Protection
     useEffect(() => {
-        const handleContextMenu = (e) => e.preventDefault();
-
-        const handleKeyDown = (e) => {
-            // Disable F12, Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+U
+        const handleContextMenu = (event) => event.preventDefault();
+        const handleKeyDown = (event) => {
             if (
-                e.key === 'F12' ||
-                (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J')) ||
-                (e.ctrlKey && e.key === 'u')
+                event.key === 'F12' ||
+                (event.ctrlKey && event.shiftKey && (event.key === 'I' || event.key === 'J')) ||
+                (event.ctrlKey && event.key === 'u')
             ) {
-                e.preventDefault();
+                event.preventDefault();
             }
         };
 
@@ -60,73 +77,72 @@ const CoursePlayer = () => {
         };
     }, []);
 
-    // Fetch Course & Enrollment Data
     useEffect(() => {
         const fetchData = async () => {
             try {
-                // 1. Fetch Course
-                let docRef = doc(db, 'courses', courseId);
-                let docSnap = await getDoc(docRef);
                 let courseData = null;
+                const docRef = doc(db, 'courses', courseId);
+                const docSnap = await getDoc(docRef);
 
                 if (docSnap.exists()) {
                     courseData = { id: docSnap.id, ...docSnap.data() };
                 } else {
-                    // Fetch by Slug
-                    const q = query(collection(db, 'courses'), where('slug', '==', courseId));
-                    const querySnapshot = await getDocs(q);
+                    const slugQuery = query(
+                        collection(db, 'courses'),
+                        where('slug', '==', courseId)
+                    );
+                    const querySnapshot = await getDocs(slugQuery);
+
                     if (!querySnapshot.empty) {
-                        courseData = { id: querySnapshot.docs[0].id, ...querySnapshot.docs[0].data() };
+                        courseData = {
+                            id: querySnapshot.docs[0].id,
+                            ...querySnapshot.docs[0].data()
+                        };
                     }
                 }
 
-                if (courseData) {
-                    setCourse(courseData);
+                if (!courseData) return;
 
-                    // Normalize Sections
-                    let normalizedSections = [];
-                    if (courseData.curriculum && courseData.curriculum.length > 0) {
-                        if (courseData.curriculum[0].lessons) {
-                            normalizedSections = courseData.curriculum;
-                        } else {
-                            normalizedSections = [{ title: "Nội dung khóa học", lessons: courseData.curriculum }];
+                setCourse(courseData);
+
+                const normalizedSections = normalizeSections(courseData.curriculum);
+                setSections(normalizedSections);
+
+                let completedIds = {};
+
+                if (currentUser) {
+                    const enrollmentQuery = query(
+                        collection(db, 'enrollments'),
+                        where('userId', '==', currentUser.uid),
+                        where('courseId', '==', courseData.id)
+                    );
+                    const enrollmentSnapshot = await getDocs(enrollmentQuery);
+
+                    if (!enrollmentSnapshot.empty) {
+                        const enrollmentDoc = enrollmentSnapshot.docs[0];
+                        const enrollmentData = enrollmentDoc.data();
+
+                        setEnrollmentId(enrollmentDoc.id);
+
+                        if (Array.isArray(enrollmentData.completedLessonIds)) {
+                            completedIds = enrollmentData.completedLessonIds.reduce(
+                                (accumulator, lessonId) => ({
+                                    ...accumulator,
+                                    [lessonId]: true
+                                }),
+                                {}
+                            );
+                            setProgress(completedIds);
                         }
                     }
-                    setSections(normalizedSections);
+                }
 
-                    // 2. Fetch Enrollment (Progress)
-                    let completedIds = {};
-                    if (currentUser) {
-                        const enrollQ = query(
-                            collection(db, 'enrollments'),
-                            where('userId', '==', currentUser.uid),
-                            where('courseId', '==', courseData.id)
-                        );
-                        const enrollSnap = await getDocs(enrollQ);
-                        if (!enrollSnap.empty) {
-                            const enrollData = enrollSnap.docs[0].data();
-                            setEnrollmentId(enrollSnap.docs[0].id);
-
-                            if (enrollData.completedLessonIds && Array.isArray(enrollData.completedLessonIds)) {
-                                enrollData.completedLessonIds.forEach(id => completedIds[id] = true);
-                                setProgress(completedIds);
-                            }
-                        }
-                    }
-
-                    // 3. Resume Learning Logic (Find first incomplete lesson)
-                    const allLessons = normalizedSections.flatMap(s => s.lessons || []);
-                    if (allLessons.length > 0) {
-                        // Find first lesson that is NOT in completedIds
-                        const firstIncomplete = allLessons.find(l => !completedIds[l.id || l.videoId]);
-
-                        if (firstIncomplete) {
-                            setCurrentLesson(firstIncomplete);
-                        } else {
-                            // If all completed, or none, start at first
-                            setCurrentLesson(allLessons[0]);
-                        }
-                    }
+                const allLessons = normalizedSections.flatMap((section) => section.lessons || []);
+                if (allLessons.length > 0) {
+                    const firstIncompleteLesson = allLessons.find(
+                        (lesson) => !completedIds[lesson.id || lesson.videoId]
+                    );
+                    setCurrentLesson(firstIncompleteLesson || allLessons[0]);
                 }
             } catch (error) {
                 console.error('Error fetching data:', error);
@@ -138,18 +154,134 @@ const CoursePlayer = () => {
         fetchData();
     }, [courseId, currentUser]);
 
-    // Navigation Logic
-    const flatLessons = useMemo(() => {
-        return sections.flatMap(section => section.lessons || []);
+    const flatLessons = useMemo(
+        () => sections.flatMap((section) => section.lessons || []),
+        [sections]
+    );
+
+    const currentLessonId = currentLesson?.id || currentLesson?.videoId;
+
+    const lessonResourceLookup = useMemo(() => {
+        const lookup = {};
+
+        sections.forEach((section) => {
+            (section.lessons || []).forEach((lesson) => {
+                const lessonKey = lesson.id || lesson.videoId;
+
+                if (!lessonKey) return;
+
+                const lessonMeta = {
+                    lessonId: lessonKey,
+                    lesson,
+                    lessonTitle: lesson.title || '',
+                    sectionTitle: section.title || DEFAULT_SECTION_TITLE
+                };
+
+                if (lesson.id) {
+                    lookup[lesson.id] = lessonMeta;
+                }
+
+                if (lesson.videoId) {
+                    lookup[lesson.videoId] = lessonMeta;
+                }
+            });
+        });
+
+        return lookup;
     }, [sections]);
 
+    const lessonResources = useMemo(
+        () =>
+            sections.flatMap((section, sectionIndex) =>
+                (section.lessons || [])
+                    .filter((lesson) => lesson?.resourceLink)
+                    .map((lesson, lessonIndex) => ({
+                        id: `${lesson.id || lesson.videoId || `${sectionIndex}-${lessonIndex}`}-resource`,
+                        name: lesson.resourceName || lesson.title || `Tài liệu ${lessonIndex + 1}`,
+                        url: lesson.resourceLink,
+                        lessonTitle: lesson.title,
+                        sectionTitle: section.title,
+                        lessonId: lesson.id || lesson.videoId,
+                        lesson,
+                        isGeneral: false,
+                        sourceLabel: lesson.title ? `Buổi: ${lesson.title}` : 'Tài liệu theo buổi',
+                        order: sectionIndex * 1000 + lessonIndex
+                    }))
+            ),
+        [sections]
+    );
+
+    const generalResources = useMemo(
+        () =>
+            (course?.courseResources || [])
+                .map((resource, index) => ({ resource, index }))
+                .filter(({ resource }) => resource?.url)
+                .sort(
+                    (resourceA, resourceB) =>
+                        (resourceA.resource.sortOrder ?? resourceA.index) -
+                        (resourceB.resource.sortOrder ?? resourceB.index)
+                )
+                .map(({ resource, index }) => {
+                    const linkedLessonId = resource.linkedLessonId || resource.lessonId || null;
+                    const linkedLesson = linkedLessonId
+                        ? lessonResourceLookup[linkedLessonId]
+                        : null;
+
+                    return {
+                        id: resource.id || `course-resource-${index}`,
+                        name: resource.name || `Tai lieu khoa hoc ${index + 1}`,
+                        url: resource.url,
+                        lessonTitle: linkedLesson?.lessonTitle || "",
+                        sectionTitle: linkedLesson?.sectionTitle || "Tai lieu chung",
+                        lessonId: linkedLesson?.lessonId || null,
+                        lesson: linkedLesson?.lesson || null,
+                        isGeneral: !linkedLessonId,
+                        sourceLabel: linkedLesson?.lessonTitle
+                            ? `Buoi: ${linkedLesson.lessonTitle}`
+                            : linkedLessonId
+                              ? "Tai lieu da gan buoi nhung buoi nay khong con ton tai"
+                              : "Tai lieu chung cua khoa hoc",
+                        order: resource.sortOrder ?? index
+                    };
+                }),
+        [course, lessonResourceLookup]
+    );
+
+    const allResources = useMemo(() => {
+        const currentId = currentLessonId;
+
+        return [...lessonResources, ...generalResources]
+            .map((resource, index) => ({ ...resource, sortIndex: index }))
+            .sort((resourceA, resourceB) => {
+                const getPriority = (resource) => {
+                    if (resource.lessonId && resource.lessonId === currentId) return 0;
+                    if (resource.isGeneral) return 1;
+                    return 2;
+                };
+
+                return (
+                    getPriority(resourceA) - getPriority(resourceB) ||
+                    resourceA.sortIndex - resourceB.sortIndex
+                );
+            });
+    }, [currentLessonId, generalResources, lessonResources]);
+
+    const currentTabResources = allResources;
+
     const currentLessonIndex = useMemo(() => {
-        if (!currentLesson) return -1;
-        return flatLessons.findIndex(l => l.id === currentLesson.id || l.videoId === currentLesson.videoId); // Fallback to videoId if id missing
-    }, [currentLesson, flatLessons]);
+        if (!currentLessonId) return -1;
+
+        return flatLessons.findIndex(
+            (lesson) => (lesson.id || lesson.videoId) === currentLessonId
+        );
+    }, [currentLessonId, flatLessons]);
+
+    const progressCount = Object.keys(progress).length;
+    const progressPercent =
+        flatLessons.length > 0 ? Math.round((progressCount / flatLessons.length) * 100) : 0;
 
     const handleNextLesson = () => {
-        if (currentLessonIndex < flatLessons.length - 1) {
+        if (currentLessonIndex >= 0 && currentLessonIndex < flatLessons.length - 1) {
             setCurrentLesson(flatLessons[currentLessonIndex + 1]);
         }
     };
@@ -161,112 +293,126 @@ const CoursePlayer = () => {
     };
 
     const handleLessonComplete = async () => {
-        if (currentLesson && enrollmentId) {
-            const lessonId = currentLesson.id || currentLesson.videoId;
-            const isCompleted = !!progress[lessonId];
+        if (!currentLessonId || !enrollmentId) return;
 
-            // 1. Update Local State
-            setProgress(prev => {
-                const newProgress = { ...prev };
-                if (isCompleted) {
-                    delete newProgress[lessonId];
-                } else {
-                    newProgress[lessonId] = true;
-                }
-                return newProgress;
-            });
+        const isCompleted = !!progress[currentLessonId];
 
-            // 2. Update Firestore
-            try {
-                const enrollRef = doc(db, 'enrollments', enrollmentId);
-                if (isCompleted) {
-                    // Un-complete
-                    await updateDoc(enrollRef, {
-                        completedLessonIds: arrayRemove(lessonId)
-                    });
-                } else {
-                    // Complete
-                    await updateDoc(enrollRef, {
-                        completedLessonIds: arrayUnion(lessonId),
-                        lastPlayedLessonId: lessonId,
-                        lastAccessedAt: Date.now()
-                    });
-                }
-            } catch (error) {
-                console.error("Error saving progress:", error);
+        setProgress((prev) => {
+            const nextProgress = { ...prev };
+
+            if (isCompleted) {
+                delete nextProgress[currentLessonId];
+            } else {
+                nextProgress[currentLessonId] = true;
             }
 
-            // Only auto-play if we just COMPLETED it (was not completed before)
-            if (!isCompleted && autoPlay) {
-                handleNextLesson();
+            return nextProgress;
+        });
+
+        try {
+            const enrollmentRef = doc(db, 'enrollments', enrollmentId);
+
+            if (isCompleted) {
+                await updateDoc(enrollmentRef, {
+                    completedLessonIds: arrayRemove(currentLessonId)
+                });
+            } else {
+                await updateDoc(enrollmentRef, {
+                    completedLessonIds: arrayUnion(currentLessonId),
+                    lastPlayedLessonId: currentLessonId,
+                    lastAccessedAt: Date.now()
+                });
             }
+        } catch (error) {
+            console.error('Error saving progress:', error);
+        }
+
+        if (!isCompleted && autoPlay) {
+            handleNextLesson();
         }
     };
 
-    if (loading) return (
-        <div className="h-screen w-screen flex items-center justify-center bg-[#0f0f15] text-white">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-secret-wax"></div>
-        </div>
-    );
+    if (loading) {
+        return (
+            <div className="flex h-screen w-screen items-center justify-center bg-[#0f0f15] text-white">
+                <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-t-2 border-secret-wax"></div>
+            </div>
+        );
+    }
 
-    if (!course) return <Navigate to="/khoa-hoc" />;
+    if (!course) {
+        return <Navigate to="/khoa-hoc" />;
+    }
 
     return (
-        <div className="h-screen flex flex-col bg-gray-50 overflow-hidden text-slate-800">
-
-            {/* 1. HEADER */}
-            <header className="h-16 bg-[#B91C1C] border-b border-red-800/20 flex items-center justify-between px-4 md:px-6 shrink-0 z-20 shadow-md">
+        <div className="flex h-screen flex-col overflow-hidden bg-gray-50 text-slate-800">
+            <header className="z-20 flex h-16 shrink-0 items-center justify-between border-b border-red-800/20 bg-[#B91C1C] px-4 shadow-md md:px-6">
                 <div className="flex items-center gap-6">
-                    <Link to={`/khoa-hoc/${course.id}`} className="text-red-100 hover:text-white transition-colors flex items-center gap-2 font-bold text-sm">
-                        <ChevronLeft className="w-5 h-5" />
+                    <Link
+                        to={`/khoa-hoc/${course.id}`}
+                        className="flex items-center gap-2 text-sm font-bold text-red-100 transition-colors hover:text-white"
+                    >
+                        <ChevronLeft className="h-5 w-5" />
                         <span className="hidden md:inline">Trang chủ khóa học</span>
                     </Link>
-                    <div className="h-6 w-px bg-red-400/50 hidden md:block"></div>
-                    <h1 className="font-bold text-white text-base md:text-lg line-clamp-1 max-w-[200px] md:max-w-lg">
+                    <div className="hidden h-6 w-px bg-red-400/50 md:block"></div>
+                    <h1 className="max-w-[200px] line-clamp-1 text-base font-bold text-white md:max-w-lg md:text-lg">
                         {currentLesson?.title || course.name}
                     </h1>
                 </div>
 
                 <div className="flex items-center gap-4">
-                    {/* Progress Circle (Desktop) */}
-                    <div className="hidden md:flex items-center gap-3 mr-4">
+                    <div className="mr-4 hidden items-center gap-3 md:flex">
                         <div className="flex flex-col items-end">
                             <span className="text-xs font-bold text-white/90">Đã hoàn thành</span>
-                            <span className="text-xs text-red-100">{Object.keys(progress).length}/{flatLessons.length} bài học</span>
+                            <span className="text-xs text-red-100">
+                                {progressCount}/{flatLessons.length} bài học
+                            </span>
                         </div>
-                        <div className="relative w-10 h-10">
-                            <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
-                                <path className="text-red-900/30" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" />
-                                <path className="text-white" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3"
-                                    strokeDasharray={`${(Object.keys(progress).length / flatLessons.length) * 100}, 100`} />
+                        <div className="relative h-10 w-10">
+                            <svg className="h-full w-full -rotate-90" viewBox="0 0 36 36">
+                                <path
+                                    className="text-red-900/30"
+                                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="3"
+                                />
+                                <path
+                                    className="text-white"
+                                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="3"
+                                    strokeDasharray={`${progressPercent}, 100`}
+                                />
                             </svg>
                             <div className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-white">
-                                {Math.round((Object.keys(progress).length / flatLessons.length) * 100)}%
+                                {progressPercent}%
                             </div>
                         </div>
                     </div>
 
-                    <button className="hidden md:flex items-center gap-2 px-3 py-1.5 border border-red-400 bg-red-800/20 rounded-lg text-xs font-bold text-red-100 hover:text-white hover:bg-red-800/40 transition-all">
-                        <Star className="w-3 h-3" /> Đánh giá
+                    <button className="hidden items-center gap-2 rounded-lg border border-red-400 bg-red-800/20 px-3 py-1.5 text-xs font-bold text-red-100 transition-all hover:bg-red-800/40 hover:text-white md:flex">
+                        <Star className="h-3 w-3" />
+                        Đánh giá
                     </button>
 
                     <button
-                        onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                        className="p-2 bg-red-800 text-white rounded-lg hover:bg-red-900 transition-colors md:hidden"
+                        onClick={() => setIsSidebarOpen((prev) => !prev)}
+                        className="rounded-lg bg-red-800 p-2 text-white transition-colors hover:bg-red-900 md:hidden"
                     >
-                        <Menu className="w-5 h-5" />
+                        <Menu className="h-5 w-5" />
                     </button>
                 </div>
             </header>
 
-            {/* 2. BODY CONTAINER */}
-            <div className="flex flex-1 overflow-hidden relative">
-
-                {/* LEFT: MAIN CONTENT */}
-                <main className="flex-1 overflow-y-auto custom-scrollbar scroll-smooth relative z-10" id="player-scroll-container">
-                    <div className="p-4 md:p-8 max-w-[1600px] mx-auto">
-
-                        {/* Video Player Area */}
+            <div className="relative flex flex-1 overflow-hidden">
+                <main
+                    className="custom-scrollbar relative z-10 flex-1 overflow-y-auto scroll-smooth"
+                    id="player-scroll-container"
+                >
+                    <div className="mx-auto max-w-[1600px] p-4 md:p-8">
                         <VideoWrapper
                             videoUrl={currentLesson?.videoId}
                             title={currentLesson?.title}
@@ -279,34 +425,35 @@ const CoursePlayer = () => {
                             onPrev={handlePrevLesson}
                             hasNext={currentLessonIndex < flatLessons.length - 1}
                             hasPrev={currentLessonIndex > 0}
-                            isCompleted={!!progress[currentLesson?.id || currentLesson?.videoId]}
+                            isCompleted={!!progress[currentLessonId]}
                             onMarkComplete={handleLessonComplete}
                         />
 
-                        {/* Tabs & Content */}
                         <PlayerTabs
                             description={currentLesson?.description || course.description}
-                            resources={currentLesson?.resourceLink ? [{ name: currentLesson.resourceName || "Tài liệu bài học", url: currentLesson.resourceLink }] : []}
-                            lessonId={currentLesson?.id || currentLesson?.videoId}
+                            resources={currentTabResources}
+                            lessonId={currentLessonId}
                             currentUser={currentUser}
                         />
-
                     </div>
                 </main>
 
-                {/* RIGHT: SIDEBAR */}
-                <aside className={`
-                    w-full md:w-96 bg-white border-l border-slate-200 shadow-xl flex flex-col z-20
-                    fixed top-[64px] bottom-0 right-0 transition-transform duration-300
-                    md:relative md:top-auto md:bottom-auto md:translate-x-0
-                    ${isSidebarOpen ? 'translate-x-0' : 'translate-x-full'}
-                `}>
+                <aside
+                    className={`
+                        fixed bottom-0 right-0 top-[64px] z-20 flex w-full flex-col border-l border-slate-200 bg-white shadow-xl transition-transform duration-300
+                        md:relative md:bottom-auto md:top-auto md:w-96 md:translate-x-0
+                        ${isSidebarOpen ? 'translate-x-0' : 'translate-x-full'}
+                    `}
+                >
                     <PlayerSidebar
                         sections={sections}
-                        currentLessonId={currentLesson?.id || currentLesson?.videoId} // Fallback ID
+                        resources={allResources}
+                        currentLessonId={currentLessonId}
                         onLessonSelect={(lesson) => {
                             setCurrentLesson(lesson);
-                            if (window.innerWidth < 768) setIsSidebarOpen(false); // Close on mobile select
+                            if (window.innerWidth < 768) {
+                                setIsSidebarOpen(false);
+                            }
                         }}
                         progress={progress}
                     />

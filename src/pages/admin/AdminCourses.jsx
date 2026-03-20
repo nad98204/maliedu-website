@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   addDoc,
   collection,
@@ -27,11 +27,13 @@ import {
   User,
   Award,
   FileText,
+  GripVertical,
 } from "lucide-react";
 
 import { db } from "../../firebase";
 import RichTextEditor from "../../components/RichTextEditor";
 import { uploadToCloudinary } from "../../utils/uploadService";
+import { uploadFileToS3 } from "../../utils/s3UploadService";
 import AdminCategories from "./AdminCategories";
 import AdminCoupons from "./AdminCoupons";
 import AdminInstructors from "./AdminInstructors"; // NEW IMPORT
@@ -48,6 +50,55 @@ const DEFAULT_INSTRUCTOR = {
 };
 // ------------------------------------------------
 
+const DEFAULT_SECTION_TITLE = "Nội dung khóa học";
+
+const createLocalId = (prefix) =>
+  `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+const getLessonIdentifier = (lesson, fallbackId = "") =>
+  lesson?.id || lesson?.videoId || fallbackId;
+
+const normalizeCurriculumForForm = (curriculum = []) => {
+  if (!Array.isArray(curriculum) || curriculum.length === 0) {
+    return [];
+  }
+
+  const sections = curriculum[0]?.lessons
+    ? curriculum
+    : [{ title: DEFAULT_SECTION_TITLE, lessons: curriculum }];
+
+  return sections.map((section, sectionIndex) => ({
+    ...section,
+    lessons: (section.lessons || []).map((lesson, lessonIndex) => ({
+      ...lesson,
+      id: getLessonIdentifier(
+        lesson,
+        createLocalId(`lesson-${sectionIndex}-${lessonIndex}`),
+      ),
+      isFreePreview: Boolean(lesson.isFreePreview),
+    })),
+  }));
+};
+
+const normalizeCourseResources = (courseResources = []) =>
+  (Array.isArray(courseResources) ? courseResources : []).map(
+    (resource, index) => ({
+      ...resource,
+      id: resource.id || createLocalId(`course-resource-${index}`),
+      name: resource.name || "",
+      url: resource.url || "",
+      linkedLessonId: resource.linkedLessonId || resource.lessonId || "",
+      sortOrder:
+        typeof resource.sortOrder === "number" ? resource.sortOrder : index,
+    }),
+  );
+
+const reindexCourseResources = (courseResources = []) =>
+  courseResources.map((resource, index) => ({
+    ...resource,
+    sortOrder: index,
+  }));
+
 const AdminCourses = () => {
   const [courses, setCourses] = useState([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -62,6 +113,10 @@ const AdminCourses = () => {
   const [activeTab, setActiveTab] = useState("info");
   const [expandedLessons, setExpandedLessons] = useState({}); // Key: `${sIdx}-${lIdx}`, Value: boolean
   const [uploadingTo, setUploadingTo] = useState(null);
+  const [uploadingDocumentKey, setUploadingDocumentKey] = useState(null);
+  const [documentUploadProgress, setDocumentUploadProgress] = useState(null);
+  const [draggedCourseResourceIndex, setDraggedCourseResourceIndex] =
+    useState(null);
 
   const toggleLessonExpansion = (sIdx, lIdx) => {
     const key = `${sIdx}-${lIdx}`;
@@ -88,6 +143,7 @@ const AdminCourses = () => {
     isForSale: true, // true = bán trên web, false = miễn phí nhưng giới hạn số video
     freeLessonsCount: 3, // Số video đầu được xem miễn phí (nếu isForSale = false)
     curriculum: [],
+    courseResources: [],
 
     // Instructor Info
     instructorName: "",
@@ -175,20 +231,67 @@ const AdminCourses = () => {
     if (newCurriculum[sIdx]) {
       newCurriculum[sIdx].lessons = [
         ...(newCurriculum[sIdx].lessons || []),
-        { ...lesson, id: Date.now().toString(), isFreePreview: false },
+        {
+          ...lesson,
+          id: getLessonIdentifier(lesson, createLocalId("lesson")),
+          isFreePreview: false,
+        },
       ];
       setFormData((prev) => ({ ...prev, curriculum: newCurriculum }));
     }
   };
 
   const handleRemoveLessonFromSection = (sIdx, lIdx) => {
-    const newCurriculum = [...formData.curriculum];
-    if (newCurriculum[sIdx] && newCurriculum[sIdx].lessons) {
+    setFormData((prev) => {
+      const newCurriculum = [...(prev.curriculum || [])];
+      const lessonToRemove = newCurriculum[sIdx]?.lessons?.[lIdx];
+
+      if (!lessonToRemove) return prev;
+
+      const removedLessonKeys = [
+        lessonToRemove.id,
+        lessonToRemove.videoId,
+      ].filter(Boolean);
+
       newCurriculum[sIdx].lessons = newCurriculum[sIdx].lessons.filter(
         (_, idx) => idx !== lIdx,
       );
-      setFormData((prev) => ({ ...prev, curriculum: newCurriculum }));
-    }
+
+      return {
+        ...prev,
+        curriculum: newCurriculum,
+        courseResources: (prev.courseResources || []).map((resource) =>
+          removedLessonKeys.includes(resource.linkedLessonId)
+            ? { ...resource, linkedLessonId: "" }
+            : resource,
+        ),
+      };
+    });
+  };
+
+  const handleRemoveSection = (sIdx) => {
+    setFormData((prev) => {
+      const newCurriculum = [...(prev.curriculum || [])];
+      const removedSection = newCurriculum[sIdx];
+
+      if (!removedSection) return prev;
+
+      const removedLessonKeys = (removedSection.lessons || []).flatMap(
+        (lesson) => [lesson.id, lesson.videoId].filter(Boolean),
+      );
+
+      newCurriculum.splice(sIdx, 1);
+
+      return {
+        ...prev,
+        curriculum: newCurriculum,
+        courseResources: (prev.courseResources || []).map((resource) =>
+          removedLessonKeys.includes(resource.linkedLessonId)
+            ? { ...resource, linkedLessonId: "" }
+            : resource,
+        ),
+      };
+    });
   };
 
   const handleUpdateLesson = (sIdx, lIdx, field, value) => {
@@ -199,6 +302,184 @@ const AdminCourses = () => {
         [field]: value,
       };
       setFormData((prev) => ({ ...prev, curriculum: newCurriculum }));
+    }
+  };
+
+  const handleAddCourseResource = () => {
+    setFormData((prev) => ({
+      ...prev,
+      courseResources: reindexCourseResources([
+        ...(prev.courseResources || []),
+        {
+          id: createLocalId("course-resource"),
+          name: "",
+          url: "",
+          linkedLessonId: "",
+        },
+      ]),
+    }));
+  };
+
+  const handleUpdateCourseResource = (index, field, value) => {
+    const nextResources = [...(formData.courseResources || [])];
+
+    if (!nextResources[index]) return;
+
+    nextResources[index] = {
+      ...nextResources[index],
+      [field]: value,
+    };
+
+    setFormData((prev) => ({
+      ...prev,
+      courseResources: nextResources,
+    }));
+  };
+
+  const handleRemoveCourseResource = (index) => {
+    setFormData((prev) => ({
+      ...prev,
+      courseResources: reindexCourseResources(
+        (prev.courseResources || []).filter(
+          (_, resourceIndex) => resourceIndex !== index,
+        ),
+      ),
+    }));
+  };
+
+  const handleMoveCourseResource = (index, direction) => {
+    setFormData((prev) => {
+      const nextResources = [...(prev.courseResources || [])];
+      const nextIndex = index + direction;
+
+      if (nextIndex < 0 || nextIndex >= nextResources.length) {
+        return prev;
+      }
+
+      [nextResources[index], nextResources[nextIndex]] = [
+        nextResources[nextIndex],
+        nextResources[index],
+      ];
+
+      return {
+        ...prev,
+        courseResources: reindexCourseResources(nextResources),
+      };
+    });
+  };
+
+  const reorderCourseResources = (fromIndex, toIndex) => {
+    if (
+      fromIndex === toIndex ||
+      fromIndex < 0 ||
+      toIndex < 0 ||
+      fromIndex >= (formData.courseResources || []).length ||
+      toIndex >= (formData.courseResources || []).length
+    ) {
+      return;
+    }
+
+    setFormData((prev) => {
+      const nextResources = [...(prev.courseResources || [])];
+      const [movedResource] = nextResources.splice(fromIndex, 1);
+      nextResources.splice(toIndex, 0, movedResource);
+
+      return {
+        ...prev,
+        courseResources: reindexCourseResources(nextResources),
+      };
+    });
+  };
+
+  const handleCourseResourceDragStart = (event, index) => {
+    setDraggedCourseResourceIndex(index);
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", String(index));
+  };
+
+  const handleCourseResourceDrop = (event, targetIndex) => {
+    event.preventDefault();
+
+    const sourceIndex =
+      draggedCourseResourceIndex ??
+      Number.parseInt(event.dataTransfer.getData("text/plain"), 10);
+
+    if (Number.isNaN(sourceIndex)) {
+      setDraggedCourseResourceIndex(null);
+      return;
+    }
+
+    reorderCourseResources(sourceIndex, targetIndex);
+    setDraggedCourseResourceIndex(null);
+  };
+
+  const getDocumentUploadKey = (target) =>
+    target.type === "lesson"
+      ? `lesson-${target.sIdx}-${target.lIdx}`
+      : `course-${target.index}`;
+
+  const handleDocumentUpload = async (event, target) => {
+    const selectedFile = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!selectedFile) return;
+
+    const targetKey = getDocumentUploadKey(target);
+
+    try {
+      setUploadingDocumentKey(targetKey);
+      setDocumentUploadProgress(0);
+
+      const fileUrl = await uploadFileToS3(selectedFile, (progress) => {
+        setDocumentUploadProgress(progress);
+      });
+
+      if (target.type === "lesson") {
+        setFormData((prev) => {
+          const nextCurriculum = [...(prev.curriculum || [])];
+          const lesson =
+            nextCurriculum[target.sIdx]?.lessons?.[target.lIdx];
+
+          if (!lesson) return prev;
+
+          nextCurriculum[target.sIdx].lessons[target.lIdx] = {
+            ...lesson,
+            resourceLink: fileUrl,
+            resourceName: lesson.resourceName || selectedFile.name,
+          };
+
+          return {
+            ...prev,
+            curriculum: nextCurriculum,
+          };
+        });
+      } else {
+        setFormData((prev) => {
+          const nextResources = [...(prev.courseResources || [])];
+          const currentResource = nextResources[target.index];
+
+          if (!currentResource) return prev;
+
+          nextResources[target.index] = {
+            ...currentResource,
+            url: fileUrl,
+            name: currentResource.name || selectedFile.name,
+          };
+
+          return {
+            ...prev,
+            courseResources: nextResources,
+          };
+        });
+      }
+
+      showToast("Tải tài liệu thành công!");
+    } catch (error) {
+      console.error("Error uploading document:", error);
+      showToast(error.message || "Không thể tải tài liệu lên", "error");
+    } finally {
+      setUploadingDocumentKey(null);
+      setDocumentUploadProgress(null);
     }
   };
 
@@ -387,13 +668,16 @@ const AdminCourses = () => {
       isForSale: true,
       freeLessonsCount: 3,
       curriculum: [],
+      courseResources: [],
       instructorName: "",
       instructorTitle: "",
       instructorBio: "",
       instructorStudentCount: "",
       instructorCourseCount: "",
       fakeRating: "",
+      fakeReviewCount: "",
       fakeStudentCount: "",
+      whatYouWillLearn: "",
     });
     setActiveTab("info");
     setIsFormOpen(true);
@@ -432,15 +716,16 @@ const AdminCourses = () => {
       whatYouWillLearn: Array.isArray(course.whatYouWillLearn)
         ? course.whatYouWillLearn.join("\n")
         : course.whatYouWillLearn || "",
+      courseResources: normalizeCourseResources(course.courseResources),
 
-      curriculum:
+      curriculum: normalizeCurriculumForForm(
         course.curriculum &&
         course.curriculum.length > 0 &&
         course.curriculum[0].lessons
           ? course.curriculum
           : course.curriculum && course.curriculum.length > 0
             ? [{ title: "Nội dung khóa học", lessons: course.curriculum }]
-            : [],
+            : []),
     });
     setActiveTab("info");
     setIsFormOpen(true);
@@ -450,15 +735,40 @@ const AdminCourses = () => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
+      const normalizedCurriculum = normalizeCurriculumForForm(
+        formData.curriculum,
+      );
+      const validLessonIds = new Set(
+        normalizedCurriculum.flatMap((section) =>
+          (section.lessons || []).flatMap((lesson) =>
+            [lesson.id, lesson.videoId].filter(Boolean),
+          ),
+        ),
+      );
+      const normalizedCourseResources = reindexCourseResources(
+        normalizeCourseResources(formData.courseResources)
+          .map((resource) => ({
+            ...resource,
+            name: resource.name?.trim() || "",
+            url: resource.url?.trim() || "",
+            linkedLessonId: validLessonIds.has(resource.linkedLessonId)
+              ? resource.linkedLessonId
+              : "",
+          }))
+          .filter((resource) => resource.url),
+      );
+
       const courseData = {
         ...formData,
         categories: formData.categories,
         category: formData.categories.length > 0 ? formData.categories[0] : "", // Backward compatibility
+        curriculum: normalizedCurriculum,
         whatYouWillLearn: formData.whatYouWillLearn
           ? formData.whatYouWillLearn
               .split("\n")
               .filter((line) => line.trim() !== "")
           : [],
+        courseResources: normalizedCourseResources,
         price: formData.isForSale ? Number(formData.price) : 0,
         salePrice:
           formData.isForSale && formData.salePrice
@@ -508,6 +818,25 @@ const AdminCourses = () => {
       currency: "VND",
     }).format(price);
   };
+
+  const lessonOptions = useMemo(
+    () =>
+      (formData.curriculum || []).flatMap((section, sectionIndex) =>
+        (section.lessons || [])
+          .map((lesson, lessonIndex) => {
+            const lessonId = getLessonIdentifier(lesson);
+
+            if (!lessonId) return null;
+
+            return {
+              value: lessonId,
+              label: `Chương ${sectionIndex + 1}: ${section.title || "Chưa đặt tên"} • Buổi ${lessonIndex + 1}: ${lesson.title || "Chưa đặt tên"}`,
+            };
+          })
+          .filter(Boolean),
+      ),
+    [formData.curriculum],
+  );
 
   return (
     <div className="space-y-6">
@@ -1273,16 +1602,7 @@ const AdminCourses = () => {
                               />
                               <button
                                 type="button"
-                                onClick={() => {
-                                  const newCurriculum = [
-                                    ...formData.curriculum,
-                                  ];
-                                  newCurriculum.splice(sIdx, 1);
-                                  setFormData((prev) => ({
-                                    ...prev,
-                                    curriculum: newCurriculum,
-                                  }));
-                                }}
+                                onClick={() => handleRemoveSection(sIdx)}
                                 className="text-slate-400 hover:text-red-500"
                               >
                                 <Trash2 className="w-4 h-4" />
@@ -1520,7 +1840,7 @@ const AdminCourses = () => {
                                               <label className="text-xs font-bold text-slate-400 uppercase">
                                                 Tài liệu đính kèm
                                               </label>
-                                              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                              <div className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
                                                 <input
                                                   type="text"
                                                   placeholder="Tên tài liệu (VD: Slide bài giảng)..."
@@ -1553,6 +1873,43 @@ const AdminCourses = () => {
                                                   }
                                                   className="w-full text-sm rounded bg-white border border-slate-200 px-3 py-2 focus:border-secret-wax outline-none"
                                                 />
+                                                <label
+                                                  className={`inline-flex cursor-pointer items-center justify-center rounded border border-slate-200 px-3 py-2 text-sm font-medium transition-colors ${
+                                                    uploadingDocumentKey ===
+                                                    `lesson-${sIdx}-${lIdx}`
+                                                      ? "bg-slate-100 text-slate-500"
+                                                      : "bg-white text-slate-600 hover:border-secret-wax hover:text-secret-wax"
+                                                  }`}
+                                                  title="Tải file tài liệu lên"
+                                                >
+                                                  <input
+                                                    type="file"
+                                                    className="hidden"
+                                                    accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.txt,.csv,image/*"
+                                                    onChange={(e) =>
+                                                      handleDocumentUpload(e, {
+                                                        type: "lesson",
+                                                        sIdx,
+                                                        lIdx,
+                                                      })
+                                                    }
+                                                    disabled={
+                                                      uploadingDocumentKey ===
+                                                      `lesson-${sIdx}-${lIdx}`
+                                                    }
+                                                  />
+                                                  {uploadingDocumentKey ===
+                                                  `lesson-${sIdx}-${lIdx}` ? (
+                                                    <span className="text-xs font-semibold">
+                                                      {typeof documentUploadProgress ===
+                                                      "number"
+                                                        ? `${documentUploadProgress}%`
+                                                        : "..."}
+                                                    </span>
+                                                  ) : (
+                                                    <Upload className="h-4 w-4" />
+                                                  )}
+                                                </label>
                                               </div>
                                             </div>
                                           </div>
@@ -1653,6 +2010,200 @@ const AdminCourses = () => {
                       </button>
                     </div>
                   )}
+
+                  <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                      <div>
+                        <h3 className="text-base font-bold text-slate-800">
+                          Tài liệu chung của khóa học
+                        </h3>
+                        <p className="text-sm text-slate-500">
+                          Các tài liệu này sẽ hiện ở tab Tài liệu dù không gắn
+                          vào buổi học nào.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleAddCourseResource}
+                        className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm transition-colors hover:text-secret-wax"
+                      >
+                        <Plus className="h-4 w-4" />
+                        Thêm tài liệu
+                      </button>
+                    </div>
+
+                    {formData.courseResources?.length > 0 ? (
+                      <div className="mt-4 space-y-3">
+                        {formData.courseResources.map((resource, resourceIdx) => (
+                          <div
+                            key={resource.id || resourceIdx}
+                            onDragOver={(event) => event.preventDefault()}
+                            onDrop={(event) =>
+                              handleCourseResourceDrop(event, resourceIdx)
+                            }
+                            className={`rounded-xl border bg-slate-50 p-3 transition-colors ${
+                              draggedCourseResourceIndex === resourceIdx
+                                ? "border-secret-wax/50 bg-orange-50"
+                                : "border-slate-200"
+                            }`}
+                          >
+                            <div className="flex flex-col gap-3 md:flex-row md:items-start">
+                              <button
+                                type="button"
+                                draggable
+                                onDragStart={(event) =>
+                                  handleCourseResourceDragStart(
+                                    event,
+                                    resourceIdx,
+                                  )
+                                }
+                                onDragEnd={() =>
+                                  setDraggedCourseResourceIndex(null)
+                                }
+                                className="inline-flex h-10 w-10 shrink-0 cursor-grab items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 transition-colors hover:border-secret-wax hover:text-secret-wax active:cursor-grabbing"
+                                title="Keo de sap xep tai lieu"
+                              >
+                                <GripVertical className="h-4 w-4" />
+                              </button>
+
+                              <div className="grid flex-1 grid-cols-1 gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)_minmax(220px,1fr)_auto_auto_auto]">
+                                <input
+                                  type="text"
+                                  value={resource.name || ""}
+                                  onChange={(e) =>
+                                    handleUpdateCourseResource(
+                                      resourceIdx,
+                                      "name",
+                                      e.target.value,
+                                    )
+                                  }
+                                  placeholder="Ten tai lieu..."
+                                  className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-secret-wax"
+                                />
+                                <input
+                                  type="text"
+                                  value={resource.url || ""}
+                                  onChange={(e) =>
+                                    handleUpdateCourseResource(
+                                      resourceIdx,
+                                      "url",
+                                      e.target.value,
+                                    )
+                                  }
+                                  placeholder="Link tai lieu (URL)..."
+                                  className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-secret-wax"
+                                />
+                                <select
+                                  value={resource.linkedLessonId || ""}
+                                  onChange={(e) =>
+                                    handleUpdateCourseResource(
+                                      resourceIdx,
+                                      "linkedLessonId",
+                                      e.target.value,
+                                    )
+                                  }
+                                  className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-secret-wax"
+                                >
+                                  <option value="">Khong gan buoi nao</option>
+                                  {lessonOptions.length === 0 ? (
+                                    <option value="" disabled>
+                                      Hay them buoi hoc truoc
+                                    </option>
+                                  ) : (
+                                    lessonOptions.map((option) => (
+                                      <option
+                                        key={option.value}
+                                        value={option.value}
+                                      >
+                                        {option.label}
+                                      </option>
+                                    ))
+                                  )}
+                                </select>
+                                <label
+                                  className={`inline-flex cursor-pointer items-center justify-center rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium transition-colors ${
+                                    uploadingDocumentKey ===
+                                    `course-${resourceIdx}`
+                                      ? "bg-slate-100 text-slate-500"
+                                      : "bg-white text-slate-600 hover:border-secret-wax hover:text-secret-wax"
+                                  }`}
+                                  title="Tai file tai lieu len"
+                                >
+                                  <input
+                                    type="file"
+                                    className="hidden"
+                                    accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.txt,.csv,image/*"
+                                    onChange={(e) =>
+                                      handleDocumentUpload(e, {
+                                        type: "course",
+                                        index: resourceIdx,
+                                      })
+                                    }
+                                    disabled={
+                                      uploadingDocumentKey ===
+                                      `course-${resourceIdx}`
+                                    }
+                                  />
+                                  {uploadingDocumentKey ===
+                                  `course-${resourceIdx}` ? (
+                                    <span className="text-xs font-semibold">
+                                      {typeof documentUploadProgress ===
+                                      "number"
+                                        ? `${documentUploadProgress}%`
+                                        : "..."}
+                                    </span>
+                                  ) : (
+                                    <Upload className="h-4 w-4" />
+                                  )}
+                                </label>
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleMoveCourseResource(resourceIdx, -1)
+                                    }
+                                    disabled={resourceIdx === 0}
+                                    className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white p-2 text-slate-400 transition-colors hover:text-secret-wax disabled:opacity-30"
+                                    title="Dua len tren"
+                                  >
+                                    <ArrowUp className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleMoveCourseResource(resourceIdx, 1)
+                                    }
+                                    disabled={
+                                      resourceIdx ===
+                                      formData.courseResources.length - 1
+                                    }
+                                    className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white p-2 text-slate-400 transition-colors hover:text-secret-wax disabled:opacity-30"
+                                    title="Dua xuong duoi"
+                                  >
+                                    <ArrowDown className="h-4 w-4" />
+                                  </button>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleRemoveCourseResource(resourceIdx)
+                                  }
+                                  className="inline-flex items-center justify-center rounded-lg border border-red-200 bg-white px-3 py-2 text-red-500 transition-colors hover:bg-red-50"
+                                  title="Xoa tai lieu"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="mt-4 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
+                        Chưa có tài liệu chung nào cho khóa học này.
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 
