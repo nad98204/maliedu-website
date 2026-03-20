@@ -242,26 +242,56 @@ const MyCourses = () => {
 
                                         {/* Action Button */}
                                         {course.progressPercent === 0 ? (
-                                            <Link
-                                                to={`/bai-giang/${course.id}`}
-                                                className="block w-full text-center rounded-xl bg-orange-500 px-4 py-3.5 text-base font-bold text-white shadow-md transition-all hover:bg-orange-600 hover:shadow-lg active:scale-[0.98]"
-                                            >
-                                                VÀO HỌC NGAY
-                                            </Link>
+                                            <div className="flex flex-col gap-2">
+                                                <Link
+                                                    to={`/bai-giang/${course.id}`}
+                                                    className="block w-full text-center rounded-xl bg-orange-500 px-4 py-3.5 text-base font-bold text-white shadow-md transition-all hover:bg-orange-600 hover:shadow-lg active:scale-[0.98]"
+                                                >
+                                                    VÀO HỌC NGAY
+                                                </Link>
+                                                <div className="flex gap-2">
+                                                    <Link to={`/tai-lieu/${course.id}`} className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border-2 border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-bold text-slate-600 transition-all hover:bg-white hover:border-slate-300 hover:text-slate-900 active:scale-[0.98]">
+                                                        📄 Tài Liệu
+                                                    </Link>
+                                                    <Link to={`/ghi-chep/${course.id}`} className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border-2 border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-bold text-slate-600 transition-all hover:bg-white hover:border-slate-300 hover:text-slate-900 active:scale-[0.98]">
+                                                        📝 Bài Học Ghi Chép
+                                                    </Link>
+                                                </div>
+                                            </div>
                                         ) : course.progressPercent < 100 ? (
-                                            <Link
-                                                to={`/bai-giang/${course.id}`}
-                                                className="block w-full text-center rounded-xl bg-blue-600 px-4 py-3.5 text-base font-bold text-white shadow-md transition-all hover:bg-blue-700 hover:shadow-lg active:scale-[0.98]"
-                                            >
-                                                HỌC TIẾP
-                                            </Link>
+                                            <div className="flex flex-col gap-2">
+                                                <Link
+                                                    to={`/bai-giang/${course.id}`}
+                                                    className="block w-full text-center rounded-xl bg-blue-600 px-4 py-3.5 text-base font-bold text-white shadow-md transition-all hover:bg-blue-700 hover:shadow-lg active:scale-[0.98]"
+                                                >
+                                                    HỌC TIẾP
+                                                </Link>
+                                                <div className="flex gap-2">
+                                                    <Link to={`/tai-lieu/${course.id}`} className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border-2 border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-bold text-slate-600 transition-all hover:bg-white hover:border-slate-300 hover:text-slate-900 active:scale-[0.98]">
+                                                        📄 Tài Liệu
+                                                    </Link>
+                                                    <Link to={`/ghi-chep/${course.id}`} className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border-2 border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-bold text-slate-600 transition-all hover:bg-white hover:border-slate-300 hover:text-slate-900 active:scale-[0.98]">
+                                                        📝 Bài Học Ghi Chép
+                                                    </Link>
+                                                </div>
+                                            </div>
                                         ) : (
-                                            <Link
-                                                to={`/bai-giang/${course.id}`}
-                                                className="block w-full text-center rounded-xl bg-slate-100 border-2 border-slate-200 px-4 py-3 text-base font-bold text-slate-600 transition-all hover:bg-white hover:border-slate-300 hover:text-slate-900 active:scale-[0.98]"
-                                            >
-                                                XEM LẠI
-                                            </Link>
+                                            <div className="flex flex-col gap-2">
+                                                <Link
+                                                    to={`/bai-giang/${course.id}`}
+                                                    className="block w-full text-center rounded-xl bg-slate-100 border-2 border-slate-200 px-4 py-3 text-base font-bold text-slate-600 transition-all hover:bg-white hover:border-slate-300 hover:text-slate-900 active:scale-[0.98]"
+                                                >
+                                                    XEM LẠI
+                                                </Link>
+                                                <div className="flex gap-2">
+                                                    <Link to={`/tai-lieu/${course.id}`} className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border-2 border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-bold text-slate-600 transition-all hover:bg-white hover:border-slate-300 hover:text-slate-900 active:scale-[0.98]">
+                                                        📄 Tài Liệu
+                                                    </Link>
+                                                    <Link to={`/ghi-chep/${course.id}`} className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border-2 border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-bold text-slate-600 transition-all hover:bg-white hover:border-slate-300 hover:text-slate-900 active:scale-[0.98]">
+                                                        📝 Bài Học Ghi Chép
+                                                    </Link>
+                                                </div>
+                                            </div>
                                         )}
                                     </div>
                                 </div>

@@ -15,7 +15,9 @@ import {
   X,
   Youtube,
   BookOpen,
-  ShoppingCart
+  ShoppingCart,
+  Clock,
+  AlertCircle
 } from "lucide-react";
 
 import { auth } from "../firebase";
@@ -37,7 +39,8 @@ const Header = () => {
   const [currentUser, setCurrentUser] = useState(null);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
-  const { cartCount = 0 } = useCart() || {};
+  const { cartCount = 0, pendingCount = 0, totalBadgeCount = 0 } = useCart() || {};
+  const [pendingBannerDismissed, setPendingBannerDismissed] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -109,13 +112,15 @@ const Header = () => {
             {currentUser && (
               <Link
                 to="/gio-hang"
-                className="inline-flex items-center gap-1.5 px-2 py-1 text-[10px] sm:gap-2 sm:px-3 sm:py-1.5 sm:text-xs rounded-full bg-secret-paper text-secret-wax font-medium shadow-sm hover:bg-white transition mr-1"
+                className="relative inline-flex items-center gap-1.5 px-2 py-1 text-[10px] sm:gap-2 sm:px-3 sm:py-1.5 sm:text-xs rounded-full bg-secret-paper text-secret-wax font-medium shadow-sm hover:bg-white transition mr-1"
               >
                 <ShoppingCart className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                 Giỏ hàng
-                {cartCount > 0 && (
-                  <span className="ml-0.5 inline-flex items-center justify-center min-w-[1.25rem] h-3.5 px-1 text-[9px] sm:h-4 sm:text-[10px] font-bold leading-none text-white bg-red-600 rounded-full">
-                    {cartCount}
+                {totalBadgeCount > 0 && (
+                  <span className="ml-0.5 inline-flex items-center justify-center min-w-[1.25rem] h-3.5 px-1 text-[9px] sm:h-4 sm:text-[10px] font-bold leading-none text-white rounded-full"
+                    style={{ background: pendingCount > 0 && cartCount === 0 ? '#f97316' : '#dc2626' }}
+                  >
+                    {totalBadgeCount}
                   </span>
                 )}
               </Link>
@@ -257,7 +262,37 @@ const Header = () => {
             </button>
           </div>
         </div>
-      </header >
+      </header>
+
+      {/* Banner nhắc nhở đơn chưa thanh toán */}
+      {currentUser && pendingCount > 0 && !pendingBannerDismissed && (
+        <div className="sticky top-16 z-40 bg-orange-500 text-white shadow-lg">
+          <div className="max-w-7xl mx-auto px-4 py-2.5 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <Clock className="w-4 h-4 shrink-0 animate-pulse" />
+              <p className="text-sm font-medium truncate">
+                Bạn có <strong>{pendingCount} đơn hàng</strong> chưa thanh toán — hoàn tất để kích hoạt khóa học!
+              </p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Link
+                to="/gio-hang"
+                onClick={() => setPendingBannerDismissed(true)}
+                className="inline-flex items-center gap-1 px-3 py-1 bg-white text-orange-600 text-xs font-bold rounded-full hover:bg-orange-50 transition-colors"
+              >
+                Xem ngay
+              </Link>
+              <button
+                onClick={() => setPendingBannerDismissed(true)}
+                className="p-1 rounded-full hover:bg-white/20 transition-colors"
+                aria-label="Đóng"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {mobileOpen && (
         <div className="fixed inset-0 z-[70] bg-secret-ink/50 lg:hidden">
@@ -296,13 +331,20 @@ const Header = () => {
                 >
                   <div className="relative">
                     <ShoppingCart className="h-5 w-5" />
-                    {cartCount > 0 && (
-                      <span className="absolute -top-2 -right-2 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
-                        {cartCount}
+                    {totalBadgeCount > 0 && (
+                      <span className="absolute -top-2 -right-2 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-white rounded-full"
+                        style={{ background: pendingCount > 0 && cartCount === 0 ? '#f97316' : '#dc2626' }}
+                      >
+                        {totalBadgeCount}
                       </span>
                     )}
                   </div>
-                  Giỏ hàng của bạn
+                  Giỏ hàng
+                  {pendingCount > 0 && (
+                    <span className="ml-auto text-xs font-bold text-orange-500 bg-orange-50 px-2 py-0.5 rounded-full border border-orange-200">
+                      {pendingCount} chưa TT
+                    </span>
+                  )}
                 </Link>
               )}
 

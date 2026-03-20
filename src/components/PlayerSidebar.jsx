@@ -8,25 +8,57 @@ import {
     Lock,
     PlayCircle,
     Search,
-    Video
+    Video,
+    X
 } from 'lucide-react';
+
+const getViewerUrl = (url = '') => {
+    const lower = url.toLowerCase().split('?')[0];
+    if (/\.(pdf)$/.test(lower)) return url;
+    if (/\.(doc|docx|xls|xlsx|ppt|pptx|odt|ods|odp)$/.test(lower)) {
+        return `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=false`;
+    }
+    return url;
+};
+
+const buildResourcePreview = (resourceList = [], limit = 2) => {
+    const names = [...new Set(resourceList.map((resource) => resource.name).filter(Boolean))];
+
+    if (names.length === 0) {
+        return '';
+    }
+
+    const preview = names.slice(0, limit).join(' • ');
+
+    return names.length > limit ? `${preview} +${names.length - limit}` : preview;
+};
 
 const PlayerSidebar = ({
     sections = [],
     resources = [],
+    resourceGroups = [],
+    lessonResourceMap = {},
+    sectionResourceMap = {},
+    currentContextResources = [],
     currentLessonId,
     progress = {},
-    onLessonSelect
+    onLessonSelect,
+    onResourceSelect,
+    onClose
 }) => {
     const [activeTab, setActiveTab] = useState('curriculum');
     const [lessonSearchTerm, setLessonSearchTerm] = useState('');
     const [resourceSearchTerm, setResourceSearchTerm] = useState('');
     const [openSections, setOpenSections] = useState({});
-
+    const [openResourceGroups, setOpenResourceGroups] = useState({});
 
     const totalLessons = useMemo(
         () => sections.reduce((total, section) => total + (section.lessons?.length || 0), 0),
         [sections]
+    );
+    const completedLessons = useMemo(
+        () => Object.values(progress).filter(Boolean).length,
+        [progress]
     );
 
     const filteredSections = useMemo(() => {
@@ -44,34 +76,132 @@ const PlayerSidebar = ({
             .filter((section) => section.lessons.length > 0);
     }, [lessonSearchTerm, sections]);
 
-    const filteredResources = useMemo(() => {
+    const filteredResourceGroups = useMemo(() => {
         const keyword = resourceSearchTerm.trim().toLowerCase();
 
-        return resources.filter((resource) => {
-            if (!keyword) return true;
+        return resourceGroups
+            .map((group) => ({
+                ...group,
+                resources: group.resources.filter((resource) => {
+                    if (!keyword) return true;
 
-            return [
-                resource.name,
-                resource.lessonTitle,
-                resource.sectionTitle,
-                resource.sourceLabel
-            ].some((value) => value?.toLowerCase().includes(keyword));
-        });
-    }, [resourceSearchTerm, resources]);
+                    return [
+                        resource.name,
+                        resource.lessonTitle,
+                        resource.sectionTitle,
+                        resource.sourceLabel
+                    ].some((value) => value?.toLowerCase().includes(keyword));
+                })
+            }))
+            .filter((group) => group.resources.length > 0);
+    }, [resourceGroups, resourceSearchTerm]);
 
-    const toggleSection = (sectionIndex) => {
+    const currentSectionId = useMemo(() => {
+        if (!currentLessonId) return null;
+
+        for (let sectionIndex = 0; sectionIndex < sections.length; sectionIndex += 1) {
+            const section = sections[sectionIndex];
+            const sectionId = section.id || `section-${sectionIndex}`;
+            const hasCurrentLesson = (section.lessons || []).some(
+                (lesson) => (lesson.id || lesson.videoId) === currentLessonId
+            );
+
+            if (hasCurrentLesson) {
+                return sectionId;
+            }
+        }
+
+        return null;
+    }, [currentLessonId, sections]);
+
+    const currentLessonMeta = useMemo(() => {
+        if (!currentLessonId) return null;
+
+        for (let sectionIndex = 0; sectionIndex < sections.length; sectionIndex += 1) {
+            const section = sections[sectionIndex];
+            const lessonIndex = (section.lessons || []).findIndex(
+                (lesson) => (lesson.id || lesson.videoId) === currentLessonId
+            );
+
+            if (lessonIndex >= 0) {
+                return {
+                    lesson: section.lessons[lessonIndex],
+                    sectionTitle: section.title,
+                    lessonNumber:
+                        sections
+                            .slice(0, sectionIndex)
+                            .reduce(
+                                (total, currentSection) =>
+                                    total + (currentSection.lessons?.length || 0),
+                                0
+                            ) +
+                        lessonIndex +
+                        1
+                };
+            }
+        }
+
+        return null;
+    }, [currentLessonId, sections]);
+
+    const toggleSection = (sectionIndex, defaultOpen = false) => {
         setOpenSections((prev) => ({
             ...prev,
-            [sectionIndex]: !(prev[sectionIndex] ?? true)
+            [sectionIndex]: !(prev[sectionIndex] ?? defaultOpen)
         }));
     };
+
+    const toggleResourceGroup = (groupKey, defaultOpen = false) => {
+        setOpenResourceGroups((prev) => ({
+            ...prev,
+            [groupKey]: !(prev[groupKey] ?? defaultOpen)
+        }));
+    };
+
     const searchValue = activeTab === 'curriculum' ? lessonSearchTerm : resourceSearchTerm;
     const setSearchValue =
         activeTab === 'curriculum' ? setLessonSearchTerm : setResourceSearchTerm;
 
     return (
         <div className="flex h-full flex-col border-l border-slate-200 bg-white">
-            <div className="space-y-4 border-b border-slate-200 p-4">
+            <div className="sticky top-0 z-10 space-y-4 border-b border-slate-200 bg-white/95 p-4 backdrop-blur md:static md:bg-white md:backdrop-blur-0">
+                <div className="md:hidden">
+                    <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-red-500">
+                                Chương học, bài tập
+                            </p>
+                            <h3 className="mt-1 line-clamp-2 text-base font-bold text-slate-900">
+                                {currentLessonMeta?.lesson?.title || 'Tiếp tục học'}
+                            </h3>
+                            <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
+                                <span className="rounded-full bg-red-50 px-2.5 py-1 font-semibold text-red-600 ring-1 ring-red-100">
+                                    {completedLessons}/{totalLessons} hoàn thành
+                                </span>
+                                {currentLessonMeta?.lessonNumber ? (
+                                    <span className="rounded-full bg-slate-100 px-2.5 py-1 font-semibold text-slate-600">
+                                        Bài {currentLessonMeta.lessonNumber}
+                                    </span>
+                                ) : null}
+                            </div>
+                            {currentLessonMeta?.sectionTitle ? (
+                                <p className="mt-2 line-clamp-1 text-xs font-medium text-slate-500">
+                                    {currentLessonMeta.sectionTitle}
+                                </p>
+                            ) : null}
+                        </div>
+
+                        <button
+                            type="button"
+                            onClick={() => onClose?.()}
+                            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-700"
+                            aria-label="Đóng chương học và bài tập"
+                        >
+                            <X className="h-5 w-5" />
+                        </button>
+                    </div>
+                </div>
+
                 <div className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1">
                     <button
                         type="button"
@@ -82,7 +212,8 @@ const PlayerSidebar = ({
                                 : 'text-slate-500 hover:text-slate-800'
                         }`}
                     >
-                        Nội dung khóa học
+                        <span className="md:hidden">Chương học</span>
+                        <span className="hidden md:inline">Nội dung khóa học</span>
                     </button>
                     <button
                         type="button"
@@ -93,7 +224,8 @@ const PlayerSidebar = ({
                                 : 'text-slate-500 hover:text-slate-800'
                         }`}
                     >
-                        Tài liệu
+                        <span className="md:hidden">Bài tập</span>
+                        <span className="hidden md:inline">Tài liệu</span>
                     </button>
                 </div>
 
@@ -103,8 +235,8 @@ const PlayerSidebar = ({
                         type="text"
                         placeholder={
                             activeTab === 'curriculum'
-                                ? 'Tìm kiếm bài học...'
-                                : 'Tìm kiếm tài liệu...'
+                                ? 'Tìm chương hoặc bài học...'
+                                : 'Tìm bài tập, tài liệu...'
                         }
                         value={searchValue}
                         onChange={(event) => setSearchValue(event.target.value)}
@@ -115,8 +247,8 @@ const PlayerSidebar = ({
                 <div className="flex items-center justify-between text-xs text-slate-500">
                     <span className="font-semibold text-slate-700">
                         {activeTab === 'curriculum'
-                            ? 'Nội dung khóa học'
-                            : 'Tài liệu đính kèm'}
+                            ? 'Chương và bài học'
+                            : 'Bài tập và tài liệu'}
                     </span>
                     <span>
                         {activeTab === 'curriculum'
@@ -129,152 +261,393 @@ const PlayerSidebar = ({
             <div className="custom-scrollbar flex-1 overflow-y-auto">
                 {activeTab === 'curriculum' ? (
                     filteredSections.length > 0 ? (
-                        filteredSections.map((section) => (
-                            <div
-                                key={`${section.sectionIndex}-${section.title}`}
-                                className="border-b border-slate-100 last:border-0"
-                            >
-                                <button
-                                    type="button"
-                                    onClick={() => toggleSection(section.sectionIndex)}
-                                    className="flex w-full items-center justify-between bg-white px-4 py-3 transition-colors hover:bg-slate-50"
-                                >
-                                    <div className="text-left">
-                                        <h4 className="line-clamp-1 text-sm font-bold text-slate-800">
-                                            {section.title}
-                                        </h4>
-                                        <span className="text-xs text-slate-500">
-                                            {section.lessons.length} bài học
-                                        </span>
-                                    </div>
-                                    {(openSections[section.sectionIndex] ?? true) ? (
-                                        <ChevronUp className="h-4 w-4 text-slate-400" />
-                                    ) : (
-                                        <ChevronDown className="h-4 w-4 text-slate-400" />
-                                    )}
-                                </button>
+                        filteredSections.map((section) => {
+                            const sectionId = section.id || `section-${section.sectionIndex}`;
+                            const sectionResources = sectionResourceMap[sectionId] || [];
+                            const sectionLevelResources = sectionResources.filter(
+                                (resource) => !resource.lessonId
+                            );
+                            const lessonLevelResourceCount =
+                                sectionResources.length - sectionLevelResources.length;
+                            const isSectionOpen =
+                                openSections[section.sectionIndex] ??
+                                sectionId === currentSectionId;
 
+                            return (
                                 <div
-                                    className={`overflow-hidden transition-all duration-300 ${
-                                        (openSections[section.sectionIndex] ?? true) ? 'max-h-[1000px]' : 'max-h-0'
-                                    }`}
+                                    key={`${sectionId}-${section.title}`}
+                                    className="border-b border-slate-100 last:border-0"
                                 >
-                                    {section.lessons.map((lesson, lessonIndex) => {
-                                        const lessonKey = lesson.id || lesson.videoId;
-                                        const isCurrent =
-                                            currentLessonId === lessonKey ||
-                                            (currentLessonId === undefined &&
-                                                section.sectionIndex === 0 &&
-                                                lessonIndex === 0);
-                                        const isCompleted = !!progress[lessonKey];
-                                        const isLocked = false;
-
-                                        return (
-                                            <button
-                                                key={lessonKey || `${section.sectionIndex}-${lessonIndex}`}
-                                                type="button"
-                                                onClick={() => onLessonSelect?.(lesson)}
-                                                className={`flex w-full items-start gap-3 border-l-4 p-3 text-left transition-all ${
-                                                    isCurrent
-                                                        ? 'border-[#B91C1C] bg-red-50'
-                                                        : 'border-transparent bg-white hover:bg-slate-50'
-                                                }`}
-                                            >
-                                                <div className="mt-0.5 shrink-0">
-                                                    {isCurrent ? (
-                                                        <PlayCircle className="h-4 w-4 animate-pulse text-[#B91C1C]" />
-                                                    ) : isCompleted ? (
-                                                        <CheckCircle className="h-4 w-4 text-green-500" />
-                                                    ) : isLocked ? (
-                                                        <Lock className="h-4 w-4 text-slate-300" />
-                                                    ) : (
-                                                        <div className="h-4 w-4 rounded-full border border-slate-300"></div>
+                                    <div className="bg-white">
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                toggleSection(
+                                                    section.sectionIndex,
+                                                    sectionId === currentSectionId
+                                                )
+                                            }
+                                            className="flex w-full items-start justify-between gap-3 px-4 py-3 transition-colors hover:bg-slate-50"
+                                        >
+                                            <div className="min-w-0 flex-1 text-left">
+                                                <h4 className="line-clamp-1 text-sm font-bold text-slate-800">
+                                                    {section.title}
+                                                </h4>
+                                                <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                                                    <span>{section.lessons.length} bài học</span>
+                                                    {sectionLevelResources.length > 0 && (
+                                                        <span className="rounded-full bg-red-50 px-2 py-0.5 font-semibold text-red-500">
+                                                            {sectionLevelResources.length} tài liệu
+                                                            theo phần
+                                                        </span>
+                                                    )}
+                                                    {lessonLevelResourceCount > 0 && (
+                                                        <span className="rounded-full bg-red-50 px-2 py-0.5 font-semibold text-red-500">
+                                                            {lessonLevelResourceCount} tài liệu theo
+                                                            bài
+                                                        </span>
                                                     )}
                                                 </div>
+                                            </div>
+                                            {isSectionOpen ? (
+                                                <ChevronUp className="mt-1 h-4 w-4 shrink-0 text-slate-400" />
+                                            ) : (
+                                                <ChevronDown className="mt-1 h-4 w-4 shrink-0 text-slate-400" />
+                                            )}
+                                        </button>
 
-                                                <div className="min-w-0 flex-1">
-                                                    <p
-                                                        className={`line-clamp-2 text-sm font-medium ${
-                                                            isCurrent ? 'text-[#B91C1C]' : 'text-slate-700'
-                                                        }`}
-                                                    >
-                                                        {lesson.title}
-                                                    </p>
-                                                    <div className="mt-1 flex items-center gap-2">
-                                                        <span className="flex items-center gap-1 text-xs text-slate-500">
-                                                            <Video className="h-3 w-3" />
-                                                            {lesson.duration || '00:00'}
+                                        {sectionLevelResources.length > 0 && (
+                                            <div className="px-4 pb-3">
+                                                <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-red-500">
+                                                    Tài liệu theo phần
+                                                </p>
+                                                <div className="flex flex-wrap gap-1.5">
+                                                    {sectionLevelResources
+                                                        .slice(0, 2)
+                                                        .map((resource) => (
+                                                            <button
+                                                                key={resource.id}
+                                                                type="button"
+                                                                onClick={() =>
+                                                                    onResourceSelect?.(resource)
+                                                                }
+                                                                className="rounded-full bg-red-50 px-2.5 py-1 text-[11px] font-medium text-red-600 ring-1 ring-red-100 transition-all hover:-translate-y-0.5 hover:bg-white hover:text-[#B91C1C]"
+                                                            >
+                                                                {resource.name}
+                                                            </button>
+                                                        ))}
+                                                    {sectionLevelResources.length > 2 && (
+                                                        <span className="rounded-full bg-red-50 px-2.5 py-1 text-[11px] font-bold text-red-500 ring-1 ring-red-100">
+                                                            +{sectionLevelResources.length - 2}
                                                         </span>
-                                                    </div>
+                                                    )}
                                                 </div>
-                                            </button>
-                                        );
-                                    })}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div
+                                        className={`overflow-hidden transition-all duration-300 ${
+                                            isSectionOpen ? 'max-h-[2000px]' : 'max-h-0'
+                                        }`}
+                                    >
+                                        {section.lessons.map((lesson, lessonIndex) => {
+                                            const lessonKey = lesson.id || lesson.videoId;
+                                            const isCurrent =
+                                                currentLessonId === lessonKey ||
+                                                (currentLessonId === undefined &&
+                                                    section.sectionIndex === 0 &&
+                                                    lessonIndex === 0);
+                                            const isCompleted = !!progress[lessonKey];
+                                            const isLocked = false;
+                                            const lessonResources =
+                                                lessonResourceMap[lessonKey] || [];
+                                            const visibleResources = lessonResources;
+                                            const sectionOnlyCount = isCurrent
+                                                ? currentContextResources.filter(
+                                                      (resource) =>
+                                                          !resource.lessonId &&
+                                                          resource.sectionId === sectionId
+                                                  ).length
+                                                : 0;
+
+                                            return (
+                                                <div
+                                                    key={
+                                                        lessonKey ||
+                                                        `${section.sectionIndex}-${lessonIndex}`
+                                                    }
+                                                    className={`border-l-4 transition-all ${
+                                                        isCurrent
+                                                            ? 'border-[#B91C1C] bg-red-50'
+                                                            : 'border-transparent bg-white hover:bg-slate-50'
+                                                    }`}
+                                                >
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => onLessonSelect?.(lesson)}
+                                                        className="flex w-full items-start gap-3 px-3 pt-3 text-left"
+                                                    >
+                                                        <div className="mt-0.5 shrink-0">
+                                                            {isCurrent ? (
+                                                                <PlayCircle className="h-4 w-4 animate-pulse text-[#B91C1C]" />
+                                                            ) : isCompleted ? (
+                                                                <CheckCircle className="h-4 w-4 text-green-500" />
+                                                            ) : isLocked ? (
+                                                                <Lock className="h-4 w-4 text-slate-300" />
+                                                            ) : (
+                                                                <div className="h-4 w-4 rounded-full border border-slate-300"></div>
+                                                            )}
+                                                        </div>
+
+                                                        <div className="min-w-0 flex-1">
+                                                            <div className="flex items-start justify-between gap-2">
+                                                                <p
+                                                                    className={`line-clamp-2 text-sm font-medium ${
+                                                                        isCurrent
+                                                                            ? 'text-[#B91C1C]'
+                                                                            : 'text-slate-700'
+                                                                    }`}
+                                                                >
+                                                                    {lesson.title}
+                                                                </p>
+                                                                {visibleResources.length > 0 && (
+                                                                    <span
+                                                                        className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                                                                            isCurrent
+                                                                                ? 'bg-[#B91C1C] text-white'
+                                                                                : 'bg-red-100 text-[#B91C1C]'
+                                                                        }`}
+                                                                    >
+                                                                        {visibleResources.length}{' '}
+                                                                        tài liệu
+                                                                    </span>
+                                                                )}
+                                                            </div>
+
+                                                            <div className="mt-1 flex flex-wrap items-center gap-2">
+                                                                <span className="flex items-center gap-1 text-xs text-slate-500">
+                                                                    <Video className="h-3 w-3" />
+                                                                    {lesson.duration || '00:00'}
+                                                                </span>
+                                                                {lessonResources.length > 0 && (
+                                                                    <span className="text-[11px] font-semibold text-red-500">
+                                                                        Có tài liệu riêng
+                                                                    </span>
+                                                                )}
+                                                                {sectionOnlyCount > 0 && (
+                                                                    <span className="text-[11px] font-semibold text-red-500">
+                                                                        + {sectionOnlyCount} tài
+                                                                        liệu phần
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </button>
+
+                                                    {visibleResources.length > 0 && (
+                                                        <div className="px-3 pb-3">
+                                                            <div
+                                                                className={`rounded-xl border px-2.5 py-2 ${
+                                                                    isCurrent
+                                                                        ? 'border-red-200 bg-white'
+                                                                        : 'border-red-100 bg-red-50/70'
+                                                                }`}
+                                                            >
+                                                                <p className="text-[11px] font-bold uppercase tracking-wide text-red-500">
+                                                                    {isCurrent
+                                                                        ? 'Tài liệu hiện có'
+                                                                        : 'Tài liệu'}
+                                                                </p>
+                                                                <div className="mt-2 flex flex-wrap gap-1.5">
+                                                                    {visibleResources
+                                                                        .slice(0, 2)
+                                                                        .map((resource) => (
+                                                                            <button
+                                                                                key={resource.id}
+                                                                                type="button"
+                                                                                onClick={() =>
+                                                                                    onResourceSelect?.(
+                                                                                        resource
+                                                                                    )
+                                                                                }
+                                                                                className="rounded-full bg-white px-2 py-1 text-[11px] font-medium text-slate-700 ring-1 ring-red-100 transition-all hover:-translate-y-0.5 hover:text-[#B91C1C]"
+                                                                            >
+                                                                                {resource.name}
+                                                                            </button>
+                                                                        ))}
+                                                                    {visibleResources.length > 2 && (
+                                                                        <span className="rounded-full bg-white px-2 py-1 text-[11px] font-bold text-red-500 ring-1 ring-red-100">
+                                                                            +
+                                                                            {visibleResources.length -
+                                                                                2}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
                                 </div>
-                            </div>
-                        ))
+                            );
+                        })
                     ) : (
                         <div className="px-4 py-10 text-center text-sm text-slate-400">
                             Không tìm thấy bài học phù hợp.
                         </div>
                     )
-                ) : filteredResources.length > 0 ? (
-                    filteredResources.map((resource) => {
-                        const isCurrentLesson = currentLessonId === resource.lessonId;
+                ) : filteredResourceGroups.length > 0 ? (
+                    filteredResourceGroups.map((group) => {
+                        const isGroupOpen =
+                            openResourceGroups[group.key] ??
+                            (group.isCurrentSection || group.isGeneral);
 
                         return (
                             <div
-                                key={resource.id}
-                                className={`border-b border-slate-100 p-4 last:border-0 ${
-                                    isCurrentLesson ? 'bg-red-50/60' : 'bg-white'
-                                }`}
+                                key={group.key}
+                                className="border-b border-slate-100 last:border-0"
                             >
-                                <div className="flex items-start gap-3">
-                                    <div
-                                        className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
-                                            isCurrentLesson
-                                                ? 'bg-red-100 text-[#B91C1C]'
-                                                : 'bg-slate-100 text-slate-500'
-                                        }`}
-                                    >
-                                        <FileText className="h-5 w-5" />
-                                    </div>
-
-                                    <div className="min-w-0 flex-1">
-                                        <p className="line-clamp-2 text-sm font-semibold text-slate-800">
-                                            {resource.name}
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        toggleResourceGroup(
+                                            group.key,
+                                            group.isCurrentSection || group.isGeneral
+                                        )
+                                    }
+                                    className="flex w-full items-start justify-between gap-3 bg-white px-4 py-3 transition-colors hover:bg-slate-50"
+                                >
+                                    <div className="min-w-0 flex-1 text-left">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <h4 className="line-clamp-1 text-sm font-bold text-slate-800">
+                                                {group.title}
+                                            </h4>
+                                            <span className="rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-bold text-[#B91C1C]">
+                                                {group.resources.length} tài liệu
+                                            </span>
+                                            {group.isCurrentSection && (
+                                                <span className="rounded-full bg-slate-900 px-2 py-0.5 text-[11px] font-semibold text-white">
+                                                    Đang học
+                                                </span>
+                                            )}
+                                        </div>
+                                        <p className="mt-2 line-clamp-2 text-[11px] font-medium text-red-500">
+                                            {buildResourcePreview(group.resources)}
                                         </p>
-
-                                        {resource.lessonTitle && resource.lesson ? (
-                                            <button
-                                                type="button"
-                                                onClick={() => onLessonSelect?.(resource.lesson)}
-                                                className="mt-1 line-clamp-1 text-left text-xs font-medium text-slate-500 transition-colors hover:text-[#B91C1C]"
-                                            >
-                                                {resource.sourceLabel || `Buoi: ${resource.lessonTitle}`}
-                                            </button>
-                                        ) : (
-                                            <p className="mt-1 text-xs font-medium text-slate-500">
-                                                {resource.sourceLabel || "Tai lieu chung cua khoa hoc"}
-                                            </p>
-                                        )}
-
-                                        {resource.sectionTitle && (
-                                            <p className="mt-2 text-[11px] font-medium uppercase tracking-wide text-slate-400">
-                                                {resource.sectionTitle}
-                                            </p>
-                                        )}
                                     </div>
+                                    {isGroupOpen ? (
+                                        <ChevronUp className="mt-1 h-4 w-4 shrink-0 text-slate-400" />
+                                    ) : (
+                                        <ChevronDown className="mt-1 h-4 w-4 shrink-0 text-slate-400" />
+                                    )}
+                                </button>
 
-                                    <a
-                                        href={resource.url}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-white hover:text-[#B91C1C]"
-                                        title="Mở tài liệu"
-                                    >
-                                        <Download className="h-4 w-4" />
-                                    </a>
+                                <div
+                                    className={`overflow-hidden transition-all duration-300 ${
+                                        isGroupOpen ? 'max-h-[2000px]' : 'max-h-0'
+                                    }`}
+                                >
+                                    <div className="space-y-3 border-t border-slate-100 bg-slate-50/70 p-3">
+                                        {group.resources.map((resource) => {
+                                            const isCurrentResource =
+                                                resource.isCurrentContext ||
+                                                currentLessonId === resource.lessonId;
+
+                                            return (
+                                                <div
+                                                    key={resource.id}
+                                                    className={`rounded-xl border p-3 ${
+                                                        isCurrentResource
+                                                            ? 'border-red-200 bg-red-50'
+                                                            : 'border-slate-200 bg-white'
+                                                    }`}
+                                                >
+                                                    <div className="flex items-start gap-3">
+                                                        <div
+                                                            className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
+                                                                isCurrentResource
+                                                                    ? 'bg-red-100 text-[#B91C1C]'
+                                                                    : 'bg-slate-100 text-slate-500'
+                                                            }`}
+                                                        >
+                                                            <FileText className="h-5 w-5" />
+                                                        </div>
+
+                                                        <div className="min-w-0 flex-1">
+                                                            <div className="flex flex-wrap items-start gap-2">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() =>
+                                                                        onResourceSelect?.(resource)
+                                                                    }
+                                                                    className="line-clamp-2 flex-1 text-left text-sm font-semibold text-slate-800 transition-colors hover:text-[#B91C1C]"
+                                                                >
+                                                                    {resource.name}
+                                                                </button>
+                                                                {isCurrentResource && (
+                                                                    <span className="rounded-full bg-[#B91C1C] px-2 py-0.5 text-[11px] font-bold text-white">
+                                                                        Đang dùng
+                                                                    </span>
+                                                                )}
+                                                            </div>
+
+                                                            {resource.lessonId && resource.lesson ? (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() =>
+                                                                        onLessonSelect?.(
+                                                                            resource.lesson
+                                                                        )
+                                                                    }
+                                                                    className="mt-1 line-clamp-1 text-left text-xs font-medium text-slate-500 transition-colors hover:text-[#B91C1C]"
+                                                                >
+                                                                    {resource.lessonTitle ||
+                                                                        'Bài học gắn tài liệu'}
+                                                                </button>
+                                                            ) : (
+                                                                <p className="mt-1 text-xs font-medium text-slate-500">
+                                                                    {resource.isGeneral
+                                                                        ? 'Tài liệu chung của khóa học'
+                                                                        : 'Tài liệu theo phần này'}
+                                                                </p>
+                                                            )}
+
+                                                            {!group.isGeneral && (
+                                                                <p className="mt-2 text-[11px] font-medium uppercase tracking-wide text-slate-400">
+                                                                    {group.title}
+                                                                </p>
+                                                            )}
+                                                        </div>
+
+                                                        <div className="flex flex-col gap-1 flex-shrink-0">
+                                                            <a
+                                                                href={getViewerUrl(resource.url)}
+                                                                target="_blank"
+                                                                rel="noreferrer"
+                                                                className="inline-flex items-center justify-center px-2 py-1 rounded-lg bg-blue-50 border border-blue-200 text-[10px] font-bold text-blue-700 hover:bg-blue-100 transition-colors"
+                                                                title="Đọc tài liệu"
+                                                            >
+                                                                Đọc
+                                                            </a>
+                                                            <a
+                                                                href={resource.url}
+                                                                download
+                                                                target="_blank"
+                                                                rel="noreferrer"
+                                                                className="inline-flex items-center justify-center px-2 py-1 rounded-lg bg-slate-50 border border-slate-200 text-[10px] font-bold text-slate-600 hover:bg-slate-100 transition-colors"
+                                                                title="Tải xuống"
+                                                            >
+                                                                Tải
+                                                            </a>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
                                 </div>
                             </div>
                         );

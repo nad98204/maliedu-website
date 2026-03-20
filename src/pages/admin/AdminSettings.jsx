@@ -24,9 +24,19 @@ import {
     Edit,
     Lock,
     Mail,
-    Check
+    Check,
+    CreditCard,
+    Building2,
+    QrCode,
+    Send,
+    Eye,
+    EyeOff,
+    Save,
+    CheckCircle,
+    ExternalLink
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { getBankSettings, saveBankSettings, VIETNAM_BANKS, runAutoVerification } from '../../utils/bankPaymentService';
 
 const slugify = (text) => {
     return text.toLowerCase()
@@ -52,7 +62,7 @@ const ALL_MODULES = [
 ];
 
 const AdminSettings = () => {
-    const [activeTab, setActiveTab] = useState('system'); // 'users', 'system', 'sources'
+    const [activeTab, setActiveTab] = useState('payment'); // 'users', 'system', 'payment'
     const [courses, setCourses] = useState([]);
     const [crmUsers, setCrmUsers] = useState([]);
     const [newCourseName, setNewCourseName] = useState("");
@@ -63,6 +73,13 @@ const AdminSettings = () => {
     const [isSyncingUser, setIsSyncingUser] = useState(null);
     const [editingWebUser, setEditingWebUser] = useState(null);
     const [isSavingUser, setIsSavingUser] = useState(false);
+
+    // Bank Payment Settings
+    const [bankSettings, setBankSettings] = useState(null);
+    const [isSavingBank, setIsSavingBank] = useState(false);
+    const [showSecrets, setShowSecrets] = useState({});
+    const [isRunningVerify, setIsRunningVerify] = useState(false);
+    const [verifyResult, setVerifyResult] = useState(null);
 
     // Fetch Web Users to cross check
     const fetchWebUsers = async () => {
@@ -80,6 +97,52 @@ const AdminSettings = () => {
     useEffect(() => {
         fetchWebUsers();
     }, []);
+
+    // Load bank settings
+    useEffect(() => {
+        getBankSettings().then(settings => setBankSettings(settings));
+    }, []);
+
+    const handleSaveBankSettings = async () => {
+        if (!bankSettings) return;
+        setIsSavingBank(true);
+        try {
+            await saveBankSettings(bankSettings);
+            toast.success('Đã lưu cấu hình thanh toán!');
+        } catch (error) {
+            toast.error('Lỗi lưu cấu hình: ' + error.message);
+        } finally {
+            setIsSavingBank(false);
+        }
+    };
+
+    const handleRunVerify = async () => {
+        setIsRunningVerify(true);
+        setVerifyResult(null);
+        try {
+            const result = await runAutoVerification();
+            setVerifyResult(result);
+            if (result.success && result.approvedCount > 0) {
+                toast.success(`Đã tự động duyệt ${result.approvedCount} đơn hàng!`);
+            } else if (result.success) {
+                toast.success('Kiểm tra hoàn tất - Không có giao dịch khớp');
+            } else {
+                toast.error(result.message || result.error || 'Lỗi xác minh');
+            }
+        } catch (error) {
+            toast.error('Lỗi: ' + error.message);
+        } finally {
+            setIsRunningVerify(false);
+        }
+    };
+
+    const toggleSecret = (key) => {
+        setShowSecrets(prev => ({ ...prev, [key]: !prev[key] }));
+    };
+
+    const updateBankSetting = (key, value) => {
+        setBankSettings(prev => ({ ...prev, [key]: value }));
+    };
 
     // 1. Lắng nghe Khóa Học từ Firestore (Shared across CRM & Web)
     useEffect(() => {
@@ -240,22 +303,28 @@ const AdminSettings = () => {
             </div>
 
             {/* TAB SELECTOR */}
-            <div className="flex flex-wrap gap-2 bg-white/50 p-1.5 rounded-2xl border border-slate-200 w-fit">
+            <div className="flex flex-wrap gap-2 bg-white/50 p-1.5 rounded-2xl border border-slate-200">
+                <button
+                    onClick={() => setActiveTab('payment')}
+                    className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all ${activeTab === 'payment' ? 'bg-green-600 text-white shadow-lg' : 'text-slate-500 hover:bg-white'}`}
+                >
+                    <CreditCard size={18} /> THANH TOÁN NGÂN HÀNG
+                </button>
                 <button
                     onClick={() => setActiveTab('users')}
-                    className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm transition-all ${activeTab === 'users' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-500 hover:bg-white'}`}
+                    className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all ${activeTab === 'users' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-500 hover:bg-white'}`}
                 >
                     <Users size={18} /> NHÂN SỰ CRM
                 </button>
                 <button
                     onClick={() => setActiveTab('web_accounts')}
-                    className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm transition-all ${activeTab === 'web_accounts' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:bg-white'}`}
+                    className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all ${activeTab === 'web_accounts' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:bg-white'}`}
                 >
-                    <Lock size={18} /> QUẢN LÝ TÀI KHOẢN WEB
+                    <Lock size={18} /> TÀI KHOẢN WEB
                 </button>
                 <button
                     onClick={() => setActiveTab('system')}
-                    className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm transition-all ${activeTab === 'system' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-500 hover:bg-white'}`}
+                    className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all ${activeTab === 'system' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-500 hover:bg-white'}`}
                 >
                     <Layout size={18} /> THAM SỐ KHÓA HỌC
                 </button>
@@ -263,6 +332,357 @@ const AdminSettings = () => {
 
             {/* MAIN CONTENT AREA */}
             <div className="grid grid-cols-1 gap-6">
+
+                {/* TAB: THANH TOÁN NGÂN HÀNG */}
+                {activeTab === 'payment' && bankSettings && (
+                    <div className="space-y-6">
+                        {/* Header Info */}
+                        <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-2xl p-5 flex items-start gap-4">
+                            <div className="p-3 bg-green-100 rounded-xl text-green-700 shrink-0">
+                                <CreditCard size={24} />
+                            </div>
+                            <div className="flex-1">
+                                <h3 className="font-bold text-green-900">Cấu hình Thanh toán Tự động</h3>
+                                <p className="text-sm text-green-700 mt-1">
+                                    Thiết lập thông tin tài khoản ngân hàng để tạo QR Code VietQR và kết nối webhook để tự động duyệt đơn hàng khi phát hiện giao dịch phù hợp.
+                                </p>
+                            </div>
+                            <div className="shrink-0">
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={bankSettings.isEnabled || false}
+                                        onChange={e => updateBankSetting('isEnabled', e.target.checked)}
+                                        className="sr-only peer"
+                                    />
+                                    <div className="w-11 h-6 bg-slate-200 peer-focus:ring-2 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                                    <span className="ml-2 text-sm font-bold text-green-800">{bankSettings.isEnabled ? 'Đang bật' : 'Đã tắt'}</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            {/* Card 1: Thông tin ngân hàng */}
+                            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                                <div className="p-5 border-b border-slate-100 flex items-center gap-3 bg-slate-50">
+                                    <div className="p-2 bg-blue-100 rounded-xl text-blue-700"><Building2 size={20} /></div>
+                                    <div>
+                                        <h4 className="font-bold text-slate-800">Thông tin Tài khoản Ngân hàng</h4>
+                                        <p className="text-xs text-slate-500">Dùng để tạo mã QR VietQR cho khách hàng</p>
+                                    </div>
+                                </div>
+                                <div className="p-5 space-y-4">
+                                    {/* Chọn ngân hàng */}
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Ngân hàng *</label>
+                                        <select
+                                            value={bankSettings.bankId || ''}
+                                            onChange={e => {
+                                                const bank = VIETNAM_BANKS.find(b => b.id === e.target.value);
+                                                updateBankSetting('bankId', e.target.value);
+                                                if (bank) updateBankSetting('bankName', bank.name);
+                                            }}
+                                            className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all text-sm font-medium"
+                                        >
+                                            <option value="">-- Chọn ngân hàng --</option>
+                                            {VIETNAM_BANKS.map(bank => (
+                                                <option key={bank.id} value={bank.id}>{bank.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    {/* Số tài khoản */}
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Số tài khoản *</label>
+                                        <input
+                                            type="text"
+                                            value={bankSettings.accountNo || ''}
+                                            onChange={e => updateBankSetting('accountNo', e.target.value)}
+                                            className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all text-sm font-mono font-bold"
+                                            placeholder="0123456789"
+                                        />
+                                    </div>
+
+                                    {/* Tên chủ tài khoản */}
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Tên chủ tài khoản * (IN HOA)</label>
+                                        <input
+                                            type="text"
+                                            value={bankSettings.accountName || ''}
+                                            onChange={e => updateBankSetting('accountName', e.target.value.toUpperCase())}
+                                            className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all text-sm font-bold uppercase"
+                                            placeholder="NGUYEN VAN A"
+                                        />
+                                    </div>
+
+                                    {/* Chi nhánh */}
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Chi nhánh (tùy chọn)</label>
+                                        <input
+                                            type="text"
+                                            value={bankSettings.branch || ''}
+                                            onChange={e => updateBankSetting('branch', e.target.value)}
+                                            className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all text-sm"
+                                            placeholder="Chi nhánh Hà Nội"
+                                        />
+                                    </div>
+
+                                    {/* Prefix nội dung CK */}
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Prefix nội dung chuyển khoản *</label>
+                                        <div className="flex gap-2 items-center">
+                                            <input
+                                                type="text"
+                                                value={bankSettings.transferPrefix || 'MALI'}
+                                                onChange={e => updateBankSetting('transferPrefix', e.target.value.toUpperCase())}
+                                                className="w-32 px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all text-sm font-mono font-bold uppercase"
+                                                placeholder="MALI"
+                                            />
+                                            <span className="text-slate-400 text-sm">+</span>
+                                            <div className="flex-1 px-3 py-2.5 rounded-xl bg-yellow-50 border border-yellow-200 text-sm font-mono text-yellow-800 font-bold">
+                                                {bankSettings.transferPrefix || 'MALI'} 123456
+                                            </div>
+                                        </div>
+                                        <p className="text-xs text-slate-400 mt-1">Ví dụ: Khách sẽ nhập nội dung "<strong>{bankSettings.transferPrefix || 'MALI'} MALI-442972</strong>"</p>
+                                    </div>
+
+                                    {/* Template QR */}
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Template QR VietQR</label>
+                                        <select
+                                            value={bankSettings.qrTemplate || 'compact2'}
+                                            onChange={e => updateBankSetting('qrTemplate', e.target.value)}
+                                            className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all text-sm"
+                                        >
+                                            <option value="compact2">compact2 (Khuyến nghị - Đẹp nhất)</option>
+                                            <option value="compact">compact (Nhỏ gọn)</option>
+                                            <option value="qr_only">qr_only (Chỉ QR)</option>
+                                            <option value="print">print (Bản in)</option>
+                                        </select>
+                                    </div>
+
+                                    {/* Preview QR */}
+                                    {bankSettings.accountNo && bankSettings.bankId && (
+                                        <div className="mt-4 p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-col items-center gap-3">
+                                            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Xem trước QR Code</p>
+                                            <img
+                                                src={`https://img.vietqr.io/image/${bankSettings.bankId}-${bankSettings.accountNo}-${bankSettings.qrTemplate || 'compact2'}.png?amount=500000&addInfo=${encodeURIComponent((bankSettings.transferPrefix || 'MALI') + ' MALI-123456')}&accountName=${encodeURIComponent(bankSettings.accountName || '')}`}
+                                                alt="QR Preview"
+                                                className="w-48 h-auto rounded-lg shadow-md"
+                                                onError={e => e.target.style.display = 'none'}
+                                            />
+                                            <p className="text-xs text-slate-400 text-center">QR mẫu với 500,000đ</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Card 2: Xác minh tự động */}
+                            <div className="space-y-6">
+                                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                                    <div className="p-5 border-b border-slate-100 flex items-center gap-3 bg-slate-50">
+                                        <div className="p-2 bg-green-100 rounded-xl text-green-700"><Zap size={20} /></div>
+                                        <div>
+                                            <h4 className="font-bold text-slate-800">Xác minh Tự động</h4>
+                                            <p className="text-xs text-slate-500">Kết nối API để tự động duyệt đơn</p>
+                                        </div>
+                                    </div>
+                                    <div className="p-5 space-y-4">
+                                        {/* Bật/tắt tự động */}
+                                        <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+                                            <div>
+                                                <p className="text-sm font-bold text-slate-700">Tự động duyệt đơn hàng</p>
+                                                <p className="text-xs text-slate-500">Kích hoạt khóa học ngay khi phát hiện giao dịch khớp</p>
+                                            </div>
+                                            <label className="relative inline-flex items-center cursor-pointer ml-4">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={bankSettings.autoApproveEnabled || false}
+                                                    onChange={e => updateBankSetting('autoApproveEnabled', e.target.checked)}
+                                                    className="sr-only peer"
+                                                />
+                                                <div className="w-11 h-6 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                                            </label>
+                                        </div>
+
+                                        {/* Phương thức */}
+                                        <div>
+                                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Phương thức xác minh</label>
+                                            <div className="grid grid-cols-1 gap-2">
+                                                {[
+                                                    { value: 'manual', label: '👤 Thủ công', desc: 'Admin duyệt tay qua trang Quản lý Đơn hàng' },
+                                                    { value: 'sepay', label: '⚡ SePay Webhook', desc: 'Miễn phí - Realtime qua API SePay.vn' },
+                                                    { value: 'casso', label: '💎 Casso API', desc: 'Có phí - Realtime qua API Casso.vn' },
+                                                ].map(opt => (
+                                                    <label key={opt.value} className={`flex items-start gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${bankSettings.autoVerifyMethod === opt.value ? 'border-green-500 bg-green-50' : 'border-slate-200 hover:border-slate-300'}`}>
+                                                        <input
+                                                            type="radio"
+                                                            name="verifyMethod"
+                                                            value={opt.value}
+                                                            checked={bankSettings.autoVerifyMethod === opt.value}
+                                                            onChange={e => updateBankSetting('autoVerifyMethod', e.target.value)}
+                                                            className="mt-1"
+                                                        />
+                                                        <div>
+                                                            <p className="text-sm font-bold text-slate-800">{opt.label}</p>
+                                                            <p className="text-xs text-slate-500">{opt.desc}</p>
+                                                        </div>
+                                                    </label>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {/* SePay Config */}
+                                        {bankSettings.autoVerifyMethod === 'sepay' && (
+                                            <div className="space-y-3 p-4 bg-blue-50 rounded-xl border border-blue-200">
+                                                <div className="flex items-center justify-between">
+                                                    <p className="text-sm font-bold text-blue-800">⚡ Cấu hình SePay</p>
+                                                    <a href="https://sepay.vn" target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline flex items-center gap-1">
+                                                        sepay.vn <ExternalLink size={10} />
+                                                    </a>
+                                                </div>
+                                                <div>
+                                                    <label className="block text-xs font-bold text-blue-700 mb-1">SePay API Key</label>
+                                                    <div className="flex gap-2">
+                                                        <input
+                                                            type={showSecrets.sepayKey ? 'text' : 'password'}
+                                                            value={bankSettings.sepayApiKey || ''}
+                                                            onChange={e => updateBankSetting('sepayApiKey', e.target.value)}
+                                                            className="flex-1 px-3 py-2 rounded-lg border border-blue-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-300 text-sm font-mono"
+                                                            placeholder="sep_live_xxxxxxxxxxxx"
+                                                        />
+                                                        <button type="button" onClick={() => toggleSecret('sepayKey')} className="px-3 py-2 bg-white border border-blue-200 rounded-lg text-blue-600 hover:bg-blue-50">
+                                                            {showSecrets.sepayKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                <p className="text-xs text-blue-600">
+                                                    💡 <strong>Hướng dẫn:</strong> Đăng nhập SePay → Tích hợp → API → Tạo API Key. Sau đó vào Webhook và trỏ về URL của bạn.
+                                                </p>
+                                            </div>
+                                        )}
+
+                                        {/* Casso Config */}
+                                        {bankSettings.autoVerifyMethod === 'casso' && (
+                                            <div className="space-y-3 p-4 bg-purple-50 rounded-xl border border-purple-200">
+                                                <div className="flex items-center justify-between">
+                                                    <p className="text-sm font-bold text-purple-800">💎 Cấu hình Casso</p>
+                                                    <a href="https://casso.vn" target="_blank" rel="noopener noreferrer" className="text-xs text-purple-600 hover:underline flex items-center gap-1">
+                                                        casso.vn <ExternalLink size={10} />
+                                                    </a>
+                                                </div>
+                                                <div>
+                                                    <label className="block text-xs font-bold text-purple-700 mb-1">Casso API Key</label>
+                                                    <div className="flex gap-2">
+                                                        <input
+                                                            type={showSecrets.cassoKey ? 'text' : 'password'}
+                                                            value={bankSettings.cassoApiKey || ''}
+                                                            onChange={e => updateBankSetting('cassoApiKey', e.target.value)}
+                                                            className="flex-1 px-3 py-2 rounded-lg border border-purple-200 bg-white focus:outline-none focus:ring-2 focus:ring-purple-300 text-sm font-mono"
+                                                            placeholder="AK_xxxxxxxxxxxxxxxxxx"
+                                                        />
+                                                        <button type="button" onClick={() => toggleSecret('cassoKey')} className="px-3 py-2 bg-white border border-purple-200 rounded-lg text-purple-600 hover:bg-purple-50">
+                                                            {showSecrets.cassoKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                <p className="text-xs text-purple-600">
+                                                    💡 <strong>Hướng dẫn:</strong> Đăng nhập Casso → Cài đặt → API Key → Tạo mới.
+                                                </p>
+                                            </div>
+                                        )}
+
+                                        {/* Run Manual Check */}
+                                        {bankSettings.autoVerifyMethod !== 'manual' && (
+                                            <div className="pt-2">
+                                                <button
+                                                    onClick={handleRunVerify}
+                                                    disabled={isRunningVerify}
+                                                    className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 transition-all disabled:opacity-50"
+                                                >
+                                                    {isRunningVerify ? (
+                                                        <><RefreshCw size={16} className="animate-spin" /> Đang kiểm tra giao dịch...</>
+                                                    ) : (
+                                                        <><Zap size={16} /> Chạy xác minh ngay</>  
+                                                    )}
+                                                </button>
+                                                {verifyResult && (
+                                                    <div className={`mt-3 p-3 rounded-xl text-sm ${verifyResult.success ? 'bg-green-50 border border-green-200 text-green-800' : 'bg-red-50 border border-red-200 text-red-800'}`}>
+                                                        {verifyResult.success ? (
+                                                            <>
+                                                                <p className="font-bold">✅ Kết quả từ {verifyResult.source}</p>
+                                                                <p>Đã kiểm tra: {verifyResult.transactionsChecked} giao dịch</p>
+                                                                <p>Đã duyệt: <strong>{verifyResult.approvedCount}</strong> đơn hàng</p>
+                                                            </>
+                                                        ) : (
+                                                            <p>❌ {verifyResult.message || verifyResult.error}</p>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Telegram Notifications */}
+                                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                                    <div className="p-5 border-b border-slate-100 flex items-center gap-3 bg-slate-50">
+                                        <div className="p-2 bg-sky-100 rounded-xl text-sky-700"><Send size={20} /></div>
+                                        <div>
+                                            <h4 className="font-bold text-slate-800">Thông báo Telegram (tùy chọn)</h4>
+                                            <p className="text-xs text-slate-500">Nhận thông báo khi có đơn hàng mới</p>
+                                        </div>
+                                    </div>
+                                    <div className="p-5 space-y-3">
+                                        <div>
+                                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Bot Token</label>
+                                            <div className="flex gap-2">
+                                                <input
+                                                    type={showSecrets.telegramToken ? 'text' : 'password'}
+                                                    value={bankSettings.telegramBotToken || ''}
+                                                    onChange={e => updateBankSetting('telegramBotToken', e.target.value)}
+                                                    className="flex-1 px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 text-sm font-mono"
+                                                    placeholder="123456:ABCdefGHijklMNOPqrstUVWxyz"
+                                                />
+                                                <button type="button" onClick={() => toggleSecret('telegramToken')} className="px-3 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-200">
+                                                    {showSecrets.telegramToken ? <EyeOff size={16} /> : <Eye size={16} />}
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Chat ID</label>
+                                            <input
+                                                type="text"
+                                                value={bankSettings.telegramChatId || ''}
+                                                onChange={e => updateBankSetting('telegramChatId', e.target.value)}
+                                                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 text-sm font-mono"
+                                                placeholder="-1001234567890 hoặc @username"
+                                            />
+                                        </div>
+                                        <p className="text-xs text-slate-400">
+                                            💡 Tạo bot tại @BotFather → Lấy chat ID tại @userinfobot
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Save Button */}
+                        <div className="flex justify-end">
+                            <button
+                                onClick={handleSaveBankSettings}
+                                disabled={isSavingBank}
+                                className="flex items-center gap-2 px-8 py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 shadow-lg shadow-green-600/30 transition-all disabled:opacity-50"
+                            >
+                                {isSavingBank ? (
+                                    <><RefreshCw size={18} className="animate-spin" /> Đang lưu...</>
+                                ) : (
+                                    <><Save size={18} /> Lưu cấu hình thanh toán</>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                )}
 
                 {/* TAB: THAM SỐ HỆ THỐNG */}
                 {activeTab === 'system' && (

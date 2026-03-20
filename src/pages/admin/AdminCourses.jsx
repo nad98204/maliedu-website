@@ -55,6 +55,9 @@ const DEFAULT_SECTION_TITLE = "Nội dung khóa học";
 const createLocalId = (prefix) =>
   `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
+const getSectionIdentifier = (section, fallbackId = "") =>
+  section?.id || fallbackId;
+
 const getLessonIdentifier = (lesson, fallbackId = "") =>
   lesson?.id || lesson?.videoId || fallbackId;
 
@@ -69,6 +72,7 @@ const normalizeCurriculumForForm = (curriculum = []) => {
 
   return sections.map((section, sectionIndex) => ({
     ...section,
+    id: getSectionIdentifier(section, createLocalId(`section-${sectionIndex}`)),
     lessons: (section.lessons || []).map((lesson, lessonIndex) => ({
       ...lesson,
       id: getLessonIdentifier(
@@ -82,15 +86,22 @@ const normalizeCurriculumForForm = (curriculum = []) => {
 
 const normalizeCourseResources = (courseResources = []) =>
   (Array.isArray(courseResources) ? courseResources : []).map(
-    (resource, index) => ({
-      ...resource,
-      id: resource.id || createLocalId(`course-resource-${index}`),
-      name: resource.name || "",
-      url: resource.url || "",
-      linkedLessonId: resource.linkedLessonId || resource.lessonId || "",
-      sortOrder:
-        typeof resource.sortOrder === "number" ? resource.sortOrder : index,
-    }),
+    (resource, index) => {
+      const linkedLessonId = resource.linkedLessonId || resource.lessonId || "";
+      const linkedSectionId =
+        resource.linkedSectionId || resource.sectionId || "";
+
+      return {
+        ...resource,
+        id: resource.id || createLocalId(`course-resource-${index}`),
+        name: resource.name || "",
+        url: resource.url || "",
+        linkedLessonId,
+        linkedSectionId,
+        sortOrder:
+          typeof resource.sortOrder === "number" ? resource.sortOrder : index,
+      };
+    },
   );
 
 const reindexCourseResources = (courseResources = []) =>
@@ -117,9 +128,14 @@ const AdminCourses = () => {
   const [documentUploadProgress, setDocumentUploadProgress] = useState(null);
   const [draggedCourseResourceIndex, setDraggedCourseResourceIndex] =
     useState(null);
+  const [draggedLessonLocation, setDraggedLessonLocation] = useState(null);
+  const [lessonDropTarget, setLessonDropTarget] = useState(null);
 
-  const toggleLessonExpansion = (sIdx, lIdx) => {
-    const key = `${sIdx}-${lIdx}`;
+  const getLessonExpansionKey = (lesson, sIdx, lIdx) =>
+    getLessonIdentifier(lesson, `lesson-${sIdx}-${lIdx}`);
+
+  const toggleLessonExpansion = (lesson, sIdx, lIdx) => {
+    const key = getLessonExpansionKey(lesson, sIdx, lIdx);
     setExpandedLessons((prev) => ({
       ...prev,
       [key]: !prev[key],
@@ -213,7 +229,11 @@ const AdminCourses = () => {
       ...prev,
       curriculum: [
         ...(prev.curriculum || []),
-        { title: "Chương mới", lessons: [] },
+        {
+          id: createLocalId("section"),
+          title: "Chương mới",
+          lessons: [],
+        },
       ],
     }));
   };
@@ -279,6 +299,7 @@ const AdminCourses = () => {
       const removedLessonKeys = (removedSection.lessons || []).flatMap(
         (lesson) => [lesson.id, lesson.videoId].filter(Boolean),
       );
+      const removedSectionId = getSectionIdentifier(removedSection);
 
       newCurriculum.splice(sIdx, 1);
 
@@ -286,8 +307,9 @@ const AdminCourses = () => {
         ...prev,
         curriculum: newCurriculum,
         courseResources: (prev.courseResources || []).map((resource) =>
-          removedLessonKeys.includes(resource.linkedLessonId)
-            ? { ...resource, linkedLessonId: "" }
+          removedLessonKeys.includes(resource.linkedLessonId) ||
+          resource.linkedSectionId === removedSectionId
+            ? { ...resource, linkedLessonId: "", linkedSectionId: "" }
             : resource,
         ),
       };
@@ -315,9 +337,74 @@ const AdminCourses = () => {
           name: "",
           url: "",
           linkedLessonId: "",
+          linkedSectionId: "",
         },
       ]),
     }));
+  };
+
+  const handleCourseResourceSectionChange = (index, sectionId) => {
+    setFormData((prev) => {
+      const nextResources = [...(prev.courseResources || [])];
+      const currentResource = nextResources[index];
+
+      if (!currentResource) return prev;
+
+      const currentLessonSectionId = (prev.curriculum || []).reduce(
+        (matchedSectionId, section, sectionIndex) => {
+          if (matchedSectionId) return matchedSectionId;
+
+          const normalizedSectionId = getSectionIdentifier(
+            section,
+            `section-${sectionIndex}`,
+          );
+          const hasLesson = (section.lessons || []).some((lesson) => {
+            const lessonId = getLessonIdentifier(lesson);
+
+            return (
+              lessonId === currentResource.linkedLessonId ||
+              lesson.videoId === currentResource.linkedLessonId
+            );
+          });
+
+          return hasLesson ? normalizedSectionId : "";
+        },
+        "",
+      );
+
+      nextResources[index] = {
+        ...currentResource,
+        linkedSectionId: sectionId,
+        linkedLessonId:
+          sectionId && currentLessonSectionId === sectionId
+            ? currentResource.linkedLessonId || ""
+            : "",
+      };
+
+      return {
+        ...prev,
+        courseResources: nextResources,
+      };
+    });
+  };
+
+  const handleCourseResourceLessonChange = (index, lessonId) => {
+    setFormData((prev) => {
+      const nextResources = [...(prev.courseResources || [])];
+      const currentResource = nextResources[index];
+
+      if (!currentResource) return prev;
+
+      nextResources[index] = {
+        ...currentResource,
+        linkedLessonId: lessonId,
+      };
+
+      return {
+        ...prev,
+        courseResources: nextResources,
+      };
+    });
   };
 
   const handleUpdateCourseResource = (index, field, value) => {
@@ -413,6 +500,186 @@ const AdminCourses = () => {
     setDraggedCourseResourceIndex(null);
   };
 
+  const parseDraggedLessonLocation = (event) => {
+    if (draggedLessonLocation) {
+      return draggedLessonLocation;
+    }
+
+    const rawLocation =
+      event.dataTransfer.getData("application/x-course-lesson") ||
+      event.dataTransfer.getData("text/plain");
+
+    if (!rawLocation) {
+      return null;
+    }
+
+    try {
+      const parsedLocation = JSON.parse(rawLocation);
+
+      if (
+        Number.isInteger(parsedLocation?.sIdx) &&
+        Number.isInteger(parsedLocation?.lIdx)
+      ) {
+        return parsedLocation;
+      }
+    } catch (error) {
+      console.error("Error parsing dragged lesson location:", error);
+    }
+
+    return null;
+  };
+
+  const moveLessonToSection = (
+    fromSectionIndex,
+    fromLessonIndex,
+    toSectionIndex,
+    toLessonIndex,
+  ) => {
+    setFormData((prev) => {
+      const nextCurriculum = [...(prev.curriculum || [])];
+      const sourceSection = nextCurriculum[fromSectionIndex];
+      const targetSection = nextCurriculum[toSectionIndex];
+
+      if (!sourceSection || !targetSection) {
+        return prev;
+      }
+
+      const sourceLessons = [...(sourceSection.lessons || [])];
+
+      if (
+        fromLessonIndex < 0 ||
+        fromLessonIndex >= sourceLessons.length ||
+        toLessonIndex < 0
+      ) {
+        return prev;
+      }
+
+      const [movedLesson] = sourceLessons.splice(fromLessonIndex, 1);
+
+      if (!movedLesson) {
+        return prev;
+      }
+
+      if (fromSectionIndex === toSectionIndex) {
+        const adjustedTargetIndex =
+          toLessonIndex > fromLessonIndex ? toLessonIndex - 1 : toLessonIndex;
+        const boundedTargetIndex = Math.min(
+          Math.max(adjustedTargetIndex, 0),
+          sourceLessons.length,
+        );
+
+        if (boundedTargetIndex === fromLessonIndex) {
+          return prev;
+        }
+
+        sourceLessons.splice(boundedTargetIndex, 0, movedLesson);
+        nextCurriculum[fromSectionIndex] = {
+          ...sourceSection,
+          lessons: sourceLessons,
+        };
+
+        return {
+          ...prev,
+          curriculum: nextCurriculum,
+        };
+      }
+
+      const targetLessons = [...(targetSection.lessons || [])];
+      const boundedTargetIndex = Math.min(
+        Math.max(toLessonIndex, 0),
+        targetLessons.length,
+      );
+
+      targetLessons.splice(boundedTargetIndex, 0, movedLesson);
+
+      nextCurriculum[fromSectionIndex] = {
+        ...sourceSection,
+        lessons: sourceLessons,
+      };
+      nextCurriculum[toSectionIndex] = {
+        ...targetSection,
+        lessons: targetLessons,
+      };
+
+      const movedLessonKeys = [movedLesson.id, movedLesson.videoId].filter(
+        Boolean,
+      );
+      const targetSectionId = getSectionIdentifier(
+        nextCurriculum[toSectionIndex],
+        `section-${toSectionIndex}`,
+      );
+
+      return {
+        ...prev,
+        curriculum: nextCurriculum,
+        courseResources: (prev.courseResources || []).map((resource) =>
+          movedLessonKeys.includes(resource.linkedLessonId)
+            ? { ...resource, linkedSectionId: targetSectionId }
+            : resource,
+        ),
+      };
+    });
+  };
+
+  const handleLessonDragStart = (event, sIdx, lIdx) => {
+    const dragLocation = { sIdx, lIdx };
+
+    setDraggedLessonLocation(dragLocation);
+    setLessonDropTarget(null);
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData(
+      "application/x-course-lesson",
+      JSON.stringify(dragLocation),
+    );
+    event.dataTransfer.setData("text/plain", JSON.stringify(dragLocation));
+  };
+
+  const handleLessonDragOver = (event, sIdx, lIdx) => {
+    const isLessonDragActive =
+      Boolean(draggedLessonLocation) ||
+      Array.from(event.dataTransfer?.types || []).includes(
+        "application/x-course-lesson",
+      );
+
+    if (!isLessonDragActive) {
+      return;
+    }
+
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+
+    if (
+      lessonDropTarget?.sIdx !== sIdx ||
+      lessonDropTarget?.lIdx !== lIdx
+    ) {
+      setLessonDropTarget({ sIdx, lIdx });
+    }
+  };
+
+  const handleLessonDrop = (event, sIdx, lIdx) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const sourceLocation = parseDraggedLessonLocation(event);
+
+    setDraggedLessonLocation(null);
+    setLessonDropTarget(null);
+
+    if (!sourceLocation) {
+      return;
+    }
+
+    moveLessonToSection(
+      sourceLocation.sIdx,
+      sourceLocation.lIdx,
+      sIdx,
+      lIdx,
+    );
+  };
+
+  const isLessonDropTarget = (sIdx, lIdx) =>
+    lessonDropTarget?.sIdx === sIdx && lessonDropTarget?.lIdx === lIdx;
+
   const getDocumentUploadKey = (target) =>
     target.type === "lesson"
       ? `lesson-${target.sIdx}-${target.lIdx}`
@@ -484,18 +751,36 @@ const AdminCourses = () => {
   };
 
   const handleMoveLesson = (sIdx, lIdx, direction) => {
-    // direction: -1 (up), 1 (down)
-    const newCurriculum = [...formData.curriculum];
-    const section = newCurriculum[sIdx];
-    if (section && section.lessons) {
-      const newIndex = lIdx + direction;
-      if (newIndex >= 0 && newIndex < section.lessons.length) {
-        const temp = section.lessons[lIdx];
-        section.lessons[lIdx] = section.lessons[newIndex];
-        section.lessons[newIndex] = temp;
-        setFormData((prev) => ({ ...prev, curriculum: newCurriculum }));
+    setFormData((prev) => {
+      const nextCurriculum = [...(prev.curriculum || [])];
+      const section = nextCurriculum[sIdx];
+
+      if (!section) {
+        return prev;
       }
-    }
+
+      const nextLessons = [...(section.lessons || [])];
+      const newIndex = lIdx + direction;
+
+      if (newIndex < 0 || newIndex >= nextLessons.length) {
+        return prev;
+      }
+
+      [nextLessons[lIdx], nextLessons[newIndex]] = [
+        nextLessons[newIndex],
+        nextLessons[lIdx],
+      ];
+
+      nextCurriculum[sIdx] = {
+        ...section,
+        lessons: nextLessons,
+      };
+
+      return {
+        ...prev,
+        curriculum: nextCurriculum,
+      };
+    });
   };
 
   // Auto-scan video duration
@@ -738,6 +1023,32 @@ const AdminCourses = () => {
       const normalizedCurriculum = normalizeCurriculumForForm(
         formData.curriculum,
       );
+      const lessonSectionMap = normalizedCurriculum.reduce(
+        (accumulator, section, sectionIndex) => {
+          const sectionId = getSectionIdentifier(
+            section,
+            `section-${sectionIndex}`,
+          );
+
+          (section.lessons || []).forEach((lesson) => {
+            if (lesson.id) {
+              accumulator[lesson.id] = sectionId;
+            }
+
+            if (lesson.videoId) {
+              accumulator[lesson.videoId] = sectionId;
+            }
+          });
+
+          return accumulator;
+        },
+        {},
+      );
+      const validSectionIds = new Set(
+        normalizedCurriculum
+          .map((section) => getSectionIdentifier(section))
+          .filter(Boolean),
+      );
       const validLessonIds = new Set(
         normalizedCurriculum.flatMap((section) =>
           (section.lessons || []).flatMap((lesson) =>
@@ -747,14 +1058,26 @@ const AdminCourses = () => {
       );
       const normalizedCourseResources = reindexCourseResources(
         normalizeCourseResources(formData.courseResources)
-          .map((resource) => ({
-            ...resource,
-            name: resource.name?.trim() || "",
-            url: resource.url?.trim() || "",
-            linkedLessonId: validLessonIds.has(resource.linkedLessonId)
+          .map((resource) => {
+            const linkedLessonId = validLessonIds.has(resource.linkedLessonId)
               ? resource.linkedLessonId
-              : "",
-          }))
+              : "";
+            const inferredSectionId = linkedLessonId
+              ? lessonSectionMap[linkedLessonId] || ""
+              : "";
+            const linkedSectionId =
+              validSectionIds.has(resource.linkedSectionId)
+                ? resource.linkedSectionId
+                : inferredSectionId;
+
+            return {
+              ...resource,
+              name: resource.name?.trim() || "",
+              url: resource.url?.trim() || "",
+              linkedLessonId,
+              linkedSectionId,
+            };
+          })
           .filter((resource) => resource.url),
       );
 
@@ -819,10 +1142,43 @@ const AdminCourses = () => {
     }).format(price);
   };
 
-  const lessonOptions = useMemo(
+  const sectionOptions = useMemo(
     () =>
-      (formData.curriculum || []).flatMap((section, sectionIndex) =>
-        (section.lessons || [])
+      (formData.curriculum || []).map((section, sectionIndex) => ({
+        value: getSectionIdentifier(section, `section-${sectionIndex}`),
+        label: `Chương ${sectionIndex + 1}: ${section.title || "Chưa đặt tên"}`,
+      })),
+    [formData.curriculum],
+  );
+
+  const lessonToSectionMap = useMemo(
+    () =>
+      (formData.curriculum || []).reduce((accumulator, section, sectionIndex) => {
+        const sectionId = getSectionIdentifier(section, `section-${sectionIndex}`);
+
+        (section.lessons || []).forEach((lesson) => {
+          const lessonId = getLessonIdentifier(lesson);
+
+          if (lessonId) {
+            accumulator[lessonId] = sectionId;
+          }
+
+          if (lesson.videoId) {
+            accumulator[lesson.videoId] = sectionId;
+          }
+        });
+
+        return accumulator;
+      }, {}),
+    [formData.curriculum],
+  );
+
+  const lessonOptionsBySection = useMemo(
+    () =>
+      (formData.curriculum || []).reduce((accumulator, section, sectionIndex) => {
+        const sectionId = getSectionIdentifier(section, `section-${sectionIndex}`);
+
+        accumulator[sectionId] = (section.lessons || [])
           .map((lesson, lessonIndex) => {
             const lessonId = getLessonIdentifier(lesson);
 
@@ -830,11 +1186,13 @@ const AdminCourses = () => {
 
             return {
               value: lessonId,
-              label: `Chương ${sectionIndex + 1}: ${section.title || "Chưa đặt tên"} • Buổi ${lessonIndex + 1}: ${lesson.title || "Chưa đặt tên"}`,
+              label: `Buổi ${lessonIndex + 1}: ${lesson.title || "Chưa đặt tên"}`,
             };
           })
-          .filter(Boolean),
-      ),
+          .filter(Boolean);
+
+        return accumulator;
+      }, {}),
     [formData.curriculum],
   );
 
@@ -1702,12 +2060,53 @@ const AdminCourses = () => {
                             {/* Lessons List */}
                             <div className="divide-y divide-slate-100">
                               {section.lessons &&
-                                section.lessons.map((lesson, lIdx) => (
+                                section.lessons.map((lesson, lIdx) => {
+                                  const lessonExpansionKey =
+                                    getLessonExpansionKey(lesson, sIdx, lIdx);
+                                  const isLessonExpanded = Boolean(
+                                    expandedLessons[lessonExpansionKey],
+                                  );
+
+                                  return (
                                   <div
-                                    key={lIdx}
-                                    className="p-3 flex flex-col md:flex-row md:items-start justify-between hover:bg-slate-50 group gap-4 border-b border-slate-100 last:border-0"
+                                    key={
+                                      lesson.id ||
+                                      lesson.videoId ||
+                                      `lesson-${sIdx}-${lIdx}`
+                                    }
+                                    onDragOver={(event) =>
+                                      handleLessonDragOver(event, sIdx, lIdx)
+                                    }
+                                    onDrop={(event) =>
+                                      handleLessonDrop(event, sIdx, lIdx)
+                                    }
+                                    className={`p-3 flex flex-col md:flex-row md:items-start justify-between group gap-4 border-b border-slate-100 last:border-0 transition-colors ${
+                                      isLessonDropTarget(sIdx, lIdx)
+                                        ? "bg-orange-50"
+                                        : "hover:bg-slate-50"
+                                    }`}
                                   >
                                     <div className="flex items-start gap-3 flex-1">
+                                      <button
+                                        type="button"
+                                        draggable
+                                        onDragStart={(event) =>
+                                          handleLessonDragStart(
+                                            event,
+                                            sIdx,
+                                            lIdx,
+                                          )
+                                        }
+                                        onDragEnd={() => {
+                                          setDraggedLessonLocation(null);
+                                          setLessonDropTarget(null);
+                                        }}
+                                        className="inline-flex h-8 w-8 shrink-0 cursor-grab items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 transition-colors hover:border-secret-wax hover:text-secret-wax active:cursor-grabbing"
+                                        title="Keo de di chuyen bai hoc"
+                                      >
+                                        <GripVertical className="h-4 w-4" />
+                                      </button>
+
                                       <div className="w-6 h-6 rounded-full bg-white border border-slate-200 text-xs flex items-center justify-center text-slate-500 shrink-0 mt-1">
                                         {lIdx + 1}
                                       </div>
@@ -1790,22 +2189,19 @@ const AdminCourses = () => {
                                               type="button"
                                               onClick={() =>
                                                 toggleLessonExpansion(
+                                                  lesson,
                                                   sIdx,
                                                   lIdx,
                                                 )
                                               }
-                                              className={`p-1.5 rounded hover:bg-slate-100 transition-colors ${expandedLessons[`${sIdx}-${lIdx}`] ? "text-secret-wax bg-orange-50" : "text-slate-400"}`}
+                                              className={`p-1.5 rounded hover:bg-slate-100 transition-colors ${isLessonExpanded ? "text-secret-wax bg-orange-50" : "text-slate-400"}`}
                                               title={
-                                                expandedLessons[
-                                                  `${sIdx}-${lIdx}`
-                                                ]
+                                                isLessonExpanded
                                                   ? "Thu gọn chi tiết"
                                                   : "Mở rộng chi tiết"
                                               }
                                             >
-                                              {expandedLessons[
-                                                `${sIdx}-${lIdx}`
-                                              ] ? (
+                                              {isLessonExpanded ? (
                                                 <EyeOff className="w-4 h-4" />
                                               ) : (
                                                 <Edit className="w-4 h-4" />
@@ -1815,7 +2211,7 @@ const AdminCourses = () => {
                                         </div>
 
                                         {/* Details (Description & Resources) - Collapsible */}
-                                        {expandedLessons[`${sIdx}-${lIdx}`] && (
+                                        {isLessonExpanded && (
                                           <div className="bg-slate-50 rounded-lg p-3 space-y-3 border border-slate-100 animate-in fade-in slide-in-from-top-2 duration-200">
                                             <div className="space-y-1">
                                               <label className="text-xs font-bold text-slate-400 uppercase">
@@ -1984,10 +2380,55 @@ const AdminCourses = () => {
                                       </button>
                                     </div>
                                   </div>
-                                ))}
+                                  );
+                                })}
+                              {draggedLessonLocation &&
+                                section.lessons &&
+                                section.lessons.length > 0 && (
+                                  <div className="px-3 pb-3">
+                                    <div
+                                      onDragOver={(event) =>
+                                        handleLessonDragOver(
+                                          event,
+                                          sIdx,
+                                          section.lessons.length,
+                                        )
+                                      }
+                                      onDrop={(event) =>
+                                        handleLessonDrop(
+                                          event,
+                                          sIdx,
+                                          section.lessons.length,
+                                        )
+                                      }
+                                      className={`rounded-lg border border-dashed px-3 py-2 text-center text-xs transition-colors ${
+                                        isLessonDropTarget(
+                                          sIdx,
+                                          section.lessons.length,
+                                        )
+                                          ? "border-secret-wax bg-orange-50 text-secret-wax"
+                                          : "border-slate-200 text-slate-400"
+                                      }`}
+                                    >
+                                      Tha bai vao cuoi chuong nay
+                                    </div>
+                                  </div>
+                                )}
                               {(!section.lessons ||
                                 section.lessons.length === 0) && (
-                                <div className="p-4 text-center text-xs text-slate-400 italic">
+                                <div
+                                  onDragOver={(event) =>
+                                    handleLessonDragOver(event, sIdx, 0)
+                                  }
+                                  onDrop={(event) =>
+                                    handleLessonDrop(event, sIdx, 0)
+                                  }
+                                  className={`mx-3 my-3 rounded-lg border border-dashed p-4 text-center text-xs italic transition-colors ${
+                                    isLessonDropTarget(sIdx, 0)
+                                      ? "border-secret-wax bg-orange-50 text-secret-wax"
+                                      : "border-slate-200 text-slate-400"
+                                  }`}
+                                >
                                   Chưa có bài học nào trong chương này.
                                 </div>
                               )}
@@ -2018,8 +2459,8 @@ const AdminCourses = () => {
                           Tài liệu chung của khóa học
                         </h3>
                         <p className="text-sm text-slate-500">
-                          Các tài liệu này sẽ hiện ở tab Tài liệu dù không gắn
-                          vào buổi học nào.
+                          Có thể để tài liệu ở mục chung, gắn theo chương,
+                          hoặc gắn theo một bài học cụ thể trong chương.
                         </p>
                       </div>
                       <button
@@ -2034,39 +2475,47 @@ const AdminCourses = () => {
 
                     {formData.courseResources?.length > 0 ? (
                       <div className="mt-4 space-y-3">
-                        {formData.courseResources.map((resource, resourceIdx) => (
-                          <div
-                            key={resource.id || resourceIdx}
-                            onDragOver={(event) => event.preventDefault()}
-                            onDrop={(event) =>
-                              handleCourseResourceDrop(event, resourceIdx)
-                            }
-                            className={`rounded-xl border bg-slate-50 p-3 transition-colors ${
-                              draggedCourseResourceIndex === resourceIdx
-                                ? "border-secret-wax/50 bg-orange-50"
-                                : "border-slate-200"
-                            }`}
-                          >
-                            <div className="flex flex-col gap-3 md:flex-row md:items-start">
-                              <button
-                                type="button"
-                                draggable
-                                onDragStart={(event) =>
-                                  handleCourseResourceDragStart(
-                                    event,
-                                    resourceIdx,
-                                  )
-                                }
-                                onDragEnd={() =>
-                                  setDraggedCourseResourceIndex(null)
-                                }
-                                className="inline-flex h-10 w-10 shrink-0 cursor-grab items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 transition-colors hover:border-secret-wax hover:text-secret-wax active:cursor-grabbing"
-                                title="Keo de sap xep tai lieu"
-                              >
-                                <GripVertical className="h-4 w-4" />
-                              </button>
+                        {formData.courseResources.map((resource, resourceIdx) => {
+                          const selectedSectionId =
+                            resource.linkedSectionId ||
+                            lessonToSectionMap[resource.linkedLessonId] ||
+                            "";
+                          const sectionLessonOptions =
+                            lessonOptionsBySection[selectedSectionId] || [];
 
-                              <div className="grid flex-1 grid-cols-1 gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)_minmax(220px,1fr)_auto_auto_auto]">
+                          return (
+                            <div
+                              key={resource.id || resourceIdx}
+                              onDragOver={(event) => event.preventDefault()}
+                              onDrop={(event) =>
+                                handleCourseResourceDrop(event, resourceIdx)
+                              }
+                              className={`rounded-xl border bg-slate-50 p-3 transition-colors ${
+                                draggedCourseResourceIndex === resourceIdx
+                                  ? "border-secret-wax/50 bg-orange-50"
+                                  : "border-slate-200"
+                              }`}
+                            >
+                              <div className="flex flex-col gap-3 md:flex-row md:items-start">
+                                <button
+                                  type="button"
+                                  draggable
+                                  onDragStart={(event) =>
+                                    handleCourseResourceDragStart(
+                                      event,
+                                      resourceIdx,
+                                    )
+                                  }
+                                  onDragEnd={() =>
+                                    setDraggedCourseResourceIndex(null)
+                                  }
+                                  className="inline-flex h-10 w-10 shrink-0 cursor-grab items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 transition-colors hover:border-secret-wax hover:text-secret-wax active:cursor-grabbing"
+                                  title="Keo de sap xep tai lieu"
+                                >
+                                  <GripVertical className="h-4 w-4" />
+                                </button>
+
+                                <div className="grid flex-1 grid-cols-1 gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)_minmax(210px,1fr)_minmax(210px,1fr)_auto_auto_auto]">
                                 <input
                                   type="text"
                                   value={resource.name || ""}
@@ -2077,7 +2526,7 @@ const AdminCourses = () => {
                                       e.target.value,
                                     )
                                   }
-                                  placeholder="Ten tai lieu..."
+                                  placeholder="Tên tài liệu..."
                                   className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-secret-wax"
                                 />
                                 <input
@@ -2090,27 +2539,26 @@ const AdminCourses = () => {
                                       e.target.value,
                                     )
                                   }
-                                  placeholder="Link tai lieu (URL)..."
+                                  placeholder="Link tài liệu (URL)..."
                                   className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-secret-wax"
                                 />
                                 <select
-                                  value={resource.linkedLessonId || ""}
+                                  value={selectedSectionId}
                                   onChange={(e) =>
-                                    handleUpdateCourseResource(
+                                    handleCourseResourceSectionChange(
                                       resourceIdx,
-                                      "linkedLessonId",
                                       e.target.value,
                                     )
                                   }
                                   className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-secret-wax"
                                 >
-                                  <option value="">Khong gan buoi nao</option>
-                                  {lessonOptions.length === 0 ? (
+                                  <option value="">Không gắn vào chương nào</option>
+                                  {sectionOptions.length === 0 ? (
                                     <option value="" disabled>
-                                      Hay them buoi hoc truoc
+                                      Hãy thêm chương trước
                                     </option>
                                   ) : (
-                                    lessonOptions.map((option) => (
+                                    sectionOptions.map((option) => (
                                       <option
                                         key={option.value}
                                         value={option.value}
@@ -2118,6 +2566,39 @@ const AdminCourses = () => {
                                         {option.label}
                                       </option>
                                     ))
+                                  )}
+                                </select>
+                                <select
+                                  value={resource.linkedLessonId || ""}
+                                  onChange={(e) =>
+                                    handleCourseResourceLessonChange(
+                                      resourceIdx,
+                                      e.target.value,
+                                    )
+                                  }
+                                  disabled={!selectedSectionId}
+                                  className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-secret-wax disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                                >
+                                  {!selectedSectionId ? (
+                                    <option value="">Chọn chương trước</option>
+                                  ) : (
+                                    <>
+                                      <option value="">Chỉ gắn theo chương</option>
+                                      {sectionLessonOptions.length === 0 ? (
+                                        <option value="" disabled>
+                                          Chương này chưa có bài học
+                                        </option>
+                                      ) : (
+                                        sectionLessonOptions.map((option) => (
+                                          <option
+                                            key={option.value}
+                                            value={option.value}
+                                          >
+                                            {option.label}
+                                          </option>
+                                        ))
+                                      )}
+                                    </>
                                   )}
                                 </select>
                                 <label
@@ -2196,7 +2677,8 @@ const AdminCourses = () => {
                               </div>
                             </div>
                           </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     ) : (
                       <div className="mt-4 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">

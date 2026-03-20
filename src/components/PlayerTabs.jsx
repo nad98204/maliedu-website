@@ -1,6 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
     BookOpen,
+    ChevronDown,
+    ChevronUp,
     Download,
     FileText,
     MessageCircle,
@@ -22,12 +24,184 @@ import {
 import toast from 'react-hot-toast';
 import { db } from '../firebase';
 
-const PlayerTabs = ({ description, resources = [], lessonId, currentUser }) => {
+// Tự detect loại file: PDF mở thẳng, Office files dùng Google Docs Viewer
+const getViewerUrl = (url = '') => {
+    const lower = url.toLowerCase().split('?')[0];
+    if (/\.(pdf)$/.test(lower)) return url;
+    if (/\.(doc|docx|xls|xlsx|ppt|pptx|odt|ods|odp)$/.test(lower)) {
+        return `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=false`;
+    }
+    return url;
+};
+
+const HTML_TAG_PATTERN = /<\/?[a-z][\s\S]*>/i;
+const ENCODED_HTML_TAG_PATTERN = /&lt;\/?[a-z][\s\S]*&gt;/i;
+
+const buildResourcePreview = (resourceList = [], limit = 3) => {
+    const names = [...new Set(resourceList.map((resource) => resource.name).filter(Boolean))];
+
+    if (names.length === 0) {
+        return '';
+    }
+
+    const preview = names.slice(0, limit).join(' • ');
+
+    return names.length > limit ? `${preview} +${names.length - limit}` : preview;
+};
+
+const decodeHtmlEntities = (value = '') => {
+    if (!value || typeof document === 'undefined') {
+        return value;
+    }
+
+    const textarea = document.createElement('textarea');
+    textarea.innerHTML = value;
+    return textarea.value;
+};
+
+const escapeHtml = (value = '') =>
+    value
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+
+const sanitizeHtml = (value = '') => {
+    if (!value || typeof DOMParser === 'undefined') {
+        return value;
+    }
+
+    const parser = new DOMParser();
+    const documentNode = parser.parseFromString(value, 'text/html');
+
+    documentNode
+        .querySelectorAll('script, style, iframe, object, embed')
+        .forEach((node) => node.remove());
+
+    documentNode.querySelectorAll('*').forEach((node) => {
+        Array.from(node.attributes).forEach((attribute) => {
+            const attributeName = attribute.name.toLowerCase();
+            const attributeValue = attribute.value.trim().toLowerCase();
+
+            if (attributeName.startsWith('on')) {
+                node.removeAttribute(attribute.name);
+                return;
+            }
+
+            if (
+                (attributeName === 'href' || attributeName === 'src') &&
+                attributeValue.startsWith('javascript:')
+            ) {
+                node.removeAttribute(attribute.name);
+            }
+        });
+    });
+
+    return documentNode.body.innerHTML;
+};
+
+const formatDescriptionContent = (value = '') => {
+    const trimmedValue = typeof value === 'string' ? value.trim() : '';
+
+    if (!trimmedValue) {
+        return '';
+    }
+
+    const decodedValue = ENCODED_HTML_TAG_PATTERN.test(trimmedValue)
+        ? decodeHtmlEntities(trimmedValue)
+        : trimmedValue;
+
+    if (HTML_TAG_PATTERN.test(decodedValue)) {
+        return sanitizeHtml(decodedValue).replace(/&nbsp;/g, ' ');
+    }
+
+    return escapeHtml(decodeHtmlEntities(decodedValue))
+        .replace(/\r\n/g, '\n')
+        .replace(/\r/g, '\n')
+        .replace(/\n/g, '<br />');
+};
+
+const getLessonNoteStorageKey = (lessonId = 'default') => `maliedu-smart-note:${lessonId}`;
+
+const buildSmartNoteStarter = (lessonTitle = 'Bài học này') =>
+    `TÓM TẮT BÀI HỌC: ${lessonTitle}
+- Điều quan trọng nhất:
+
+Ý CHÍNH
+1.
+2.
+3.
+
+VIỆC CẦN LÀM NGAY
+[ ]
+[ ]
+
+CÂU HỎI CẦN XEM LẠI
+- `;
+
+const SMART_NOTE_ACTIONS = [
+    {
+        id: 'summary',
+        label: 'Tóm tắt',
+        content: `TÓM TẮT NHANH
+- `
+    },
+    {
+        id: 'key-points',
+        label: 'Ý chính',
+        content: `Ý CHÍNH
+1.
+2.
+3.
+`
+    },
+    {
+        id: 'todo',
+        label: 'Việc cần làm',
+        content: `VIỆC CẦN LÀM
+[ ]
+[ ]
+`
+    },
+    {
+        id: 'question',
+        label: 'Câu hỏi',
+        content: `CÂU HỎI CẦN XEM LẠI
+- `
+    }
+];
+
+const PlayerTabs = ({
+    description,
+    resources = [],
+    resourceGroups = [],
+    currentContextResources = [],
+    resourceFocusRequest,
+    lessonId,
+    lessonTitle,
+    currentUser,
+    onLessonSelect,
+    onActiveTabChange
+}) => {
     const [activeTab, setActiveTab] = useState('overview');
     const [note, setNote] = useState('');
+    const [lastSavedAt, setLastSavedAt] = useState(null);
+    const [isNoteReady, setIsNoteReady] = useState(false);
+    const [isSmartNoteOpen, setIsSmartNoteOpen] = useState(false);
     const [comments, setComments] = useState([]);
     const [newComment, setNewComment] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [openResourceGroups, setOpenResourceGroups] = useState({});
+    const [pendingResourceFocus, setPendingResourceFocus] = useState(null);
+    const [highlightedResourceId, setHighlightedResourceId] = useState(null);
+    const noteTextareaRef = useRef(null);
+    const resourcesSectionRef = useRef(null);
+    const resourceItemRefs = useRef({});
+
+    useEffect(() => {
+        onActiveTabChange?.(activeTab);
+    }, [activeTab, onActiveTabChange]);
 
     useEffect(() => {
         if (!lessonId) return;
@@ -103,47 +277,266 @@ const PlayerTabs = ({ description, resources = [], lessonId, currentUser }) => {
     const tabs = [
         { id: 'overview', label: 'Mô tả', icon: BookOpen },
         { id: 'resources', label: 'Tài liệu', icon: FileText },
-        { id: 'discussion', label: 'Thảo luận', icon: MessageCircle },
-        { id: 'notes', label: 'Ghi chú', icon: PenTool }
+        { id: 'notes', label: 'Ghi chép', icon: PenTool },
+        { id: 'discussion', label: 'Thảo luận', icon: MessageCircle }
     ];
 
+    const visibleResourceGroups = useMemo(
+        () => resourceGroups.filter((group) => group.resources.length > 0),
+        [resourceGroups]
+    );
+    const formattedDescription = useMemo(
+        () => formatDescriptionContent(description),
+        [description]
+    );
+    const noteStats = useMemo(() => {
+        const trimmedNote = note.trim();
+
+        if (!trimmedNote) {
+            return {
+                lineCount: 0,
+                wordCount: 0
+            };
+        }
+
+        return {
+            lineCount: trimmedNote.split('\n').filter((line) => line.trim()).length,
+            wordCount: trimmedNote.split(/\s+/).filter(Boolean).length
+        };
+    }, [note]);
+    const savedNoteLabel = useMemo(() => {
+        if (!lastSavedAt) {
+            return 'Đang tự động lưu';
+        }
+
+        return `Đã lưu ${new Date(lastSavedAt).toLocaleTimeString('vi-VN', {
+            hour: '2-digit',
+            minute: '2-digit'
+        })}`;
+    }, [lastSavedAt]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') {
+            return;
+        }
+
+        setIsNoteReady(false);
+
+        const storedValue = window.localStorage.getItem(getLessonNoteStorageKey(lessonId));
+
+        if (!storedValue) {
+            setNote('');
+            setLastSavedAt(null);
+            setIsNoteReady(true);
+            return;
+        }
+
+        try {
+            const parsedValue = JSON.parse(storedValue);
+            setNote(parsedValue.content || '');
+            setLastSavedAt(parsedValue.savedAt || null);
+        } catch (error) {
+            setNote(storedValue);
+            setLastSavedAt(null);
+        }
+
+        setIsNoteReady(true);
+    }, [lessonId]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined' || !isNoteReady) {
+            return undefined;
+        }
+
+        const storageKey = getLessonNoteStorageKey(lessonId);
+        const saveTimer = window.setTimeout(() => {
+            if (!note.trim()) {
+                window.localStorage.removeItem(storageKey);
+                setLastSavedAt(null);
+                return;
+            }
+
+            const savedAt = new Date().toISOString();
+
+            window.localStorage.setItem(
+                storageKey,
+                JSON.stringify({
+                    content: note,
+                    savedAt
+                })
+            );
+            setLastSavedAt(savedAt);
+        }, 350);
+
+        return () => window.clearTimeout(saveTimer);
+    }, [isNoteReady, lessonId, note]);
+
+    useEffect(() => {
+        if (!resourceFocusRequest?.resourceId) return;
+
+        setActiveTab('resources');
+
+        if (resourceFocusRequest.groupKey) {
+            setOpenResourceGroups((prev) => ({
+                ...prev,
+                [resourceFocusRequest.groupKey]: true
+            }));
+        }
+
+        setPendingResourceFocus(resourceFocusRequest);
+    }, [resourceFocusRequest]);
+
+    useEffect(() => {
+        if (activeTab !== 'resources' || !pendingResourceFocus?.resourceId) {
+            return undefined;
+        }
+
+        let sectionTimer = null;
+        let resourceTimer = null;
+        let clearHighlightTimer = null;
+
+        sectionTimer = window.setTimeout(() => {
+            resourcesSectionRef.current?.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start'
+            });
+
+            resourceTimer = window.setTimeout(() => {
+                const targetNode = resourceItemRefs.current[pendingResourceFocus.resourceId];
+
+                if (!targetNode) {
+                    return;
+                }
+
+                targetNode.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'center'
+                });
+
+                setHighlightedResourceId(pendingResourceFocus.resourceId);
+                setPendingResourceFocus(null);
+
+                clearHighlightTimer = window.setTimeout(() => {
+                    setHighlightedResourceId((currentId) =>
+                        currentId === pendingResourceFocus.resourceId ? null : currentId
+                    );
+                }, 1800);
+            }, 220);
+        }, 120);
+
+        return () => {
+            window.clearTimeout(sectionTimer);
+            window.clearTimeout(resourceTimer);
+            window.clearTimeout(clearHighlightTimer);
+        };
+    }, [activeTab, pendingResourceFocus]);
+
+    const toggleResourceGroup = (groupKey, defaultOpen = false) => {
+        setOpenResourceGroups((prev) => ({
+            ...prev,
+            [groupKey]: !(prev[groupKey] ?? defaultOpen)
+        }));
+    };
+
+    const setResourceItemRef = (resourceId, node) => {
+        if (!resourceId) return;
+
+        if (node) {
+            resourceItemRefs.current[resourceId] = node;
+            return;
+        }
+
+        delete resourceItemRefs.current[resourceId];
+    };
+
+    const insertIntoNote = (snippet) => {
+        if (!snippet) return;
+
+        const textarea = noteTextareaRef.current;
+        const currentValue = note;
+
+        if (!textarea) {
+            setNote((previousNote) =>
+                previousNote.trim() ? `${previousNote}\n\n${snippet}` : snippet
+            );
+            return;
+        }
+
+        const selectionStart = textarea.selectionStart ?? currentValue.length;
+        const selectionEnd = textarea.selectionEnd ?? currentValue.length;
+        const prefix = currentValue.slice(0, selectionStart);
+        const suffix = currentValue.slice(selectionEnd);
+        const needsLeadingBreak = prefix && !prefix.endsWith('\n') ? '\n\n' : '';
+        const needsTrailingBreak = suffix && !suffix.startsWith('\n') ? '\n\n' : '';
+        const insertedText = `${needsLeadingBreak}${snippet}${needsTrailingBreak}`;
+        const nextValue = `${prefix}${insertedText}${suffix}`;
+        const cursorPosition = prefix.length + insertedText.length;
+
+        setNote(nextValue);
+
+        window.requestAnimationFrame(() => {
+            textarea.focus();
+            textarea.setSelectionRange(cursorPosition, cursorPosition);
+        });
+    };
+
+    const handleCreateSmartNote = () => {
+        const starter = buildSmartNoteStarter(lessonTitle || 'Bài học này');
+        setNote(starter);
+
+        window.requestAnimationFrame(() => {
+            noteTextareaRef.current?.focus();
+            noteTextareaRef.current?.setSelectionRange(starter.length, starter.length);
+        });
+    };
+
     return (
-        <div className="mx-auto mt-8 w-full max-w-5xl pb-20">
-            <div className="mb-6 flex w-full flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-2 shadow-sm md:w-fit">
+        <div id="player-tabs" className="mx-auto mt-6 w-full max-w-5xl pb-16 md:mt-8 md:pb-20">
+            <div className="mb-4 grid w-full grid-cols-4 gap-1.5 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm md:mb-6 md:w-fit md:grid-cols-none md:flex md:flex-wrap md:gap-2 md:rounded-xl md:p-2">
                 {tabs.map((tab) => (
                     <button
                         key={tab.id}
                         onClick={() => setActiveTab(tab.id)}
-                        className={`flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-bold transition-all ${
+                        className={`flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 py-2.5 text-center text-[11px] font-bold leading-tight transition-all md:min-w-0 md:flex-row md:gap-2 md:rounded-lg md:px-4 md:py-2.5 md:text-sm ${
                             activeTab === tab.id
                                 ? 'border border-red-100 bg-red-50 text-[#B91C1C] shadow-sm'
                                 : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
                         }`}
                     >
                         <tab.icon
-                            className={`h-4 w-4 ${
+                            className={`h-4 w-4 shrink-0 ${
                                 activeTab === tab.id ? 'text-[#B91C1C]' : 'text-slate-400'
                             }`}
                         />
-                        {tab.label}
+                        <span>{tab.label}</span>
                     </button>
                 ))}
             </div>
 
-            <div className="min-h-[300px] rounded-2xl bg-white p-6 shadow-sm">
+            <div className="min-h-[260px] rounded-3xl bg-white p-4 shadow-sm md:min-h-[300px] md:rounded-2xl md:p-6">
                 {activeTab === 'overview' && (
                     <div className="prose max-w-none">
-                        <h3 className="mb-4 text-xl font-bold text-slate-800">
+                        <h3 className="mb-3 text-lg font-bold text-slate-800 md:mb-4 md:text-xl">
                             Giới thiệu bài học
                         </h3>
-                        <div className="whitespace-pre-line leading-relaxed text-slate-600">
-                            {description || 'Chưa có mô tả cho bài học này.'}
-                        </div>
+                        {formattedDescription ? (
+                            <div
+                                className="text-sm leading-relaxed text-slate-600 md:text-base [&_li]:mb-2 [&_ol]:list-decimal [&_ol]:pl-6 [&_p]:mb-4 [&_p:last-child]:mb-0 [&_ul]:list-disc [&_ul]:pl-6"
+                                dangerouslySetInnerHTML={{ __html: formattedDescription }}
+                            />
+                        ) : (
+                            <div className="text-sm leading-relaxed text-slate-600 md:text-base">
+                                Chưa có mô tả cho bài học này.
+                            </div>
+                        )}
                     </div>
                 )}
 
                 {activeTab === 'resources' && (
-                    <div className="space-y-4">
+                    <div
+                        ref={resourcesSectionRef}
+                        className="resource-scroll-target space-y-4"
+                    >
                         <div className="flex items-center justify-between gap-3">
                             <h3 className="text-lg font-bold text-slate-800">
                                 Tài liệu đính kèm
@@ -154,44 +547,193 @@ const PlayerTabs = ({ description, resources = [], lessonId, currentUser }) => {
                         </div>
 
                         {resources.length > 0 ? (
-                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                                {resources.map((file, index) => (
-                                    <div
-                                        key={file.id || `${file.url}-${index}`}
-                                        className="group flex items-center justify-between rounded-xl border border-slate-200 p-4 transition-colors hover:bg-slate-50"
-                                    >
-                                        <div className="flex items-center gap-3">
-                                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-50 text-red-500">
-                                                <FileText className="h-5 w-5" />
-                                            </div>
-                                            <div className="min-w-0">
-                                                <p className="line-clamp-2 text-sm font-bold text-slate-700">
-                                                    {file.name || `Tài liệu ${index + 1}`}
+                            <div className="space-y-4">
+                                {currentContextResources.length > 0 && (
+                                    <div className="rounded-2xl border border-red-100 bg-red-50 p-3 md:p-4">
+                                        <div className="flex flex-wrap items-center justify-between gap-3">
+                                            <div>
+                                                <p className="text-sm font-bold text-[#B91C1C]">
+                                                    Bài học hiện tại có {currentContextResources.length}{' '}
+                                                    tài liệu
                                                 </p>
-                                                <p className="mt-1 line-clamp-1 text-xs text-slate-500">
-                                                    {file.sourceLabel ||
-                                                        (file.lessonTitle
-                                                            ? `Buoi: ${file.lessonTitle}`
-                                                            : "Tai lieu chung cua khoa hoc")}
+                                                <p className="mt-1 text-sm text-red-500">
+                                                    {buildResourcePreview(
+                                                        currentContextResources,
+                                                        4
+                                                    )}
                                                 </p>
-                                                {file.sectionTitle && (
-                                                    <p className="mt-1 text-[11px] uppercase tracking-wide text-slate-400">
-                                                        {file.sectionTitle}
-                                                    </p>
-                                                )}
                                             </div>
+                                            <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-[#B91C1C] ring-1 ring-red-100">
+                                                Đang học
+                                            </span>
                                         </div>
-                                        <a
-                                            href={file.url}
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            className="p-2 text-slate-400 transition-colors hover:text-secret-wax"
-                                            title="Mở tài liệu"
-                                        >
-                                            <Download className="h-5 w-5" />
-                                        </a>
                                     </div>
-                                ))}
+                                )}
+
+                                <div className="space-y-3">
+                                    {visibleResourceGroups.map((group) => {
+                                        const isGroupOpen =
+                                            openResourceGroups[group.key] ??
+                                            (group.isCurrentSection || group.isGeneral);
+
+                                        return (
+                                            <div
+                                                key={group.key}
+                                                className="overflow-hidden rounded-2xl border border-slate-200"
+                                            >
+                                                <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                        toggleResourceGroup(
+                                                            group.key,
+                                                            group.isCurrentSection ||
+                                                                group.isGeneral
+                                                        )
+                                                    }
+                                                    className="flex w-full items-start justify-between gap-3 bg-white px-3 py-3 text-left transition-colors hover:bg-slate-50 md:px-4 md:py-4"
+                                                >
+                                                    <div className="min-w-0 flex-1">
+                                                        <div className="flex flex-wrap items-center gap-2">
+                                                            <h4 className="line-clamp-1 text-sm font-bold text-slate-800">
+                                                                {group.title}
+                                                            </h4>
+                                                            <span className="rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-bold text-[#B91C1C]">
+                                                                {group.resources.length} tài liệu
+                                                            </span>
+                                                            {group.isCurrentSection && (
+                                                                <span className="rounded-full bg-slate-900 px-2 py-0.5 text-[11px] font-semibold text-white">
+                                                                    Đang học
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <p className="mt-2 line-clamp-2 text-[12px] font-medium text-red-500">
+                                                            {buildResourcePreview(group.resources)}
+                                                        </p>
+                                                    </div>
+                                                    {isGroupOpen ? (
+                                                        <ChevronUp className="mt-1 h-4 w-4 shrink-0 text-slate-400" />
+                                                    ) : (
+                                                        <ChevronDown className="mt-1 h-4 w-4 shrink-0 text-slate-400" />
+                                                    )}
+                                                </button>
+
+                                                <div
+                                                    className={`overflow-hidden transition-all duration-300 ${
+                                                        isGroupOpen
+                                                            ? 'max-h-[2000px]'
+                                                            : 'max-h-0'
+                                                    }`}
+                                                >
+                                                    <div className="space-y-3 border-t border-slate-100 bg-slate-50/70 p-3 md:p-4">
+                                                        {group.resources.map((file, index) => {
+                                                            const isCurrentResource =
+                                                                file.isCurrentContext ||
+                                                                lessonId === file.lessonId;
+                                                            const isHighlightedResource =
+                                                                highlightedResourceId === file.id;
+
+                                                            return (
+                                                                <div
+                                                                    key={
+                                                                        file.id ||
+                                                                        `${file.url}-${index}`
+                                                                    }
+                                                                    ref={(node) =>
+                                                                        setResourceItemRef(
+                                                                            file.id,
+                                                                            node
+                                                                        )
+                                                                    }
+                                                                    className={`group flex items-start justify-between gap-3 rounded-xl border p-3 transition-all duration-500 md:p-4 ${
+                                                                        isHighlightedResource
+                                                                            ? 'animate-resource-spotlight border-[#B91C1C] bg-[#fff7f7] shadow-[0_18px_40px_-24px_rgba(185,28,28,0.65)]'
+                                                                            : isCurrentResource
+                                                                              ? 'border-red-200 bg-red-50'
+                                                                              : 'border-slate-200 bg-white hover:bg-slate-50'
+                                                                    }`}
+                                                                >
+                                                                    <div className="flex items-start gap-3">
+                                                                        <div
+                                                                            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
+                                                                                isCurrentResource
+                                                                                    ? 'bg-red-100 text-[#B91C1C]'
+                                                                                    : 'bg-red-50 text-red-500'
+                                                                            }`}
+                                                                        >
+                                                                            <FileText className="h-5 w-5" />
+                                                                        </div>
+                                                                        <div className="min-w-0">
+                                                                            <div className="flex flex-wrap items-center gap-2">
+                                                                                <p className="line-clamp-2 text-sm font-bold text-slate-700">
+                                                                                    {file.name ||
+                                                                                        `Tài liệu ${index + 1}`}
+                                                                                </p>
+                                                                                {isCurrentResource && (
+                                                                                    <span className="rounded-full bg-[#B91C1C] px-2 py-0.5 text-[11px] font-bold text-white">
+                                                                                        Đang dùng
+                                                                                    </span>
+                                                                                )}
+                                                                            </div>
+
+                                                                            {file.lessonId &&
+                                                                            file.lesson ? (
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() =>
+                                                                                        onLessonSelect?.(
+                                                                                            file.lesson
+                                                                                        )
+                                                                                    }
+                                                                                    className="mt-1 line-clamp-1 text-left text-xs font-medium text-slate-500 transition-colors hover:text-[#B91C1C]"
+                                                                                >
+                                                                                    {file.lessonTitle ||
+                                                                                        'Bài học gắn tài liệu'}
+                                                                                </button>
+                                                                            ) : (
+                                                                                <p className="mt-1 line-clamp-1 text-xs font-medium text-slate-500">
+                                                                                    {file.isGeneral
+                                                                                        ? 'Tài liệu chung của khóa học'
+                                                                                        : 'Tài liệu theo phần này'}
+                                                                                </p>
+                                                                            )}
+
+                                                                            {!group.isGeneral && (
+                                                                                <p className="mt-2 text-[11px] uppercase tracking-wide text-slate-400">
+                                                                                    {group.title}
+                                                                                </p>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="flex flex-col gap-1.5 flex-shrink-0">
+                                                                        <a
+                                                                            href={getViewerUrl(file.url)}
+                                                                            target="_blank"
+                                                                            rel="noreferrer"
+                                                                            className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-blue-50 border border-blue-200 text-[11px] font-bold text-blue-700 hover:bg-blue-100 transition-colors"
+                                                                            title="Đọc tài liệu"
+                                                                        >
+                                                                            Đọc tài liệu
+                                                                        </a>
+                                                                        <a
+                                                                            href={file.url}
+                                                                            download
+                                                                            target="_blank"
+                                                                            rel="noreferrer"
+                                                                            className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-50 border border-slate-200 text-[11px] font-bold text-slate-600 hover:bg-slate-100 transition-colors"
+                                                                            title="Tải xuống"
+                                                                        >
+                                                                            Tải xuống
+                                                                        </a>
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
                             </div>
                         ) : (
                             <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 py-10 text-center text-slate-400">
@@ -201,14 +743,102 @@ const PlayerTabs = ({ description, resources = [], lessonId, currentUser }) => {
                     </div>
                 )}
 
+                {activeTab === 'notes' && (
+                    <div className="flex h-full flex-col">
+                        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                            <h3 className="text-lg font-bold text-slate-800">
+                                Ghi chép của bạn
+                            </h3>
+                            <span className="rounded-full bg-green-50 px-2.5 py-1 text-xs font-medium text-green-600">
+                                {savedNoteLabel}
+                            </span>
+                        </div>
+                        <div className="mb-3 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+                            <div className="flex items-center justify-between gap-3 px-3 py-3 md:px-4">
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        setIsSmartNoteOpen((previousValue) => !previousValue)
+                                    }
+                                    className="flex min-w-0 flex-1 items-center justify-between gap-3 text-left"
+                                >
+                                    <div>
+                                        <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                                            Ghi chép thông minh
+                                        </p>
+                                        <p className="mt-1 text-xs leading-relaxed text-slate-400">
+                                            {isSmartNoteOpen
+                                                ? `${noteStats.lineCount} dòng có nội dung • ${noteStats.wordCount} từ`
+                                                : 'Mở ra để chèn nhanh mẫu tóm tắt, ý chính hoặc việc cần làm.'}
+                                        </p>
+                                    </div>
+                                    {isSmartNoteOpen ? (
+                                        <ChevronUp className="h-5 w-5 shrink-0 text-slate-400" />
+                                    ) : (
+                                        <ChevronDown className="h-5 w-5 shrink-0 text-slate-400" />
+                                    )}
+                                </button>
+
+                                {!note.trim() && isSmartNoteOpen && (
+                                    <button
+                                        type="button"
+                                        onClick={handleCreateSmartNote}
+                                        className="shrink-0 rounded-full bg-[#B91C1C] px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-red-800"
+                                    >
+                                        Tạo khung sẵn
+                                    </button>
+                                )}
+                            </div>
+
+                            <div
+                                className={`overflow-hidden transition-all duration-300 ${
+                                    isSmartNoteOpen ? 'max-h-[420px] opacity-100' : 'max-h-0 opacity-0'
+                                }`}
+                            >
+                                <div className="border-t border-slate-200 px-3 pb-3 pt-3 md:px-4 md:pb-4 md:pt-4">
+                                    <p className="text-sm font-semibold text-slate-700">
+                                        {lessonTitle || 'Bài học này'}
+                                    </p>
+                                    <p className="mt-2 text-xs leading-relaxed text-slate-500">
+                                        Chạm một nút để chèn nhanh mẫu ghi chép, đỡ phải gõ lại từ đầu.
+                                    </p>
+
+                                    <div className="mt-3 grid grid-cols-2 gap-2">
+                                        {SMART_NOTE_ACTIONS.map((action) => (
+                                            <button
+                                                key={action.id}
+                                                type="button"
+                                                onClick={() => insertIntoNote(action.content)}
+                                                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 transition-colors hover:border-red-200 hover:text-[#B91C1C]"
+                                            >
+                                                {action.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <textarea
+                            ref={noteTextareaRef}
+                            value={note}
+                            onChange={(event) => setNote(event.target.value)}
+                            className="min-h-[340px] w-full flex-1 rounded-2xl border border-yellow-200 bg-yellow-50/50 p-4 font-medium leading-relaxed text-slate-700 focus:outline-none md:min-h-[300px] md:rounded-xl"
+                            placeholder="Ghi lại những ý chính của bài học tại đây..."
+                        />
+                        <p className="mt-3 text-xs leading-relaxed text-slate-400">
+                            Mẹo nhanh: ghi chép được lưu riêng theo từng bài học, nên khi mở lại bài này bạn vẫn thấy nội dung cũ.
+                        </p>
+                    </div>
+                )}
+
                 {activeTab === 'discussion' && (
                     <div>
-                        <h3 className="mb-6 text-lg font-bold text-slate-800">
+                        <h3 className="mb-5 text-lg font-bold text-slate-800 md:mb-6">
                             Thảo luận & Hỏi đáp
                         </h3>
 
-                        <div className="space-y-8">
-                            <div className="flex gap-4">
+                        <div className="space-y-6 md:space-y-8">
+                            <div className="flex flex-col gap-3 md:flex-row md:gap-4">
                                 <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-slate-100">
                                     {currentUser?.photoURL ? (
                                         <img
@@ -226,18 +856,18 @@ const PlayerTabs = ({ description, resources = [], lessonId, currentUser }) => {
                                     <textarea
                                         value={newComment}
                                         onChange={(event) => setNewComment(event.target.value)}
-                                        className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm transition-colors focus:border-secret-wax focus:outline-none"
-                                        rows="3"
+                                        className="w-full rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm transition-colors focus:border-secret-wax focus:outline-none md:rounded-xl"
+                                        rows="4"
                                         placeholder="Đặt câu hỏi hoặc chia sẻ ý kiến của bạn..."
                                         disabled={!currentUser}
                                     ></textarea>
-                                    <div className="mt-2 flex justify-end">
+                                    <div className="mt-3 flex justify-end">
                                         <button
                                             onClick={handleAddComment}
                                             disabled={
                                                 isSubmitting || !newComment.trim() || !currentUser
                                             }
-                                            className="flex items-center gap-2 rounded-lg bg-secret-wax px-5 py-2 text-sm font-bold text-white hover:bg-secret-ink disabled:opacity-50"
+                                            className="flex w-full items-center justify-center gap-2 rounded-xl bg-secret-wax px-5 py-2.5 text-sm font-bold text-white hover:bg-secret-ink disabled:opacity-50 md:w-auto md:rounded-lg md:py-2"
                                         >
                                             <Send className="h-4 w-4" />
                                             {isSubmitting ? 'Đang gửi...' : 'Gửi bình luận'}
@@ -254,19 +884,19 @@ const PlayerTabs = ({ description, resources = [], lessonId, currentUser }) => {
                             <div className="space-y-6">
                                 {comments.length > 0 ? (
                                     comments.map((comment) => (
-                                        <div key={comment.id} className="group flex gap-4">
+                                        <div key={comment.id} className="group flex gap-3 md:gap-4">
                                             <img
                                                 src={
                                                     comment.userAvatar ||
                                                     'https://ui-avatars.com/api/?name=User&background=random'
                                                 }
                                                 alt={comment.userName}
-                                                className="h-10 w-10 shrink-0 rounded-full"
+                                                className="h-9 w-9 shrink-0 rounded-full md:h-10 md:w-10"
                                             />
                                             <div className="flex-1">
-                                                <div className="relative rounded-2xl rounded-tl-none bg-slate-50 p-4">
-                                                    <div className="mb-1 flex items-center justify-between">
-                                                        <div className="flex items-center gap-2">
+                                                <div className="relative rounded-2xl rounded-tl-none bg-slate-50 p-3 md:p-4">
+                                                    <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+                                                        <div className="flex flex-wrap items-center gap-2">
                                                             <span className="text-sm font-bold text-slate-800">
                                                                 {comment.userName}
                                                             </span>
@@ -310,24 +940,6 @@ const PlayerTabs = ({ description, resources = [], lessonId, currentUser }) => {
                     </div>
                 )}
 
-                {activeTab === 'notes' && (
-                    <div className="flex h-full flex-col">
-                        <div className="mb-4 flex items-center justify-between">
-                            <h3 className="text-lg font-bold text-slate-800">
-                                Ghi chú của bạn
-                            </h3>
-                            <span className="rounded bg-green-50 px-2 py-1 text-xs font-medium text-green-600">
-                                Đã lưu tự động
-                            </span>
-                        </div>
-                        <textarea
-                            value={note}
-                            onChange={(event) => setNote(event.target.value)}
-                            className="min-h-[300px] w-full flex-1 rounded-xl border border-yellow-200 bg-yellow-50/50 p-4 font-medium leading-relaxed text-slate-700 focus:outline-none"
-                            placeholder="Ghi lại những ý chính của bài học tại đây..."
-                        />
-                    </div>
-                )}
             </div>
         </div>
     );

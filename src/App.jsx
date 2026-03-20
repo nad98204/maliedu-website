@@ -46,6 +46,8 @@ import CourseList from "./pages/CourseList";
 import CourseDetail from "./pages/CourseDetail";
 import MyCourses from "./pages/MyCourses";
 import CoursePlayer from "./pages/CoursePlayer";
+import CourseTaiLieu from "./pages/CourseTaiLieu";
+import CourseGhiChep from "./pages/CourseGhiChep";
 import Register from "./pages/Register";
 import Checkout from "./pages/Checkout";
 import OrderSuccess from "./pages/OrderSuccess";
@@ -69,6 +71,7 @@ import BottomNav from "./components/BottomNav";
 
 const AppShell = () => {
   const location = useLocation();
+  const isPlayerRoute = location.pathname.startsWith('/bai-giang/');
   const hideChromePaths = [
     "/dao-tao/khoi-thong-dong-tien",
     "/dao-tao/luat-hap-dan",
@@ -107,7 +110,7 @@ const AppShell = () => {
     </div>
   ) : (
     <div className="min-h-screen flex flex-col bg-white">
-      {!location.pathname.startsWith('/bai-giang/') && <Header />}
+      {!isPlayerRoute && <Header />}
       <main className="flex-1">
         <Routes>
           <Route path="/" element={<Home />} />
@@ -133,6 +136,8 @@ const AppShell = () => {
           <Route path="/giang-vien/:id" element={<InstructorProfile />} />
           <Route path="/khoa-hoc-cua-toi" element={<MyCourses />} />
           <Route path="/bai-giang/:courseId" element={<CoursePlayer />} />
+          <Route path="/tai-lieu/:courseId" element={<CourseTaiLieu />} />
+          <Route path="/ghi-chep/:courseId" element={<CourseGhiChep />} />
           <Route path="/dang-ky" element={<Register />} />
           <Route path="/lien-he" element={<Contact />} />
           <Route path="/thanh-toan/:courseId" element={<Checkout />} />
@@ -172,9 +177,11 @@ const AppShell = () => {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
-      <FloatingContact />
-      <BottomNav />
-      {!location.pathname.startsWith('/bai-giang/') && !location.pathname.startsWith('/admin') && <Footer />}
+      <div className={isPlayerRoute ? 'hidden md:block' : ''}>
+        <FloatingContact />
+      </div>
+      {!isPlayerRoute && <BottomNav />}
+      {!isPlayerRoute && !location.pathname.startsWith('/admin') && <Footer />}
     </div>
   );
 };

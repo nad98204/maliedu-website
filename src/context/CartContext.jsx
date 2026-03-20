@@ -1,5 +1,8 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { collection, query, where, getDocs, onSnapshot } from "firebase/firestore";
+import { onAuthStateChanged } from "firebase/auth";
 import toast from "react-hot-toast";
+import { db, auth } from "../firebase";
 
 const CartContext = createContext();
 
@@ -11,7 +14,6 @@ export const CartProvider = ({ children }) => {
             const storedCart = localStorage.getItem("mali_cart");
             const parsed = storedCart ? JSON.parse(storedCart) : [];
             if (!Array.isArray(parsed)) return [];
-            // Validate items to prevent crashes
             return parsed.filter(item => item && typeof item === 'object' && item.id);
         } catch (error) {
             console.error("Failed to load cart from localStorage", error);
@@ -19,6 +21,39 @@ export const CartProvider = ({ children }) => {
         }
     });
 
+    const [pendingOrders, setPendingOrders] = useState([]);
+    const [currentUserId, setCurrentUserId] = useState(null);
+
+    // Lắng nghe auth state
+    useEffect(() => {
+        const unsub = onAuthStateChanged(auth, (user) => {
+            setCurrentUserId(user ? user.uid : null);
+            if (!user) setPendingOrders([]);
+        });
+        return () => unsub();
+    }, []);
+
+    // Fetch đơn hàng pending của user — realtime
+    useEffect(() => {
+        if (!currentUserId) return;
+
+        const q = query(
+            collection(db, "orders"),
+            where("userId", "==", currentUserId),
+            where("status", "==", "pending")
+        );
+
+        const unsub = onSnapshot(q, (snap) => {
+            const orders = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            setPendingOrders(orders);
+        }, (err) => {
+            console.error("Error watching pending orders:", err);
+        });
+
+        return () => unsub();
+    }, [currentUserId]);
+
+    // Sync cart to localStorage
     useEffect(() => {
         try {
             localStorage.setItem("mali_cart", JSON.stringify(cartItems));
@@ -50,6 +85,9 @@ export const CartProvider = ({ children }) => {
     };
 
     const cartCount = Array.isArray(cartItems) ? cartItems.length : 0;
+    const pendingCount = pendingOrders.length;
+    // Badge tổng = giỏ hàng + đơn chưa thanh toán
+    const totalBadgeCount = cartCount + pendingCount;
 
     const totalAmount = Array.isArray(cartItems) ? cartItems.reduce((total, item) => {
         if (!item) return total;
@@ -66,6 +104,9 @@ export const CartProvider = ({ children }) => {
                 clearCart,
                 cartCount,
                 totalAmount,
+                pendingOrders,
+                pendingCount,
+                totalBadgeCount,
             }}
         >
             {children}

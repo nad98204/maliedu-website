@@ -1,24 +1,28 @@
 import { useEffect, useState } from "react";
-import { Search, Eye, CheckCircle, XCircle, Clock, Check, RefreshCw } from "lucide-react";
+import { Search, CheckCircle, XCircle, Clock, Check, RefreshCw, Loader2 } from "lucide-react";
+import { toast } from "react-hot-toast";
 
 import { getAllOrders, approveOrder, formatPrice } from "../../utils/orderService";
 
 const AdminOrders = () => {
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
     const [processingId, setProcessingId] = useState(null);
 
-    const fetchOrders = async () => {
-        setLoading(true);
+    const fetchOrders = async (isRefresh = false) => {
+        if (isRefresh) setRefreshing(true);
+        else setLoading(true);
         try {
             const data = await getAllOrders();
             setOrders(data);
         } catch (error) {
             console.error("Error fetching orders:", error);
-            // toast.error("Lỗi tải danh sách đơn hàng");
+            toast.error("Lỗi tải danh sách đơn hàng");
         } finally {
             setLoading(false);
+            setRefreshing(false);
         }
     };
 
@@ -27,17 +31,22 @@ const AdminOrders = () => {
     }, []);
 
     const handleApprove = async (orderId) => {
-        if (!window.confirm("Xác nhận đã nhận được tiền và kích hoạt khóa học?")) return;
-
         setProcessingId(orderId);
+        const toastId = toast.loading("Đang xử lý duyệt đơn...");
         try {
-            await approveOrder(orderId);
-            // toast.success("Đã duyệt đơn và kích hoạt khóa học!");
-            alert("Đã kích hoạt khóa học cho học viên thành công!");
-            fetchOrders(); // Reload list
+            // Lấy orderData từ state — không cần gọi Firestore lần nữa
+            const orderData = orders.find(o => o.id === orderId);
+            await approveOrder(orderId, orderData);
+
+            // Cập nhật ngay trong state — không reload cả list
+            setOrders(prev => prev.map(o =>
+                o.id === orderId ? { ...o, status: 'completed' } : o
+            ));
+
+            toast.success("✅ Đã kích hoạt khóa học cho học viên!", { id: toastId, duration: 4000 });
         } catch (error) {
             console.error("Approve error:", error);
-            alert("Lỗi khi duyệt đơn: " + error.message);
+            toast.error("Lỗi duyệt đơn: " + error.message, { id: toastId });
         } finally {
             setProcessingId(null);
         }
@@ -59,11 +68,15 @@ const AdminOrders = () => {
                 </div>
                 <div className="flex items-center gap-2">
                     <button
-                        onClick={fetchOrders}
-                        className="p-2 text-slate-600 hover:text-indigo-600 bg-white border border-slate-200 rounded-lg shadow-sm"
+                        onClick={() => fetchOrders(true)}
+                        disabled={refreshing}
+                        className="flex items-center gap-2 px-3 py-2 text-slate-600 hover:text-indigo-600 bg-white border border-slate-200 rounded-lg shadow-sm transition-all disabled:opacity-50"
                         title="Làm mới"
                     >
-                        <RefreshCw className="w-5 h-5" />
+                        {refreshing
+                            ? <Loader2 className="w-4 h-4 animate-spin" />
+                            : <RefreshCw className="w-4 h-4" />}
+                        <span className="text-sm font-medium">Làm mới</span>
                     </button>
                 </div>
             </div>
