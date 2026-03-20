@@ -4,6 +4,10 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { HERO_SLIDES } from "../data/heroData";
 import { readHomeBannerCache } from "../utils/homeBannerCache";
 
+const MOBILE_MEDIA_QUERY = "(max-width: 768px)";
+const DEFAULT_DESKTOP_ASPECT_RATIO = 472 / 129;
+const DEFAULT_MOBILE_ASPECT_RATIO = 4 / 5;
+
 const normalizeCloudinaryImage = (url, transform) => {
   if (!url || typeof url !== "string" || !url.includes("res.cloudinary.com")) {
     return url ?? "";
@@ -25,20 +29,40 @@ const normalizeCloudinaryImage = (url, transform) => {
   return `${prefix}${transform}/${rest}`;
 };
 
+const toPositiveNumber = (value) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+};
+
+const getAspectRatioFromDimensions = (width, height) => {
+  const safeWidth = toPositiveNumber(width);
+  const safeHeight = toPositiveNumber(height);
+
+  if (!safeWidth || !safeHeight) {
+    return null;
+  }
+
+  return safeWidth / safeHeight;
+};
+
 const normalizeSlide = (slide, index) => ({
   id: slide.id ?? `fallback-slide-${index}`,
   image: normalizeCloudinaryImage(
     slide.imageUrl ?? slide.image ?? "",
-    "f_auto,q_auto,c_fill,g_auto,w_1920,h_525"
+    "f_auto,q_auto,c_limit,w_1920"
   ),
   mobileImage: normalizeCloudinaryImage(
     slide.mobileImageUrl ?? slide.mobileImage ?? slide.imageUrl ?? slide.image ?? "",
-    "f_auto,q_auto,c_fill,g_auto,w_900,h_1200"
+    "f_auto,q_auto,c_limit,w_900"
   ),
   title: slide.title ?? "",
   subtitle: slide.subtitle ?? "",
   ctaText: slide.ctaText ?? "",
   ctaLink: slide.ctaLink ?? "#",
+  imageWidth: toPositiveNumber(slide.imageWidth),
+  imageHeight: toPositiveNumber(slide.imageHeight),
+  mobileImageWidth: toPositiveNumber(slide.mobileImageWidth),
+  mobileImageHeight: toPositiveNumber(slide.mobileImageHeight),
 });
 
 const buildSlides = (items) =>
@@ -58,6 +82,14 @@ const HeroCarousel = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [dragStartX, setDragStartX] = useState(null);
   const [dragging, setDragging] = useState(false);
+  const [isMobileViewport, setIsMobileViewport] = useState(() => {
+    if (typeof window === "undefined" || !window.matchMedia) {
+      return false;
+    }
+
+    return window.matchMedia(MOBILE_MEDIA_QUERY).matches;
+  });
+  const [slideAspectRatios, setSlideAspectRatios] = useState({});
 
   const slideCount = slides.length;
   const activeSlide = useMemo(
@@ -74,6 +106,27 @@ const HeroCarousel = () => {
     window.addEventListener("storage", syncSlides);
 
     return () => window.removeEventListener("storage", syncSlides);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) {
+      return undefined;
+    }
+
+    const mediaQuery = window.matchMedia(MOBILE_MEDIA_QUERY);
+    const syncViewport = (event) => {
+      setIsMobileViewport(event.matches);
+    };
+
+    setIsMobileViewport(mediaQuery.matches);
+
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", syncViewport);
+      return () => mediaQuery.removeEventListener("change", syncViewport);
+    }
+
+    mediaQuery.addListener(syncViewport);
+    return () => mediaQuery.removeListener(syncViewport);
   }, []);
 
   const goToSlide = (index) => {
@@ -137,13 +190,50 @@ const HeroCarousel = () => {
     setDragStartX(null);
   };
 
+  const setSlideAspectRatio = (slideId, type, width, height) => {
+    const ratio = getAspectRatioFromDimensions(width, height);
+    if (!slideId || !type || !ratio) {
+      return;
+    }
+
+    setSlideAspectRatios((prev) => {
+      if (prev[slideId]?.[type] === ratio) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        [slideId]: {
+          ...prev[slideId],
+          [type]: ratio,
+        },
+      };
+    });
+  };
+
+  const getDesktopAspectRatio = (slide) =>
+    getAspectRatioFromDimensions(slide?.imageWidth, slide?.imageHeight) ??
+    slideAspectRatios[slide?.id]?.desktop ??
+    DEFAULT_DESKTOP_ASPECT_RATIO;
+
+  const getMobileAspectRatio = (slide) =>
+    getAspectRatioFromDimensions(slide?.mobileImageWidth, slide?.mobileImageHeight) ??
+    slideAspectRatios[slide?.id]?.mobile ??
+    getDesktopAspectRatio(slide) ??
+    DEFAULT_MOBILE_ASPECT_RATIO;
+
   if (!activeSlide) {
     return null;
   }
 
+  const activeAspectRatio = isMobileViewport
+    ? getMobileAspectRatio(activeSlide)
+    : getDesktopAspectRatio(activeSlide);
+
   return (
     <section
-      className="relative isolate aspect-[4/5] w-full overflow-hidden bg-[#0d0a08] text-white select-none sm:aspect-[472/129]"
+      className="relative isolate w-full overflow-hidden bg-[#0d0a08] text-white select-none"
+      style={{ aspectRatio: activeAspectRatio }}
       onMouseDown={handleDragStart}
       onMouseUp={handleDragEnd}
       onMouseLeave={handleDragCancel}
@@ -175,16 +265,33 @@ const HeroCarousel = () => {
               loading={isActive ? "eager" : "lazy"}
               fetchPriority={isActive ? "high" : "auto"}
               draggable={false}
+              onLoad={(event) => {
+                setSlideAspectRatio(
+                  slide.id,
+                  "desktop",
+                  event.currentTarget.naturalWidth,
+                  event.currentTarget.naturalHeight
+                );
+              }}
             />
             <picture className="absolute inset-0 block h-full w-full">
               <source media="(max-width: 768px)" srcSet={slide.mobileImage || slide.image} />
               <img
                 src={slide.image}
                 alt={slide.title}
-                className="h-full w-full object-cover object-center"
+                className="h-full w-full object-contain object-center"
                 loading={isActive ? "eager" : "lazy"}
                 fetchPriority={isActive ? "high" : "auto"}
                 draggable={false}
+                onLoad={(event) => {
+                  const isMobileImage = event.currentTarget.currentSrc === (slide.mobileImage || slide.image);
+                  setSlideAspectRatio(
+                    slide.id,
+                    isMobileImage ? "mobile" : "desktop",
+                    event.currentTarget.naturalWidth,
+                    event.currentTarget.naturalHeight
+                  );
+                }}
               />
             </picture>
             <div className="absolute inset-0 z-0 bg-gradient-to-t from-black/30 via-transparent to-black/10" />

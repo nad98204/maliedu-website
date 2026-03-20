@@ -19,6 +19,9 @@ export const uploadToCloudinary = async (file) => {
     return {
       secureUrl: response.data.secure_url,
       publicId: response.data.public_id,
+      deleteToken: response.data.delete_token || null,
+      width: response.data.width || null,
+      height: response.data.height || null,
     }; // Tra ve duong link anh va token xoa
   } catch (error) {
     const message =
