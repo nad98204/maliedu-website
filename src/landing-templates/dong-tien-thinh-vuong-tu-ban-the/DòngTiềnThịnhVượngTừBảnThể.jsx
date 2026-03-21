@@ -17,7 +17,7 @@ const MALI_LOGO =
   "https://res.cloudinary.com/dstukyjzd/image/upload/v1768455801/Logo_Mali_Ngang_M%C3%80U_CAM_u5lrng.png";
 const BANNER_IMAGE = 
   "https://s3-hn1-api.longvan.vn/video-khoa-hoc/videos/1773736864490-976832550-D-ng-Ti-n-Th-nh-V--ng-T--B-n-Th-.png";
-const ZALO_GROUP_LINK = "https://zalo.me/g/fedjcewig0zvk3kkvvp0";
+const ZALO_GROUP_LINK = "https://zalo.me/g/vrop9wmdy45az0zzzquk";
 
 const heroHighlights = [
   {
