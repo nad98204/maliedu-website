@@ -1,135 +1,169 @@
-import { S3Client } from '@aws-sdk/client-s3';
-import { Upload } from '@aws-sdk/lib-storage';
-import { getRuntimeS3Config } from './runtimeConfig';
+const MULTIPART_API_BASE = "/api/s3-multipart";
 
-const pickTrimmedValue = (...values) => {
-  const matchedValue = values.find(
-    (value) => typeof value === 'string' && value.trim(),
-  );
-
-  return matchedValue?.trim();
-};
-
-const getS3Config = () => {
-  const runtimeConfig = getRuntimeS3Config();
-  const config = {
-    region:
-      pickTrimmedValue(runtimeConfig.region, import.meta.env.VITE_S3_REGION) ||
-      'hn1',
-    endpoint: pickTrimmedValue(
-      runtimeConfig.endpoint,
-      import.meta.env.VITE_S3_ENDPOINT,
-    ),
-    accessKeyId: pickTrimmedValue(
-      runtimeConfig.accessKeyId,
-      import.meta.env.VITE_S3_ACCESS_KEY,
-    ),
-    secretAccessKey: pickTrimmedValue(
-      runtimeConfig.secretAccessKey,
-      import.meta.env.VITE_S3_SECRET_KEY,
-    ),
-    bucket: pickTrimmedValue(
-      runtimeConfig.bucket,
-      import.meta.env.VITE_S3_BUCKET,
-    ),
-  };
-
-  const missingVars = [
-    ['VITE_S3_ENDPOINT', config.endpoint],
-    ['VITE_S3_ACCESS_KEY', config.accessKeyId],
-    ['VITE_S3_SECRET_KEY', config.secretAccessKey],
-    ['VITE_S3_BUCKET', config.bucket],
-  ]
-    .filter(([, value]) => !value)
-    .map(([name]) => name);
-
-  if (missingVars.length) {
-    throw new Error(
-      `Thieu cau hinh S3: ${missingVars.join(', ')}. Ban can cau hinh qua public/runtime-config.js hoac cung cap VITE_S3_* truoc khi build/deploy.`,
-    );
-  }
-
-  return config;
-};
-
-let s3Client;
-let s3ClientSignature;
-
-const getS3Client = () => {
-  const config = getS3Config();
-  const nextSignature = JSON.stringify({
-    region: config.region,
-    endpoint: config.endpoint,
-    accessKeyId: config.accessKeyId,
-    secretAccessKey: config.secretAccessKey,
+const requestJson = async (path, payload) => {
+  const response = await fetch(`${MULTIPART_API_BASE}${path}`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(payload),
   });
+  const data = await response.json().catch(() => ({}));
 
-  if (!s3Client || s3ClientSignature !== nextSignature) {
-    s3Client = new S3Client({
-      region: config.region,
-      endpoint: config.endpoint,
-      credentials: {
-        accessKeyId: config.accessKeyId,
-        secretAccessKey: config.secretAccessKey,
-      },
-      forcePathStyle: true,
-    });
-    s3ClientSignature = nextSignature;
+  if (!response.ok) {
+    throw new Error(data.error || `Upload request failed: ${response.status}`);
   }
 
-  return s3Client;
+  return data;
 };
+
+const uploadPart = (url, blob, onProgress) =>
+  new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+
+    xhr.open("PUT", url, true);
+
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable && onProgress) {
+        onProgress(event.loaded);
+      }
+    };
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        const etag = xhr.getResponseHeader("ETag") || xhr.getResponseHeader("etag");
+
+        if (!etag) {
+          reject(
+            new Error(
+              "S3 upload succeeded but ETag was not exposed. Check S3 CORS ExposeHeaders.",
+            ),
+          );
+          return;
+        }
+
+        resolve(etag);
+        return;
+      }
+
+      reject(new Error(`Upload part failed with status ${xhr.status}`));
+    };
+
+    xhr.onerror = () => {
+      reject(new Error("Upload part failed due to a network error"));
+    };
+
+    xhr.onabort = () => {
+      reject(new Error("Upload part was aborted"));
+    };
+
+    xhr.send(blob);
+  });
 
 const uploadObjectToS3 = async (
   file,
   onProgress,
-  { folder = 'files', fallbackContentType = 'application/octet-stream' } = {},
+  { folder = "files", fallbackContentType = "application/octet-stream" } = {},
 ) => {
+  if (!file) {
+    throw new Error("Khong tim thay file de tai len.");
+  }
+
+  if (!file.size) {
+    throw new Error("Khong ho tro upload file rong.");
+  }
+
+  let uploadSession = null;
+
   try {
-    const { bucket, endpoint } = getS3Config();
-    const uniqueId = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-    const safeFileName = file.name.replace(/[^a-zA-Z0-9.]/g, '-');
-    const objectKey = `${folder}/${uniqueId}-${safeFileName}`;
+    if (onProgress) {
+      onProgress(0);
+    }
 
-    const upload = new Upload({
-      client: getS3Client(),
-      params: {
-        Bucket: bucket,
-        Key: objectKey,
-        Body: file,
-        ContentType: file.type || fallbackContentType,
-        ACL: 'public-read',
-      },
-      partSize: 5 * 1024 * 1024,
-      leavePartsOnError: false,
+    uploadSession = await requestJson("/init", {
+      fileName: file.name,
+      fileSize: file.size,
+      contentType: file.type || fallbackContentType,
+      folder,
     });
 
-    upload.on('httpUploadProgress', (progress) => {
-      if (onProgress && progress.total) {
-        const percent = Math.round((progress.loaded / progress.total) * 100);
-        onProgress(percent);
+    const totalParts = Math.ceil(file.size / uploadSession.partSize);
+    const partProgress = new Map();
+    const completedParts = [];
+
+    const reportProgress = () => {
+      if (!onProgress) {
+        return;
       }
+
+      const uploadedBytes = Array.from(partProgress.values()).reduce(
+        (total, value) => total + value,
+        0,
+      );
+      const percent = Math.min(
+        99,
+        Math.round((uploadedBytes / file.size) * 100),
+      );
+
+      onProgress(percent);
+    };
+
+    for (let partNumber = 1; partNumber <= totalParts; partNumber += 1) {
+      const start = (partNumber - 1) * uploadSession.partSize;
+      const end = Math.min(file.size, start + uploadSession.partSize);
+      const blob = file.slice(start, end);
+      const { url } = await requestJson("/sign-part", {
+        key: uploadSession.key,
+        uploadId: uploadSession.uploadId,
+        partNumber,
+      });
+      const etag = await uploadPart(url, blob, (loadedBytes) => {
+        partProgress.set(partNumber, loadedBytes);
+        reportProgress();
+      });
+
+      partProgress.set(partNumber, blob.size);
+      completedParts.push({
+        PartNumber: partNumber,
+        ETag: etag,
+      });
+      reportProgress();
+    }
+
+    const completedUpload = await requestJson("/complete", {
+      key: uploadSession.key,
+      uploadId: uploadSession.uploadId,
+      parts: completedParts,
     });
 
-    await upload.done();
+    if (onProgress) {
+      onProgress(100);
+    }
 
-    return `${endpoint.replace(/\/+$/, '')}/${bucket}/${objectKey}`;
+    return completedUpload.publicUrl || uploadSession.publicUrl;
   } catch (error) {
-    console.error('Loi khi upload file len Long Van S3:', error);
+    if (uploadSession?.key && uploadSession?.uploadId) {
+      requestJson("/abort", {
+        key: uploadSession.key,
+        uploadId: uploadSession.uploadId,
+      }).catch(() => {});
+    }
+
+    console.error("Loi khi upload file len Long Van S3:", error);
     throw new Error(
-      `Upload file that bai, vui long kiem tra cau hinh S3: ${error.message}`,
+      `Upload file that bai, vui long thu lai: ${error.message}`,
     );
   }
 };
 
 export const uploadVideoToS3 = async (file, onProgress) =>
   uploadObjectToS3(file, onProgress, {
-    folder: 'videos',
-    fallbackContentType: 'video/mp4',
+    folder: "videos",
+    fallbackContentType: "video/mp4",
   });
 
 export const uploadFileToS3 = async (file, onProgress) =>
   uploadObjectToS3(file, onProgress, {
-    folder: 'files',
-    fallbackContentType: 'application/octet-stream',
+    folder: "files",
+    fallbackContentType: "application/octet-stream",
   });

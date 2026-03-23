@@ -27,16 +27,6 @@ export const getRuntimeS3Config = () => {
       runtimeS3Config.endpoint,
       runtimeConfig.VITE_S3_ENDPOINT,
     ),
-    accessKeyId: pickTrimmedValue(
-      runtimeS3Config.accessKeyId,
-      runtimeS3Config.accessKey,
-      runtimeConfig.VITE_S3_ACCESS_KEY,
-    ),
-    secretAccessKey: pickTrimmedValue(
-      runtimeS3Config.secretAccessKey,
-      runtimeS3Config.secretKey,
-      runtimeConfig.VITE_S3_SECRET_KEY,
-    ),
     bucket: pickTrimmedValue(
       runtimeS3Config.bucket,
       runtimeConfig.VITE_S3_BUCKET,

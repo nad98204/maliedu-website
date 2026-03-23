@@ -5,7 +5,5 @@ window.__MALI_RUNTIME_CONFIG__ = window.__MALI_RUNTIME_CONFIG__ || {};
 window.__MALI_RUNTIME_CONFIG__.s3 = window.__MALI_RUNTIME_CONFIG__.s3 || {
   region: '',
   endpoint: '',
-  accessKeyId: '',
-  secretAccessKey: '',
   bucket: '',
 };

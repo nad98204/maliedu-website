@@ -8,9 +8,8 @@ const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, "..");
 
 const requiredS3Keys = [
+  "region",
   "endpoint",
-  "accessKeyId",
-  "secretAccessKey",
   "bucket",
 ];
 
@@ -36,6 +35,23 @@ const getSourceCode = async () => {
   return readFile(resolvedFilePath, "utf8");
 };
 
+const checkMultipartHealth = async () => {
+  if (!isUrlTarget) {
+    return;
+  }
+
+  const targetUrl = new URL(rawTarget);
+  const healthUrl = new URL("/api/s3-multipart/health", targetUrl.origin);
+  const response = await fetch(healthUrl);
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok || !data.ok) {
+    throw new Error(
+      `[runtime-config] Multipart healthcheck failed at ${healthUrl.toString()}`,
+    );
+  }
+};
+
 try {
   const sourceCode = await getSourceCode();
   const sandbox = { window: {} };
@@ -59,6 +75,7 @@ try {
     );
   }
 
+  await checkMultipartHealth();
   console.log(`[runtime-config] OK: ${rawTarget}`);
 } catch (error) {
   console.error(error.message);
