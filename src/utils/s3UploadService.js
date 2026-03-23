@@ -1,13 +1,37 @@
 import { S3Client } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
+import { getRuntimeS3Config } from './runtimeConfig';
+
+const pickTrimmedValue = (...values) => {
+  const matchedValue = values.find(
+    (value) => typeof value === 'string' && value.trim(),
+  );
+
+  return matchedValue?.trim();
+};
 
 const getS3Config = () => {
+  const runtimeConfig = getRuntimeS3Config();
   const config = {
-    region: import.meta.env.VITE_S3_REGION || 'hn1',
-    endpoint: import.meta.env.VITE_S3_ENDPOINT?.trim(),
-    accessKeyId: import.meta.env.VITE_S3_ACCESS_KEY?.trim(),
-    secretAccessKey: import.meta.env.VITE_S3_SECRET_KEY?.trim(),
-    bucket: import.meta.env.VITE_S3_BUCKET?.trim(),
+    region:
+      pickTrimmedValue(runtimeConfig.region, import.meta.env.VITE_S3_REGION) ||
+      'hn1',
+    endpoint: pickTrimmedValue(
+      runtimeConfig.endpoint,
+      import.meta.env.VITE_S3_ENDPOINT,
+    ),
+    accessKeyId: pickTrimmedValue(
+      runtimeConfig.accessKeyId,
+      import.meta.env.VITE_S3_ACCESS_KEY,
+    ),
+    secretAccessKey: pickTrimmedValue(
+      runtimeConfig.secretAccessKey,
+      import.meta.env.VITE_S3_SECRET_KEY,
+    ),
+    bucket: pickTrimmedValue(
+      runtimeConfig.bucket,
+      import.meta.env.VITE_S3_BUCKET,
+    ),
   };
 
   const missingVars = [
@@ -21,7 +45,7 @@ const getS3Config = () => {
 
   if (missingVars.length) {
     throw new Error(
-      `Thieu cau hinh S3: ${missingVars.join(', ')}. Neu dang dung Vite, ban can khai bao cac bien nay trong moi truong build production roi build/deploy lai.`,
+      `Thieu cau hinh S3: ${missingVars.join(', ')}. Ban can cau hinh qua public/runtime-config.js hoac cung cap VITE_S3_* truoc khi build/deploy.`,
     );
   }
 
@@ -29,11 +53,18 @@ const getS3Config = () => {
 };
 
 let s3Client;
+let s3ClientSignature;
 
 const getS3Client = () => {
-  if (!s3Client) {
-    const config = getS3Config();
+  const config = getS3Config();
+  const nextSignature = JSON.stringify({
+    region: config.region,
+    endpoint: config.endpoint,
+    accessKeyId: config.accessKeyId,
+    secretAccessKey: config.secretAccessKey,
+  });
 
+  if (!s3Client || s3ClientSignature !== nextSignature) {
     s3Client = new S3Client({
       region: config.region,
       endpoint: config.endpoint,
@@ -43,6 +74,7 @@ const getS3Client = () => {
       },
       forcePathStyle: true,
     });
+    s3ClientSignature = nextSignature;
   }
 
   return s3Client;
@@ -81,7 +113,7 @@ const uploadObjectToS3 = async (
 
     await upload.done();
 
-    return `${endpoint}/${bucket}/${objectKey}`;
+    return `${endpoint.replace(/\/+$/, '')}/${bucket}/${objectKey}`;
   } catch (error) {
     console.error('Loi khi upload file len Long Van S3:', error);
     throw new Error(
