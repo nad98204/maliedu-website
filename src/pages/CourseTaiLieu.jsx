@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, Navigate, useParams } from "react-router-dom";
 import {
     collection,
     doc,
@@ -9,7 +9,9 @@ import {
     where,
 } from "firebase/firestore";
 import { ChevronLeft, Download, Eye, FileText, FolderOpen } from "lucide-react";
-import { db } from "../firebase";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth, db } from "../firebase";
+import { resolveCourseAccess } from "../utils/courseAccess";
 
 const DEFAULT_SECTION_TITLE = "Nội dung khóa học";
 
@@ -38,9 +40,24 @@ const CourseTaiLieu = () => {
     const [sections, setSections] = useState([]);
     const [loading, setLoading] = useState(true);
     const [openSections, setOpenSections] = useState({});
-
+    const [currentUser, setCurrentUser] = useState(null);
+    const [authChecked, setAuthChecked] = useState(false);
+    const [hasFullAccess, setHasFullAccess] = useState(false);
 
     useEffect(() => {
+        const unsubscribe = onAuthStateChanged(auth, (user) => {
+            setCurrentUser(user);
+            setAuthChecked(true);
+        });
+
+        return () => unsubscribe();
+    }, []);
+
+    useEffect(() => {
+        if (!authChecked) {
+            return undefined;
+        }
+
         const fetchData = async () => {
             try {
                 let courseData = null;
@@ -63,6 +80,20 @@ const CourseTaiLieu = () => {
                 if (!courseData) return;
 
                 setCourse(courseData);
+                const access = currentUser
+                    ? await resolveCourseAccess({
+                          db,
+                          course: courseData,
+                          user: currentUser,
+                      })
+                    : { hasFullAccess: false };
+                setHasFullAccess(access.hasFullAccess);
+
+                if (!access.hasFullAccess) {
+                    setSections([]);
+                    return;
+                }
+
                 const normalizedSections = normalizeSections(courseData.curriculum);
                 setSections(normalizedSections);
 
@@ -78,7 +109,7 @@ const CourseTaiLieu = () => {
         };
 
         fetchData();
-    }, [courseId]);
+    }, [authChecked, courseId, currentUser]);
 
     // Nhóm tài liệu từ courseResources theo sectionId
     const sectionResourceMap = useMemo(() => {
@@ -183,6 +214,10 @@ const CourseTaiLieu = () => {
                 </Link>
             </div>
         );
+    }
+
+    if (!hasFullAccess) {
+        return <Navigate to={`/khoa-hoc/${course.id}`} replace />;
     }
 
     const generalDocs = sectionResourceMap["general"] || [];

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, Navigate, useParams } from "react-router-dom";
 import {
     collection,
     doc,
@@ -9,7 +9,9 @@ import {
     where,
 } from "firebase/firestore";
 import { ChevronLeft, PenTool, BookOpen } from "lucide-react";
-import { db } from "../firebase";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth, db } from "../firebase";
+import { resolveCourseAccess } from "../utils/courseAccess";
 
 const DEFAULT_SECTION_TITLE = "Nội dung khóa học";
 
@@ -29,8 +31,24 @@ const CourseGhiChep = () => {
     const [course, setCourse] = useState(null);
     const [sections, setSections] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [currentUser, setCurrentUser] = useState(null);
+    const [authChecked, setAuthChecked] = useState(false);
+    const [hasFullAccess, setHasFullAccess] = useState(false);
 
     useEffect(() => {
+        const unsubscribe = onAuthStateChanged(auth, (user) => {
+            setCurrentUser(user);
+            setAuthChecked(true);
+        });
+
+        return () => unsubscribe();
+    }, []);
+
+    useEffect(() => {
+        if (!authChecked) {
+            return undefined;
+        }
+
         const fetchData = async () => {
             try {
                 let courseData = null;
@@ -52,6 +70,20 @@ const CourseGhiChep = () => {
 
                 if (!courseData) return;
                 setCourse(courseData);
+                const access = currentUser
+                    ? await resolveCourseAccess({
+                          db,
+                          course: courseData,
+                          user: currentUser,
+                      })
+                    : { hasFullAccess: false };
+                setHasFullAccess(access.hasFullAccess);
+
+                if (!access.hasFullAccess) {
+                    setSections([]);
+                    return;
+                }
+
                 setSections(normalizeSections(courseData.curriculum));
             } catch (err) {
                 console.error("Error fetching course:", err);
@@ -61,7 +93,7 @@ const CourseGhiChep = () => {
         };
 
         fetchData();
-    }, [courseId]);
+    }, [authChecked, courseId, currentUser]);
 
     // Đọc ghi chép từ localStorage cho từng bài học
     const notesByLesson = useMemo(() => {
@@ -133,6 +165,10 @@ const CourseGhiChep = () => {
                 </Link>
             </div>
         );
+    }
+
+    if (!hasFullAccess) {
+        return <Navigate to={`/khoa-hoc/${course.id}`} replace />;
     }
 
     return (

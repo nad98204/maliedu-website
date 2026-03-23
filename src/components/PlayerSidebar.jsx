@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
     CheckCircle,
     ChevronDown,
@@ -40,6 +40,7 @@ const PlayerSidebar = ({
     lessonResourceMap = {},
     sectionResourceMap = {},
     currentContextResources = [],
+    hasResourceAccess = true,
     currentLessonId,
     progress = {},
     onLessonSelect,
@@ -51,6 +52,7 @@ const PlayerSidebar = ({
     const [resourceSearchTerm, setResourceSearchTerm] = useState('');
     const [openSections, setOpenSections] = useState({});
     const [openResourceGroups, setOpenResourceGroups] = useState({});
+    const availableTabs = hasResourceAccess ? ['curriculum', 'resources'] : ['curriculum'];
 
     const totalLessons = useMemo(
         () => sections.reduce((total, section) => total + (section.lessons?.length || 0), 0),
@@ -157,6 +159,12 @@ const PlayerSidebar = ({
             [groupKey]: !(prev[groupKey] ?? defaultOpen)
         }));
     };
+
+    useEffect(() => {
+        if (!availableTabs.includes(activeTab)) {
+            setActiveTab(availableTabs[0]);
+        }
+    }, [activeTab, availableTabs]);
 
     const searchValue = activeTab === 'curriculum' ? lessonSearchTerm : resourceSearchTerm;
     const setSearchValue =

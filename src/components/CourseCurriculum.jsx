@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PlayCircle, FileText, Lock, ChevronDown, ChevronUp, Clock, Eye } from 'lucide-react';
+import { getLessonKey, getPreviewableLessonKeys } from '../utils/courseAccess';
 
-const CourseCurriculum = ({ curriculum, isFreeCourse, courseId, onPreviewClick }) => {
+const CourseCurriculum = ({ course, courseId, onPreviewClick }) => {
     const [openSections, setOpenSections] = useState({ 0: true }); // Default open first section only
+    const curriculum = course?.curriculum;
+    const previewableLessonKeys = new Set(getPreviewableLessonKeys(course));
 
     // Helper to format duration
     const formatDuration = (min) => {
@@ -114,10 +117,11 @@ const CourseCurriculum = ({ curriculum, isFreeCourse, courseId, onPreviewClick }
                         <div className={`transition-all duration-300 ease-in-out overflow-hidden ${openSections[idx] ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`}>
                             <div className="bg-white">
                                 {section.lessons.map((lesson, lIdx) => {
+                                    const lessonKey = getLessonKey(lesson);
                                     // Determine availability:
-                                    // 1. Course is Free -> All open
+                                    // 1. Course preview mode -> first N lessons are open
                                     // 2. Lesson has isFreePreview flag -> Open
-                                    const isAccessible = isFreeCourse || lesson.isFreePreview;
+                                    const isAccessible = lessonKey ? previewableLessonKeys.has(lessonKey) : false;
 
                                     return (
                                         <div key={lIdx} className="flex items-center justify-between p-3 pl-10 hover:bg-slate-50 border-b border-slate-100 last:border-0 transition-colors group">
@@ -143,9 +147,13 @@ const CourseCurriculum = ({ curriculum, isFreeCourse, courseId, onPreviewClick }
                                                         onClick={(e) => {
                                                             e.stopPropagation();
                                                             if (onPreviewClick) {
-                                                                onPreviewClick();
+                                                                onPreviewClick(lesson);
                                                             } else {
-                                                                navigate(`/bai-giang/${courseId}`);
+                                                                const params = new URLSearchParams({ preview: '1' });
+                                                                if (lessonKey) {
+                                                                    params.set('lesson', lessonKey);
+                                                                }
+                                                                navigate(`/bai-giang/${courseId}?${params.toString()}`);
                                                             }
                                                         }}
                                                         className="text-xs font-bold text-green-600 border border-green-200 bg-green-50 px-2 py-0.5 rounded cursor-pointer hover:bg-green-100"

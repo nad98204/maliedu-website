@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { doc, getDoc, query, collection, where, getDocs, addDoc, updateDoc, increment, arrayUnion } from 'firebase/firestore';
+import { doc, getDoc, query, collection, where, getDocs, updateDoc, increment } from 'firebase/firestore';
 import { ArrowRight, Globe, Star, Users, Check, Home, ChevronRight, PlayCircle, ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react';
 import { onAuthStateChanged } from "firebase/auth";
 
@@ -12,6 +12,7 @@ import CourseCurriculum from '../components/CourseCurriculum';
 import RelatedCourses from '../components/RelatedCourses';
 import CourseReviews from '../components/CourseReviews';
 import AuthModal from '../components/AuthModal';
+import { getLessonKey, getPreferredPreviewLesson, resolveCourseAccess } from '../utils/courseAccess';
 
 const CourseDetail = () => {
     const { slug } = useParams();
@@ -65,74 +66,48 @@ const CourseDetail = () => {
         }
     };
 
-    const enrollUser = async (courseData) => {
-        if (!currentUser) return;
-        try {
-            // Check if already enrolled
-            const q = query(
-                collection(db, 'enrollments'),
-                where('userId', '==', currentUser.uid),
-                where('courseId', '==', courseData.id)
-            );
-            const snapshot = await getDocs(q);
-
-            if (snapshot.empty) {
-                await addDoc(collection(db, 'enrollments'), {
-                    userId: currentUser.uid,
-                    userEmail: currentUser.email,
-                    courseId: courseData.id,
-                    courseName: courseData.name,
-                    enrolledAt: Date.now(),
-                    status: 'active',
-                    progress: 0
-                });
-            }
-
-            // ALWAYS Sync Student Count to Course Document (Idempotent)
-            // Even if already enrolled, ensure ID is in the list
-            const courseRef = doc(db, 'courses', courseData.id);
-            await updateDoc(courseRef, {
-                students: arrayUnion(currentUser.uid)
-            }).catch(err => console.error("Error syncing student count:", err));
-        } catch (error) {
-            console.error("Enrollment error:", error);
+    const navigateToPreviewLesson = (lesson = null) => {
+        if (!course?.id) {
+            return;
         }
+
+        const previewLesson = getPreferredPreviewLesson(course, getLessonKey(lesson));
+
+        if (!previewLesson) {
+            return;
+        }
+
+        const previewParams = new URLSearchParams({ preview: '1' });
+        const previewLessonKey = getLessonKey(previewLesson);
+
+        if (previewLessonKey) {
+            previewParams.set('lesson', previewLessonKey);
+        }
+
+        navigate(`/bai-giang/${course.id}?${previewParams.toString()}`);
     };
 
     const handleBuyClick = async () => {
-        if (currentUser) {
-            if (isEnrolled) {
-                navigate(`/bai-giang/${course.id}`);
-                return;
-            }
-
-            if (course.isForSale === false) {
-                // Free course - Auto Enroll
-                await enrollUser(course);
-                navigate(`/bai-giang/${course.id}`);
-            } else {
-                navigate(`/thanh-toan/${course.id}`);
-            }
-        } else {
-            setIsAuthModalOpen(true);
+        if (isEnrolled) {
+            navigate(`/bai-giang/${course.id}`);
+            return;
         }
+
+        if (course.isForSale === false) {
+            navigateToPreviewLesson();
+            return;
+        }
+
+        if (!currentUser) {
+            setIsAuthModalOpen(true);
+            return;
+        }
+
+        navigate(`/thanh-toan/${course.id}`);
     };
 
-    const handlePreviewClick = async () => {
-        if (currentUser) {
-            // Auto Enroll on Preview too (as requested: "registered for free viewing")
-            await enrollUser(course);
-            navigate(`/bai-giang/${course.id}`);
-        } else {
-            // Even for preview, maybe require login? Or just let them go? 
-            // User request implies "registered", so likely Login -> Enroll -> View.
-            // But usually Preview is public.
-            // Requirement: "anyone who has... registered for free viewing... put into my courses".
-            // This implies we capture them WHEN they are logged in.
-            // If they are NOT logged in, we can't put it in "My Courses".
-            // So for now, we only enroll if logged in.
-            navigate(`/bai-giang/${course.id}`);
-        }
+    const handlePreviewClick = (lesson) => {
+        navigateToPreviewLesson(lesson);
     };
 
     useEffect(() => {
@@ -193,41 +168,16 @@ const CourseDetail = () => {
                 return;
             }
 
-            if (course.students && course.students.includes(currentUser.uid)) {
-                setIsEnrolled(true);
-                return;
-            }
-
             try {
-                // By UID
-                const uidQuery = query(
-                    collection(db, 'enrollments'),
-                    where('userId', '==', currentUser.uid),
-                    where('courseId', '==', course.id)
-                );
-                const uidSnap = await getDocs(uidQuery);
-                if (!uidSnap.empty) {
-                    setIsEnrolled(true);
-                    return;
-                }
-
-                // By Email
-                if (currentUser.email) {
-                    const emailQuery = query(
-                        collection(db, 'enrollments'),
-                        where('userEmail', '==', currentUser.email),
-                        where('courseId', '==', course.id)
-                    );
-                    const emailSnap = await getDocs(emailQuery);
-                    if (!emailSnap.empty) {
-                        setIsEnrolled(true);
-                        return;
-                    }
-                }
-                
-                setIsEnrolled(false);
+                const access = await resolveCourseAccess({
+                    db,
+                    course,
+                    user: currentUser,
+                });
+                setIsEnrolled(access.hasFullAccess);
             } catch (err) {
                 console.error("Error checking enrollment:", err);
+                setIsEnrolled(false);
             }
         };
 
@@ -434,8 +384,7 @@ const CourseDetail = () => {
                     {/* CURRICULUM SECTION */}
                     <div id="curriculum" className="scroll-mt-24">
                         <CourseCurriculum
-                            curriculum={course.curriculum}
-                            isFreeCourse={course.isForSale === false}
+                            course={course}
                             courseId={course.id}
                             onPreviewClick={handlePreviewClick}
                         />

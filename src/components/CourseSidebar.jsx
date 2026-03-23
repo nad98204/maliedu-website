@@ -1,6 +1,13 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CheckCircle, ShieldCheck, LifeBuoy, ShoppingCart, Heart, PlayCircle } from 'lucide-react';
+import {
+    CheckCircle,
+    Heart,
+    LifeBuoy,
+    PlayCircle,
+    ShieldCheck,
+    ShoppingCart,
+} from 'lucide-react';
 import { formatPrice } from '../utils/orderService';
 import { HOTLINE } from '../menuData';
 import { useCart } from '../context/CartContext';
@@ -9,49 +16,60 @@ const CourseSidebar = ({ course, onBuyClick, isEnrolled }) => {
     const navigate = useNavigate();
     const { addToCart } = useCart();
     const [wishlist, setWishlist] = useState(false);
+    const isPreviewOnlyCourse = course.isForSale === false && !isEnrolled;
 
     const handleBuyNow = () => {
         if (onBuyClick) {
             onBuyClick();
             return;
         }
-        if (isEnrolled || course.isForSale === false) {
+
+        if (isEnrolled) {
             navigate(`/bai-giang/${course.id}`);
-        } else {
-            navigate(`/thanh-toan/${course.id}`);
+            return;
         }
+
+        if (course.isForSale === false) {
+            navigate(`/bai-giang/${course.id}?preview=1`);
+            return;
+        }
+
+        navigate(`/thanh-toan/${course.id}`);
     };
 
     return (
         <div className="sticky top-24 z-10">
-            <div className="bg-white rounded-2xl shadow-2xl border-4 border-white overflow-hidden ring-1 ring-gray-100/50 min-h-[600px] flex flex-col">
-                {/* Thumbnail */}
+            <div className="ring-1 ring-gray-100/50 flex min-h-[600px] flex-col overflow-hidden rounded-2xl border-4 border-white bg-white shadow-2xl">
                 <div className="relative aspect-video">
                     <img
-                        src={course.thumbnailUrl || "https://via.placeholder.com/600x400"}
+                        src={course.thumbnailUrl || 'https://via.placeholder.com/600x400'}
                         alt={course.name}
-                        className="w-full h-full object-cover"
+                        className="h-full w-full object-cover"
                     />
                     {!isEnrolled && course.isForSale !== false && course.salePrice && (
-                        <div className="absolute top-2 right-2 bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md animate-pulse">
-                            Tiết kiệm {Math.round(((course.price - course.salePrice) / course.price) * 100)}%
+                        <div className="absolute right-2 top-2 animate-pulse rounded-full bg-red-600 px-3 py-1 text-xs font-bold text-white shadow-md">
+                            Tiết kiệm{' '}
+                            {Math.round(((course.price - course.salePrice) / course.price) * 100)}%
                         </div>
                     )}
                 </div>
 
-                <div className="p-6 flex-grow flex flex-col">
-                    {/* Price */}
+                <div className="flex flex-grow flex-col p-6">
                     <div className="mb-6">
                         {isEnrolled ? (
                             <div className="text-center">
-                                <span className="text-3xl font-extrabold text-[#16a34a]">ĐÃ SỞ HỮU</span>
+                                <span className="text-3xl font-extrabold text-[#16a34a]">
+                                    ĐÃ SỞ HỮU
+                                </span>
                             </div>
                         ) : course.isForSale === false ? (
                             <div className="text-center">
-                                <span className="text-3xl font-extrabold text-[#16a34a]">MIỄN PHÍ</span>
+                                <span className="text-3xl font-extrabold text-[#16a34a]">
+                                    HỌC THỬ
+                                </span>
                             </div>
                         ) : (
-                            <div className="flex items-end gap-3 flex-wrap">
+                            <div className="flex flex-wrap items-end gap-3">
                                 <span className="text-3xl font-extrabold text-[#B91C1C]">
                                     {formatPrice(course.salePrice || course.price)}
                                 </span>
@@ -64,45 +82,46 @@ const CourseSidebar = ({ course, onBuyClick, isEnrolled }) => {
                         )}
                     </div>
 
-                    {/* Buttons */}
-                    <div className="space-y-3 mb-6">
+                    <div className="mb-6 space-y-3">
                         <button
                             onClick={handleBuyNow}
-                            className={`w-full text-white font-bold py-4 px-6 rounded-xl transition-all shadow-lg transform active:translate-y-0 flex items-center justify-center gap-2 group ${
-                                isEnrolled || course.isForSale === false 
-                                ? "bg-[#16a34a] hover:bg-green-700 hover:shadow-xl hover:-translate-y-0.5" 
-                                : "bg-[#ef4444] hover:bg-red-700 hover:shadow-xl hover:-translate-y-0.5"
+                            className={`group flex w-full items-center justify-center gap-2 rounded-xl px-6 py-4 font-bold text-white shadow-lg transition-all active:translate-y-0 ${
+                                isEnrolled || course.isForSale === false
+                                    ? 'bg-[#16a34a] hover:-translate-y-0.5 hover:bg-green-700 hover:shadow-xl'
+                                    : 'bg-[#ef4444] hover:-translate-y-0.5 hover:bg-red-700 hover:shadow-xl'
                             }`}
                         >
-                            {isEnrolled || course.isForSale === false ? (
+                            {isEnrolled ? (
                                 <>
-                                    <PlayCircle className="w-6 h-6" /> VÀO HỌC NGAY
+                                    <PlayCircle className="h-6 w-6" /> VÀO HỌC NGAY
+                                </>
+                            ) : course.isForSale === false ? (
+                                <>
+                                    <PlayCircle className="h-6 w-6" /> XEM BÀI HỌC THỬ
                                 </>
                             ) : (
-                                <>
-                                    ĐĂNG KÝ NGAY
-                                </>
+                                <>ĐĂNG KÝ NGAY</>
                             )}
                         </button>
 
                         {!isEnrolled && course.isForSale !== false && (
                             <button
                                 onClick={() => addToCart(course)}
-                                className="w-full bg-white text-slate-700 font-bold py-3 px-6 rounded-xl border border-slate-200 hover:bg-slate-50 transition-all flex items-center justify-center gap-2 group hover:border-[#FCD34D]"
+                                className="group flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-6 py-3 font-bold text-slate-700 transition-all hover:border-[#FCD34D] hover:bg-slate-50"
                             >
-                                <ShoppingCart className="w-5 h-5 group-hover:text-[#FCD34D] transition-colors" />
+                                <ShoppingCart className="h-5 w-5 transition-colors group-hover:text-[#FCD34D]" />
                                 Thêm vào giỏ hàng
                             </button>
                         )}
                     </div>
 
-                    {/* Wishlist */}
                     <button
                         onClick={() => setWishlist(!wishlist)}
-                        className={`w-full flex items-center justify-start gap-2 text-sm font-medium transition-colors ${wishlist ? 'text-red-500' : 'text-gray-500 hover:text-gray-700'
-                            }`}
+                        className={`flex w-full items-center justify-start gap-2 text-sm font-medium transition-colors ${
+                            wishlist ? 'text-red-500' : 'text-gray-500 hover:text-gray-700'
+                        }`}
                     >
-                        <Heart className={`w-5 h-5 ${wishlist ? 'fill-current' : ''}`} />
+                        <Heart className={`h-5 w-5 ${wishlist ? 'fill-current' : ''}`} />
                         {wishlist ? 'Đã thêm vào yêu thích' : 'Thêm vào yêu thích'}
                     </button>
 
@@ -110,32 +129,52 @@ const CourseSidebar = ({ course, onBuyClick, isEnrolled }) => {
 
                     <hr className="my-6 border-gray-100" />
 
-                    {/* Features */}
-                    <ul className="space-y-4 text-sm text-slate-700 font-medium">
-                        <li className="flex items-start gap-3">
-                            <ShieldCheck className="w-5 h-5 text-amber-500 shrink-0" />
-                            <span>Sở hữu khóa học trọn đời</span>
-                        </li>
-                        <li className="flex items-start gap-3">
-                            <CheckCircle className="w-5 h-5 text-amber-500 shrink-0" />
-                            <span>Cấp chứng nhận hoàn thành</span>
-                        </li>
-                        <li className="flex items-start gap-3">
-                            <LifeBuoy className="w-5 h-5 text-amber-500 shrink-0" />
-                            <span>Hỗ trợ chuyên môn 24/7</span>
-                        </li>
-                        <li className="flex items-start gap-3">
-                            <CheckCircle className="w-5 h-5 text-amber-500 shrink-0" />
-                            <span>Học trên mọi thiết bị (Mobile, PC)</span>
-                        </li>
+                    <ul className="space-y-4 text-sm font-medium text-slate-700">
+                        {isPreviewOnlyCourse ? (
+                            <>
+                                <li className="flex items-start gap-3">
+                                    <PlayCircle className="h-5 w-5 shrink-0 text-amber-500" />
+                                    <span>Chỉ xem được các bài học mở xem thử</span>
+                                </li>
+                                <li className="flex items-start gap-3">
+                                    <ShieldCheck className="h-5 w-5 shrink-0 text-amber-500" />
+                                    <span>Cần admin cấp quyền để xem toàn bộ nội dung</span>
+                                </li>
+                                <li className="flex items-start gap-3">
+                                    <LifeBuoy className="h-5 w-5 shrink-0 text-amber-500" />
+                                    <span>Học được trên Mobile và PC</span>
+                                </li>
+                            </>
+                        ) : (
+                            <>
+                                <li className="flex items-start gap-3">
+                                    <ShieldCheck className="h-5 w-5 shrink-0 text-amber-500" />
+                                    <span>Sở hữu khóa học trọn đời</span>
+                                </li>
+                                <li className="flex items-start gap-3">
+                                    <CheckCircle className="h-5 w-5 shrink-0 text-amber-500" />
+                                    <span>Cấp chứng nhận hoàn thành</span>
+                                </li>
+                                <li className="flex items-start gap-3">
+                                    <LifeBuoy className="h-5 w-5 shrink-0 text-amber-500" />
+                                    <span>Hỗ trợ chuyên môn 24/7</span>
+                                </li>
+                                <li className="flex items-start gap-3">
+                                    <CheckCircle className="h-5 w-5 shrink-0 text-amber-500" />
+                                    <span>Học trên mọi thiết bị (Mobile, PC)</span>
+                                </li>
+                            </>
+                        )}
                     </ul>
                 </div>
             </div>
 
-            {/* Contact Support */}
-            <div className="mt-6 bg-slate-50 rounded-xl p-4 border border-slate-200 text-center">
-                <p className="text-sm text-slate-500 mb-2">Bạn cần tư vấn thêm?</p>
-                <a href={`tel:${HOTLINE.replace(/\s/g, '')}`} className="font-bold text-slate-800 hover:text-secret-wax transition-colors">
+            <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
+                <p className="mb-2 text-sm text-slate-500">Bạn cần tư vấn thêm?</p>
+                <a
+                    href={`tel:${HOTLINE.replace(/\s/g, '')}`}
+                    className="font-bold text-slate-800 transition-colors hover:text-secret-wax"
+                >
                     Hotline: {HOTLINE}
                 </a>
             </div>

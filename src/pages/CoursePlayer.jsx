@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link, Navigate, useParams } from 'react-router-dom';
+import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom';
 import {
     arrayRemove,
     arrayUnion,
@@ -17,6 +17,12 @@ import { auth, db } from '../firebase';
 import PlayerSidebar from '../components/PlayerSidebar';
 import PlayerTabs from '../components/PlayerTabs';
 import VideoWrapper from '../components/VideoWrapper';
+import {
+    getLessonKey,
+    getPreferredPreviewLesson,
+    getPreviewSections,
+    resolveCourseAccess,
+} from '../utils/courseAccess';
 
 const DEFAULT_SECTION_TITLE = 'Nội dung khóa học';
 const getSectionIdentifier = (section, fallbackId = '') => section?.id || fallbackId;
@@ -38,12 +44,18 @@ const normalizeSections = (curriculum = []) => {
 
 const CoursePlayer = () => {
     const { courseId } = useParams();
+    const [searchParams] = useSearchParams();
+    const previewRequested = searchParams.get('preview') === '1';
+    const requestedPreviewLessonKey = searchParams.get('lesson');
 
     const [course, setCourse] = useState(null);
     const [sections, setSections] = useState([]);
     const [currentLesson, setCurrentLesson] = useState(null);
     const [loading, setLoading] = useState(true);
     const [currentUser, setCurrentUser] = useState(null);
+    const [authChecked, setAuthChecked] = useState(false);
+    const [hasFullAccess, setHasFullAccess] = useState(false);
+    const [accessDenied, setAccessDenied] = useState(false);
     const [enrollmentId, setEnrollmentId] = useState(null);
 
     const [playing, setPlaying] = useState(false);
@@ -58,6 +70,7 @@ const CoursePlayer = () => {
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
             setCurrentUser(user);
+            setAuthChecked(true);
         });
 
         return () => unsubscribe();
@@ -124,6 +137,12 @@ const CoursePlayer = () => {
     }, [isSidebarOpen]);
 
     useEffect(() => {
+        if (!authChecked) {
+            return undefined;
+        }
+
+        setLoading(true);
+
         const fetchData = async () => {
             try {
                 let courseData = null;
@@ -152,53 +171,94 @@ const CoursePlayer = () => {
                 setCourse(courseData);
 
                 const normalizedSections = normalizeSections(courseData.curriculum);
-                setSections(normalizedSections);
-
+                const previewSections = getPreviewSections(courseData);
                 let completedIds = {};
+                const previewLesson = getPreferredPreviewLesson(
+                    courseData,
+                    requestedPreviewLessonKey
+                );
 
-                if (currentUser) {
-                    const enrollmentQuery = query(
-                        collection(db, 'enrollments'),
-                        where('userId', '==', currentUser.uid),
-                        where('courseId', '==', courseData.id)
+                const access = currentUser
+                    ? await resolveCourseAccess({
+                          db,
+                          course: courseData,
+                          user: currentUser,
+                      })
+                    : { enrollment: null, hasFullAccess: false };
+
+                const enrollmentData = access.enrollment || null;
+                const canPreview = previewRequested && previewSections.length > 0;
+                const canOpenCourse = access.hasFullAccess || canPreview;
+
+                setHasFullAccess(access.hasFullAccess);
+                setAccessDenied(!canOpenCourse);
+                setEnrollmentId(enrollmentData?.id || null);
+
+                if (enrollmentData && Array.isArray(enrollmentData.completedLessonIds)) {
+                    completedIds = enrollmentData.completedLessonIds.reduce(
+                        (accumulator, lessonId) => ({
+                            ...accumulator,
+                            [lessonId]: true
+                        }),
+                        {}
                     );
-                    const enrollmentSnapshot = await getDocs(enrollmentQuery);
-
-                    if (!enrollmentSnapshot.empty) {
-                        const enrollmentDoc = enrollmentSnapshot.docs[0];
-                        const enrollmentData = enrollmentDoc.data();
-
-                        setEnrollmentId(enrollmentDoc.id);
-
-                        if (Array.isArray(enrollmentData.completedLessonIds)) {
-                            completedIds = enrollmentData.completedLessonIds.reduce(
-                                (accumulator, lessonId) => ({
-                                    ...accumulator,
-                                    [lessonId]: true
-                                }),
-                                {}
-                            );
-                            setProgress(completedIds);
-                        }
-                    }
                 }
 
-                const allLessons = normalizedSections.flatMap((section) => section.lessons || []);
+                setProgress(completedIds);
+
+                if (!canOpenCourse) {
+                    setSections([]);
+                    setCurrentLesson(null);
+                    return;
+                }
+
+                const visibleSections = access.hasFullAccess
+                    ? normalizedSections
+                    : previewSections;
+
+                setSections(visibleSections);
+
+                const allLessons = visibleSections.flatMap((section) => section.lessons || []);
                 if (allLessons.length > 0) {
-                    const firstIncompleteLesson = allLessons.find(
-                        (lesson) => !completedIds[lesson.id || lesson.videoId]
+                    const requestedLesson = allLessons.find(
+                        (lesson) => getLessonKey(lesson) === requestedPreviewLessonKey
                     );
-                    setCurrentLesson(firstIncompleteLesson || allLessons[0]);
+                    const previewStartLesson = previewLesson
+                        ? allLessons.find(
+                              (lesson) => getLessonKey(lesson) === getLessonKey(previewLesson)
+                          )
+                        : null;
+                    const resumeLesson =
+                        access.hasFullAccess && enrollmentData?.lastPlayedLessonId
+                            ? allLessons.find(
+                                  (lesson) =>
+                                      getLessonKey(lesson) === enrollmentData.lastPlayedLessonId
+                              )
+                            : null;
+                    const firstIncompleteLesson = allLessons.find(
+                        (lesson) => !completedIds[getLessonKey(lesson)]
+                    );
+
+                    setCurrentLesson(
+                        requestedLesson ||
+                            previewStartLesson ||
+                            resumeLesson ||
+                            firstIncompleteLesson ||
+                            allLessons[0]
+                    );
+                } else {
+                    setCurrentLesson(null);
                 }
             } catch (error) {
                 console.error('Error fetching data:', error);
+                setAccessDenied(true);
             } finally {
                 setLoading(false);
             }
         };
 
         fetchData();
-    }, [courseId, currentUser]);
+    }, [authChecked, courseId, currentUser, previewRequested, requestedPreviewLessonKey]);
 
     const flatLessons = useMemo(
         () => sections.flatMap((section) => section.lessons || []),
@@ -521,7 +581,11 @@ const CoursePlayer = () => {
         return groups;
     }, [allResources, currentSectionId, lessonOrderLookup, sectionResourceMap, sections]);
 
-    const currentTabResources = allResources;
+    const currentTabResources = hasFullAccess ? allResources : [];
+    const sidebarResourceGroups = hasFullAccess ? resourceGroups : [];
+    const sidebarLessonResourceMap = hasFullAccess ? lessonResourceMap : {};
+    const sidebarSectionResourceMap = hasFullAccess ? sectionResourceMap : {};
+    const sidebarCurrentContextResources = hasFullAccess ? currentContextResources : [];
 
     const currentLessonIndex = useMemo(() => {
         if (!currentLessonId) return -1;
@@ -548,7 +612,7 @@ const CoursePlayer = () => {
     };
 
     const handleResourceFocus = (resource) => {
-        if (!resource?.id) return;
+        if (!hasFullAccess || !resource?.id) return;
 
         setResourceFocusRequest({
             resourceId: resource.id,
@@ -610,6 +674,10 @@ const CoursePlayer = () => {
         return <Navigate to="/khoa-hoc" />;
     }
 
+    if (accessDenied) {
+        return <Navigate to={`/khoa-hoc/${course.id}`} replace />;
+    }
+
     return (
         <div className="flex h-screen flex-col overflow-hidden bg-slate-100 text-slate-800 md:bg-gray-50">
             <header className="z-20 flex h-16 shrink-0 items-center justify-between border-b border-red-800/20 bg-[#B91C1C] px-3 shadow-md md:px-6">
@@ -628,6 +696,11 @@ const CoursePlayer = () => {
                     <h1 className="hidden min-w-0 flex-1 line-clamp-1 text-sm font-bold text-white md:block md:max-w-lg md:text-lg">
                         {currentLesson?.title || course.name}
                     </h1>
+                    {!hasFullAccess && (
+                        <span className="hidden rounded-full bg-white/15 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-white md:inline-flex">
+                            Học thử
+                        </span>
+                    )}
                 </div>
 
                 <div className="ml-3 flex items-center gap-2 md:gap-4">
@@ -721,12 +794,13 @@ const CoursePlayer = () => {
                         <PlayerTabs
                             description={currentLesson?.description ?? ''}
                             resources={currentTabResources}
-                            resourceGroups={resourceGroups}
-                            currentContextResources={currentContextResources}
-                            resourceFocusRequest={resourceFocusRequest}
+                            resourceGroups={sidebarResourceGroups}
+                            currentContextResources={sidebarCurrentContextResources}
+                            resourceFocusRequest={hasFullAccess ? resourceFocusRequest : null}
                             lessonId={currentLessonId}
                             lessonTitle={currentLesson?.title}
                             currentUser={currentUser}
+                            hasFullAccess={hasFullAccess}
                             onLessonSelect={(lesson) => setCurrentLesson(lesson)}
                             onActiveTabChange={setActivePlayerTab}
                         />
@@ -742,11 +816,12 @@ const CoursePlayer = () => {
                 >
                     <PlayerSidebar
                         sections={sections}
-                        resources={allResources}
-                        resourceGroups={resourceGroups}
-                        lessonResourceMap={lessonResourceMap}
-                        sectionResourceMap={sectionResourceMap}
-                        currentContextResources={currentContextResources}
+                        resources={currentTabResources}
+                        resourceGroups={sidebarResourceGroups}
+                        lessonResourceMap={sidebarLessonResourceMap}
+                        sectionResourceMap={sidebarSectionResourceMap}
+                        currentContextResources={sidebarCurrentContextResources}
+                        hasResourceAccess={hasFullAccess}
                         currentLessonId={currentLessonId}
                         onLessonSelect={(lesson) => {
                             setCurrentLesson(lesson);
