@@ -19,6 +19,9 @@ const env = {
 const getTrimmedValue = (value) =>
   typeof value === "string" ? value.trim() : "";
 
+const isTruthy = (value) =>
+  ["1", "true", "yes", "on"].includes(getTrimmedValue(value).toLowerCase());
+
 const s3Config = {
   region: getTrimmedValue(env.VITE_S3_REGION) || "hn1",
   endpoint: getTrimmedValue(env.VITE_S3_ENDPOINT),
@@ -36,11 +39,22 @@ const missingKeys = [
   .filter(([, value]) => !value)
   .map(([name]) => name);
 
+const allowEmptyRuntimeConfig = isTruthy(env.ALLOW_EMPTY_RUNTIME_CONFIG);
+
+if (missingKeys.length && !allowEmptyRuntimeConfig) {
+  throw new Error(
+    `[runtime-config] Missing S3 values: ${missingKeys.join(
+      ", ",
+    )}. Set VITE_S3_* in the production build environment before deploy. ` +
+      "Use ALLOW_EMPTY_RUNTIME_CONFIG=true only if you intentionally plan to hotfix /runtime-config.js after deploy."
+  );
+}
+
 if (missingKeys.length) {
   console.warn(
     `[runtime-config] Missing S3 values: ${missingKeys.join(
       ", ",
-    )}. dist/runtime-config.js will still be generated, but uploads can fail.`,
+    )}. dist/runtime-config.js will still be generated because ALLOW_EMPTY_RUNTIME_CONFIG=true.`,
   );
 }
 

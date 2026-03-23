@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite --host",
     "build": "vite build && node scripts/generate-runtime-config.mjs && node scripts/generate-route-html.mjs",
+    "check:runtime-config": "node scripts/check-runtime-config.mjs",
     "lint": "eslint .",
     "preview": "vite preview"
   },
