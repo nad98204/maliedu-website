@@ -11,12 +11,14 @@ import { Trash2, ChevronDown, ChevronUp } from "lucide-react";
 
 import { db } from "../../firebase";
 import { writeHomeBannerCache } from "../../utils/homeBannerCache";
-import { deleteFromCloudinary, uploadToCloudinary } from "../../utils/uploadService";
+import { deleteFromCloudinary } from "../../utils/uploadService";
+import { uploadFileToS3 } from "../../utils/s3UploadService";
 import { getDoc, setDoc } from "firebase/firestore";
 import { toast } from "react-hot-toast";
 
 const AdminBanners = () => {
   const [activeTab, setActiveTab] = useState("banners"); // 'banners' | 'content'
+  const [previewDevice, setPreviewDevice] = useState("desktop"); // 'desktop' | 'mobile'
   const [banners, setBanners] = useState([]);
   const [formState, setFormState] = useState({
     title: "",
@@ -102,40 +104,44 @@ const AdminBanners = () => {
     event.preventDefault();
     setError("");
 
-    if (!file) {
-      setError("Vui long chon anh banner.");
+    if (!file && !mobileFile) {
+      setError("Vui lòng chọn ít nhất 1 ảnh banner (Desktop hoặc Mobile).");
       return;
     }
 
     const allowedTypes = ["image/jpeg", "image/png"];
-    if (!allowedTypes.includes(file.type)) {
-      setError("Ho tro anh JPG/JPEG/PNG. Vui long chon dung dinh dang.");
+    if (file && !allowedTypes.includes(file.type)) {
+      setError("Ảnh Desktop: Hỗ trợ ảnh JPG/JPEG/PNG. Vui lòng chọn đúng định dạng.");
+      return;
+    }
+    if (mobileFile && !allowedTypes.includes(mobileFile.type)) {
+      setError("Ảnh Mobile: Hỗ trợ ảnh JPG/JPEG/PNG. Vui lòng chọn đúng định dạng.");
       return;
     }
 
     setIsSubmitting(true);
 
     try {
-      const uploadResult = await uploadToCloudinary(file);
-      let mobileUploadResult = null;
-      if (mobileFile) {
-        mobileUploadResult = await uploadToCloudinary(mobileFile);
-      }
+      let mainImageUrl = null;
+      if (file) mainImageUrl = await uploadFileToS3(file);
+      
+      let mobileImageUrl = null;
+      if (mobileFile) mobileImageUrl = await uploadFileToS3(mobileFile);
 
       await addDoc(collection(db, "banners"), {
         title: formState.title,
         subtitle: formState.subtitle,
         ctaText: formState.ctaText,
         ctaLink: formState.ctaLink,
-        imageUrl: uploadResult.secureUrl,
-        imageWidth: uploadResult.width || null,
-        imageHeight: uploadResult.height || null,
-        mobileImageUrl: mobileUploadResult ? mobileUploadResult.secureUrl : null,
-        mobileImageWidth: mobileUploadResult ? mobileUploadResult.width || null : null,
-        mobileImageHeight: mobileUploadResult ? mobileUploadResult.height || null : null,
-        deleteToken: uploadResult.deleteToken || null,
-        mobileDeleteToken: mobileUploadResult ? mobileUploadResult.deleteToken : null,
-        publicId: uploadResult.publicId || null,
+        imageUrl: mainImageUrl,
+        imageWidth: null,
+        imageHeight: null,
+        mobileImageUrl: mobileImageUrl,
+        mobileImageWidth: null,
+        mobileImageHeight: null,
+        deleteToken: null,
+        mobileDeleteToken: null,
+        publicId: null,
         active: true,
         createdAt: Date.now(),
       });
@@ -276,7 +282,6 @@ const AdminBanners = () => {
                     onChange={handleChange}
                     className="w-full rounded-lg border border-slate-200 px-4 py-2 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
                     placeholder="Nhập tiêu đề banner"
-                    required
                   />
                 </div>
                 <div className="space-y-2">
@@ -291,7 +296,6 @@ const AdminBanners = () => {
                     onChange={handleChange}
                     className="w-full rounded-lg border border-slate-200 px-4 py-2 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
                     placeholder="Mô tả ngắn"
-                    required
                   />
                 </div>
               </div>
@@ -309,7 +313,6 @@ const AdminBanners = () => {
                     onChange={handleChange}
                     className="w-full rounded-lg border border-slate-200 px-4 py-2 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
                     placeholder="Ví dụ: Đăng ký ngay"
-                    required
                   />
                 </div>
                 <div className="space-y-2">
@@ -324,7 +327,6 @@ const AdminBanners = () => {
                     onChange={handleChange}
                     className="w-full rounded-lg border border-slate-200 px-4 py-2 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
                     placeholder="/dao-tao"
-                    required
                   />
                 </div>
               </div>
@@ -372,29 +374,81 @@ const AdminBanners = () => {
           </section>
 
           <section className="rounded-2xl bg-white p-6 shadow-sm">
-            <div className="border-b border-slate-100 pb-4">
-              <h2 className="text-lg font-semibold text-slate-900">
-                Danh sách banner
-              </h2>
-              <p className="mt-1 text-sm text-slate-500">
-                Bật/tắt hiển thị và quản lý banner.
-              </p>
+            <div className="border-b border-slate-100 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900">
+                  Danh sách banner
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  Bật/tắt hiển thị và xem trước banner.
+                </p>
+              </div>
+              <div className="flex bg-slate-100 rounded-lg p-1">
+                <button
+                  type="button"
+                  onClick={() => setPreviewDevice("desktop")}
+                  className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                    previewDevice === "desktop"
+                      ? "bg-white text-slate-900 shadow-sm"
+                      : "text-slate-500 hover:text-slate-700"
+                  }`}
+                >
+                  Desktop Preview
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPreviewDevice("mobile")}
+                  className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                    previewDevice === "mobile"
+                      ? "bg-white text-slate-900 shadow-sm"
+                      : "text-slate-500 hover:text-slate-700"
+                  }`}
+                >
+                  Mobile Preview
+                </button>
+              </div>
             </div>
 
-            <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {banners.map((banner) => (
+            <div className={`mt-6 grid gap-6 ${
+              previewDevice === "desktop" 
+                ? "grid-cols-1 md:grid-cols-2" 
+                : "grid-cols-2 lg:grid-cols-4"
+            }`}>
+              {banners.filter(banner => previewDevice === "desktop" ? banner.imageUrl : banner.mobileImageUrl).map((banner) => (
                 <div
                   key={banner.id}
-                  className="rounded-xl border border-slate-100 p-4 shadow-sm"
+                  className="flex flex-col rounded-xl border border-slate-100 p-4 shadow-sm bg-white"
                 >
-                  <div className="h-32 overflow-hidden rounded-lg bg-slate-100">
-                    <img
-                      src={banner.imageUrl}
-                      alt={banner.title}
-                      className="h-full w-full object-cover"
-                    />
+                  <div className={`relative w-full overflow-hidden rounded-md bg-slate-100 flex items-center justify-center ${
+                    previewDevice === "desktop" ? "aspect-video" : "aspect-[4/5]"
+                  }`}>
+                    {previewDevice === "desktop" ? (
+                      banner.imageUrl ? (
+                        <img
+                          src={banner.imageUrl}
+                          alt={banner.title}
+                          className="h-full w-full object-contain p-2"
+                        />
+                      ) : (
+                        <div className="flex flex-col items-center justify-center text-slate-400">
+                          <span className="text-sm font-medium px-4 text-center">Chưa tải lên ảnh Desktop</span>
+                        </div>
+                      )
+                    ) : (
+                      banner.mobileImageUrl ? (
+                        <img
+                          src={banner.mobileImageUrl}
+                          alt={banner.title}
+                          className="h-full w-full object-contain p-2"
+                        />
+                      ) : (
+                        <div className="flex flex-col items-center justify-center text-slate-400">
+                          <span className="text-sm font-medium px-4 text-center">Chưa tải lên ảnh Mobile</span>
+                        </div>
+                      )
+                    )}
                   </div>
-                  <div className="mt-4 space-y-2">
+                  <div className="mt-4 space-y-3 flex-1 flex flex-col justify-end">
                     <div>
                       <h3 className="text-sm font-semibold text-slate-900">
                         {banner.title}

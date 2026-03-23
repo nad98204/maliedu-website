@@ -5,7 +5,7 @@ import { HERO_SLIDES } from "../data/heroData";
 import { readHomeBannerCache } from "../utils/homeBannerCache";
 
 const MOBILE_MEDIA_QUERY = "(max-width: 768px)";
-const DEFAULT_DESKTOP_ASPECT_RATIO = 472 / 129;
+const DEFAULT_DESKTOP_ASPECT_RATIO = 16 / 9;
 const DEFAULT_MOBILE_ASPECT_RATIO = 4 / 5;
 
 const normalizeCloudinaryImage = (url, transform) => {
@@ -52,7 +52,7 @@ const normalizeSlide = (slide, index) => ({
     "f_auto,q_auto,c_limit,w_1920"
   ),
   mobileImage: normalizeCloudinaryImage(
-    slide.mobileImageUrl ?? slide.mobileImage ?? slide.imageUrl ?? slide.image ?? "",
+    slide.mobileImageUrl ?? slide.mobileImage ?? "",
     "f_auto,q_auto,c_limit,w_900"
   ),
   title: slide.title ?? "",
@@ -67,7 +67,7 @@ const normalizeSlide = (slide, index) => ({
 
 const buildSlides = (items) =>
   items
-    .filter((slide) => (slide.active ?? true) && (slide.imageUrl ?? slide.image))
+    .filter((slide) => (slide.active ?? true) && (slide.imageUrl ?? slide.image ?? slide.mobileImageUrl ?? slide.mobileImage))
     .map((slide, index) => normalizeSlide(slide, index));
 
 const FALLBACK_SLIDES = buildSlides(HERO_SLIDES);
@@ -91,10 +91,18 @@ const HeroCarousel = () => {
   });
   const [slideAspectRatios, setSlideAspectRatios] = useState({});
 
-  const slideCount = slides.length;
+  const filteredSlides = useMemo(() => {
+    const list = slides.filter((slide) =>
+      isMobileViewport ? slide.mobileImage : slide.image
+    );
+    // Nếu vô tình bị trống trơn do lọc, trả lại mảng ban đầu để không blank web
+    return list.length > 0 ? list : slides;
+  }, [slides, isMobileViewport]);
+
+  const slideCount = filteredSlides.length;
   const activeSlide = useMemo(
-    () => (slideCount > 0 ? slides[currentIndex] : null),
-    [currentIndex, slideCount, slides]
+    () => (slideCount > 0 ? filteredSlides[currentIndex] : null),
+    [currentIndex, slideCount, filteredSlides]
   );
 
   useEffect(() => {
@@ -233,7 +241,10 @@ const HeroCarousel = () => {
   return (
     <section
       className="relative isolate w-full overflow-hidden bg-[#0d0a08] text-white select-none"
-      style={{ aspectRatio: activeAspectRatio }}
+      style={{
+        aspectRatio: activeAspectRatio,
+        maxHeight: isMobileViewport ? "none" : "min(78vh, 600px)",
+      }}
       onMouseDown={handleDragStart}
       onMouseUp={handleDragEnd}
       onMouseLeave={handleDragCancel}
@@ -247,7 +258,7 @@ const HeroCarousel = () => {
       }}
       onDragStart={(event) => event.preventDefault()}
     >
-      {slides.map((slide, index) => {
+      {filteredSlides.map((slide, index) => {
         const isActive = index === currentIndex;
         return (
           <div
@@ -279,7 +290,7 @@ const HeroCarousel = () => {
               <img
                 src={slide.image}
                 alt={slide.title}
-                className="h-full w-full object-contain object-center"
+                className="h-full w-full object-cover object-center"
                 loading={isActive ? "eager" : "lazy"}
                 fetchPriority={isActive ? "high" : "auto"}
                 draggable={false}
@@ -330,7 +341,7 @@ const HeroCarousel = () => {
           </button>
 
           <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 sm:bottom-3.5 md:bottom-4">
-            {slides.map((slide, index) => {
+            {filteredSlides.map((slide, index) => {
               const isActive = index === currentIndex;
               return (
                 <button

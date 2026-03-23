@@ -29,32 +29,20 @@ const AboutSection = () => {
 
                     {/* Image Column */}
                     <div className="w-[40%] lg:w-[320px] flex-shrink-0 relative">
-                        {/* Desktop Card Style */}
-                        <div className="hidden lg:block relative">
-                            <div className="absolute -left-3 -top-3 h-full w-full rounded-2xl border border-[#8B2E2E]/20" />
+                        {/* Card Style (Unified for Desktop and Mobile) */}
+                        <div className="relative mt-3 ml-2 lg:mt-0 lg:ml-0">
+                            <div className="absolute -left-2 -top-2 lg:-left-3 lg:-top-3 h-full w-full rounded-2xl border border-[#8B2E2E]/20" />
                             <div className="relative z-10 overflow-hidden rounded-2xl shadow-xl bg-white">
                                 <img
-                                    src="https://res.cloudinary.com/dstukyjzd/image/upload/v1767669416/Mong_2_ljry7m.png"
+                                    src="https://s3-hn1-api.longvan.vn/video-khoa-hoc/videos/1773736929295-661078967--o-Tr-ng-C--i-Gh-p-Banner.png"
                                     alt="Coach Mong"
                                     className="w-full h-auto object-contain"
                                 />
                             </div>
-                            <div className="absolute -bottom-3 -right-3 z-20 bg-white rounded-xl shadow-lg px-4 py-2.5 border border-[#8B2E2E]/10">
-                                <p className="text-[11px] text-gray-500 font-medium">Người sáng lập</p>
-                                <p className="text-sm font-bold text-[#8B2E2E]">Coach Mong</p>
+                            <div className="absolute -bottom-2 -right-2 lg:-bottom-3 lg:-right-3 z-20 bg-white rounded-lg lg:rounded-xl shadow-lg px-2 lg:px-4 py-1.5 lg:py-2.5 border border-[#8B2E2E]/10 flex flex-col items-center">
+                                <p className="text-[8px] lg:text-[11px] text-gray-500 font-medium">Người sáng lập</p>
+                                <p className="text-[11px] lg:text-sm font-bold text-[#8B2E2E] whitespace-nowrap">Coach Mong</p>
                             </div>
-                        </div>
-
-                        {/* Mobile Magazine Style */}
-                        <div className="lg:hidden relative flex justify-center items-end h-48">
-                            {/* Decorative Blob */}
-                            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-32 h-32 bg-gradient-to-t from-[#8B2E2E]/30 to-transparent rounded-full blur-xl" />
-
-                            <img
-                                src="https://res.cloudinary.com/dstukyjzd/image/upload/v1767669416/Mong_2_ljry7m.png"
-                                alt="Coach Mong"
-                                className="relative z-10 w-full h-full object-contain drop-shadow-xl scale-125 origin-bottom"
-                            />
                         </div>
                     </div>
 
