@@ -682,7 +682,7 @@ const CoursePlayer = () => {
     }
 
     return (
-        <div className="flex h-screen flex-col overflow-hidden bg-slate-100 text-slate-800 md:bg-gray-50">
+        <div className="flex min-h-screen flex-col bg-slate-100 text-slate-800 md:h-screen md:overflow-hidden md:bg-gray-50">
             <header className="z-20 flex h-16 shrink-0 items-center justify-between border-b border-red-800/20 bg-[#B91C1C] px-3 shadow-md md:px-6">
                 <div className="flex min-w-0 flex-1 items-center gap-3 md:gap-6">
                     <Link
@@ -769,7 +769,7 @@ const CoursePlayer = () => {
                 )}
 
                 <main
-                    className="custom-scrollbar relative z-10 flex-1 overflow-y-auto scroll-smooth overscroll-y-contain"
+                    className="relative z-10 flex-1 overflow-y-auto scroll-smooth overscroll-y-contain custom-scrollbar md:overflow-y-auto"
                     id="player-scroll-container"
                 >
                     <div className="mx-auto max-w-[1600px] md:px-8 md:pt-8">

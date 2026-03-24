@@ -48,20 +48,20 @@ const VideoWrapper = ({
     return (
         <div className="mx-auto w-full max-w-5xl" onContextMenu={(e) => e.preventDefault()}>
             {/* 
-                Dùng sticky thuần CSS cho mobile. 
-                Sử dụng transform: translateZ(0) để ép GPU render lớp này riêng biệt, 
-                giúp layer video không bị co giãn khi layout thay đổi do bàn phím.
+                Video Sticky Container:
+                Dùng flex-shrink-0 để đảm bảo container này KHÔNG BAO GIỜ bị ép nhỏ chiều cao 
+                khi keyboard hiện lên và làm layout viewport thay đổi.
             */}
             <div 
-                className="sticky top-0 z-20 -mx-3 bg-slate-100 px-3 pb-2 pt-3 md:static md:m-0 md:bg-transparent md:p-0"
-                style={{ transform: 'translateZ(0)', willChange: 'transform' }}
+                className="sticky top-0 z-20 -mx-3 shrink-0 bg-slate-100 px-3 pb-2 pt-3 md:static md:m-0 md:bg-transparent md:p-0"
+                style={{ transform: 'translateZ(0)', touchAction: 'pan-y' }}
             >
                 <div className="rounded-[24px] border border-slate-200 bg-white p-2 shadow-lg md:rounded-2xl">
-                    <div className="relative w-full overflow-hidden rounded-xl bg-black shadow-sm" style={{ aspectRatio: '16/9' }}>
-                        {/* 
-                            Thay pt-[56.25%] bằng aspectRatio CSS trực tiếp để trình duyệt 
-                            biết kích thước thực của video dù viewport có bị thu nhỏ.
-                        */}
+                    {/* 
+                        Khóa cứng aspectRatio và min-height để trình duyệt 
+                        không thể render Video mỏng/xẹp (biến dạng).
+                    */}
+                    <div className="relative w-full overflow-hidden rounded-xl bg-black shadow-sm" style={{ aspectRatio: '16/9', minHeight: '180px' }}>
                         <div className="absolute inset-0 flex items-center justify-center">
                             {isFile ? (
                                 <video
