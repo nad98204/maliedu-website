@@ -52,6 +52,9 @@ const Header = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    // Pre-warm Google Sign-In connections immediately so the popup opens fast
+    warmUpGoogleSignIn();
+
     let unsubscribeUserDoc = () => {};
 
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {

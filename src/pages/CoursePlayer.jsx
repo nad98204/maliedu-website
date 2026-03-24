@@ -283,23 +283,26 @@ const CoursePlayer = () => {
             const scrollContainer = document.getElementById('player-scroll-container');
             const playerTabs = document.getElementById('player-tabs');
 
-            if (!scrollContainer || !playerTabs) {
-                return;
-            }
+            if (!scrollContainer || !playerTabs) return;
 
-            const containerTop = scrollContainer.getBoundingClientRect().top;
-            const tabsTop = playerTabs.getBoundingClientRect().top;
-            const nextTop = scrollContainer.scrollTop + tabsTop - containerTop - 12;
+            // Chờ bàn phím mobile hiện ra xong (khoảng 300ms) rồi mới tính toán scroll
+            setTimeout(() => {
+                const containerRect = scrollContainer.getBoundingClientRect();
+                const tabsRect = playerTabs.getBoundingClientRect();
+                
+                // Video sticky cao khoảng 200-250px trên mobile + header 64px
+                const STICKY_OFFSET = 300; 
+                
+                const targetScroll = scrollContainer.scrollTop + (tabsRect.top - containerRect.top) - STICKY_OFFSET;
 
-            scrollContainer.scrollTo({
-                top: Math.max(nextTop, 0),
-                behavior: 'smooth'
-            });
+                scrollContainer.scrollTo({
+                    top: Math.max(targetScroll, 0),
+                    behavior: 'smooth'
+                });
+            }, 350);
         };
 
-        firstFrame = window.requestAnimationFrame(() => {
-            secondFrame = window.requestAnimationFrame(scrollToNotes);
-        });
+        firstFrame = window.requestAnimationFrame(scrollToNotes);
 
         return () => {
             window.cancelAnimationFrame(firstFrame);
