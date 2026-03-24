@@ -769,41 +769,40 @@ const CoursePlayer = () => {
                     className="custom-scrollbar relative z-10 flex-1 overflow-y-auto scroll-smooth overscroll-y-contain"
                     id="player-scroll-container"
                 >
-                    {/* ── Video: sticky trực tiếp trong scroll container – mobile only ── */}
-                    <div className="sticky top-0 z-10 bg-slate-100 px-3 pt-3 pb-1 md:static md:bg-transparent md:px-0 md:pt-0 md:pb-0">
-                        <div className="mx-auto max-w-[1600px] md:px-8 md:pt-8">
-                            <VideoWrapper
-                                videoUrl={currentLesson?.videoId}
-                                title={currentLesson?.title}
-                                playing={playing}
-                                setPlaying={setPlaying}
-                                isNotesMode={activePlayerTab === 'notes'}
-                                onEnded={handleLessonComplete}
-                                onNext={handleNextLesson}
-                                onPrev={handlePrevLesson}
-                                hasNext={currentLessonIndex < flatLessons.length - 1}
-                                hasPrev={currentLessonIndex > 0}
-                                isCompleted={!!progress[currentLessonId]}
-                                onMarkComplete={handleLessonComplete}
-                            />
-                        </div>
-                    </div>
-
-                    {/* ── Tabs: cuộn bình thường bên dưới ── */}
-                    <div className="mx-auto max-w-[1600px] px-3 pb-24 md:px-8 md:pb-20">
-                        <PlayerTabs
-                            description={currentLesson?.description ?? ''}
-                            resources={currentTabResources}
-                            resourceGroups={sidebarResourceGroups}
-                            currentContextResources={sidebarCurrentContextResources}
-                            resourceFocusRequest={hasFullAccess ? resourceFocusRequest : null}
-                            lessonId={currentLessonId}
-                            lessonTitle={currentLesson?.title}
-                            currentUser={currentUser}
-                            hasFullAccess={hasFullAccess}
-                            onLessonSelect={(lesson) => setCurrentLesson(lesson)}
-                            onActiveTabChange={setActivePlayerTab}
-                        />
+                    <div className="mx-auto max-w-[1600px] md:px-8 md:pt-8">
+                        <VideoWrapper
+                            videoUrl={currentLesson?.videoId}
+                            title={currentLesson?.title}
+                            playing={playing}
+                            setPlaying={setPlaying}
+                            isNotesMode={activePlayerTab === 'notes'}
+                            onEnded={handleLessonComplete}
+                            onNext={handleNextLesson}
+                            onPrev={handlePrevLesson}
+                            hasNext={currentLessonIndex < flatLessons.length - 1}
+                            hasPrev={currentLessonIndex > 0}
+                            isCompleted={!!progress[currentLessonId]}
+                            onMarkComplete={handleLessonComplete}
+                            sections={sections}
+                            currentLessonId={currentLessonId}
+                            onLessonSelect={setCurrentLesson}
+                        >
+                            <div className="px-3 pb-24 md:px-0 md:pb-20">
+                                <PlayerTabs
+                                    description={currentLesson?.description ?? ''}
+                                    resources={currentTabResources}
+                                    resourceGroups={sidebarResourceGroups}
+                                    currentContextResources={sidebarCurrentContextResources}
+                                    resourceFocusRequest={hasFullAccess ? resourceFocusRequest : null}
+                                    lessonId={currentLessonId}
+                                    lessonTitle={currentLesson?.title}
+                                    currentUser={currentUser}
+                                    hasFullAccess={hasFullAccess}
+                                    onLessonSelect={(lesson) => setCurrentLesson(lesson)}
+                                    onActiveTabChange={setActivePlayerTab}
+                                />
+                            </div>
+                        </VideoWrapper>
                     </div>
                 </main>
 

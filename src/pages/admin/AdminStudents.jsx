@@ -91,7 +91,13 @@ const AdminStudents = () => {
             // 3. Fetch Courses (For Dropdown)
             const courseQuery = query(collection(db, 'courses'));
             const courseSnap = await getDocs(courseQuery);
-            const courseList = courseSnap.docs.map(doc => ({ id: doc.id, name: doc.data().name }));
+            const courseList = courseSnap.docs
+                .map(doc => ({ 
+                    id: doc.id, 
+                    name: doc.data().name || doc.data().title || "" 
+                }))
+                .filter(c => c.name.trim() !== "") // Filter out blank names
+                .sort((a, b) => a.name.localeCompare(b.name)); // Sort alphabetically
             setCourses(courseList);
 
         } catch (error) {

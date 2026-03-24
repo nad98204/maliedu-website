@@ -255,7 +255,7 @@ const CourseDetail = () => {
             />
 
             {/* HERO SECTION (Blurred Thumbnail + Dark Red Overlay) */}
-            <div className="relative overflow-hidden bg-[#450a0a] pt-14 pb-16 border-b border-gray-100">
+            <div className="relative overflow-hidden bg-[#450a0a] pt-6 sm:pt-14 pb-[60px] sm:pb-[104px] border-b border-gray-100">
                 {/* Layer 1: Blurred Thumbnail Background */}
                 <div
                     className="absolute inset-0 z-0 bg-cover bg-center scale-110 blur-lg opacity-40"
@@ -268,34 +268,34 @@ const CourseDetail = () => {
                 {/* Layer 3: Content */}
                 <div className="max-w-7xl mx-auto px-4 relative z-20">
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 items-start">
-                        <div className="lg:col-span-2">
+                        <div className="lg:col-span-2 space-y-4">
                             {/* Breadcrumb */}
                             <Breadcrumb
                                 items={[
                                     { label: 'Khóa học', link: '/khoa-hoc' },
                                     { label: course.name }
                                 ]}
-                                className="text-white/80 mb-14"
+                                className="text-white/70 mb-6 sm:mb-12"
                             />
 
-                            <h1 className="text-4xl md:text-5xl font-extrabold mb-4 leading-relaxed py-3 font-serif tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-yellow-400 to-amber-200">
+                            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold mb-4 leading-tight sm:leading-relaxed py-2 font-serif tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-yellow-400 to-amber-100">
                                 {course.name}
                             </h1>
 
-                            <p
-                                className="text-sm font-light text-white/90 mb-6 leading-relaxed max-w-2xl break-words"
+                            <div 
+                                className="text-sm sm:text-base font-light text-white/80 mb-8 leading-relaxed max-w-2xl break-words prose-invert line-clamp-3 md:line-clamp-none opacity-90"
                                 dangerouslySetInnerHTML={{ __html: course?.description ? course.description.replace(/&nbsp;/g, ' ') : '' }}
-                            ></p>
+                            ></div>
 
-                            <div className="flex flex-wrap items-center gap-6 text-sm font-medium">
-                                <div className="flex items-center gap-2">
-                                    <span className="flex text-yellow-400"><Star className="w-5 h-5 fill-current" /></span>
+                            <div className="flex flex-wrap items-center gap-3 sm:gap-6 text-sm font-medium">
+                                <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 shadow-sm">
+                                    <Star className="w-4 h-4 text-yellow-400 fill-current" />
                                     <span className="text-white font-bold">{course.fakeRating || "5.0"}</span>
-                                    <span className="text-red-100">({course.fakeReviewCount || "0"} đánh giá)</span>
+                                    <span className="text-white/60 text-xs">({course.fakeReviewCount || "0"} đánh giá)</span>
                                 </div>
-                                <div className="flex items-center gap-2 text-red-100">
-                                    <Users className="w-5 h-5 text-red-100" />
-                                    <span>
+                                <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 shadow-sm text-white/90">
+                                    <Users className="w-4 h-4 text-white/80" />
+                                    <span className="text-xs sm:text-sm">
                                         {course.fakeStudentCount
                                             ? course.fakeStudentCount
                                             : (realStudentCount !== null
@@ -304,14 +304,9 @@ const CourseDetail = () => {
                                         } học viên
                                     </span>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    <div className="bg-white/10 text-white px-3 py-1 rounded-full shadow-sm text-sm font-semibold flex items-center gap-2 border border-white/20">
-                                        <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse"></span>
-                                        Mali Edu
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-2 text-red-200 text-xs">
-                                    <span>Cập nhật mới nhất: {new Date().toLocaleDateString('vi-VN')}</span>
+                                <div className="flex items-center gap-2 text-white/50 text-[10px] sm:text-xs">
+                                    <Globe className="w-3 h-3" />
+                                    <span>Cập nhật: {new Date().toLocaleDateString('vi-VN')}</span>
                                 </div>
                             </div>
                         </div>
@@ -320,10 +315,10 @@ const CourseDetail = () => {
             </div>
 
             {/* MAIN CONTENT GRID */}
-            <div className="max-w-7xl mx-auto px-4 py-8 flex flex-col-reverse lg:grid lg:grid-cols-3 gap-8">
+            <div className="max-w-7xl mx-auto px-4 py-4 sm:py-8 flex flex-col-reverse lg:grid lg:grid-cols-3 gap-4 sm:gap-8">
 
                 {/* LEFT COLUMN (CONTENT) */}
-                <div className="lg:col-span-2 space-y-12">
+                <div className="lg:col-span-2 space-y-12 mt-2 lg:mt-0">
 
                     {/* Sticky In-Page Navigation */}
                     <div className="sticky-nav z-40 sticky top-0 flex items-center gap-6 md:gap-8 overflow-x-auto whitespace-nowrap px-4 py-3 -mx-4 md:mx-0 md:px-6 md:rounded-lg md:border md:border-slate-100 bg-white/95 backdrop-blur-md mb-8 shadow-sm transition-all duration-300">
@@ -453,7 +448,7 @@ const CourseDetail = () => {
                 </div>
 
                 {/* RIGHT COLUMN (SIDEBAR) */}
-                <div className="lg:col-span-1 relative z-20 lg:sticky lg:top-8 h-fit lg:-mt-20">
+                <div className="lg:col-span-1 relative z-20 lg:sticky lg:top-8 h-fit -mt-[60px] lg:-mt-[76px]">
                     <CourseSidebar 
                         course={course} 
                         onBuyClick={handleBuyClick} 

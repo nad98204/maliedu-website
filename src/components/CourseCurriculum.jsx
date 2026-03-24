@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { PlayCircle, FileText, Lock, ChevronDown, ChevronUp, Clock, Eye } from 'lucide-react';
+import { PlayCircle, FileText, Lock, ChevronDown, ChevronUp, Clock } from 'lucide-react';
 import { getLessonKey, getPreviewableLessonKeys } from '../utils/courseAccess';
 
 const CourseCurriculum = ({ course, courseId, onPreviewClick }) => {
+    const navigate = useNavigate();
     const [openSections, setOpenSections] = useState({ 0: true }); // Default open first section only
     const curriculum = course?.curriculum;
     const previewableLessonKeys = new Set(getPreviewableLessonKeys(course));
@@ -63,7 +64,6 @@ const CourseCurriculum = ({ course, courseId, onPreviewClick }) => {
         }));
     };
 
-    // Check if all are open
     const areAllOpen = sections.length > 0 && sections.every((_, idx) => openSections[idx]);
 
     const toggleAll = () => {
@@ -77,67 +77,76 @@ const CourseCurriculum = ({ course, courseId, onPreviewClick }) => {
     };
 
     return (
-        <div className="mb-10" id="curriculum">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5">
-                <div className="flex items-center gap-4">
-                    <h3 className="text-xl font-bold font-sans text-slate-900">Nội dung khóa học</h3>
-                    <button
-                        onClick={toggleAll}
-                        className="text-sm font-bold text-slate-900 hover:text-secret-wax transition-colors flex items-center gap-1"
-                    >
-                        <span className="text-[10px]">{areAllOpen ? '▲' : '▼'}</span>
-                        <span className="whitespace-nowrap underline underline-offset-4 decoration-2">
-                            {areAllOpen ? 'Thu gọn tất cả' : 'Mở rộng tất cả'}
+        <div className="mb-12" id="curriculum">
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6 border-b border-slate-100 pb-4">
+                <div className="flex flex-col gap-1">
+                    <h3 className="text-2xl font-bold font-sans text-slate-900 tracking-tight">Nội dung khóa học</h3>
+                    <div className="flex items-center gap-2 text-sm text-slate-500 font-medium">
+                        <span className="flex items-center gap-1.5 bg-slate-100 px-2.5 py-1 rounded-full text-[10px] sm:text-xs text-slate-600">
+                            <span className="font-bold text-slate-900">{sections.length}</span> chương
                         </span>
-                    </button>
+                        <span className="flex items-center gap-1.5 bg-slate-100 px-2.5 py-1 rounded-full text-[10px] sm:text-xs text-slate-600">
+                            <span className="font-bold text-slate-900">{totalLessons}</span> bài học
+                        </span>
+                        <span className="flex items-center gap-1.5 bg-slate-100 px-2.5 py-1 rounded-full text-[10px] sm:text-xs text-slate-600">
+                            <span className="font-bold text-slate-900">{formatDuration(Math.round(totalDuration))}</span>
+                        </span>
+                    </div>
                 </div>
-                <div className="text-sm text-slate-500 font-medium">
-                    <span className="font-bold text-slate-900">{sections.length}</span> chương •
-                    <span className="font-bold text-slate-900"> {totalLessons}</span> bài học •
-                    <span className="font-bold text-slate-900"> {formatDuration(Math.round(totalDuration))}</span>
-                </div>
+                <button
+                    onClick={toggleAll}
+                    className="text-xs font-bold text-secret-wax hover:text-secret-ink transition-all flex items-center gap-1.5 self-start sm:self-auto bg-secret-wax/5 hover:bg-secret-wax/10 px-3 py-1.5 rounded-full"
+                >
+                    {areAllOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                    <span>{areAllOpen ? 'Thu gọn tất cả' : 'Mở rộng tất cả'}</span>
+                </button>
             </div>
 
-            <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
+            <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm">
                 {sections.map((section, idx) => (
-                    <div key={idx} className="border-b border-slate-200 last:border-0">
+                    <div key={idx} className="border-b border-slate-100 last:border-0">
                         {/* Header */}
                         <button
                             onClick={() => toggleSection(idx)}
-                            className="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 transition-colors"
+                            className={`w-full flex items-start sm:items-center justify-between p-4 transition-all duration-300 text-left ${openSections[idx] ? 'bg-slate-50/80 shadow-inner' : 'bg-white hover:bg-slate-50'}`}
                         >
-                            <div className="flex items-center gap-3">
-                                {openSections[idx] ? <ChevronUp className="w-5 h-5 text-slate-500" /> : <ChevronDown className="w-5 h-5 text-slate-500" />}
-                                <span className="font-bold text-slate-800">{section.title}</span>
+                            <div className="flex items-start sm:items-center gap-3 text-left w-full mr-4">
+                                <div className={`mt-0.5 sm:mt-0 p-1.5 rounded-full transition-all duration-300 shrink-0 ${openSections[idx] ? 'bg-secret-wax/10 text-secret-wax rotate-180' : 'bg-slate-100 text-slate-400'}`}>
+                                    <ChevronDown className="w-3.5 h-3.5 sm:w-4 h-4" />
+                                </div>
+                                <span className={`font-bold text-sm sm:text-base leading-snug transition-colors break-words ${openSections[idx] ? 'text-secret-ink' : 'text-slate-800'}`}>
+                                    {section.title}
+                                </span>
                             </div>
-                            <span className="text-xs text-slate-500">{section.lessons.length} bài học</span>
+                            <span className="text-[10px] sm:text-xs font-medium text-slate-400 shrink-0 py-1 px-2.5 bg-slate-50/50 rounded-lg border border-slate-100">
+                                {section.lessons.length} bài
+                            </span>
                         </button>
 
                         {/* Lessons List */}
-                        <div className={`transition-all duration-300 ease-in-out overflow-hidden ${openSections[idx] ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                        <div className={`transition-all duration-500 ease-in-out overflow-hidden ${openSections[idx] ? 'max-h-[3000px] opacity-100' : 'max-h-0 opacity-0 invisible'}`}>
                             <div className="bg-white">
                                 {section.lessons.map((lesson, lIdx) => {
                                     const lessonKey = getLessonKey(lesson);
-                                    // Determine availability:
-                                    // 1. Course preview mode -> first N lessons are open
-                                    // 2. Lesson has isFreePreview flag -> Open
                                     const isAccessible = lessonKey ? previewableLessonKeys.has(lessonKey) : false;
 
                                     return (
-                                        <div key={lIdx} className="flex items-center justify-between p-3 pl-10 hover:bg-slate-50 border-b border-slate-100 last:border-0 transition-colors group">
-                                            <div className="flex items-center gap-3 overflow-hidden">
-                                                {lesson.type === 'file' ? (
-                                                    <FileText className="w-4 h-4 text-slate-400 shrink-0" />
-                                                ) : (
-                                                    <PlayCircle className="w-4 h-4 text-slate-400 shrink-0 group-hover:text-secret-wax transition-colors" />
-                                                )}
-                                                <span className="text-sm text-slate-700 truncate font-medium group-hover:text-secret-ink transition-colors">
+                                        <div key={lIdx} className="flex items-center justify-between p-3.5 pl-4 sm:pl-12 hover:bg-slate-50/50 border-b border-slate-50 last:border-0 transition-all group">
+                                            <div className="flex items-start gap-3 overflow-hidden pr-2">
+                                                <div className="mt-0.5 shrink-0 bg-slate-100/50 p-1.5 rounded-md group-hover:bg-secret-wax/10 transition-colors">
+                                                    {lesson.type === 'file' ? (
+                                                        <FileText className="w-3.5 h-3.5 text-slate-400" />
+                                                    ) : (
+                                                        <PlayCircle className="w-3.5 h-3.5 text-slate-400 group-hover:text-secret-wax transition-colors" />
+                                                    )}
+                                                </div>
+                                                <span className="text-[13px] sm:text-sm text-slate-600 font-medium group-hover:text-secret-ink transition-colors leading-relaxed">
                                                     {lesson.title}
                                                 </span>
                                             </div>
 
-                                            <div className="flex items-center gap-4 shrink-0">
-                                                <span className="text-xs text-slate-400 flex items-center gap-1">
+                                            <div className="flex items-center gap-3 shrink-0 ml-auto">
+                                                <span className="hidden sm:flex text-xs text-slate-400 items-center gap-1 font-mono">
                                                     <Clock className="w-3 h-3" />
                                                     {String(lesson.duration).includes(':') ? lesson.duration : `${lesson.duration || 0}:00`}
                                                 </span>
@@ -156,12 +165,14 @@ const CourseCurriculum = ({ course, courseId, onPreviewClick }) => {
                                                                 navigate(`/bai-giang/${courseId}?${params.toString()}`);
                                                             }
                                                         }}
-                                                        className="text-xs font-bold text-green-600 border border-green-200 bg-green-50 px-2 py-0.5 rounded cursor-pointer hover:bg-green-100"
+                                                        className="text-[10px] font-bold text-white bg-green-500 hover:bg-green-600 px-2.5 py-1 rounded-full shadow-sm shadow-green-200 transition-all hover:scale-105 active:scale-95"
                                                     >
                                                         Học thử
                                                     </button>
                                                 ) : (
-                                                    <Lock className="w-4 h-4 text-slate-400" />
+                                                    <div className="p-1.5 rounded-full bg-slate-50 border border-slate-100/50">
+                                                        <Lock className="w-3 h-3 text-slate-300" />
+                                                    </div>
                                                 )}
                                             </div>
                                         </div>

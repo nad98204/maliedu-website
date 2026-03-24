@@ -268,28 +268,32 @@ const HeroCarousel = () => {
               : "opacity-0 z-0 scale-[1.04] pointer-events-none"
               }`}
           >
-            <img
-              src={slide.image}
-              alt=""
-              aria-hidden="true"
-              className="absolute inset-0 h-full w-full object-cover object-center scale-105 blur-xl opacity-25"
-              loading={isActive ? "eager" : "lazy"}
-              fetchPriority={isActive ? "high" : "auto"}
-              draggable={false}
-              onLoad={(event) => {
-                setSlideAspectRatio(
-                  slide.id,
-                  "desktop",
-                  event.currentTarget.naturalWidth,
-                  event.currentTarget.naturalHeight
-                );
-              }}
-            />
-            <picture className="absolute inset-0 block h-full w-full">
-              <source media="(max-width: 768px)" srcSet={slide.mobileImage || slide.image} />
+            {slide.image && (
               <img
                 src={slide.image}
-                alt={slide.title}
+                alt=""
+                aria-hidden="true"
+                className="absolute inset-0 h-full w-full object-cover object-center scale-105 blur-xl opacity-25"
+                loading={isActive ? "eager" : "lazy"}
+                fetchPriority={isActive ? "high" : "auto"}
+                draggable={false}
+                onLoad={(event) => {
+                  setSlideAspectRatio(
+                    slide.id,
+                    "desktop",
+                    event.currentTarget.naturalWidth,
+                    event.currentTarget.naturalHeight
+                  );
+                }}
+              />
+            )}
+            <picture className="absolute inset-0 block h-full w-full">
+              {slide.mobileImage && (
+                <source media="(max-width: 768px)" srcSet={slide.mobileImage} />
+              )}
+              <img
+                src={slide.image || ""}
+                alt={slide.title || "Banner"}
                 className="h-full w-full object-cover object-center"
                 loading={isActive ? "eager" : "lazy"}
                 fetchPriority={isActive ? "high" : "auto"}

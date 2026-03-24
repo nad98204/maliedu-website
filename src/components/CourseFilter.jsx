@@ -3,8 +3,7 @@ import { Search, Filter, X } from 'lucide-react';
 import { collection, getDocs, orderBy, query } from 'firebase/firestore';
 import { db } from '../firebase';
 
-const CourseFilter = ({ onSearchChange, onFilterChange, className = "", courses = [] }) => {
-    const [searchTerm, setSearchTerm] = useState('');
+const CourseFilter = ({ onFilterChange, className = "", courses = [] }) => {
     const [selectedCategories, setSelectedCategories] = useState([]);
     const [selectedAuthors, setSelectedAuthors] = useState([]);
     const [selectedPrices, setSelectedPrices] = useState([]);
@@ -46,19 +45,9 @@ const CourseFilter = ({ onSearchChange, onFilterChange, className = "", courses 
         return authorOptions;
     }, [courses]);
 
-    // Mock Prices (Static is fine)
-    const prices = [
-        { id: 'free', label: 'Miễn phí' },
-        { id: 'paid', label: 'Trả phí' },
-    ];
+
 
     // Handlers
-    const handleSearch = (e) => {
-        const val = e.target.value;
-        setSearchTerm(val);
-        onSearchChange(val);
-    };
-
     const handleCheckboxChange = (id, list, setList, type) => {
         const newList = list.includes(id)
             ? list.filter(item => item !== id)
@@ -75,113 +64,69 @@ const CourseFilter = ({ onSearchChange, onFilterChange, className = "", courses 
     };
 
     const handleReset = () => {
-        setSearchTerm('');
         setSelectedCategories([]);
         setSelectedAuthors([]);
         setSelectedPrices([]);
-        onSearchChange('');
         onFilterChange({ categories: [], authors: [], prices: [] });
     };
 
     return (
-        <div className={`bg-white rounded-xl shadow-sm border border-slate-100 p-5 ${className}`}>
-            <div className="flex items-center justify-between mb-4">
-                <h3 className="font-bold text-slate-800 flex items-center gap-2 text-lg">
-                    Tìm kiếm
+        <div className={`bg-white rounded-2xl shadow-sm border border-slate-100 p-6 ${className}`}>
+            <div className="flex items-center justify-between mb-6">
+                <h3 className="font-black text-slate-800 flex items-center gap-2 text-base uppercase tracking-wider">
+                    <Filter className="w-4 h-4 text-secret-wax" />
+                    Bộ lọc nâng cao
                 </h3>
-                {(searchTerm || selectedCategories.length > 0 || selectedAuthors.length > 0 || selectedPrices.length > 0) && (
-                    <button onClick={handleReset} className="text-xs text-slate-400 hover:text-secret-wax flex items-center gap-1 transition-colors">
+                {(selectedCategories.length > 0 || selectedAuthors.length > 0) && (
+                    <button onClick={handleReset} className="text-[10px] font-black uppercase text-rose-500 hover:text-rose-600 flex items-center gap-1 transition-colors px-2 py-1 bg-rose-50 rounded-lg">
                         <X className="w-3 h-3" /> Cài lại
                     </button>
                 )}
             </div>
 
-            {/* Search */}
-            <div className="mb-6 relative">
-                <input
-                    type="text"
-                    placeholder="Tìm kiếm khóa học..."
-                    value={searchTerm}
-                    onChange={handleSearch}
-                    className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-secret-wax focus:ring-1 focus:ring-secret-wax/20 transition-all"
-                />
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-            </div>
-
-            <div className="space-y-6">
+            <div className="space-y-8">
                 {/* Categories */}
                 <div>
-                    <h4 className="font-bold text-sm text-slate-700 mb-3">Những Chuyên mục</h4>
-                    <div className="space-y-2">
+                    <h4 className="font-black text-[11px] text-slate-400 uppercase tracking-widest mb-4">Chuyên mục</h4>
+                    <div className="space-y-3">
                         {categories.map(cat => (
-                            <label key={cat.id} className="flex items-center gap-2 cursor-pointer group">
-                                <input
-                                    type="checkbox"
-                                    checked={selectedCategories.includes(cat.id)}
-                                    onChange={() => handleCheckboxChange(cat.id, selectedCategories, setSelectedCategories, 'category')}
-                                    className="w-4 h-4 rounded border-slate-300 text-secret-wax focus:ring-secret-wax"
-                                />
-                                <span className="text-sm text-slate-600 group-hover:text-secret-wax transition-colors">{cat.label}</span>
+                            <label key={cat.id} className="flex items-center gap-3 cursor-pointer group">
+                                <div className="relative flex items-center">
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedCategories.includes(cat.id)}
+                                        onChange={() => handleCheckboxChange(cat.id, selectedCategories, setSelectedCategories, 'category')}
+                                        className="w-5 h-5 rounded-lg border-slate-200 text-secret-wax focus:ring-secret-wax/20 transition-all cursor-pointer"
+                                    />
+                                </div>
+                                <span className={`text-sm font-bold transition-colors ${selectedCategories.includes(cat.id) ? 'text-secret-wax' : 'text-slate-600 group-hover:text-secret-wax'}`}>
+                                    {cat.label}
+                                </span>
                             </label>
                         ))}
                     </div>
                 </div>
 
-                <hr className="border-slate-100" />
+                <div className="h-px bg-slate-100" />
 
                 {/* Authors */}
                 <div>
-                    <h4 className="font-bold text-sm text-slate-700 mb-3">Tác giả</h4>
-                    <div className="space-y-2">
+                    <h4 className="font-black text-[11px] text-slate-400 uppercase tracking-widest mb-4">Giảng viên</h4>
+                    <div className="space-y-3">
                         {authors.map(author => (
-                            <label key={author.id} className="flex items-center gap-2 cursor-pointer group">
+                            <label key={author.id} className="flex items-center gap-3 cursor-pointer group">
                                 <input
                                     type="checkbox"
                                     checked={selectedAuthors.includes(author.id)}
                                     onChange={() => handleCheckboxChange(author.id, selectedAuthors, setSelectedAuthors, 'author')}
-                                    className="w-4 h-4 rounded border-slate-300 text-secret-wax focus:ring-secret-wax"
+                                    className="w-5 h-5 rounded-lg border-slate-200 text-secret-wax focus:ring-secret-wax/20 transition-all cursor-pointer"
                                 />
-                                <span className="text-sm text-slate-600 group-hover:text-secret-wax transition-colors">{author.label}</span>
+                                <span className={`text-sm font-bold transition-colors ${selectedAuthors.includes(author.id) ? 'text-secret-wax' : 'text-slate-600 group-hover:text-secret-wax'}`}>
+                                    {author.label}
+                                </span>
                             </label>
                         ))}
                     </div>
-                </div>
-
-                <hr className="border-slate-100" />
-
-                {/* Price */}
-                <div>
-                    <h4 className="font-bold text-sm text-slate-700 mb-3">Giá</h4>
-                    <div className="space-y-2">
-                        <label className="flex items-center gap-2 cursor-pointer group">
-                            <input
-                                type="checkbox"
-                                checked={selectedPrices.includes('free')}
-                                onChange={() => handleCheckboxChange('free', selectedPrices, setSelectedPrices, 'price')}
-                                className="w-4 h-4 rounded border-slate-300 text-secret-wax focus:ring-secret-wax"
-                            />
-                            <span className="text-sm text-slate-600 group-hover:text-secret-wax transition-colors">Miễn phí</span>
-                        </label>
-                        <label className="flex items-center gap-2 cursor-pointer group">
-                            <input
-                                type="checkbox"
-                                checked={selectedPrices.includes('paid')}
-                                onChange={() => handleCheckboxChange('paid', selectedPrices, setSelectedPrices, 'price')}
-                                className="w-4 h-4 rounded border-slate-300 text-secret-wax focus:ring-secret-wax"
-                            />
-                            <span className="text-sm text-slate-600 group-hover:text-secret-wax transition-colors">Đã thanh toán</span>
-                        </label>
-                    </div>
-                </div>
-
-                {/* Activate Button */}
-                <div className="pt-2">
-                    <button
-                        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-lg transition-colors shadow-sm"
-                        onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} // Simple action for now
-                    >
-                        Kích hoạt
-                    </button>
                 </div>
             </div>
         </div>

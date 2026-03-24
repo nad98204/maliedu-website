@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { collection, getDocs, query, where } from 'firebase/firestore';
-import { Filter, Search as SearchIcon, ChevronLeft, ChevronRight, Flame, Sparkles, LayoutGrid, Gift, BadgeDollarSign, ArrowUpDown, X as XIcon, ChevronDown } from 'lucide-react';
+import { Filter, Search as SearchIcon, ChevronLeft, ChevronRight, Flame, Sparkles, LayoutGrid, Gift, BadgeDollarSign, ArrowUpDown, X as XIcon, ChevronDown, Clock } from 'lucide-react';
 import { db } from '../firebase';
 import CourseCard from '../components/CourseCard';
 import CourseFilter from '../components/CourseFilter';
@@ -74,15 +74,28 @@ const CourseSlider = ({ title, subtitle, icon, iconBg, courses, loading }) => {
     };
 
     return (
-        <div className="mb-12">
+        <div className="mb-8">
             {/* Section Header */}
-            <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-4">
-                    <div className={`flex items-center gap-2 px-4 py-2 rounded-xl ${iconBg} shadow-sm`}>
-                        <Icon className="w-4 h-4" />
-                        <span className="font-black text-sm uppercase tracking-widest">{title}</span>
+                    {/* Glowing Icon */}
+                    <div className="relative flex-shrink-0">
+                        <div className={`absolute -inset-2 rounded-full blur-md opacity-20 ${iconBg.split(' ')[0]}`} />
+                        <div className={`relative w-10 h-10 rounded-full flex items-center justify-center bg-white border border-slate-100 shadow-sm ${iconBg.split(' ')[1]}`}>
+                            <Icon className="w-5 h-5" />
+                        </div>
                     </div>
-                    <p className="text-slate-500 text-sm hidden sm:block">{subtitle}</p>
+                    
+                    <div className="flex flex-col">
+                        <div className="flex items-center gap-2">
+                            <h2 className="text-xl font-black text-slate-900 tracking-tight leading-none">{title}</h2>
+                            <div className="flex items-center gap-1 px-2 py-0.5 bg-slate-100 rounded-full border border-slate-200 hidden sm:flex">
+                                <span className="w-1 h-1 rounded-full bg-slate-400" />
+                                <span className="text-[9px] font-black text-slate-500 uppercase tracking-wider">Chọn lọc</span>
+                            </div>
+                        </div>
+                        <p className="text-slate-400 text-xs font-medium mt-1.5 hidden sm:block">{subtitle}</p>
+                    </div>
                 </div>
                 <div className="flex items-center gap-2">
                     <button
@@ -285,13 +298,13 @@ const CourseList = () => {
         <div className="min-h-screen bg-neutral-50">
 
             {/* ============ SECTION 1: TOP NEWEST ============ */}
-            <div className="bg-white border-b border-slate-100 py-10">
+            <div className="bg-white border-b border-slate-100 pt-10 pb-6">
                 <div className="max-w-7xl mx-auto px-4">
                     <CourseSlider
                         title="Khóa Học Mới Nhất"
                         subtitle="Những khóa học vừa cập nhật trên hệ thống"
-                        icon={Sparkles}
-                        iconBg="bg-amber-50 text-amber-600 border border-amber-200"
+                        icon={Clock}
+                        iconBg="bg-sky-50 text-sky-600"
                         courses={topNewest}
                         loading={loading}
                     />
@@ -301,25 +314,37 @@ const CourseList = () => {
                         title="Khóa Học Hot Nhất"
                         subtitle="Được nhiều học viên đăng ký và yêu thích"
                         icon={Flame}
-                        iconBg="bg-red-50 text-red-600 border border-red-200"
+                        iconBg="bg-rose-50 text-rose-600"
                         courses={topHottest}
                         loading={loading}
                     />
 
                     {/* ============ SECTION 3: TOPICS ============ */}
-                    <div className="mb-12">
-                        <div className="flex flex-col md:flex-row md:items-end justify-between mb-6 gap-2">
-                            <div>
-                                <h2 className="text-2xl font-black text-slate-900 tracking-tight">Khám phá theo chủ đề</h2>
-                                <p className="text-slate-500 text-sm">Lựa chọn lĩnh vực bạn muốn phát triển hôm nay</p>
-                            </div>
-                            <div className="hidden md:flex items-center gap-1.5 px-3 py-1 bg-slate-100 rounded-full border border-slate-200">
-                                <LayoutGrid className="w-3.5 h-3.5 text-slate-400" />
-                                <span className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Chọn lọc</span>
+                    <div className="mb-8">
+                        <div className="flex flex-col md:flex-row md:items-end justify-between mb-6 gap-4">
+                            <div className="flex items-center gap-4">
+                                {/* Glowing Icon for Topics */}
+                                <div className="relative flex-shrink-0">
+                                    <div className="absolute -inset-2 rounded-full blur-md opacity-20 bg-indigo-200" />
+                                    <div className="relative w-10 h-10 rounded-full flex items-center justify-center bg-white border border-slate-100 shadow-sm text-indigo-600">
+                                        <LayoutGrid className="w-5 h-5" />
+                                    </div>
+                                </div>
+                                
+                                <div className="flex flex-col">
+                                    <div className="flex items-center gap-2">
+                                        <h2 className="text-xl font-black text-slate-900 tracking-tight leading-none">Khám phá theo chủ đề</h2>
+                                        <div className="flex items-center gap-1 px-2 py-0.5 bg-indigo-50 rounded-full border border-indigo-100 hidden sm:flex">
+                                            <span className="w-1 h-1 rounded-full bg-indigo-400" />
+                                            <span className="text-[9px] font-black text-indigo-500 uppercase tracking-wider">Đa dạng</span>
+                                        </div>
+                                    </div>
+                                    <p className="text-slate-400 text-xs font-medium mt-1.5 hidden sm:block">Lựa chọn lĩnh vực bạn muốn phát triển hôm nay</p>
+                                </div>
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
                             {TOPIC_LIST.map(topic => {
                                 const count = coursesPerCategory[topic.id] || 0;
                                 const isActive = activeCategory === topic.id;
@@ -331,26 +356,29 @@ const CourseList = () => {
                                             const el = document.getElementById('all-courses-section');
                                             if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
                                         }}
-                                        className={`relative group overflow-hidden rounded-2xl aspect-[4/3] md:aspect-video text-left transition-all duration-300 shadow-sm hover:shadow-xl hover:-translate-y-1 border-[3px] ${isActive ? 'border-secret-wax' : 'border-white shadow-slate-200/50'}`}
+                                        className={`relative group overflow-hidden rounded-[24px] aspect-[16/10] md:aspect-video text-left transition-all duration-500 shadow-sm hover:shadow-2xl hover:-translate-y-1.5 border-[3px] ${isActive ? 'border-secret-wax' : 'border-white shadow-slate-200/50'}`}
                                     >
                                         <img
                                             src={TOPIC_IMAGES[topic.id] || 'https://images.unsplash.com/photo-1501504905252-473c47e087f8?w=400&q=80'}
                                             alt={topic.name}
-                                            className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                                            className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                                         />
                                         
-                                        {/* Refined Gradient Overlay */}
-                                        <div className={`absolute inset-0 transition-all duration-300 ${isActive ? 'bg-secret-wax/40' : 'bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-80 group-hover:opacity-100'}`} />
+                                        {/* Dynamic Overlay */}
+                                        <div className={`absolute inset-0 transition-all duration-500 ${isActive ? 'bg-secret-wax/40' : 'bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-90'}`} />
                                         
                                         {count > 0 && (
-                                            <div className="absolute top-3 left-3 bg-white/20 backdrop-blur-md text-white text-[9px] font-black px-2 py-0.5 rounded-full border border-white/30">
+                                            <div className="absolute top-3 left-3 bg-white/30 backdrop-blur-md text-white text-[9px] font-black px-2.5 py-1 rounded-full border border-white/40 shadow-sm">
                                                 {count} KHÓA
                                             </div>
                                         )}
                                         
-                                        <div className="absolute bottom-0 left-0 right-0 p-4 transform transition-transform duration-300 group-hover:translate-y-[-2px]">
-                                            <div className="font-black text-white text-base leading-tight drop-shadow-lg">{topic.name}</div>
-                                            <div className="text-white/80 text-[10px] mt-1 font-medium tracking-wide uppercase">{topic.desc.split(' · ')[0]}</div>
+                                        <div className="absolute bottom-0 left-0 right-0 p-4 md:p-5 transform transition-transform duration-500 group-hover:translate-y-[-4px]">
+                                            <div className="font-black text-white text-sm md:text-lg leading-[1.2] drop-shadow-xl mb-1">{topic.name}</div>
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-1.5 h-1.5 rounded-full bg-secret-wax shadow-[0_0_8px_rgba(186,45,47,0.8)]" />
+                                                <div className="text-white/90 text-[10px] md:text-[11px] font-bold tracking-widest uppercase">{topic.desc.split(' · ')[0]}</div>
+                                            </div>
                                         </div>
                                     </button>
                                 );
@@ -361,10 +389,10 @@ const CourseList = () => {
             </div>
 
             {/* ============ SECTION 4: ALL COURSES GRID ============ */}
-            <div id="all-courses-section" className="max-w-7xl mx-auto px-4 py-10">
+            <div id="all-courses-section" className="max-w-7xl mx-auto px-4 py-4">
 
-                {/* Active Category Filter Pills - Desktop Only */}
-                <div className="hidden sm:inline-flex flex-wrap items-center gap-1.5 mb-5 p-1 bg-white rounded-2xl border border-slate-100 shadow-sm">
+                {/* Active Category Filter Pills - Hidden on Desktop (redundant with sidebar) */}
+                <div className="hidden sm:inline-flex lg:hidden flex-wrap items-center gap-1.5 mb-4 p-1 bg-white rounded-2xl border border-slate-100 shadow-sm">
                     <button
                         onClick={() => setActiveCategory('all')}
                         className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeCategory === 'all' ? 'bg-secret-wax text-white shadow-md' : 'text-slate-600 hover:bg-slate-50 hover:text-secret-wax'}`}
@@ -383,76 +411,103 @@ const CourseList = () => {
                 </div>
 
                 {/* Unified Toolbar: Results Count, Quick Price Filters, and Sort */}
-                <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between p-2 mb-6 bg-slate-100/50 rounded-2xl border border-slate-200 gap-3">
-                    <div className="flex items-center gap-2 px-1">
-                        <div className="bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm flex items-center gap-1.5 shrink-0">
-                            <span className="text-sm font-black text-secret-wax leading-none">{filteredCourses.length}</span>
-                            <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider leading-none">Khóa học</span>
+                <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between p-2 mb-6 bg-slate-100/50 rounded-2xl border border-slate-200 gap-4">
+                    {/* Left Group: Results & Simple Price Toggles */}
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                        <div className="flex items-center gap-2 px-1">
+                            <div className="bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm flex items-center gap-1.5 shrink-0">
+                                <span className="text-sm font-black text-secret-wax leading-none">{filteredCourses.length}</span>
+                                <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider leading-none">Khóa học</span>
+                            </div>
+                            {(activeCategory !== 'all' || priceFilter !== 'all') && (
+                                <button 
+                                    onClick={() => { setActiveCategory('all'); setPriceFilter('all'); }} 
+                                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white transition-all text-xs font-black uppercase tracking-widest border border-rose-100 group shadow-sm"
+                                    title="Xóa tất cả bộ lọc"
+                                >
+                                    <XIcon className="w-3.5 h-3.5 group-hover:rotate-90 transition-transform" />
+                                    <span className="hidden sm:inline">Xóa lọc</span>
+                                </button>
+                            )}
                         </div>
-                        {(activeCategory !== 'all' || priceFilter !== 'all') && (
-                            <button 
-                                onClick={() => { setActiveCategory('all'); setPriceFilter('all'); }} 
-                                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white transition-all text-xs font-black uppercase tracking-widest border border-rose-100 group shadow-sm"
-                                title="Xóa tất cả bộ lọc"
-                            >
-                                <XIcon className="w-3.5 h-3.5 group-hover:rotate-90 transition-transform" />
-                                <span className="hidden sm:inline">Xóa lọc</span>
-                            </button>
-                        )}
-                    </div>
 
-                    {/* Quick Price Filters - Compact Version */}
-                    <div className="flex items-center bg-white/60 backdrop-blur-sm p-1 rounded-xl border border-slate-200 shadow-sm flex-1 md:max-w-xs">
-                        <button
-                            onClick={() => setPriceFilter(priceFilter === 'free' ? 'all' : 'free')}
-                            className={`flex-1 flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-black uppercase transition-all ${priceFilter === 'free' 
-                                ? 'bg-emerald-600 text-white shadow-md' 
-                                : 'text-emerald-600 hover:bg-emerald-50'}`}
-                        >
-                            <Gift className={`w-3.5 h-3.5 ${priceFilter === 'free' ? 'animate-bounce' : ''}`} />
-                            Miễn Phí
-                        </button>
-                        <button
-                            onClick={() => setPriceFilter(priceFilter === 'paid' ? 'all' : 'paid')}
-                            className={`flex-1 flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-black uppercase transition-all ${priceFilter === 'paid' 
-                                ? 'bg-indigo-600 text-white shadow-md' 
-                                : 'text-indigo-600 hover:bg-indigo-50'}`}
-                        >
-                            <BadgeDollarSign className={`w-3.5 h-3.5 ${priceFilter === 'paid' ? 'animate-pulse' : ''}`} />
-                            Trả Phí
-                        </button>
+                        {/* Quick Price Filters - Keep original mobile style, compact on desktop */}
+                        <div className="flex items-center bg-slate-200/50 p-1 rounded-[18px] border border-slate-200/60 shadow-inner gap-1 w-full lg:w-auto">
+                            <button
+                                onClick={() => setPriceFilter(priceFilter === 'free' ? 'all' : 'free')}
+                                className={`flex-1 lg:flex-none flex items-center justify-center gap-2 px-3 py-2 lg:px-4 lg:py-1.5 rounded-[14px] text-[11px] lg:text-[10px] font-black uppercase transition-all duration-300 ${priceFilter === 'free' 
+                                    ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-200' 
+                                    : 'bg-white/50 text-emerald-700 hover:bg-white hover:text-emerald-600 shadow-sm'}`}
+                            >
+                                <Gift className={`w-3.5 h-3.5 lg:w-3 lg:h-3 ${priceFilter === 'free' ? 'animate-bounce' : ''}`} />
+                                Miễn Phí
+                            </button>
+                            <button
+                                onClick={() => setPriceFilter(priceFilter === 'paid' ? 'all' : 'paid')}
+                                className={`flex-1 lg:flex-none flex items-center justify-center gap-2 px-3 py-2 lg:px-4 lg:py-1.5 rounded-[14px] text-[11px] lg:text-[10px] font-black uppercase transition-all duration-300 ${priceFilter === 'paid' 
+                                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' 
+                                    : 'bg-white/50 text-indigo-700 hover:bg-white hover:text-indigo-600 shadow-sm'}`}
+                            >
+                                <BadgeDollarSign className={`w-3.5 h-3.5 lg:w-3 lg:h-3 ${priceFilter === 'paid' ? 'animate-pulse' : ''}`} />
+                                Trả Phí
+                            </button>
+                        </div>
                     </div>
                     
-                    <div className="flex items-center gap-2 px-1 relative" ref={sortRef}>
-                        <button
-                            onClick={() => setIsSortOpen(!isSortOpen)}
-                            className="w-full md:min-w-[170px] flex items-center justify-between bg-white border border-slate-200 text-slate-700 text-xs rounded-xl py-2 px-3 shadow-sm font-black transition-all hover:border-secret-wax/40"
-                        >
-                            <div className="flex items-center gap-2">
-                                <ArrowUpDown className="w-3.5 h-3.5 text-slate-400" />
-                                <span>{currentSortLabel}</span>
-                            </div>
-                            <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-300 ${isSortOpen ? 'rotate-180' : ''}`} />
-                        </button>
+                    {/* Right Group: Search & Sort */}
+                    <div className="flex flex-col sm:flex-row items-stretch gap-2">
+                        {/* Live Search Input */}
+                        <div className="relative group transition-all duration-300 w-full sm:min-w-[240px] focus-within:sm:min-w-[300px]">
+                            <input
+                                type="text"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                placeholder="Tìm tên khóa học..."
+                                className="w-full bg-white border border-slate-200 pl-9 pr-4 py-2.5 rounded-xl text-xs font-bold text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-secret-wax focus:ring-1 focus:ring-secret-wax/20 shadow-sm transition-all"
+                            />
+                            <SearchIcon className="absolute left-3 top-[11px] w-4 h-4 text-slate-400 group-focus-within:text-secret-wax transition-colors" />
+                            {searchTerm && (
+                                <button 
+                                    onClick={() => setSearchTerm('')}
+                                    className="absolute right-3 top-[11px] text-slate-300 hover:text-rose-500 transition-colors"
+                                >
+                                    <XIcon className="w-3.5 h-3.5" />
+                                </button>
+                            )}
+                        </div>
 
-                        {isSortOpen && (
-                            <div className="absolute top-full right-0 mt-2 w-full min-w-[180px] bg-white rounded-2xl border border-slate-100 shadow-2xl z-50 overflow-hidden py-1.5 animate-in fade-in zoom-in-95 duration-200">
-                                {SORT_OPTIONS.map((opt) => (
-                                    <button
-                                        key={opt.value}
-                                        onClick={() => {
-                                            setSortOption(opt.value);
-                                            setIsSortOpen(false);
-                                        }}
-                                        className={`w-full text-left px-4 py-2.5 text-xs font-black transition-colors ${sortOption === opt.value 
-                                            ? 'text-secret-wax bg-secret-wax/5' 
-                                            : 'text-slate-600 hover:bg-slate-50 hover:text-secret-wax'}`}
-                                    >
-                                        {opt.label}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
+                        {/* Sort Dropdown */}
+                        <div className="relative" ref={sortRef}>
+                            <button
+                                onClick={() => setIsSortOpen(!isSortOpen)}
+                                className="w-full sm:min-w-[170px] flex items-center justify-between bg-white border border-slate-200 text-slate-700 text-xs rounded-xl py-2.5 px-3 shadow-sm font-black transition-all hover:border-secret-wax/40"
+                            >
+                                <div className="flex items-center gap-2">
+                                    <ArrowUpDown className="w-3.5 h-3.5 text-slate-400" />
+                                    <span>{currentSortLabel}</span>
+                                </div>
+                                <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-300 ${isSortOpen ? 'rotate-180' : ''}`} />
+                            </button>
+
+                            {isSortOpen && (
+                                <div className="absolute top-full right-0 mt-2 w-full min-w-[180px] bg-white rounded-2xl border border-slate-100 shadow-2xl z-50 overflow-hidden py-1.5 animate-in fade-in zoom-in-95 duration-200">
+                                    {SORT_OPTIONS.map((opt) => (
+                                        <button
+                                            key={opt.value}
+                                            onClick={() => {
+                                                setSortOption(opt.value);
+                                                setIsSortOpen(false);
+                                            }}
+                                            className={`w-full text-left px-4 py-2.5 text-xs font-black transition-colors ${sortOption === opt.value 
+                                                ? 'text-secret-wax bg-secret-wax/5' 
+                                                : 'text-slate-600 hover:bg-slate-50 hover:text-secret-wax'}`}
+                                        >
+                                            {opt.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
 
@@ -467,7 +522,7 @@ const CourseList = () => {
                     </button>
                     {isMobileFilterOpen && (
                         <div className="mt-4">
-                            <CourseFilter onSearchChange={setSearchTerm} onFilterChange={setFilters} courses={courses} />
+                            <CourseFilter onFilterChange={setFilters} courses={courses} />
                         </div>
                     )}
                 </div>
@@ -506,7 +561,7 @@ const CourseList = () => {
                     {/* SIDEBAR - Desktop Only */}
                     <div className="hidden lg:block lg:col-span-1">
                         <div className="sticky top-24">
-                            <CourseFilter onSearchChange={setSearchTerm} onFilterChange={setFilters} courses={courses} />
+                            <CourseFilter onFilterChange={setFilters} courses={courses} />
                         </div>
                     </div>
                 </div>
