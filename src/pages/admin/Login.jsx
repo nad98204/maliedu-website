@@ -4,6 +4,11 @@ import { signInWithEmailAndPassword, signOut } from "firebase/auth";
 
 import { auth, db } from "../../firebase";
 import { ensureUserProfile } from "../../utils/userService";
+import {
+  getFirstAllowedAdminPath,
+  isAdminUser,
+  isSuperAdminEmail,
+} from "../../utils/adminAccess";
 import { getFirebaseAuthMessage } from "../../utils/firebaseAuthErrors";
 import { registerSession } from "../../utils/sessionService";
 
@@ -22,9 +27,11 @@ const Login = () => {
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
-
-      const ADMIN_EMAILS = ["mongcoaching@gmail.com"];
-      const isAdmin = ADMIN_EMAILS.includes(user.email);
+      const userProfile = await ensureUserProfile({ db, user });
+      const isAdmin = isAdminUser({
+        email: user.email,
+        role: userProfile?.role,
+      });
 
       // Check Session Limit
       try {
@@ -39,10 +46,13 @@ const Login = () => {
         console.error("Session Register Error:", sessionError);
       }
 
-      await ensureUserProfile({ db, user });
-
       if (isAdmin) {
-        navigate("/admin/dashboard");
+        navigate(
+          getFirstAllowedAdminPath({
+            allowedModules: userProfile?.allowedModules,
+            isSuperAdmin: isSuperAdminEmail(user.email),
+          })
+        );
       } else {
         navigate("/khoa-hoc-cua-toi");
       }

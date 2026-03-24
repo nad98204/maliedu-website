@@ -37,6 +37,11 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { getBankSettings, saveBankSettings, VIETNAM_BANKS, runAutoVerification } from '../../utils/bankPaymentService';
+import {
+    ADMIN_MODULES,
+    COURSE_ACCOUNT_MANAGER_MODULES,
+    getAdminModuleLabel
+} from '../../utils/adminAccess';
 
 const slugify = (text) => {
     return text.toLowerCase()
@@ -73,6 +78,8 @@ const AdminSettings = () => {
     const [isSyncingUser, setIsSyncingUser] = useState(null);
     const [editingWebUser, setEditingWebUser] = useState(null);
     const [isSavingUser, setIsSavingUser] = useState(false);
+    const [webUserSearch, setWebUserSearch] = useState('');
+    const [webUserRoleFilter, setWebUserRoleFilter] = useState('all');
 
     // Bank Payment Settings
     const [bankSettings, setBankSettings] = useState(null);
@@ -270,9 +277,13 @@ const AdminSettings = () => {
         if (!userData?.id) return;
         setIsSavingUser(true);
         try {
+            const normalizedModules = Array.isArray(userData.allowedModules)
+                ? [...new Set(userData.allowedModules)]
+                : [];
+
             await updateDoc(doc(db, "users", userData.id), {
                 role: userData.role || 'student',
-                allowedModules: userData.allowedModules || [],
+                allowedModules: userData.role === 'admin' ? normalizedModules : [],
             });
             toast.success(`Đã cập nhật quyền cho: ${userData.displayName || userData.email}`);
             fetchWebUsers();
@@ -283,6 +294,66 @@ const AdminSettings = () => {
             setIsSavingUser(false);
         }
     };
+
+    const filteredWebUsers = webUsers
+        .filter(user => {
+            const keyword = webUserSearch.trim().toLowerCase();
+            const matchesSearch = keyword.length === 0 ||
+                user.email?.toLowerCase().includes(keyword) ||
+                user.displayName?.toLowerCase().includes(keyword);
+
+            const normalizedRole = user.role === 'admin' ? 'admin' : 'student';
+            const matchesRole = webUserRoleFilter === 'all' || normalizedRole === webUserRoleFilter;
+
+            return matchesSearch && matchesRole;
+        })
+        .sort((left, right) => {
+            const roleDiff = Number(right.role === 'admin') - Number(left.role === 'admin');
+            if (roleDiff !== 0) return roleDiff;
+
+            return String(left.displayName || left.email || '').localeCompare(
+                String(right.displayName || right.email || ''),
+                'vi'
+            );
+        });
+
+    const openWebUserEditor = (user) => {
+        setEditingWebUser({
+            ...user,
+            allowedModules: Array.isArray(user.allowedModules) ? user.allowedModules : [],
+            role: user.role || 'student',
+        });
+    };
+
+    const applyWebUserPreset = (presetKey) => {
+        setEditingWebUser(prev => {
+            if (!prev) return prev;
+
+            if (presetKey === 'course-account-manager') {
+                return {
+                    ...prev,
+                    role: 'admin',
+                    allowedModules: [...COURSE_ACCOUNT_MANAGER_MODULES],
+                };
+            }
+
+            if (presetKey === 'full-admin') {
+                return {
+                    ...prev,
+                    role: 'admin',
+                    allowedModules: [],
+                };
+            }
+
+            return {
+                ...prev,
+                role: 'student',
+                allowedModules: [],
+            };
+        });
+    };
+
+    const adminWebUserCount = webUsers.filter(user => user.role === 'admin').length;
 
     return (
         <div className="space-y-6">
@@ -871,8 +942,31 @@ const AdminSettings = () => {
                                 </div>
                             </div>
                         </div>
+                        <div className="p-4 border-b border-slate-100 bg-white flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                            <div className="flex flex-col gap-3 md:flex-row md:items-center w-full">
+                                <input
+                                    type="text"
+                                    value={webUserSearch}
+                                    onChange={(e) => setWebUserSearch(e.target.value)}
+                                    placeholder="Tìm theo tên hoặc email..."
+                                    className="w-full md:max-w-md px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                                />
+                                <select
+                                    value={webUserRoleFilter}
+                                    onChange={(e) => setWebUserRoleFilter(e.target.value)}
+                                    className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                                >
+                                    <option value="all">Tất cả vai trò</option>
+                                    <option value="admin">Quản trị viên</option>
+                                    <option value="student">Học viên</option>
+                                </select>
+                            </div>
+                            <div className="text-xs font-bold text-slate-500">
+                                Kết quả: {filteredWebUsers.length} tài khoản | Admin: {adminWebUserCount}
+                            </div>
+                        </div>
                         <div className="overflow-x-auto p-4">
-                            {webUsers.filter(u => u.role === 'admin').length === 0 ? (
+                            {filteredWebUsers.length === 0 ? (
                                 <div className="text-center py-16 text-slate-400">
                                     <Lock size={40} className="mx-auto mb-4 text-slate-200" />
                                     <p className="font-bold">Chưa có tài khoản Admin nào</p>
@@ -889,7 +983,7 @@ const AdminSettings = () => {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {webUsers.filter(u => u.role === 'admin').map(user => (
+                                        {filteredWebUsers.map(user => (
                                             <tr key={user.id} className="border-b last:border-0 hover:bg-slate-50 transition-colors">
                                                 <td className="p-4">
                                                     <div className="font-bold text-slate-700">{user.displayName || 'Unnamed'}</div>
@@ -904,11 +998,13 @@ const AdminSettings = () => {
                                                 </td>
                                                 <td className="p-4">
                                                     <div className="flex flex-wrap gap-1">
-                                                        {(!user.allowedModules || user.allowedModules.length === 0) ? (
+                                                        {user.role !== 'admin' ? (
+                                                            <span className="text-xs text-slate-500 italic">Chưa được cấp quyền quản trị</span>
+                                                        ) : (!user.allowedModules || user.allowedModules.length === 0) ? (
                                                             <span className="text-xs text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">TOÀN QUYỀN</span>
                                                         ) : (
                                                             user.allowedModules.map(m => {
-                                                                const mod = ALL_MODULES.find(am => am.key === m);
+                                                                const mod = ADMIN_MODULES.find(am => am.key === m) || { label: getAdminModuleLabel(m) };
                                                                 return mod ? (
                                                                     <span key={m} className="text-[10px] font-bold bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded border border-blue-100">
                                                                         {mod.label}
@@ -920,7 +1016,7 @@ const AdminSettings = () => {
                                                 </td>
                                                 <td className="p-4 text-right">
                                                     <button
-                                                        onClick={() => setEditingWebUser({ ...user })}
+                                                        onClick={() => openWebUserEditor(user)}
                                                         className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-bold transition hover:bg-indigo-700"
                                                     >
                                                         <Edit size={12} /> Chỉnh sửa
@@ -1000,6 +1096,48 @@ const AdminSettings = () => {
                                 </div>
 
                                 {/* 3. PHÂN QUYỀN MODULE */}
+                                <div className="border border-slate-100 rounded-2xl p-4 space-y-3">
+                                    <div className="flex items-center gap-2 text-sm font-bold text-slate-700">
+                                        <Zap size={16} className="text-amber-500" />
+                                        Preset phân quyền
+                                    </div>
+                                    <p className="text-xs text-slate-400">
+                                        Dùng preset để nâng nhanh học viên thành quản trị đúng nhóm nhiệm vụ.
+                                    </p>
+                                    <div className="grid grid-cols-1 gap-2">
+                                        <button
+                                            onClick={() => applyWebUserPreset('course-account-manager')}
+                                            className="flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-left transition hover:bg-amber-100"
+                                        >
+                                            <div>
+                                                <div className="text-sm font-bold text-amber-800">Cấp tài khoản khóa học</div>
+                                                <div className="text-xs text-amber-700">Tự gán role admin và module Dashboard + Học viên.</div>
+                                            </div>
+                                            <CheckCircle size={16} className="text-amber-600" />
+                                        </button>
+                                        <button
+                                            onClick={() => applyWebUserPreset('full-admin')}
+                                            className="flex items-center justify-between rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-left transition hover:bg-indigo-100"
+                                        >
+                                            <div>
+                                                <div className="text-sm font-bold text-indigo-800">Quản trị toàn quyền</div>
+                                                <div className="text-xs text-indigo-700">Cho phép truy cập toàn bộ khu vực admin.</div>
+                                            </div>
+                                            <Shield size={16} className="text-indigo-600" />
+                                        </button>
+                                        <button
+                                            onClick={() => applyWebUserPreset('student')}
+                                            className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-left transition hover:bg-slate-100"
+                                        >
+                                            <div>
+                                                <div className="text-sm font-bold text-slate-700">Học viên thường</div>
+                                                <div className="text-xs text-slate-500">Bỏ role quản trị và thu hồi module admin.</div>
+                                            </div>
+                                            <Users size={16} className="text-slate-500" />
+                                        </button>
+                                    </div>
+                                </div>
+
                                 {editingWebUser.role === 'admin' && (
                                     <div className="border border-slate-100 rounded-2xl p-4 space-y-3">
                                         <div className="flex items-center justify-between">

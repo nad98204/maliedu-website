@@ -2,9 +2,19 @@ import { useEffect, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { signOut, onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
-import { BookOpen, GraduationCap, Users, ShoppingCart, Tag, Layout, Settings, Sparkles, Folder } from "lucide-react";
+import {
+  BookOpen,
+  Folder,
+  GraduationCap,
+  Layout,
+  Settings,
+  ShoppingCart,
+  Sparkles,
+  Users,
+} from "lucide-react";
 
 import { auth, db } from "../firebase";
+import { hasModuleAccess, isSuperAdminEmail } from "../utils/adminAccess";
 
 const AdminLayout = () => {
   const navigate = useNavigate();
@@ -13,30 +23,38 @@ const AdminLayout = () => {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      if (currentUser) {
-        const ADMIN_EMAILS = ["mongcoaching@gmail.com"];
-        if (ADMIN_EMAILS.includes(currentUser.email)) {
-          setIsSuperAdmin(true);
-        } else {
-          try {
-            const userDoc = await getDoc(doc(db, "users", currentUser.uid));
-            if (userDoc.exists()) {
-              setAllowedModules(userDoc.data().allowedModules || []);
-            }
-          } catch (error) {
-            console.error("Error fetching permissions:", error);
-          }
-        }
+      if (!currentUser) {
+        setAllowedModules([]);
+        setIsSuperAdmin(false);
+        return;
+      }
+
+      if (isSuperAdminEmail(currentUser.email)) {
+        setAllowedModules([]);
+        setIsSuperAdmin(true);
+        return;
+      }
+
+      try {
+        const userDoc = await getDoc(doc(db, "users", currentUser.uid));
+        setAllowedModules(userDoc.exists() ? userDoc.data().allowedModules || [] : []);
+        setIsSuperAdmin(false);
+      } catch (error) {
+        console.error("Error fetching permissions:", error);
+        setAllowedModules([]);
+        setIsSuperAdmin(false);
       }
     });
+
     return unsubscribe;
   }, []);
 
-  const hasAccess = (moduleKey) => {
-    if (isSuperAdmin) return true;
-    if (!allowedModules || allowedModules.length === 0) return true; // Toàn quyền
-    return allowedModules.includes(moduleKey);
-  };
+  const hasAccess = (moduleKey) =>
+    hasModuleAccess({
+      allowedModules,
+      isSuperAdmin,
+      moduleKey,
+    });
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -55,80 +73,78 @@ const AdminLayout = () => {
     <div className="min-h-screen bg-slate-100 flex">
       <aside className="w-64 bg-slate-900 text-white flex flex-col">
         <div className="px-6 py-6 border-b border-slate-800">
-          <div className="text-lg font-semibold tracking-wide">
-            Mali Edu Admin
-          </div>
+          <div className="text-lg font-semibold tracking-wide">Mali Edu Admin</div>
           <p className="mt-1 text-xs text-slate-400">Dashboard quan tri</p>
         </div>
         <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
-          {hasAccess('dashboard') && (
+          {hasAccess("dashboard") && (
             <NavLink to="/admin/dashboard" className={getNavClasses}>
               Dashboard
             </NavLink>
           )}
-          {hasAccess('banners') && (
+          {hasAccess("banners") && (
             <NavLink to="/admin/banners" className={getNavClasses}>
               Quản lý Trang chủ
             </NavLink>
           )}
-          {hasAccess('posts') && (
+          {hasAccess("posts") && (
             <NavLink to="/admin/posts" className={getNavClasses}>
-              Tin Tức & Bài Viết
+              Tin tức & Bài viết
             </NavLink>
           )}
-          {hasAccess('knowledge') && (
+          {hasAccess("knowledge") && (
             <NavLink to="/admin/knowledge" className={getNavClasses}>
               <BookOpen className="h-4 w-4" />
               Kho Kiến Thức
             </NavLink>
           )}
-          {hasAccess('courses') && (
+          {hasAccess("courses") && (
             <NavLink to="/admin/courses" className={getNavClasses}>
               <GraduationCap className="h-4 w-4" />
               Khóa học Online
             </NavLink>
           )}
-          {hasAccess('orders') && (
+          {hasAccess("orders") && (
             <NavLink to="/admin/orders" className={getNavClasses}>
               <ShoppingCart className="h-4 w-4" />
               Quản lý Đơn hàng
             </NavLink>
           )}
-          {hasAccess('students') && (
+          {hasAccess("students") && (
             <NavLink to="/admin/students" className={getNavClasses}>
               <Users className="h-4 w-4" />
               Học viên
             </NavLink>
           )}
-          {hasAccess('recruitment') && (
+          {hasAccess("recruitment") && (
             <NavLink to="/admin/recruitment" className={getNavClasses}>
               Tuyển dụng
             </NavLink>
           )}
-          {hasAccess('testimonials') && (
+          {hasAccess("testimonials") && (
             <NavLink to="/admin/testimonials" className={getNavClasses}>
               Cảm nhận học viên
             </NavLink>
           )}
-          {hasAccess('landings') && (
+          {hasAccess("landings") && (
             <NavLink to="/admin/landings" className={getNavClasses}>
               <Layout className="h-4 w-4" />
               Quản lý Landing Page
             </NavLink>
           )}
-          {hasAccess('landing-builder') && (
+          {hasAccess("landing-builder") && (
             <NavLink to="/admin/landing-builder" className={getNavClasses}>
               <Sparkles className="h-4 w-4" />
               Tạo Landing Page
             </NavLink>
           )}
-          {hasAccess('storage') && (
+          {hasAccess("storage") && (
             <NavLink to="/admin/storage" className={getNavClasses}>
               <Folder className="h-4 w-4" />
               Kho Lưu Trữ
             </NavLink>
           )}
-          {hasAccess('settings') && (
+          {hasAccess("settings") && (
             <NavLink to="/admin/settings" className={getNavClasses}>
               <Settings className="h-4 w-4" />
               Cấu hình hệ thống
@@ -153,7 +169,7 @@ const AdminLayout = () => {
           </div>
         </div>
       </div>
-    </div >
+    </div>
   );
 };
 
