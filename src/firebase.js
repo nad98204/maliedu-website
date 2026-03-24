@@ -18,7 +18,19 @@ export const firebaseConfig = {
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 export const db = getFirestore(app); // Database của Web
 export const auth = getAuth(app);
-export const googleProvider = new GoogleAuthProvider();
+
+const EMAIL_HINT_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export const createGoogleProvider = ({ emailHint = "" } = {}) => {
+  const provider = new GoogleAuthProvider();
+  const normalizedEmailHint = emailHint.trim();
+
+  if (EMAIL_HINT_PATTERN.test(normalizedEmailHint)) {
+    provider.setCustomParameters({ login_hint: normalizedEmailHint });
+  }
+
+  return provider;
+};
 
 // --- 2. APP CRM (Antigravity) ---
 const crmConfig = {
@@ -34,7 +46,7 @@ const crmConfig = {
 let crmApp;
 try {
   crmApp = getApp("crmApp");
-} catch (e) {
+} catch {
   crmApp = initializeApp(crmConfig, "crmApp");
 }
 

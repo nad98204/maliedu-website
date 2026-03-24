@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { createElement, useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { doc, onSnapshot } from "firebase/firestore";
@@ -17,8 +17,7 @@ import {
   Youtube,
   BookOpen,
   ShoppingCart,
-  Clock,
-  AlertCircle
+  Clock
 } from "lucide-react";
 
 import { auth, db } from "../firebase";
@@ -27,6 +26,7 @@ import { useCart } from "../context/CartContext";
 import GlobalSearch from "./GlobalSearch";
 import AuthModal from "./AuthModal";
 import { logoutSession } from "../utils/sessionService";
+import { warmUpGoogleSignIn } from "../utils/googleAuthWarmup";
 import {
   getFirstAllowedAdminPath,
   hasModuleAccess,
@@ -144,6 +144,11 @@ const Header = () => {
     setOpenSubmenus({});
   };
 
+  const openAuthModal = () => {
+    warmUpGoogleSignIn();
+    setAuthModalOpen(true);
+  };
+
   return (
     <div className="w-full">
       <div className="bg-secret-wax text-secret-paper text-xs relative z-[60]">
@@ -163,7 +168,7 @@ const Header = () => {
                   aria-label={name}
                   className="p-1 rounded-full hover:bg-white/10 transition"
                 >
-                  <Icon className="h-4 w-4" />
+                  {createElement(Icon, { className: "h-4 w-4" })}
                 </a>
               ))}
             </div>
@@ -254,7 +259,10 @@ const Header = () => {
             ) : (
               <button
                 type="button"
-                onClick={() => setAuthModalOpen(true)}
+                onClick={openAuthModal}
+                onMouseEnter={warmUpGoogleSignIn}
+                onFocus={warmUpGoogleSignIn}
+                onTouchStart={warmUpGoogleSignIn}
                 className="inline-flex items-center gap-1.5 px-2 py-1 text-[10px] sm:gap-2 sm:px-3 sm:py-1.5 sm:text-xs rounded-full border border-secret-paper/80 text-secret-paper font-medium hover:bg-white/10 transition"
               >
                 <LogIn className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
@@ -517,8 +525,11 @@ const Header = () => {
                     type="button"
                     onClick={() => {
                       closeMobileMenu();
-                      setAuthModalOpen(true);
+                      openAuthModal();
                     }}
+                    onMouseEnter={warmUpGoogleSignIn}
+                    onFocus={warmUpGoogleSignIn}
+                    onTouchStart={warmUpGoogleSignIn}
                     className="w-full text-center px-4 py-2 rounded-full border border-secret-wax text-secret-wax text-sm font-semibold hover:bg-secret-wax/10 transition"
                   >
                     Đăng nhập
@@ -536,7 +547,7 @@ const Header = () => {
                     aria-label={name}
                     className="p-2 rounded-full border border-secret-wax/30 text-secret-ink/70 hover:text-secret-wax hover:border-secret-wax transition"
                   >
-                    <Icon className="h-4 w-4" />
+                    {createElement(Icon, { className: "h-4 w-4" })}
                   </a>
                 ))}
               </div>
