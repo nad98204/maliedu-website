@@ -758,18 +758,18 @@ const CoursePlayer = () => {
                 </div>
             </header>
 
-            <div className="relative flex flex-1 overflow-hidden">
+            <div className="relative flex flex-1 md:overflow-hidden">
                 {isSidebarOpen && (
                     <button
                         type="button"
                         aria-label="Đóng chương học và bài tập"
                         onClick={() => setIsSidebarOpen(false)}
-                        className="fixed inset-x-0 bottom-0 top-16 z-20 bg-slate-950/35 backdrop-blur-[2px] md:hidden"
+                        className="fixed inset-0 z-30 bg-slate-950/40 backdrop-blur-[2px] md:hidden"
                     />
                 )}
 
                 <main
-                    className="relative z-10 flex-1 overflow-y-auto scroll-smooth overscroll-y-contain custom-scrollbar md:overflow-y-auto"
+                    className="relative z-10 w-full min-w-0 flex-1 md:overflow-y-auto md:custom-scrollbar"
                     id="player-scroll-container"
                 >
                     <div className="mx-auto max-w-[1600px] md:px-8 md:pt-8">

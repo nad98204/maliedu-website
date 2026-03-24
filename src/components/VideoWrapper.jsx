@@ -53,8 +53,8 @@ const VideoWrapper = ({
                 khi keyboard hiện lên và làm layout viewport thay đổi.
             */}
             <div 
-                className="sticky top-0 z-20 -mx-3 shrink-0 bg-slate-100 px-3 pb-2 pt-3 md:static md:m-0 md:bg-transparent md:p-0"
-                style={{ transform: 'translateZ(0)', touchAction: 'pan-y' }}
+                className="sticky top-0 z-20 -mx-3 shrink-0 bg-slate-100/90 px-3 pb-2 pt-3 backdrop-blur-md md:static md:m-0 md:bg-transparent md:p-0 md:backdrop-blur-none"
+                style={{ transform: 'translateZ(0)' }}
             >
                 <div className="rounded-[24px] border border-slate-200 bg-white p-2 shadow-lg md:rounded-2xl">
                     {/* 
