@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { collection, getDocs, query } from "firebase/firestore";
 
 import { db } from "../firebase";
-import { HERO_SLIDES } from "../data/heroData";
 import { readHomeBannerCache, writeHomeBannerCache } from "../utils/homeBannerCache";
 
 const MOBILE_MEDIA_QUERY = "(max-width: 768px)";
@@ -49,12 +48,13 @@ const getAspectRatioFromDimensions = (width, height) => {
 
 const normalizeSlide = (slide, index) => ({
   id: slide.id ?? `fallback-slide-${index}`,
+  // Use || so empty strings fall through to the next option
   image: normalizeCloudinaryImage(
-    slide.imageUrl ?? slide.image ?? "",
+    slide.imageUrl || slide.image || "",
     "f_auto,q_auto,c_limit,w_1920"
   ),
   mobileImage: normalizeCloudinaryImage(
-    slide.mobileImageUrl ?? slide.mobileImage ?? "",
+    slide.mobileImageUrl || slide.mobileImage || "",
     "f_auto,q_auto,c_limit,w_900"
   ),
   title: slide.title ?? "",
@@ -67,22 +67,19 @@ const normalizeSlide = (slide, index) => ({
   mobileImageHeight: toPositiveNumber(slide.mobileImageHeight),
 });
 
+// Helper to check if a url field has an actual non-empty value
+const hasImage = (slide) =>
+  !!(slide.imageUrl || slide.image || slide.mobileImageUrl || slide.mobileImage);
+
 const buildSlides = (items) =>
   items
-    .filter((slide) => (slide.active ?? true) && (slide.imageUrl ?? slide.image ?? slide.mobileImageUrl ?? slide.mobileImage))
+    .filter((slide) => (slide.active !== false) && hasImage(slide))
     .map((slide, index) => normalizeSlide(slide, index));
-
-const FALLBACK_SLIDES = buildSlides(HERO_SLIDES);
-
-const getSlides = () => {
-  const cachedSlides = buildSlides(readHomeBannerCache());
-  return cachedSlides.length > 0 ? cachedSlides : FALLBACK_SLIDES;
-};
 
 const HeroCarousel = () => {
   const [slides, setSlides] = useState(() => {
     const cached = buildSlides(readHomeBannerCache());
-    return cached.length > 0 ? cached : FALLBACK_SLIDES;
+    return cached;
   });
   const [currentIndex, setCurrentIndex] = useState(0);
   const [dragStartX, setDragStartX] = useState(null);
@@ -98,11 +95,10 @@ const HeroCarousel = () => {
 
   const filteredSlides = useMemo(() => {
     const list = slides.filter((slide) =>
-      isMobileViewport ? slide.mobileImage : slide.image
+      slide.image || slide.mobileImage
     );
-    // Nếu vô tình bị trống trơn do lọc, trả lại mảng ban đầu để không blank web
     return list.length > 0 ? list : slides;
-  }, [slides, isMobileViewport]);
+  }, [slides]);
 
   const slideCount = filteredSlides.length;
   const activeSlide = useMemo(
@@ -113,23 +109,30 @@ const HeroCarousel = () => {
   useEffect(() => {
     const fetchBanners = async () => {
       try {
-        const q = query(
-          collection(db, "banners"),
-          where("active", "==", true)
-        );
+        console.log("HeroCarousel: Fetching banners from Firestore...");
+        // Fetch all and filter in memory to avoid index/missing field issues
+        const q = query(collection(db, "banners"));
         const snapshot = await getDocs(q);
+        console.log(`HeroCarousel: Snapshot size: ${snapshot.size}`);
+
         const items = snapshot.docs
-          .map(docItem => ({
+          .map((docItem) => ({
             id: docItem.id,
-            ...docItem.data()
+            ...docItem.data(),
           }))
+          // Sort newest first
           .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
-        if (items.length > 0) {
-          const newSlides = buildSlides(items);
-          setSlides(newSlides);
-          writeHomeBannerCache(items);
-        }
+        console.log("HeroCarousel: Loaded raw items:", items);
+
+        // Filter for active ones manually since Firestore where() is strict
+        const activeItems = items.filter((it) => it.active !== false); // default true
+        
+        const newSlides = buildSlides(activeItems);
+        console.log(`HeroCarousel: Built ${newSlides.length} slides.`);
+        
+        setSlides(newSlides);
+        writeHomeBannerCache(items);
       } catch (err) {
         console.error("HeroCarousel: Error fetching banners from Firestore:", err);
       }
@@ -138,7 +141,8 @@ const HeroCarousel = () => {
     fetchBanners();
 
     const syncSlides = () => {
-      const cached = buildSlides(readHomeBannerCache());
+      const cachedItems = readHomeBannerCache();
+      const cached = buildSlides(cachedItems.filter(it => it.active !== false));
       if (cached.length > 0) setSlides(cached);
     };
 

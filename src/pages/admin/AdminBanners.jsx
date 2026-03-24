@@ -15,6 +15,7 @@ import { deleteFromCloudinary } from "../../utils/uploadService";
 import { uploadFileToS3 } from "../../utils/s3UploadService";
 import { getDoc, setDoc } from "firebase/firestore";
 import { toast } from "react-hot-toast";
+import { HERO_SLIDES } from "../../data/heroData";
 
 const AdminBanners = () => {
   const [activeTab, setActiveTab] = useState("banners"); // 'banners' | 'content'
@@ -25,6 +26,8 @@ const AdminBanners = () => {
     subtitle: "",
     ctaText: "",
     ctaLink: "",
+    imageUrl: "",
+    mobileImageUrl: "",
   });
   const [file, setFile] = useState(null);
   const [mobileFile, setMobileFile] = useState(null);
@@ -56,6 +59,12 @@ const AdminBanners = () => {
       }));
       setBanners(items);
       writeHomeBannerCache(items);
+
+      // Auto-import if empty and in dev mode
+      if (items.length === 0 && import.meta.env.DEV) {
+        console.log("Auto-importing sample banners since database is empty...");
+        handleImportSamples(true); // pass true to skip confirmation
+      }
     } catch (err) {
       console.error("Error fetching banners:", err);
       toast.error(`Lỗi tải dữ liệu: ${err.message}`);
@@ -104,8 +113,11 @@ const AdminBanners = () => {
     event.preventDefault();
     setError("");
 
-    if (!file && !mobileFile) {
-      setError("Vui lòng chọn ít nhất 1 ảnh banner (Desktop hoặc Mobile).");
+    const hasDesktop = file || formState.imageUrl;
+    const hasMobile = mobileFile || formState.mobileImageUrl;
+
+    if (!hasDesktop && !hasMobile) {
+      setError("Vui lòng chọn ảnh hoặc nhập Link ảnh (Desktop hoặc Mobile).");
       return;
     }
 
@@ -122,21 +134,21 @@ const AdminBanners = () => {
     setIsSubmitting(true);
 
     try {
-      let mainImageUrl = null;
-      if (file) mainImageUrl = await uploadFileToS3(file);
+      let finalImageUrl = formState.imageUrl;
+      if (file) finalImageUrl = await uploadFileToS3(file);
       
-      let mobileImageUrl = null;
-      if (mobileFile) mobileImageUrl = await uploadFileToS3(mobileFile);
+      let finalMobileImageUrl = formState.mobileImageUrl;
+      if (mobileFile) finalMobileImageUrl = await uploadFileToS3(mobileFile);
 
       await addDoc(collection(db, "banners"), {
         title: formState.title,
         subtitle: formState.subtitle,
         ctaText: formState.ctaText,
         ctaLink: formState.ctaLink,
-        imageUrl: mainImageUrl,
+        imageUrl: finalImageUrl,
         imageWidth: null,
         imageHeight: null,
-        mobileImageUrl: mobileImageUrl,
+        mobileImageUrl: finalMobileImageUrl,
         mobileImageWidth: null,
         mobileImageHeight: null,
         deleteToken: null,
@@ -150,9 +162,16 @@ const AdminBanners = () => {
         subtitle: "",
         ctaText: "",
         ctaLink: "",
+        imageUrl: "",
+        mobileImageUrl: "",
       });
       setFile(null);
       setMobileFile(null);
+      
+      // Clear file inputs manually
+      const fileInputs = document.querySelectorAll('input[type="file"]');
+      fileInputs.forEach(input => { input.value = ''; });
+
       await fetchBanners();
     } catch (err) {
       console.error("Them banner loi:", err);
@@ -200,6 +219,63 @@ const AdminBanners = () => {
     });
   };
 
+  const handleImportSamples = async (skipConfirm = false) => {
+    if (!skipConfirm && !window.confirm("Bạn có muốn nhập dữ liệu mẫu từ các banner slide cũ không?")) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      // First, check if we want to migrate them to S3 immediately
+      // But since we are in the browser, downloading and uploading 3 files is fast.
+      const bannersToImport = await Promise.all(HERO_SLIDES.map(async (slide) => {
+        let imageUrl = slide.image;
+        let mobileImageUrl = slide.mobileImage;
+
+        // Try to migrate to S3 if possible
+        try {
+          const downloadAndUpload = async (url, name) => {
+            if (!url) return null;
+            const res = await fetch(url);
+            const blob = await res.blob();
+            const file = new File([blob], name, { type: blob.type });
+            return await uploadFileToS3(file);
+          };
+
+          const s3Url = await downloadAndUpload(slide.image, `banner-${slide.id}.jpg`);
+          if (s3Url) imageUrl = s3Url;
+
+          const s3MobileUrl = await downloadAndUpload(slide.mobileImage, `banner-mobile-${slide.id}.jpg`);
+          if (s3MobileUrl) mobileImageUrl = s3MobileUrl;
+        } catch (s3Err) {
+          console.error("Migration to S3 failed for slide:", slide.id, s3Err);
+          // fall back to cloudinary URL
+        }
+
+        return {
+          title: slide.title,
+          subtitle: slide.subtitle,
+          ctaText: slide.ctaText,
+          ctaLink: slide.ctaLink,
+          imageUrl,
+          mobileImageUrl,
+          active: true,
+          createdAt: Date.now(),
+        };
+      }));
+
+      const promises = bannersToImport.map(data => addDoc(collection(db, "banners"), data));
+      await Promise.all(promises);
+      toast.success("Nhập mẫu và chuyển sang S3 thành công!");
+      await fetchBanners();
+    } catch (err) {
+      console.error("Import error:", err);
+      toast.error("Lỗi khi nhập mẫu.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleContentChange = (e) => {
     const { name, value } = e.target;
     setContentForm(prev => ({ ...prev, [name]: value }));
@@ -213,7 +289,11 @@ const AdminBanners = () => {
         label: contentForm.successStoriesLabel,
         title: contentForm.successStoriesTitle,
         description: contentForm.successStoriesDesc,
-        stories: stories.map(({ _expanded, ...rest }) => rest),
+        stories: stories.map((s) => {
+          const rest = { ...s };
+          delete rest._expanded;
+          return rest;
+        }),
         updatedAt: Date.now()
       });
       toast.success("Cập nhật nội dung thành công!");
@@ -331,32 +411,54 @@ const AdminBanners = () => {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700" htmlFor="image">
-                  Ảnh banner Desktop (1920x1080)
-                </label>
-                <input
-                  id="image"
-                  name="image"
-                  type="file"
-                  accept=".jpg,.jpeg,.png,image/jpeg,image/png"
-                  onChange={handleFileChange}
-                  className="w-full rounded-lg border border-dashed border-slate-300 px-4 py-3 text-sm text-slate-500"
-                />
-              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700" htmlFor="image">
+                    Ảnh Desktop (Tải lên hoặc dán Link)
+                  </label>
+                  <div className="flex flex-col gap-2">
+                    <input
+                      id="image"
+                      name="image"
+                      type="file"
+                      accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+                      onChange={handleFileChange}
+                      className="w-full rounded-lg border border-dashed border-slate-300 px-4 py-2.5 text-sm text-slate-500"
+                    />
+                    <input
+                      name="imageUrl"
+                      type="text"
+                      value={formState.imageUrl}
+                      onChange={handleChange}
+                      className="w-full rounded-lg border border-slate-200 px-4 py-2 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                      placeholder="Hoặc dán link ảnh Desktop (https://...)"
+                    />
+                  </div>
+                </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700" htmlFor="mobileImage">
-                  Ảnh banner Mobile (800x1000)
-                </label>
-                <input
-                  id="mobileImage"
-                  name="mobileImage"
-                  type="file"
-                  accept=".jpg,.jpeg,.png,image/jpeg,image/png"
-                  onChange={handleFileChange}
-                  className="w-full rounded-lg border border-dashed border-slate-300 px-4 py-3 text-sm text-slate-500"
-                />
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700" htmlFor="mobileImage">
+                    Ảnh Mobile (Tải lên hoặc dán Link)
+                  </label>
+                  <div className="flex flex-col gap-2">
+                    <input
+                      id="mobileImage"
+                      name="mobileImage"
+                      type="file"
+                      accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+                      onChange={handleFileChange}
+                      className="w-full rounded-lg border border-dashed border-slate-300 px-4 py-2.5 text-sm text-slate-500"
+                    />
+                    <input
+                      name="mobileImageUrl"
+                      type="text"
+                      value={formState.mobileImageUrl}
+                      onChange={handleChange}
+                      className="w-full rounded-lg border border-slate-200 px-4 py-2 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                      placeholder="Hoặc dán link ảnh Mobile (https://...)"
+                    />
+                  </div>
+                </div>
               </div>
 
               {error && <p className="text-sm text-red-500">{error}</p>}
@@ -479,8 +581,18 @@ const AdminBanners = () => {
                 </div>
               ))}
               {banners.length === 0 && (
-                <div className="col-span-full text-center text-sm text-slate-500">
-                  Chưa có banner nào. Hãy thêm banner mới.
+                <div className="col-span-full py-12 text-center flex flex-col items-center justify-center border-2 border-dashed border-slate-100 rounded-2xl bg-slate-50/50">
+                  <p className="text-sm text-slate-500 mb-4">
+                    Chưa có banner nào. Hãy thêm banner mới hoặc khởi tạo dữ liệu mẫu.
+                  </p>
+                  <button
+                    type="button"
+                    disabled={isSubmitting}
+                    onClick={handleImportSamples}
+                    className="inline-flex items-center justify-center rounded-full bg-slate-900 px-6 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50"
+                  >
+                    {isSubmitting ? "Đang xử lý..." : "Nhập ảnh banner slide mẫu"}
+                  </button>
                 </div>
               )}
             </div>
