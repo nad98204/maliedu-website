@@ -7,7 +7,6 @@ import { db } from '../firebase';
 const GlobalSearch = ({ className }) => {
     const [queryText, setQueryText] = useState('');
     const [results, setResults] = useState({ courses: [], posts: [] });
-    const [loading, setLoading] = useState(false);
     const [isOpen, setIsOpen] = useState(false);
     const searchRef = useRef(null);
     const navigate = useNavigate();
@@ -23,14 +22,20 @@ const GlobalSearch = ({ className }) => {
             if (dataLoaded) return;
             try {
                 // Fetch Courses
-                const coursesSnap = await getDocs(query(collection(db, 'courses'), orderBy('createdAt', 'desc'), limit(50)));
-                const courses = coursesSnap.docs.map(doc => ({
+                const coursesSnap = await getDocs(collection(db, 'courses'));
+                let courses = coursesSnap.docs.map(doc => ({
                     id: doc.id,
+                    ...doc.data(),
                     type: 'course',
                     title: doc.data().name,
                     slug: doc.data().slug || doc.id,
                     image: doc.data().thumbnailUrl
                 }));
+
+                // Filter & Sort in JS
+                courses = courses.filter(c => c.isPublished !== false && c.isForSale !== false)
+                                .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+                                .slice(0, 50);
 
                 // Fetch Posts
                 const postsSnap = await getDocs(query(collection(db, 'posts'), orderBy('createdAt', 'desc'), limit(50)));

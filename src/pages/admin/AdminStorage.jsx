@@ -188,7 +188,7 @@ export default function AdminStorage() {
       fetchItems(currentFolder);
     } catch (error) {
       console.error(error);
-      toast.error(`Có lỗi xảy ra. Đã tải lên ${successCount}/${selectedFiles.length} tệp.`);
+      toast.error(`Lỗi: ${error.message}. Đã tải lên ${successCount}/${selectedFiles.length} tệp.`);
       fetchItems(currentFolder);
     } finally {
       setIsUploading(false);

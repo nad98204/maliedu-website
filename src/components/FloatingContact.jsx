@@ -1,7 +1,15 @@
 import { Phone, MessageCircle } from "lucide-react";
 import { HOTLINE } from "../menuData";
+import { useLocation } from "react-router-dom";
 
 const FloatingContact = () => {
+    const location = useLocation();
+    
+    // Hide contact buttons on admin pages
+    if (location.pathname.startsWith("/admin")) {
+        return null;
+    }
+
     // Format hotline for tel: link (remove spaces)
     const telLink = `tel:${HOTLINE.replace(/\s/g, '')}`;
 

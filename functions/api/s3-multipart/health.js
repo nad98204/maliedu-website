@@ -2,7 +2,7 @@ import {
   createErrorResponse,
   createJsonResponse,
   validateHealthcheck,
-} from "../../_lib/s3Multipart.js";
+} from "../../_lib/s3MultipartV3.js";
 
 export async function onRequestGet(context) {
   try {

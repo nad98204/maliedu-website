@@ -86,10 +86,9 @@ const getCanonicalQueryString = (entries = []) =>
     ])
     .sort(([leftName, leftValue], [rightName, rightValue]) => {
       if (leftName === rightName) {
-        return leftValue.localeCompare(rightValue);
+        return leftValue < rightValue ? -1 : leftValue > rightValue ? 1 : 0;
       }
-
-      return leftName.localeCompare(rightName);
+      return leftName < rightName ? -1 : leftName > rightName ? 1 : 0;
     })
     .map(([name, value]) => `${name}=${value}`)
     .join("&");
@@ -97,14 +96,14 @@ const getCanonicalQueryString = (entries = []) =>
 const getCanonicalHeaders = (headers) =>
   Object.entries(headers)
     .map(([name, value]) => [name.toLowerCase(), normalizeHeaderValue(value)])
-    .sort(([left], [right]) => left.localeCompare(right))
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
     .map(([name, value]) => `${name}:${value}\n`)
     .join("");
 
 const getSignedHeaders = (headers) =>
   Object.keys(headers)
     .map((name) => name.toLowerCase())
-    .sort((left, right) => left.localeCompare(right))
+    .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
     .join(";");
 
 const stripTrailingSlash = (value) => value.replace(/\/+$/, "");

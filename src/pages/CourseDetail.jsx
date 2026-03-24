@@ -25,6 +25,7 @@ const CourseDetail = () => {
     const [isDescExpanded, setIsDescExpanded] = useState(false);
     const [instructorStats, setInstructorStats] = useState({ courses: 0, students: 0 });
     const [isEnrolled, setIsEnrolled] = useState(false);
+    const [realStudentCount, setRealStudentCount] = useState(null);
 
     useEffect(() => {
         const handleScroll = () => {
@@ -186,23 +187,34 @@ const CourseDetail = () => {
 
     useEffect(() => {
         const fetchInstructorStats = async () => {
-            if (!course?.authorId) return;
+            if (!course?.id) return;
 
             try {
-                const q = query(collection(db, 'courses'), where('authorId', '==', course.authorId));
-                const snapshot = await getDocs(q);
-                let totalC = 0;
-                let totalS = 0;
+                // Fetch REAL enrollment count from enrollments collection (source of truth)
+                const enrollQ = query(collection(db, 'enrollments'), where('courseId', '==', course.id));
+                const enrollSnap = await getDocs(enrollQ);
+                setRealStudentCount(enrollSnap.size);
 
-                snapshot.forEach(doc => {
-                    const data = doc.data();
-                    totalC++;
-                    // Use REAL student count
-                    const sCount = data.students?.length || 0;
-                    totalS += sCount;
-                });
+                // Fetch instructor stats using REAL enrollments from all instructor's courses
+                if (course?.authorId) {
+                    const q = query(collection(db, 'courses'), where('authorId', '==', course.authorId));
+                    const snapshot = await getDocs(q);
+                    const totalC = snapshot.size;
 
-                setInstructorStats({ courses: totalC, students: totalS });
+                    // Batch-fetch real enrollment counts for all instructor courses
+                    const courseIds = snapshot.docs.map(d => d.id);
+                    let totalS = 0;
+
+                    await Promise.all(
+                        courseIds.map(async (cId) => {
+                            const eQ = query(collection(db, 'enrollments'), where('courseId', '==', cId));
+                            const eSnap = await getDocs(eQ);
+                            totalS += eSnap.size;
+                        })
+                    );
+
+                    setInstructorStats({ courses: totalC, students: totalS });
+                }
             } catch (err) {
                 console.error("Stats error", err);
             }
@@ -279,11 +291,18 @@ const CourseDetail = () => {
                                 <div className="flex items-center gap-2">
                                     <span className="flex text-yellow-400"><Star className="w-5 h-5 fill-current" /></span>
                                     <span className="text-white font-bold">{course.fakeRating || "5.0"}</span>
-                                    <span className="text-red-100">({course.fakeReviewCount || "120+"} đánh giá)</span>
+                                    <span className="text-red-100">({course.fakeReviewCount || "0"} đánh giá)</span>
                                 </div>
                                 <div className="flex items-center gap-2 text-red-100">
                                     <Users className="w-5 h-5 text-red-100" />
-                                    <span>{course.fakeStudentCount || "2,500+"} học viên</span>
+                                    <span>
+                                        {course.fakeStudentCount
+                                            ? course.fakeStudentCount
+                                            : (realStudentCount !== null
+                                                ? realStudentCount
+                                                : (Array.isArray(course.students) ? course.students.length : (course.students || 0)))
+                                        } học viên
+                                    </span>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <div className="bg-white/10 text-white px-3 py-1 rounded-full shadow-sm text-sm font-semibold flex items-center gap-2 border border-white/20">
@@ -409,7 +428,7 @@ const CourseDetail = () => {
                                 <div className="flex items-center justify-center md:justify-start gap-3 text-sm text-slate-600 mb-4">
                                     <span className="flex items-center gap-2 border border-slate-200 rounded-full px-4 py-1.5 bg-slate-50">
                                         <Users className="w-4 h-4 text-slate-500" />
-                                        {instructorStats.students.toLocaleString('vi-VN')}+ Học viên
+                                        {instructorStats.students.toLocaleString('vi-VN')} Học viên
                                     </span>
                                     <span className="flex items-center gap-2 border border-slate-200 rounded-full px-4 py-1.5 bg-slate-50">
                                         <PlayCircle className="w-4 h-4 text-slate-500" />

@@ -176,18 +176,18 @@ const Header = () => {
           <div className="flex items-center justify-center sm:justify-end gap-2">
             <Link
               to="/tuyen-dung"
-              className="inline-flex items-center gap-1.5 px-2 py-1 text-[10px] sm:gap-2 sm:px-3 sm:py-1.5 sm:text-xs rounded-full bg-secret-paper text-secret-wax font-medium shadow-sm hover:bg-white transition"
+              className="inline-flex items-center whitespace-nowrap gap-1.5 px-2 py-1 text-[10px] sm:gap-2 sm:px-3 sm:py-1.5 sm:text-xs rounded-full bg-secret-paper text-secret-wax font-medium shadow-sm hover:bg-white transition"
             >
-              <Briefcase className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+              <Briefcase className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0" />
               Tuyển dụng
             </Link>
 
             {currentUser && (
               <Link
                 to="/gio-hang"
-                className="relative inline-flex items-center gap-1.5 px-2 py-1 text-[10px] sm:gap-2 sm:px-3 sm:py-1.5 sm:text-xs rounded-full bg-secret-paper text-secret-wax font-medium shadow-sm hover:bg-white transition mr-1"
+                className="relative inline-flex items-center whitespace-nowrap gap-1.5 px-2 py-1 text-[10px] sm:gap-2 sm:px-3 sm:py-1.5 sm:text-xs rounded-full bg-secret-paper text-secret-wax font-medium shadow-sm hover:bg-white transition mr-1"
               >
-                <ShoppingCart className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                <ShoppingCart className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0" />
                 Giỏ hàng
                 {totalBadgeCount > 0 && (
                   <span className="ml-0.5 inline-flex items-center justify-center min-w-[1.25rem] h-3.5 px-1 text-[9px] sm:h-4 sm:text-[10px] font-bold leading-none text-white rounded-full"
@@ -203,11 +203,13 @@ const Header = () => {
               <div className="relative">
                 <button
                   onClick={() => setUserMenuOpen(!userMenuOpen)}
-                  className="inline-flex items-center gap-1.5 px-2 py-1 text-[10px] sm:gap-2 sm:px-3 sm:py-1.5 sm:text-xs rounded-full border border-secret-paper/80 text-secret-paper font-medium hover:bg-white/10 transition"
+                  className="inline-flex items-center whitespace-nowrap gap-1.5 px-2 py-1 text-[10px] sm:gap-2 sm:px-3 sm:py-1.5 sm:text-xs rounded-full border border-secret-paper/80 text-secret-paper font-medium hover:bg-white/10 transition"
                 >
-                  <User className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                  {currentUser.displayName || currentUser.email?.split('@')?.[0] || 'User'}
-                  <ChevronDown className="h-3 w-3" />
+                  <User className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0" />
+                  <span className="max-w-[80px] sm:max-w-none truncate">
+                    {currentUser.displayName || currentUser.email?.split('@')?.[0] || 'User'}
+                  </span>
+                  <ChevronDown className="h-3 w-3 shrink-0" />
                 </button>
 
                 {userMenuOpen && (
@@ -263,9 +265,9 @@ const Header = () => {
                 onMouseEnter={warmUpGoogleSignIn}
                 onFocus={warmUpGoogleSignIn}
                 onTouchStart={warmUpGoogleSignIn}
-                className="inline-flex items-center gap-1.5 px-2 py-1 text-[10px] sm:gap-2 sm:px-3 sm:py-1.5 sm:text-xs rounded-full border border-secret-paper/80 text-secret-paper font-medium hover:bg-white/10 transition"
+                className="inline-flex items-center whitespace-nowrap gap-1.5 px-2 py-1 text-[10px] sm:gap-2 sm:px-3 sm:py-1.5 sm:text-xs rounded-full border border-secret-paper/80 text-secret-paper font-medium hover:bg-white/10 transition"
               >
-                <LogIn className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                <LogIn className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0" />
                 Đăng nhập
               </button>
             )}

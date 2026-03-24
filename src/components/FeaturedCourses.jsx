@@ -29,14 +29,26 @@ export default function FeaturedCourses() {
             try {
                 const q = query(
                     collection(db, 'courses'),
-                    where('isPublished', '==', true)
+                    where('isPublished', '==', true),
+                    where('isForSale', '==', true)
                 );
 
                 const snapshot = await getDocs(q);
-                const data = snapshot.docs.map(doc => ({
+                let data = snapshot.docs.map(doc => ({
                     id: doc.id,
                     ...doc.data()
                 }));
+
+                // Batch-fetch enrollment counts (one query for all courses)
+                if (data.length > 0) {
+                    const enrollSnap = await getDocs(collection(db, 'enrollments'));
+                    const counts = {};
+                    enrollSnap.forEach(d => {
+                        const cId = d.data().courseId;
+                        if (cId) counts[cId] = (counts[cId] || 0) + 1;
+                    });
+                    data = data.map(c => ({ ...c, enrollmentCount: counts[c.id] || c.enrollmentCount || 0 }));
+                }
 
                 // Client-side sort to avoid Firestore index requirement
                 data.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));

@@ -2,7 +2,7 @@ import {
   createErrorResponse,
   createJsonResponse,
   signMultipartUploadPart,
-} from "../../_lib/s3Multipart.js";
+} from "../../_lib/s3MultipartV3.js";
 
 export async function onRequestPost(context) {
   try {

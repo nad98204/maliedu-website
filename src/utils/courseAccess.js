@@ -23,7 +23,7 @@ export const normalizeCourseSections = (curriculum = []) => {
 const clampPreviewCount = (value, maxValue) => {
   const parsed = Number(value);
 
-  if (!Number.isFinite(parsed) || parsed <= 0) {
+  if (!Number.isFinite(parsed)) {
     return Math.min(DEFAULT_FREE_LESSONS_COUNT, maxValue);
   }
 

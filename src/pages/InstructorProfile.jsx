@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { doc, getDoc, collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import CourseCard from '../components/CourseCard';
 import InstructorCard from '../components/InstructorCard';
@@ -23,22 +23,12 @@ const InstructorProfile = () => {
                     setInstructor({ id: instSnap.id, ...instSnap.data() });
                 }
 
-                // Fetch Courses by this Instructor
-                const q = query(
-                    collection(db, 'courses'),
-                    where('authorId', '==', id),
-                    orderBy('createdAt', 'desc') // Ensure index exists or catch error
-                );
-
-                // Note: If compound index missing, might need to remove orderBy or create index
-                // For now, let's try with basic query + client side sort if index errors, 
-                // but usually single field sort with where is fine if it's the same field? 
-                // Wait, where(authorId) and orderBy(createdAt) requires index.
-                // I'll try without orderBy first to be safe, or handle error.
                 // Actually, let's stick to simple where() for now and sort in JS.
 
                 const coursesSnap = await getDocs(query(collection(db, 'courses'), where('authorId', '==', id)));
-                const coursesData = coursesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                const coursesData = coursesSnap.docs
+                    .map(doc => ({ id: doc.id, ...doc.data() }))
+                    .filter(c => c.isPublished !== false && c.isForSale !== false);
 
                 // Sort manually
                 coursesData.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));

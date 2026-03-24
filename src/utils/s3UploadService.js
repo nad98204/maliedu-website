@@ -112,11 +112,17 @@ const uploadObjectToS3 = async (
       const start = (partNumber - 1) * uploadSession.partSize;
       const end = Math.min(file.size, start + uploadSession.partSize);
       const blob = file.slice(start, end);
-      const { url } = await requestJson("/sign-part", {
+      let { url } = await requestJson("/sign-part", {
         key: uploadSession.key,
         uploadId: uploadSession.uploadId,
         partNumber,
       });
+
+      if (import.meta.env.DEV && url.includes('s3-hn1-api.longvan.vn')) {
+         const urlObj = new URL(url);
+         url = '/s3-proxy' + urlObj.pathname + urlObj.search;
+      }
+
       const etag = await uploadPart(url, blob, (loadedBytes) => {
         partProgress.set(partNumber, loadedBytes);
         reportProgress();

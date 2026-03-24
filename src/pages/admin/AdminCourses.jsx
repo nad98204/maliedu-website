@@ -1570,7 +1570,7 @@ const AdminCourses = () => {
                           <p className="text-sm text-blue-800">
                             <strong>Khóa học miễn phí:</strong> Khóa học này vẫn
                             hiển thị trên trang bán hàng nhưng miễn phí. Học
-                            viên có thể xem {formData.freeLessonsCount || 3}{" "}
+                            viên có thể xem {formData.freeLessonsCount ?? 0}{" "}
                             video đầu tiên miễn phí, sau đó cần admin cấp quyền
                             hoặc mua để xem tiếp.
                           </p>
@@ -1584,7 +1584,7 @@ const AdminCourses = () => {
                             name="freeLessonsCount"
                             value={formData.freeLessonsCount}
                             onChange={handleInputChange}
-                            min="1"
+                            min="0"
                             max="10"
                             className="w-full rounded-lg border border-slate-200 px-4 py-2 focus:ring-2 focus:ring-secret-wax/20 focus:border-secret-wax outline-none"
                             placeholder="VD: 3"
@@ -1902,6 +1902,56 @@ const AdminCourses = () => {
                           rows="4"
                           className="w-full rounded-lg border border-slate-200 px-4 py-2 outline-none focus:border-secret-wax"
                           placeholder="Mô tả về kinh nghiệm và sứ mệnh của giảng viên..."
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-50 p-6 rounded-xl border border-slate-200">
+                    <div className="flex items-center gap-3 mb-6">
+                      <Monitor className="w-6 h-6 text-secret-wax" />
+                      <h3 className="text-lg font-bold text-slate-800">
+                        Chỉ số ảo & Đánh giá
+                      </h3>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-slate-700">
+                          Số học viên hiển thị
+                        </label>
+                        <input
+                          type="text"
+                          name="fakeStudentCount"
+                          value={formData.fakeStudentCount}
+                          onChange={handleInputChange}
+                          className="w-full rounded-lg border border-slate-200 px-4 py-2 outline-none focus:border-secret-wax"
+                          placeholder="VD: 1,200+ hoặc 500"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-slate-700">
+                          Đánh giá (Số sao)
+                        </label>
+                        <input
+                          type="text"
+                          name="fakeRating"
+                          value={formData.fakeRating}
+                          onChange={handleInputChange}
+                          className="w-full rounded-lg border border-slate-200 px-4 py-2 outline-none focus:border-secret-wax"
+                          placeholder="VD: 4.8 hoặc 5.0"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-slate-700">
+                          Số lượt đánh giá
+                        </label>
+                        <input
+                          type="text"
+                          name="fakeReviewCount"
+                          value={formData.fakeReviewCount}
+                          onChange={handleInputChange}
+                          className="w-full rounded-lg border border-slate-200 px-4 py-2 outline-none focus:border-secret-wax"
+                          placeholder="VD: 120+ hoặc 45"
                         />
                       </div>
                     </div>

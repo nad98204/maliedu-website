@@ -110,7 +110,15 @@ const AppShell = () => {
     </div>
   ) : (
     <div className="min-h-screen flex flex-col bg-white">
-      {!isPlayerRoute && <Header />}
+      {!isPlayerRoute && (
+        location.pathname.startsWith('/admin') ? (
+           <div className="hidden lg:block">
+             <Header />
+           </div>
+        ) : (
+           <Header />
+        )
+      )}
       <main className="flex-1">
         <Routes>
           <Route path="/" element={<Home />} />

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { collection, query, where, getDocs, limit, orderBy } from 'firebase/firestore';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import { formatPrice } from '../utils/orderService';
 import { Star, Users, Clock } from 'lucide-react';
@@ -13,18 +13,33 @@ const RelatedCourses = ({ currentCourseId }) => {
     useEffect(() => {
         const fetchRelatedCourses = async () => {
             try {
-                // Fetch recent 3 courses (excluding current one manually after fetch if needed, 
-                // or just fetch 4 and slice). 
-                // Since we don't have complex 'category' logic yet, just fetch latest.
-                const q = query(collection(db, 'courses'), orderBy('createdAt', 'desc'), limit(4));
+                const q = query(
+                    collection(db, 'courses'), 
+                    where('isPublished', '==', true),
+                    where('isForSale', '==', true)
+                );
                 const querySnapshot = await getDocs(q);
 
-                const fetchedCourses = [];
+                let fetchedCourses = [];
                 querySnapshot.forEach((doc) => {
                     if (doc.id !== currentCourseId) {
                         fetchedCourses.push({ id: doc.id, ...doc.data() });
                     }
                 });
+
+                // Batch-fetch enrollment counts
+                if (fetchedCourses.length > 0) {
+                    const enrollSnap = await getDocs(collection(db, 'enrollments'));
+                    const counts = {};
+                    enrollSnap.forEach(d => {
+                        const cId = d.data().courseId;
+                        if (cId) counts[cId] = (counts[cId] || 0) + 1;
+                    });
+                    fetchedCourses = fetchedCourses.map(c => ({ ...c, enrollmentCount: counts[c.id] || c.enrollmentCount || 0 }));
+                }
+
+                // Sort by createdAt desc in memory
+                fetchedCourses.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
                 setCourses(fetchedCourses.slice(0, 3));
             } catch (error) {

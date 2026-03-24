@@ -14,7 +14,9 @@ const CourseCard = ({ course }) => {
     };
 
     // Calculate Metrics
-    const studentCount = Array.isArray(course.students) ? course.students.length : (course.students || 0);
+    const studentCount = course.fakeStudentCount
+        || course.enrollmentCount
+        || (Array.isArray(course.students) ? course.students.length : (course.students || 0));
 
     const calculateTotalLessons = () => {
         if (course.totalLessons) return course.totalLessons;
