@@ -128,9 +128,10 @@ const HeroCarousel = () => {
   const prefetchedRef = useRef(false);
 
   const filteredSlides = useMemo(() => {
-    const list = slides.filter((slide) => slide.image || slide.mobileImage);
-    return list.length > 0 ? list : slides;
-  }, [slides]);
+    return slides.filter((slide) => 
+      isMobileViewport ? !!slide.mobileImage : !!slide.image
+    );
+  }, [slides, isMobileViewport]);
 
   const slideCount = filteredSlides.length;
   const activeSlide = useMemo(
