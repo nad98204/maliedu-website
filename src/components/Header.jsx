@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { onAuthStateChanged, signOut } from "firebase/auth";
+import { doc, onSnapshot } from "firebase/firestore";
 import {
   Briefcase,
   ChevronDown,
@@ -20,12 +21,18 @@ import {
   AlertCircle
 } from "lucide-react";
 
-import { auth } from "../firebase";
+import { auth, db } from "../firebase";
 import { HOTLINE, MENU_ITEMS, SOCIALS } from "../menuData";
 import { useCart } from "../context/CartContext";
 import GlobalSearch from "./GlobalSearch";
 import AuthModal from "./AuthModal";
 import { logoutSession } from "../utils/sessionService";
+import {
+  getFirstAllowedAdminPath,
+  hasModuleAccess,
+  isAdminUser,
+  isSuperAdminEmail,
+} from "../utils/adminAccess";
 
 const SOCIAL_LINKS = [
   { name: "Facebook", href: SOCIALS.facebook, Icon: Facebook },
@@ -37,6 +44,7 @@ const Header = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openSubmenus, setOpenSubmenus] = useState({});
   const [currentUser, setCurrentUser] = useState(null);
+  const [currentUserProfile, setCurrentUserProfile] = useState(null);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const { cartCount = 0, pendingCount = 0, totalBadgeCount = 0 } = useCart() || {};
@@ -44,11 +52,71 @@ const Header = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    let unsubscribeUserDoc = () => {};
+
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      unsubscribeUserDoc();
       setCurrentUser(user);
+
+      if (!user) {
+        setCurrentUserProfile(null);
+        return;
+      }
+
+      if (isSuperAdminEmail(user.email)) {
+        setCurrentUserProfile({
+          allowedModules: [],
+          role: "admin",
+        });
+        return;
+      }
+
+      unsubscribeUserDoc = onSnapshot(
+        doc(db, "users", user.uid),
+        (snapshot) => {
+          const userData = snapshot.exists() ? snapshot.data() : {};
+          setCurrentUserProfile({
+            allowedModules: userData.allowedModules || [],
+            role: userData.role || "student",
+          });
+        },
+        (error) => {
+          console.error("Header user profile sync error:", error);
+          setCurrentUserProfile({
+            allowedModules: [],
+            role: "student",
+          });
+        }
+      );
     });
-    return () => unsubscribe();
+
+    return () => {
+      unsubscribeUserDoc();
+      unsubscribeAuth();
+    };
   }, []);
+
+  const isCurrentUserAdmin = currentUser
+    ? isAdminUser({
+        email: currentUser.email,
+        role: currentUserProfile?.role,
+      })
+    : false;
+
+  const adminDestination = getFirstAllowedAdminPath({
+    allowedModules: currentUserProfile?.allowedModules,
+    isSuperAdmin: isSuperAdminEmail(currentUser?.email),
+  });
+
+  const canOpenAdmin = isCurrentUserAdmin &&
+    hasModuleAccess({
+      allowedModules: currentUserProfile?.allowedModules,
+      isSuperAdmin: isSuperAdminEmail(currentUser?.email),
+      moduleKey:
+        currentUserProfile?.allowedModules?.length > 0
+          ? currentUserProfile.allowedModules[0]
+          : "dashboard",
+    });
 
   const handleLogout = async () => {
     try {
@@ -139,9 +207,9 @@ const Header = () => {
 
                 {userMenuOpen && (
                   <div className="absolute right-0 top-full mt-2 w-48 rounded-lg bg-white shadow-xl py-2 z-50 text-secret-ink">
-                    {currentUser.email === "mongcoaching@gmail.com" && (
+                    {canOpenAdmin && (
                       <Link
-                        to="/admin/dashboard"
+                        to={adminDestination}
                         className="flex items-center gap-2 px-4 py-2 hover:bg-slate-50 text-sm font-medium"
                         onClick={() => setUserMenuOpen(false)}
                       >
@@ -419,9 +487,9 @@ const Header = () => {
 
                 {currentUser ? (
                   <div className="flex flex-col gap-2">
-                    {currentUser.email === "mongcoaching@gmail.com" && (
+                    {canOpenAdmin && (
                       <Link
-                        to="/admin/dashboard"
+                        to={adminDestination}
                         onClick={closeMobileMenu}
                         className="w-full text-center px-4 py-2 rounded-full border border-secret-ink/10 text-secret-ink text-sm font-semibold hover:bg-secret-ink/5 transition"
                       >
