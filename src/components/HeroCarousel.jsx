@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { collection, getDocs, query, where, orderBy } from "firebase/firestore";
 
+import { db } from "../firebase";
 import { HERO_SLIDES } from "../data/heroData";
-import { readHomeBannerCache } from "../utils/homeBannerCache";
+import { readHomeBannerCache, writeHomeBannerCache } from "../utils/homeBannerCache";
 
 const MOBILE_MEDIA_QUERY = "(max-width: 768px)";
 const DEFAULT_DESKTOP_ASPECT_RATIO = 16 / 9;
@@ -78,7 +80,10 @@ const getSlides = () => {
 };
 
 const HeroCarousel = () => {
-  const [slides, setSlides] = useState(getSlides);
+  const [slides, setSlides] = useState(() => {
+    const cached = buildSlides(readHomeBannerCache());
+    return cached.length > 0 ? cached : FALLBACK_SLIDES;
+  });
   const [currentIndex, setCurrentIndex] = useState(0);
   const [dragStartX, setDragStartX] = useState(null);
   const [dragging, setDragging] = useState(false);
@@ -106,13 +111,37 @@ const HeroCarousel = () => {
   );
 
   useEffect(() => {
-    const syncSlides = () => {
-      setSlides(getSlides());
+    const fetchBanners = async () => {
+      try {
+        const q = query(
+          collection(db, "banners"),
+          where("active", "==", true),
+          orderBy("createdAt", "desc")
+        );
+        const snapshot = await getDocs(q);
+        const items = snapshot.docs.map(docItem => ({
+          id: docItem.id,
+          ...docItem.data()
+        }));
+
+        if (items.length > 0) {
+          const newSlides = buildSlides(items);
+          setSlides(newSlides);
+          writeHomeBannerCache(items);
+        }
+      } catch (err) {
+        console.error("HeroCarousel: Error fetching banners from Firestore:", err);
+      }
     };
 
-    syncSlides();
-    window.addEventListener("storage", syncSlides);
+    fetchBanners();
 
+    const syncSlides = () => {
+      const cached = buildSlides(readHomeBannerCache());
+      if (cached.length > 0) setSlides(cached);
+    };
+
+    window.addEventListener("storage", syncSlides);
     return () => window.removeEventListener("storage", syncSlides);
   }, []);
 
