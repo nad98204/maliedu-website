@@ -17,42 +17,47 @@ const MiniCourseCard = ({ course }) => {
     const courseUrl = course.slug ? `/khoa-hoc/${course.slug}` : `/khoa-hoc/${course.id}`;
 
     return (
-        <Link to={courseUrl} className="block group flex-shrink-0 w-[240px] md:w-[260px]">
-            <div className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-slate-100 group-hover:-translate-y-1 h-full flex flex-col">
+        <Link to={courseUrl} className="block group flex-shrink-0 w-[240px] md:w-[280px]">
+            <div className="bg-white rounded-[32px] overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_15px_35px_rgba(0,0,0,0.08)] transition-all duration-500 border border-slate-50 group-hover:-translate-y-2 h-full flex flex-col">
                 {/* Thumbnail */}
-                <div className="relative overflow-hidden">
+                <div className="relative aspect-[16/10] overflow-hidden">
                     <img
                         src={course.thumbnailUrl || 'https://via.placeholder.com/400x225'}
                         alt={course.name}
-                        className="w-full h-36 object-cover group-hover:scale-105 transition-transform duration-500"
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                     />
                     {hasDiscount && (
-                        <div className="absolute top-2 right-2 bg-red-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider shadow">
+                        <div className="absolute top-3 right-3 bg-[#F85149] text-white text-[10px] font-black px-3 py-1.5 rounded-full uppercase tracking-wide shadow-lg">
                             GIẢM {discountPct}%
                         </div>
                     )}
-                    {course.categoryName && (
-                        <div className="absolute top-2 left-2 bg-black/60 backdrop-blur-sm text-white text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-widest">
-                            {course.categoryName}
+                    {(course.categoryName || course.category) && (
+                        <div className="absolute top-3 left-3 bg-[#1E293B] text-white text-[9px] font-bold px-2.5 py-1 rounded-lg uppercase tracking-widest border border-slate-600/50 shadow-md">
+                            {course.categoryName || course.category}
                         </div>
                     )}
                 </div>
 
                 {/* Info */}
-                <div className="p-3 flex flex-col flex-1">
-                    <h3 className="font-bold text-slate-900 text-sm leading-snug line-clamp-2 mb-2 group-hover:text-secret-wax transition-colors">
+                <div className="p-5 flex flex-col flex-1">
+                    <h3 className="font-bold text-slate-900 text-[15px] leading-tight line-clamp-2 mb-4 group-hover:text-[#8B2E2E] transition-colors">
                         {course.name}
                     </h3>
-                    <div className="mt-auto">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <span className="text-secret-wax font-black text-base">{formatPrice(finalPrice)}</span>
-                                {hasDiscount && (
-                                    <span className="text-slate-400 text-xs line-through ml-1.5">{formatPrice(originalPrice)}</span>
-                                )}
-                            </div>
+                    
+                    <div className="mt-auto pt-4 border-t border-slate-100 flex items-end justify-between">
+                        <div className="text-[#8B2E2E] font-black text-xl leading-none">
+                            {formatPrice(finalPrice)}
+                        </div>
+                        <div className="flex flex-col items-end gap-1.5">
+                            {hasDiscount && (
+                                <span className="text-slate-400 text-[11px] font-bold line-through leading-none">
+                                    {formatPrice(originalPrice)}
+                                </span>
+                            )}
                             {studentCount > 0 && (
-                                <span className="text-[10px] text-slate-500 font-bold">{studentCount} học viên</span>
+                                <div className="text-[11px] text-slate-500 font-bold leading-none">
+                                    {studentCount} học viên
+                                </div>
                             )}
                         </div>
                     </div>
@@ -125,7 +130,9 @@ const CourseSlider = ({ title, subtitle, icon, iconBg, courses, loading }) => {
                     ))
                 ) : (
                     courses.map(course => (
-                        <MiniCourseCard key={course.id} course={course} />
+                        <div key={course.id} className="flex-shrink-0 w-[300px] md:w-[380px] h-full py-2">
+                            <CourseCard course={course} />
+                        </div>
                     ))
                 )}
             </div>

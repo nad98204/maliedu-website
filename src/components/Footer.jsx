@@ -81,7 +81,7 @@ const Footer = () => {
               <img
                 src="https://res.cloudinary.com/dstukyjzd/image/upload/v1767861713/FULL_SIZE_ls1mmd.png"
                 alt="Mali Edu Logo"
-                className="h-14 w-auto object-contain drop-shadow-[0_10px_25px_rgba(0,0,0,0.35)]"
+                className="h-10 w-auto object-contain drop-shadow-[0_10px_25px_rgba(0,0,0,0.35)]"
               />
             </div>
 

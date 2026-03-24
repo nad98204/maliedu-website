@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Users, BookOpen } from 'lucide-react';
+import { Users, BookOpen, Eye } from 'lucide-react';
 import { formatPrice } from '../utils/orderService';
 
 const CourseCard = ({ course }) => {
@@ -32,74 +32,77 @@ const CourseCard = ({ course }) => {
     const lessonCount = calculateTotalLessons();
 
     return (
-        <div className="group bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden flex flex-col border border-slate-100 h-full hover:-translate-y-1">
+        <div className="group bg-white rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_40px_rgba(0,0,0,0.08)] transition-all duration-500 overflow-hidden flex flex-col border border-slate-100 h-full hover:-translate-y-2">
             {/* Image Container */}
-            <Link to={`/khoa-hoc/${course.slug || course.id}`} className="relative aspect-video overflow-hidden block">
+            <Link to={`/khoa-hoc/${course.slug || course.id}`} className="relative aspect-[16/10] overflow-hidden block">
                 <img
                     src={course.thumbnailUrl || 'https://via.placeholder.com/600x400?text=Course+Image'}
                     alt={course.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                 />
 
-                {/* Category Badge */}
-                {course.displayCategory && (
-                    <div className="absolute top-3 left-3 z-10">
-                        <span className="bg-blue-600 text-white text-[10px] font-bold uppercase px-3 py-1 rounded shadow-sm tracking-wide">
-                            {course.displayCategory}
+                {/* Category Badge - Top Left */}
+                {(course.displayCategory || course.categoryName || course.category) && (
+                    <div className="absolute top-4 left-4 z-10">
+                        <span className="bg-[#2B6BE2] text-white text-[10px] font-black uppercase px-3 py-1.5 rounded-lg shadow-lg tracking-wider backdrop-blur-sm bg-opacity-90">
+                            {course.displayCategory || course.categoryName || course.category}
                         </span>
                     </div>
                 )}
 
-                {course.salePrice && (
-                    <div className="absolute top-2 right-2 bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded-full shadow-md z-10">
-                        GIẢM {Math.round(((course.price - course.salePrice) / course.price) * 100)}%
+                {/* Sale Badge - Top Right */}
+                {course.salePrice && course.price > course.salePrice && (
+                    <div className="absolute top-4 right-4 z-10">
+                        <span className="bg-[#F85149] text-white text-[11px] font-black px-4 py-1.5 rounded-full shadow-lg tracking-wide uppercase">
+                            GIẢM {Math.round(((course.price - course.salePrice) / course.price) * 100)}%
+                        </span>
                     </div>
                 )}
             </Link>
 
             {/* Content */}
-            <div className="p-4 flex flex-col flex-1">
+            <div className="p-5 sm:p-6 flex flex-col flex-1">
                 <Link to={`/khoa-hoc/${course.slug || course.id}`}>
-                    <h3 className="text-lg font-bold text-slate-900 mb-[10px] line-clamp-2 group-hover:text-secret-wax transition-colors">
+                    <h3 className="text-xl font-bold text-[#0F172A] mb-2 line-clamp-2 group-hover:text-[#8B2E2E] transition-colors leading-tight">
                         {course.name}
                     </h3>
                 </Link>
 
-                <p className="text-sm text-slate-500 mb-3 line-clamp-3 min-h-[3.75rem] text-left leading-normal">
+                <p className="text-[13.5px] text-slate-500 mb-4 line-clamp-3 min-h-[3.75rem] text-left leading-relaxed font-medium opacity-90">
                     {stripHtml(course.description)}
                 </p>
 
                 {/* Metrics */}
-                <div className="flex items-center gap-4 text-xs text-slate-400 mb-4 mt-auto">
-                    <div className="flex items-center gap-1" title="Lượt xem">
-                        <span className="opacity-70">👁️</span> <span>{course.views || 0}</span>
+                <div className="flex items-center gap-4 text-[12px] text-slate-400 mb-5 mt-auto font-bold uppercase tracking-tight">
+                    <div className="flex items-center gap-1.5" title="Lượt xem">
+                        <Eye className="w-[16px] h-[16px] text-slate-400/80" /> <span>{course.views || 0}</span>
                     </div>
-                    <div className="flex items-center gap-1" title="Học viên">
-                        <Users className="w-3.5 h-3.5" /> <span>{studentCount} học viên</span>
+                    <div className="flex items-center gap-1.5" title="Học viên">
+                        <Users className="w-[16px] h-[16px] text-slate-400/80" /> <span>{studentCount} học viên</span>
                     </div>
-                    <div className="flex items-center gap-1" title="Bài học">
-                        <BookOpen className="w-3.5 h-3.5" /> <span>{lessonCount} bài</span>
+                    <div className="flex items-center gap-1.5" title="Bài học">
+                        <BookOpen className="w-[16px] h-[16px] text-slate-400/80" /> <span>{lessonCount} bài</span>
                     </div>
                 </div>
 
                 {/* Footer: Price & Button */}
-                <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
-                    <div>
+                <div className="pt-5 border-t border-slate-100 flex items-center justify-between gap-2">
+                    <div className="flex flex-col min-w-0">
                         {course.isForSale === false ? (
-                            <span className="text-base font-bold text-green-600">
+                            <span className="text-xl font-black text-emerald-600 truncate">
                                 Miễn phí
                             </span>
                         ) : course.salePrice ? (
-                            <div className="flex flex-col">
-                                <span className="text-xs text-slate-400 line-through">
+                            <>
+                                <span className="text-[11px] text-slate-400 line-through font-bold mb-0.5 truncate uppercase tracking-tighter">
                                     {formatPrice(course.price)}
                                 </span>
-                                <span className="text-base font-bold text-red-600">
+                                <span className="text-[20px] md:text-[22px] font-black text-[#8B2E2E] truncate leading-none">
                                     {formatPrice(course.salePrice)}
                                 </span>
-                            </div>
+                            </>
                         ) : (
-                            <span className="text-base font-bold text-slate-900">
+                            <span className="text-[20px] md:text-[22px] font-black text-[#8B2E2E] truncate leading-none">
                                 {formatPrice(course.price || 0)}
                             </span>
                         )}
@@ -107,7 +110,7 @@ const CourseCard = ({ course }) => {
 
                     <Link
                         to={`/khoa-hoc/${course.slug || course.id}`}
-                        className="px-4 py-2 rounded-full bg-gradient-to-r from-red-500 to-orange-500 text-white text-xs font-bold shadow-md hover:shadow-lg hover:from-red-600 hover:to-orange-600 transition-all transform hover:scale-105"
+                        className="px-6 py-3 rounded-full bg-gradient-to-r from-[#F85149] to-[#FF7B39] text-white text-[13px] font-black shadow-lg shadow-red-100 hover:shadow-red-200 transition-all transform hover:scale-105 active:scale-95 whitespace-nowrap"
                     >
                         Vào học ngay
                     </Link>

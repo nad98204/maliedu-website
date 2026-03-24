@@ -99,10 +99,10 @@ const AdminLayout = () => {
       {/* MOBILE TOP NAVIGATION BAR (Admin Toolbar) */}
       <div className="lg:hidden w-full bg-white border-b border-slate-200 px-5 py-2 flex flex-row items-center justify-between shadow-sm relative z-40">
         <div className="flex items-center gap-3">
-          <img 
-            src="https://s3-hn1-api.longvan.vn/video-khoa-hoc/videos/1774334049231-96315918-Logo-Mali-11.png" 
-            alt="Mali Edu Logo" 
-            className="h-16 w-auto scale-110 origin-left"
+          <img
+            src="https://s3-hn1-api.longvan.vn/video-khoa-hoc/videos/1774334049231-96315918-Logo-Mali-11.png"
+            alt="Mali Edu Logo"
+            className="h-9 w-auto origin-left"
           />
         </div>
         <button
@@ -122,21 +122,20 @@ const AdminLayout = () => {
       )}
 
       {/* SIDEBAR DRAWER (Desktop & Mobile) */}
-      <aside 
-        className={`fixed lg:relative z-[99999] lg:z-10 h-[100dvh] lg:h-screen bg-white text-slate-600 flex flex-col transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] shadow-[20px_0_40px_rgba(0,0,0,0.1)] lg:shadow-none border-r border-slate-200 top-0 left-0 ${
-          isMobileMenuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
-        } ${isCollapsed ? "lg:w-[84px]" : "w-[85vw] max-w-[320px] lg:w-72"}`}
+      <aside
+        className={`fixed lg:relative z-[99999] lg:z-10 h-[100dvh] lg:h-screen bg-white text-slate-600 flex flex-col transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] shadow-[20px_0_40px_rgba(0,0,0,0.1)] lg:shadow-none border-r border-slate-200 top-0 left-0 ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+          } ${isCollapsed ? "lg:w-[84px]" : "w-[85vw] max-w-[320px] lg:w-72"}`}
       >
         {/* Sidebar Header (Mobile Only) */}
         <div className={`px-6 py-6 border-b border-slate-100 flex lg:hidden items-center justify-between bg-slate-50/30 ${isCollapsed ? 'justify-center' : ''}`}>
           <div className={`flex items-center gap-3 ${isCollapsed ? 'hidden' : 'flex'}`}>
-            <img 
-              src="https://s3-hn1-api.longvan.vn/video-khoa-hoc/videos/1774334049231-96315918-Logo-Mali-11.png" 
-              alt="Mali Edu Logo" 
-              className="h-16 w-auto scale-110 origin-left"
+            <img
+              src="https://s3-hn1-api.longvan.vn/video-khoa-hoc/videos/1774334049231-96315918-Logo-Mali-11.png"
+              alt="Mali Edu Logo"
+              className="h-9 w-auto origin-left"
             />
           </div>
-          <button 
+          <button
             onClick={() => setIsMobileMenuOpen(false)}
             className="p-2 rounded-lg text-slate-400 hover:text-secret-wax hover:bg-slate-50 active:scale-95 transition-all"
           >
@@ -160,7 +159,7 @@ const AdminLayout = () => {
             {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
           </button>
         </div>
-        
+
         {/* Navigation Links */}
         <nav className={`flex-1 py-6 lg:pt-8 space-y-1.5 overflow-y-auto w-full custom-scrollbar transition-all ${isCollapsed ? 'px-3' : 'px-4'}`}>
           {hasAccess("dashboard") && (

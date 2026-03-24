@@ -57,7 +57,7 @@ const Header = () => {
     // Pre-warm Google Sign-In connections immediately so the popup opens fast
     warmUpGoogleSignIn();
 
-    let unsubscribeUserDoc = () => {};
+    let unsubscribeUserDoc = () => { };
 
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       unsubscribeUserDoc();
@@ -101,11 +101,12 @@ const Header = () => {
     };
   }, []);
 
+  const isSuperAdmin = isSuperAdminEmail(currentUser?.email);
   const isCurrentUserAdmin = currentUser
-    ? isAdminUser({
-        email: currentUser.email,
-        role: currentUserProfile?.role || (isSuperAdminEmail(currentUser?.email) ? "admin" : "student"),
-      })
+    ? isSuperAdmin || isAdminUser({
+      email: currentUser.email,
+      role: currentUserProfile?.role,
+    })
     : false;
 
   const adminDestination = getFirstAllowedAdminPath({
@@ -210,7 +211,14 @@ const Header = () => {
                 </button>
 
                 {userMenuOpen && (
-                  <div className="absolute right-0 top-full mt-2 w-48 rounded-lg bg-white shadow-xl py-2 z-50 text-secret-ink">
+                  <div className="absolute right-0 top-full mt-2 w-56 rounded-lg bg-white shadow-xl py-2 z-50 text-secret-ink border border-slate-100">
+                    <div className="px-4 py-2 border-b border-slate-50 mb-1">
+                      <p className="text-[10px] text-slate-400 font-medium">Đăng nhập với:</p>
+                      <p className="text-xs font-bold text-slate-700 truncate">{currentUser.email}</p>
+                      {isCurrentUserAdmin && (
+                        <span className="mt-1 inline-block text-[9px] bg-red-50 text-red-600 px-2 py-0.5 rounded-full font-bold border border-red-100 uppercase">Quản trị viên</span>
+                      )}
+                    </div>
                     {canOpenAdmin && (
                       <Link
                         to={adminDestination}
@@ -280,7 +288,7 @@ const Header = () => {
               <img
                 src="https://res.cloudinary.com/dstukyjzd/image/upload/v1768455801/Logo_Mali_Ngang_M%C3%80U_CAM_u5lrng.png"
                 alt="Mali Edu"
-                className="h-9 sm:h-11 w-auto object-contain"
+                className="h-7 sm:h-9 w-auto object-contain"
               />
             </a>
 
@@ -376,7 +384,7 @@ const Header = () => {
               <img
                 src="https://res.cloudinary.com/dstukyjzd/image/upload/v1768455801/Logo_Mali_Ngang_M%C3%80U_CAM_u5lrng.png"
                 alt="Mali Edu"
-                className="h-9 sm:h-11 w-auto object-contain"
+                className="h-7 sm:h-9 w-auto object-contain"
               />
               <button
                 type="button"
@@ -497,8 +505,8 @@ const Header = () => {
                     {canOpenAdmin && (
                       <div className="mb-2">
                         <div className="px-4 py-1.5 mb-2 bg-purple-50 rounded-lg border border-purple-100 flex items-center justify-between">
-                           <span className="text-[10px] font-black text-purple-700 uppercase tracking-widest">Vai trò quản trị</span>
-                           <Shield className="h-3 w-3 text-purple-500" />
+                          <span className="text-[10px] font-black text-purple-700 uppercase tracking-widest">Vai trò quản trị</span>
+                          <Shield className="h-3 w-3 text-purple-500" />
                         </div>
                         <Link
                           to={adminDestination}
