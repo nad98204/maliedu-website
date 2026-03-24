@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { collection, getDocs, query, where, orderBy } from "firebase/firestore";
+import { collection, getDocs, query, where } from "firebase/firestore";
 
 import { db } from "../firebase";
 import { HERO_SLIDES } from "../data/heroData";
@@ -115,14 +115,15 @@ const HeroCarousel = () => {
       try {
         const q = query(
           collection(db, "banners"),
-          where("active", "==", true),
-          orderBy("createdAt", "desc")
+          where("active", "==", true)
         );
         const snapshot = await getDocs(q);
-        const items = snapshot.docs.map(docItem => ({
-          id: docItem.id,
-          ...docItem.data()
-        }));
+        const items = snapshot.docs
+          .map(docItem => ({
+            id: docItem.id,
+            ...docItem.data()
+          }))
+          .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
         if (items.length > 0) {
           const newSlides = buildSlides(items);
