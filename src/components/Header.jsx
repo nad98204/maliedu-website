@@ -17,7 +17,9 @@ import {
   Youtube,
   BookOpen,
   ShoppingCart,
-  Clock
+  Clock,
+  Shield,
+  Layout
 } from "lucide-react";
 
 import { auth, db } from "../firebase";
@@ -102,24 +104,16 @@ const Header = () => {
   const isCurrentUserAdmin = currentUser
     ? isAdminUser({
         email: currentUser.email,
-        role: currentUserProfile?.role,
+        role: currentUserProfile?.role || (isSuperAdminEmail(currentUser?.email) ? "admin" : "student"),
       })
     : false;
 
   const adminDestination = getFirstAllowedAdminPath({
-    allowedModules: currentUserProfile?.allowedModules,
+    allowedModules: currentUserProfile?.allowedModules || [],
     isSuperAdmin: isSuperAdminEmail(currentUser?.email),
   });
 
-  const canOpenAdmin = isCurrentUserAdmin &&
-    hasModuleAccess({
-      allowedModules: currentUserProfile?.allowedModules,
-      isSuperAdmin: isSuperAdminEmail(currentUser?.email),
-      moduleKey:
-        currentUserProfile?.allowedModules?.length > 0
-          ? currentUserProfile.allowedModules[0]
-          : "dashboard",
-    });
+  const canOpenAdmin = isCurrentUserAdmin;
 
   const handleLogout = async () => {
     try {
@@ -501,13 +495,20 @@ const Header = () => {
                 {currentUser ? (
                   <div className="flex flex-col gap-2">
                     {canOpenAdmin && (
-                      <Link
-                        to={adminDestination}
-                        onClick={closeMobileMenu}
-                        className="w-full text-center px-4 py-2 rounded-full border border-secret-ink/10 text-secret-ink text-sm font-semibold hover:bg-secret-ink/5 transition"
-                      >
-                        Dashboard Quản trị
-                      </Link>
+                      <div className="mb-2">
+                        <div className="px-4 py-1.5 mb-2 bg-purple-50 rounded-lg border border-purple-100 flex items-center justify-between">
+                           <span className="text-[10px] font-black text-purple-700 uppercase tracking-widest">Vai trò quản trị</span>
+                           <Shield className="h-3 w-3 text-purple-500" />
+                        </div>
+                        <Link
+                          to={adminDestination}
+                          onClick={closeMobileMenu}
+                          className="w-full text-center px-4 py-3 rounded-xl bg-slate-900 text-white text-sm font-bold shadow-lg shadow-slate-900/20 transition hover:bg-slate-800"
+                        >
+                          <Layout className="inline-block h-4 w-4 mr-2" />
+                          Dashboard Quản trị
+                        </Link>
+                      </div>
                     )}
                     <Link
                       to="/khoa-hoc-cua-toi"

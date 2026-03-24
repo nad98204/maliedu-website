@@ -23,6 +23,7 @@ export async function ensureUserProfile({ db, user }) {
   const profile = {
     uid: user.uid,
     email: user.email || "",
+    role: "student",
     createdAt: now,
     updatedAt: now,
   };

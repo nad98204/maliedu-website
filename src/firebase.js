@@ -25,9 +25,15 @@ export const createGoogleProvider = ({ emailHint = "" } = {}) => {
   const provider = new GoogleAuthProvider();
   const normalizedEmailHint = emailHint.trim();
 
+  const customParams = {
+    prompt: "select_account"
+  };
+
   if (EMAIL_HINT_PATTERN.test(normalizedEmailHint)) {
-    provider.setCustomParameters({ login_hint: normalizedEmailHint });
+    customParams.login_hint = normalizedEmailHint;
   }
+
+  provider.setCustomParameters(customParams);
 
   return provider;
 };

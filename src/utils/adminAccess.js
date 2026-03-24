@@ -23,10 +23,10 @@ export const ADMIN_MODULES = [
 export const COURSE_ACCOUNT_MANAGER_MODULES = ["dashboard", "students"];
 
 export const isSuperAdminEmail = (email = "") =>
-  SUPER_ADMIN_EMAILS.includes(String(email || "").toLowerCase());
+  SUPER_ADMIN_EMAILS.includes(String(email || "").trim().toLowerCase());
 
 export const isAdminUser = ({ email = "", role = "" } = {}) =>
-  isSuperAdminEmail(email) || role === "admin";
+  isSuperAdminEmail(email) || String(role || "").trim().toLowerCase() === "admin";
 
 export const hasModuleAccess = ({
   allowedModules = [],

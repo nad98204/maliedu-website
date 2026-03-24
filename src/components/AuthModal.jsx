@@ -8,19 +8,13 @@ import {
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 
 import { auth, db, createGoogleProvider } from '../firebase';
+import { ensureUserProfile } from '../utils/userService';
 import { getFirebaseAuthMessage } from '../utils/firebaseAuthErrors';
 import { warmUpGoogleSignIn } from '../utils/googleAuthWarmup';
 
 const syncGoogleUserProfile = async (user) => {
     try {
-        await setDoc(doc(db, 'users', user.uid), {
-            email: user.email,
-            displayName: user.displayName,
-            photoURL: user.photoURL,
-            role: 'student',
-            lastLoginAt: serverTimestamp(),
-            createdAt: serverTimestamp()
-        }, { merge: true });
+        await ensureUserProfile({ db, user });
     } catch (err) {
         console.error('Google profile sync failed:', err?.code, err?.message, err);
     }

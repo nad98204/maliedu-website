@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { signInWithEmailAndPassword, signOut } from "firebase/auth";
+import { signInWithEmailAndPassword, signOut, signInWithPopup } from "firebase/auth";
 
-import { auth, db } from "../../firebase";
+import { auth, db, createGoogleProvider } from "../../firebase";
 import { ensureUserProfile } from "../../utils/userService";
 import {
   getFirstAllowedAdminPath,
@@ -19,6 +19,39 @@ const Login = () => {
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const handleAfterLogin = async (user) => {
+    const userProfile = await ensureUserProfile({ db, user });
+    const isAdmin = isAdminUser({
+      email: user.email,
+      role: userProfile?.role,
+    });
+
+    // Check Session Limit
+    try {
+      await registerSession(user.uid, isAdmin);
+    } catch (sessionError) {
+      if (sessionError.message === "MAX_SESSIONS_REACHED") {
+        await signOut(auth);
+        setError("Tài khoản đang đăng nhập quá 3 thiết bị! Vui lòng đăng xuất ở thiết bị cũ trước.");
+        return false;
+      }
+      console.error("Session Register Error:", sessionError);
+    }
+
+    if (isAdmin) {
+      navigate(
+        getFirstAllowedAdminPath({
+          allowedModules: userProfile?.allowedModules,
+          isSuperAdmin: isSuperAdminEmail(user.email),
+        })
+      );
+      return true;
+    } else {
+      navigate("/khoa-hoc-cua-toi");
+      return false;
+    }
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError("");
@@ -26,39 +59,27 @@ const Login = () => {
 
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
-      const userProfile = await ensureUserProfile({ db, user });
-      const isAdmin = isAdminUser({
-        email: user.email,
-        role: userProfile?.role,
-      });
-
-      // Check Session Limit
-      try {
-        await registerSession(user.uid, isAdmin);
-      } catch (sessionError) {
-        if (sessionError.message === "MAX_SESSIONS_REACHED") {
-          await signOut(auth);
-          setError("Tài khoản đang đăng nhập quá 3 thiết bị! Vui lòng đăng xuất ở thiết bị cũ trước.");
-          setIsSubmitting(false);
-          return;
-        }
-        console.error("Session Register Error:", sessionError);
-      }
-
-      if (isAdmin) {
-        navigate(
-          getFirstAllowedAdminPath({
-            allowedModules: userProfile?.allowedModules,
-            isSuperAdmin: isSuperAdminEmail(user.email),
-          })
-        );
-      } else {
-        navigate("/khoa-hoc-cua-toi");
-      }
+      await handleAfterLogin(userCredential.user);
     } catch (err) {
       console.error(err);
       setError(getFirebaseAuthMessage(err));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setError("");
+    setIsSubmitting(true);
+    try {
+      const provider = createGoogleProvider();
+      const result = await signInWithPopup(auth, provider);
+      await handleAfterLogin(result.user);
+    } catch (err) {
+      console.error(err);
+      if (err.code !== 'auth/popup-closed-by-user') {
+        setError(getFirebaseAuthMessage(err));
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -79,47 +100,72 @@ const Login = () => {
           <p className="text-slate-500 text-sm">Chào mừng bạn trở lại với Mali Edu</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="mt-8 space-y-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700" htmlFor="email">
-              Email
-            </label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              className="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-secret-wax focus:ring-2 focus:ring-secret-wax/20 transition"
-              placeholder="admin@example.com"
-              required
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700" htmlFor="password">
-              Mật khẩu
-            </label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              className="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-secret-wax focus:ring-2 focus:ring-secret-wax/20 transition"
-              placeholder="Nhập mật khẩu"
-              required
-            />
-          </div>
-
-          {error && <p className="text-sm text-red-500 bg-red-50 p-2 rounded border border-red-100">{error}</p>}
-
+        <div className="mt-8 space-y-4">
           <button
-            type="submit"
+            type="button"
+            onClick={handleGoogleLogin}
             disabled={isSubmitting}
-            className="w-full rounded-lg bg-secret-wax py-2.5 text-sm font-bold text-white transition hover:bg-secret-ink disabled:opacity-70 mt-2"
+            className="w-full flex items-center justify-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-2.5 font-bold text-slate-700 transition hover:bg-slate-50 disabled:opacity-70"
           >
-            {isSubmitting ? "Đang đăng nhập..." : "Đăng nhập"}
+            <img
+              src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+              alt="Google"
+              className="h-5 w-5"
+            />
+            Tiếp tục với Google
           </button>
-        </form>
+
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-slate-200"></div>
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-white px-2 text-slate-400">Hoặc</span>
+            </div>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700" htmlFor="email">
+                Email
+              </label>
+              <input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                className="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-secret-wax focus:ring-2 focus:ring-secret-wax/20 transition"
+                placeholder="admin@example.com"
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700" htmlFor="password">
+                Mật khẩu
+              </label>
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                className="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-secret-wax focus:ring-2 focus:ring-secret-wax/20 transition"
+                placeholder="Nhập mật khẩu"
+                required
+              />
+            </div>
+
+            {error && <p className="text-sm text-red-500 bg-red-50 p-2 rounded border border-red-100">{error}</p>}
+
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full rounded-lg bg-secret-wax py-2.5 text-sm font-bold text-white transition hover:bg-secret-ink disabled:opacity-70 mt-2"
+            >
+              {isSubmitting ? "Đang xử lý..." : "Đăng nhập với email"}
+            </button>
+          </form>
+        </div>
 
         <div className="mt-6 text-center text-sm text-slate-500">
           Chưa có tài khoản?{" "}

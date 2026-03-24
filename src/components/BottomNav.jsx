@@ -1,6 +1,10 @@
-import { Home, Info, GraduationCap, PlayCircle, Newspaper } from "lucide-react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { Home, Info, GraduationCap, PlayCircle, Newspaper, Layout } from "lucide-react";
+import { Link, useLocation } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { onAuthStateChanged } from "firebase/auth";
+import { doc, onSnapshot } from "firebase/firestore";
+import { auth, db } from "../firebase";
+import { isAdminUser, isSuperAdminEmail, getFirstAllowedAdminPath } from "../utils/adminAccess";
 import MobileActionSheet from "./MobileActionSheet";
 
 const NAV_ITEMS = [
@@ -26,8 +30,47 @@ const NAV_ITEMS = [
 
 const BottomNav = () => {
     const location = useLocation();
-    const navigate = useNavigate();
     const [activeMenu, setActiveMenu] = useState(null);
+    const [isAdmin, setIsAdmin] = useState(false);
+    const [adminPath, setAdminPath] = useState("/admin/dashboard");
+
+    useEffect(() => {
+        let unsubscribeDoc = () => {};
+
+        const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+            unsubscribeDoc();
+            if (!user) {
+                setIsAdmin(false);
+                return;
+            }
+
+            if (isSuperAdminEmail(user.email)) {
+                setIsAdmin(true);
+                setAdminPath("/admin/dashboard");
+                return;
+            }
+
+            unsubscribeDoc = onSnapshot(doc(db, "users", user.uid), (snapshot) => {
+                const userData = snapshot.exists() ? snapshot.data() : {};
+                const isUserAdmin = isAdminUser({
+                    email: user.email,
+                    role: userData.role
+                });
+                setIsAdmin(isUserAdmin);
+                if (isUserAdmin) {
+                    setAdminPath(getFirstAllowedAdminPath({
+                        allowedModules: userData.allowedModules || [],
+                        isSuperAdmin: false
+                    }));
+                }
+            });
+        });
+
+        return () => {
+            unsubscribeDoc();
+            unsubscribeAuth();
+        };
+    }, []);
 
     const handleNavClick = (e, item) => {
         if (item.children) {
@@ -36,11 +79,18 @@ const BottomNav = () => {
         }
     };
 
+    const currentNavItems = [...NAV_ITEMS];
+    if (isAdmin) {
+        currentNavItems.push({ id: 'admin', label: "Quản trị", icon: Layout, path: adminPath });
+    }
+
+    const gridColsClass = currentNavItems.length === 6 ? "grid-cols-6" : "grid-cols-5";
+
     return (
         <>
             <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 lg:hidden block">
-                <div className="grid grid-cols-5 h-16">
-                    {NAV_ITEMS.map((item) => {
+                <div className={`grid ${gridColsClass} h-16`}>
+                    {currentNavItems.map((item) => {
                         const isActive = location.pathname === item.path || (item.path !== "/" && location.pathname.startsWith(item.path));
                         const Icon = item.icon;
 
@@ -53,7 +103,7 @@ const BottomNav = () => {
                                     }`}
                             >
                                 <Icon className="w-5 h-5" strokeWidth={isActive ? 2.5 : 2} />
-                                <span className="text-[10px] mt-1 font-medium truncate max-w-full px-1">
+                                <span className="text-[9px] mt-1 font-medium truncate max-w-full px-0.5">
                                     {item.label}
                                 </span>
                             </Link>

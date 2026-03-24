@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { createUserWithEmailAndPassword } from "firebase/auth";
-import { auth, db, crmFirestore } from "../firebase";
+import { createUserWithEmailAndPassword, signInWithPopup } from "firebase/auth";
+import { auth, db, crmFirestore, createGoogleProvider } from "../firebase";
 import { ensureUserProfile } from "../utils/userService";
 import { useEffect } from "react";
 import { doc, getDoc } from "firebase/firestore";
@@ -54,18 +54,7 @@ const Register = () => {
 
         try {
             const cred = await createUserWithEmailAndPassword(auth, email, password);
-            console.log("✅ User created in Auth:", cred.user.email);
-
-            // Create user profile in Firestore
-            try {
-                await ensureUserProfile({ db, user: cred.user });
-                console.log("✅ User profile created in Firestore");
-            } catch (profileError) {
-                console.error("⚠️ Failed to create user profile:", profileError);
-                // Continue anyway - user can still login, profile will be created on next login
-            }
-
-            // Success - Redirect to My Courses
+            await ensureUserProfile({ db, user: cred.user });
             navigate("/khoa-hoc-cua-toi");
         } catch (err) {
             console.error("❌ Registration error:", err);
@@ -73,6 +62,24 @@ const Register = () => {
                 setError("Email này đã được sử dụng.");
             } else {
                 setError("Đăng ký thất bại. Vui lòng thử lại.");
+            }
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleGoogleLogin = async () => {
+        setError("");
+        setIsSubmitting(true);
+        try {
+            const provider = createGoogleProvider();
+            const result = await signInWithPopup(auth, provider);
+            await ensureUserProfile({ db, user: result.user });
+            navigate("/khoa-hoc-cua-toi");
+        } catch (err) {
+            console.error(err);
+            if (err.code !== 'auth/popup-closed-by-user') {
+                setError("Có lỗi xảy ra khi đăng nhập bằng Google.");
             }
         } finally {
             setIsSubmitting(false);
@@ -100,62 +107,87 @@ const Register = () => {
                         <p className="text-slate-600 text-sm">Hệ thống đang bảo trì để nâng cấp. Vui lòng quay lại sau!</p>
                     </div>
                 ) : (
-                    <form onSubmit={handleSubmit} className="mt-8 space-y-4">
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-slate-700" htmlFor="email">
-                                Email
-                            </label>
-                            <input
-                                id="email"
-                                type="email"
-                                value={email}
-                                onChange={(event) => setEmail(event.target.value)}
-                                className="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-secret-wax focus:ring-2 focus:ring-secret-wax/20 transition"
-                                placeholder="vidu@email.com"
-                                required
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-slate-700" htmlFor="password">
-                                Mật khẩu
-                            </label>
-                            <input
-                                id="password"
-                                type="password"
-                                value={password}
-                                onChange={(event) => setPassword(event.target.value)}
-                                className="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-secret-wax focus:ring-2 focus:ring-secret-wax/20 transition"
-                                placeholder="Tối thiểu 6 ký tự"
-                                required
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-slate-700" htmlFor="confirmPassword">
-                                Xác nhận mật khẩu
-                            </label>
-                            <input
-                                id="confirmPassword"
-                                type="password"
-                                value={confirmPassword}
-                                onChange={(event) => setConfirmPassword(event.target.value)}
-                                className="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-secret-wax focus:ring-2 focus:ring-secret-wax/20 transition"
-                                placeholder="Nhập lại mật khẩu"
-                                required
-                            />
-                        </div>
-
-                        {error && <p className="text-sm text-red-500 bg-red-50 p-2 rounded border border-red-100">{error}</p>}
-
+                    <div className="mt-8 space-y-4">
                         <button
-                            type="submit"
+                            type="button"
+                            onClick={handleGoogleLogin}
                             disabled={isSubmitting}
-                            className="w-full rounded-lg bg-secret-wax py-2.5 text-sm font-bold text-white transition hover:bg-secret-ink disabled:opacity-70 mt-2"
+                            className="w-full flex items-center justify-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-2.5 font-bold text-slate-700 transition hover:bg-slate-50 disabled:opacity-70"
                         >
-                            {isSubmitting ? "Đang xử lý..." : "Đăng ký ngay"}
+                            <img
+                                src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+                                alt="Google"
+                                className="h-5 w-5"
+                            />
+                            Đăng ký nhanh với Google
                         </button>
-                    </form>
+
+                        <div className="relative">
+                            <div className="absolute inset-0 flex items-center">
+                                <div className="w-full border-t border-slate-200"></div>
+                            </div>
+                            <div className="relative flex justify-center text-xs uppercase">
+                                <span className="bg-white px-2 text-slate-400">Hoặc</span>
+                            </div>
+                        </div>
+
+                        <form onSubmit={handleSubmit} className="space-y-4">
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-slate-700" htmlFor="email">
+                                    Email
+                                </label>
+                                <input
+                                    id="email"
+                                    type="email"
+                                    value={email}
+                                    onChange={(event) => setEmail(event.target.value)}
+                                    className="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-secret-wax focus:ring-2 focus:ring-secret-wax/20 transition"
+                                    placeholder="vidu@email.com"
+                                    required
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-slate-700" htmlFor="password">
+                                    Mật khẩu
+                                </label>
+                                <input
+                                    id="password"
+                                    type="password"
+                                    value={password}
+                                    onChange={(event) => setPassword(event.target.value)}
+                                    className="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-secret-wax focus:ring-2 focus:ring-secret-wax/20 transition"
+                                    placeholder="Tối thiểu 6 ký tự"
+                                    required
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-slate-700" htmlFor="confirmPassword">
+                                    Xác nhận mật khẩu
+                                </label>
+                                <input
+                                    id="confirmPassword"
+                                    type="password"
+                                    value={confirmPassword}
+                                    onChange={(event) => setConfirmPassword(event.target.value)}
+                                    className="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-secret-wax focus:ring-2 focus:ring-secret-wax/20 transition"
+                                    placeholder="Nhập lại mật khẩu"
+                                    required
+                                />
+                            </div>
+
+                            {error && <p className="text-sm text-red-500 bg-red-50 p-2 rounded border border-red-100">{error}</p>}
+
+                            <button
+                                type="submit"
+                                disabled={isSubmitting}
+                                className="w-full rounded-lg bg-secret-wax py-2.5 text-sm font-bold text-white transition hover:bg-secret-ink disabled:opacity-70 mt-2"
+                            >
+                                {isSubmitting ? "Đang xử lý..." : "Đăng ký với email"}
+                            </button>
+                        </form>
+                    </div>
                 )}
 
                 <div className="mt-6 text-center text-sm text-slate-500">

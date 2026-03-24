@@ -2,19 +2,22 @@ import { useEffect, useState } from "react";
 import { onAuthStateChanged, updateProfile, signOut, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from "firebase/auth";
 import { collection, query, where, getDocs, orderBy } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
-import { Loader2, User, Camera, LogOut, Package, Check, Clock, XCircle, AlertCircle, Key, Eye, EyeOff, Lock, Monitor, Smartphone, Trash2 } from "lucide-react";
+import { Loader2, User, Camera, LogOut, Package, Check, Clock, XCircle, AlertCircle, Key, Eye, EyeOff, Lock, Monitor, Smartphone, Trash2, Layout } from "lucide-react";
 
 import { auth, db } from "../firebase";
 import { uploadToCloudinary } from "../utils/uploadService";
 import { formatPrice } from "../utils/orderService";
 import { removeSession, getDeviceId } from "../utils/sessionService";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, onSnapshot } from "firebase/firestore";
+import { isAdminUser, isSuperAdminEmail, getFirstAllowedAdminPath } from "../utils/adminAccess";
 
 const Profile = () => {
     const navigate = useNavigate();
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('profile'); // profile, orders, password
+    const [isAdmin, setIsAdmin] = useState(false);
+    const [adminPath, setAdminPath] = useState("/admin/dashboard");
 
     // Profile State
     const [displayName, setDisplayName] = useState("");
@@ -37,18 +40,45 @@ const Profile = () => {
     const [showNewPassword, setShowNewPassword] = useState(false);
 
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+        let unsubscribeDoc = () => {};
+
+        const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
+            unsubscribeDoc();
             if (currentUser) {
                 setUser(currentUser);
                 setDisplayName(currentUser.displayName || "");
                 setAvatarUrl(currentUser.photoURL || "");
                 fetchOrders(currentUser.uid);
+
+                // Admin check
+                if (isSuperAdminEmail(currentUser.email)) {
+                    setIsAdmin(true);
+                    setAdminPath("/admin/dashboard");
+                } else {
+                    unsubscribeDoc = onSnapshot(doc(db, "users", currentUser.uid), (snapshot) => {
+                        const userData = snapshot.exists() ? snapshot.data() : {};
+                        const isUserAdmin = isAdminUser({
+                            email: currentUser.email,
+                            role: userData.role
+                        });
+                        setIsAdmin(isUserAdmin);
+                        if (isUserAdmin) {
+                            setAdminPath(getFirstAllowedAdminPath({
+                                allowedModules: userData.allowedModules || [],
+                                isSuperAdmin: false
+                            }));
+                        }
+                    });
+                }
             } else {
                 navigate("/admin/login");
             }
             setLoading(false);
         });
-        return () => unsubscribe();
+        return () => {
+            unsubscribeDoc();
+            unsubscribeAuth();
+        };
     }, [navigate]);
 
     const fetchSessions = async (userId) => {
@@ -203,6 +233,14 @@ const Profile = () => {
                         </div>
 
                         <div className="w-full space-y-2 flex-1">
+                            {isAdmin && (
+                                <button
+                                    onClick={() => navigate(adminPath)}
+                                    className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-bold text-sm bg-secret-wax text-white shadow-lg shadow-secret-wax/20 border border-secret-wax/10"
+                                >
+                                    <Layout className="w-5 h-5 text-white" /> Bảng điều khiển Quản trị
+                                </button>
+                            )}
                             <button
                                 onClick={() => setActiveTab('profile')}
                                 className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all font-bold text-sm ${activeTab === 'profile'
