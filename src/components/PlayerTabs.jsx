@@ -189,7 +189,6 @@ const PlayerTabs = ({
     const [note, setNote] = useState('');
     const [lastSavedAt, setLastSavedAt] = useState(null);
     const [isNoteReady, setIsNoteReady] = useState(false);
-    const [isSmartNoteOpen, setIsSmartNoteOpen] = useState(false);
     const [comments, setComments] = useState([]);
     const [newComment, setNewComment] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -488,15 +487,7 @@ const PlayerTabs = ({
         });
     };
 
-    const handleCreateSmartNote = () => {
-        const starter = buildSmartNoteStarter(lessonTitle || 'Bài học này');
-        setNote(starter);
 
-        window.requestAnimationFrame(() => {
-            noteTextareaRef.current?.focus();
-            noteTextareaRef.current?.setSelectionRange(starter.length, starter.length);
-        });
-    };
 
     return (
         <div id="player-tabs" className="mx-auto mt-6 w-full max-w-5xl pb-16 md:mt-8 md:pb-20">
@@ -753,88 +744,23 @@ const PlayerTabs = ({
 
                 {activeTab === 'notes' && (
                     <div className="flex h-full flex-col">
-                        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                        <div className="mb-4">
                             <h3 className="text-lg font-bold text-slate-800">
-                                Ghi chép của bạn
+                                Ghi chép bài học
                             </h3>
-                            <span className="rounded-full bg-green-50 px-2.5 py-1 text-xs font-medium text-green-600">
-                                {savedNoteLabel}
-                            </span>
                         </div>
-                        <div className="mb-3 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
-                            <div className="flex items-center justify-between gap-3 px-3 py-3 md:px-4">
-                                <button
-                                    type="button"
-                                    onClick={() =>
-                                        setIsSmartNoteOpen((previousValue) => !previousValue)
-                                    }
-                                    className="flex min-w-0 flex-1 items-center justify-between gap-3 text-left"
-                                >
-                                    <div>
-                                        <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
-                                            Ghi chép thông minh
-                                        </p>
-                                        <p className="mt-1 text-xs leading-relaxed text-slate-400">
-                                            {isSmartNoteOpen
-                                                ? `${noteStats.lineCount} dòng có nội dung • ${noteStats.wordCount} từ`
-                                                : 'Mở ra để chèn nhanh mẫu tóm tắt, ý chính hoặc việc cần làm.'}
-                                        </p>
-                                    </div>
-                                    {isSmartNoteOpen ? (
-                                        <ChevronUp className="h-5 w-5 shrink-0 text-slate-400" />
-                                    ) : (
-                                        <ChevronDown className="h-5 w-5 shrink-0 text-slate-400" />
-                                    )}
-                                </button>
-
-                                {!note.trim() && isSmartNoteOpen && (
-                                    <button
-                                        type="button"
-                                        onClick={handleCreateSmartNote}
-                                        className="shrink-0 rounded-full bg-[#B91C1C] px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-red-800"
-                                    >
-                                        Tạo khung sẵn
-                                    </button>
-                                )}
-                            </div>
-
-                            <div
-                                className={`overflow-hidden transition-all duration-300 ${
-                                    isSmartNoteOpen ? 'max-h-[420px] opacity-100' : 'max-h-0 opacity-0'
-                                }`}
-                            >
-                                <div className="border-t border-slate-200 px-3 pb-3 pt-3 md:px-4 md:pb-4 md:pt-4">
-                                    <p className="text-sm font-semibold text-slate-700">
-                                        {lessonTitle || 'Bài học này'}
-                                    </p>
-                                    <p className="mt-2 text-xs leading-relaxed text-slate-500">
-                                        Chạm một nút để chèn nhanh mẫu ghi chép, đỡ phải gõ lại từ đầu.
-                                    </p>
-
-                                    <div className="mt-3 grid grid-cols-2 gap-2">
-                                        {SMART_NOTE_ACTIONS.map((action) => (
-                                            <button
-                                                key={action.id}
-                                                type="button"
-                                                onClick={() => insertIntoNote(action.content)}
-                                                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 transition-colors hover:border-red-200 hover:text-[#B91C1C]"
-                                            >
-                                                {action.label}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
+                        <div className="flex-1">
+                            <textarea
+                                ref={noteTextareaRef}
+                                value={note}
+                                onChange={(event) => setNote(event.target.value)}
+                                className="min-h-[400px] w-full flex-1 rounded-[24px] border border-slate-200 bg-white p-4 font-medium leading-relaxed text-slate-700 outline-none transition-all placeholder:text-slate-400 focus:border-[#B91C1C] focus:ring-1 focus:ring-[#B91C1C] md:min-h-[450px]"
+                                placeholder="Ghi lại những ý chính của bài học tại đây..."
+                            />
                         </div>
-                        <textarea
-                            ref={noteTextareaRef}
-                            value={note}
-                            onChange={(event) => setNote(event.target.value)}
-                            className="min-h-[340px] w-full flex-1 rounded-2xl border border-yellow-200 bg-yellow-50/50 p-4 font-medium leading-relaxed text-slate-700 focus:outline-none md:min-h-[300px] md:rounded-xl"
-                            placeholder="Ghi lại những ý chính của bài học tại đây..."
-                        />
-                        <p className="mt-3 text-xs leading-relaxed text-slate-400">
-                            Mẹo nhanh: ghi chép được lưu riêng theo từng bài học, nên khi mở lại bài này bạn vẫn thấy nội dung cũ.
+
+                        <p className="mt-4 text-[13px] italic text-slate-400">
+                            Mẹo: Ghi chép được tự động lưu riêng theo từng bài giảng.
                         </p>
                     </div>
                 )}

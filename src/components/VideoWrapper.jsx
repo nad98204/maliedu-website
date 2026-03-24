@@ -98,10 +98,9 @@ const VideoWrapper = ({
             </div>
 
             <div className="px-4 md:px-0">
-                {!isNotesMode && (
-                    <div className="mt-2 md:hidden">
-                        <button
-                            onClick={() => setIsSwitcherOpen(!isSwitcherOpen)}
+                <div className="mt-2 md:hidden">
+                    <button
+                        onClick={() => setIsSwitcherOpen(!isSwitcherOpen)}
                             className="w-full text-left rounded-2xl border border-slate-100 bg-white px-4 py-3.5 shadow-sm hover:bg-slate-50 active:scale-[0.98]"
                         >
                             <div className="flex items-start justify-between gap-3">
@@ -135,10 +134,9 @@ const VideoWrapper = ({
                                         </div>
                                     </div>
                                 ))}
-                            </div>
                         </div>
                     </div>
-                )}
+                </div>
 
                 <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                     <div className="flex flex-col w-full gap-3 md:flex-row md:items-center md:gap-4">

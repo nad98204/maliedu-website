@@ -692,8 +692,10 @@ const CoursePlayer = () => {
                         <ChevronLeft className="h-5 w-5" />
                         <span className="hidden md:inline">Trang chủ khóa học</span>
                     </Link>
-                    <div className="md:hidden">
-                        <p className="text-sm font-bold text-white">Bài giảng</p>
+                    <div className="min-w-0 max-w-[140px] flex-1 md:hidden">
+                        <p className="line-clamp-1 text-xs font-bold text-white">
+                            {currentLesson?.title || 'Bài giảng'}
+                        </p>
                     </div>
                     <div className="hidden h-6 w-px bg-red-400/50 md:block"></div>
                     <h1 className="hidden min-w-0 flex-1 line-clamp-1 text-sm font-bold text-white md:block md:max-w-lg md:text-lg">
