@@ -60,7 +60,7 @@ const AdminDashboard = () => {
     );
 
     return (
-        <div className="space-y-8 animate-fade-in">
+        <div className="max-w-[1600px] mx-auto px-4 py-8 lg:px-12 lg:py-16 space-y-12 animate-fade-in">
             <div className="flex items-center justify-between">
                 <h1 className="text-2xl font-bold text-slate-900">Tổng quan</h1>
                 <div className="text-sm text-slate-500">

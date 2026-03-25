@@ -108,33 +108,49 @@ const uploadObjectToS3 = async (
       onProgress(percent);
     };
 
-    for (let partNumber = 1; partNumber <= totalParts; partNumber += 1) {
-      const start = (partNumber - 1) * uploadSession.partSize;
-      const end = Math.min(file.size, start + uploadSession.partSize);
-      const blob = file.slice(start, end);
-      let { url } = await requestJson("/sign-part", {
-        key: uploadSession.key,
-        uploadId: uploadSession.uploadId,
-        partNumber,
-      });
-
-      if (import.meta.env.DEV && url.includes('s3-hn1-api.longvan.vn')) {
-         const urlObj = new URL(url);
-         url = '/s3-proxy' + urlObj.pathname + urlObj.search;
-      }
-
-      const etag = await uploadPart(url, blob, (loadedBytes) => {
-        partProgress.set(partNumber, loadedBytes);
-        reportProgress();
-      });
-
-      partProgress.set(partNumber, blob.size);
-      completedParts.push({
-        PartNumber: partNumber,
-        ETag: etag,
-      });
-      reportProgress();
+    const CONCURRENCY = 4;
+    const partsToUpload = [];
+    for (let i = 1; i <= totalParts; i++) {
+        partsToUpload.push(i);
     }
+
+    const uploadWorker = async () => {
+        while (partsToUpload.length > 0) {
+            const partNumber = partsToUpload.shift();
+            const start = (partNumber - 1) * uploadSession.partSize;
+            const end = Math.min(file.size, start + uploadSession.partSize);
+            const blob = file.slice(start, end);
+            
+            let { url } = await requestJson("/sign-part", {
+                key: uploadSession.key,
+                uploadId: uploadSession.uploadId,
+                partNumber,
+            });
+
+            if (import.meta.env.DEV && url.includes('s3-hn1-api.longvan.vn')) {
+                const urlObj = new URL(url);
+                url = '/s3-proxy' + urlObj.pathname + urlObj.search;
+            }
+
+            const etag = await uploadPart(url, blob, (loadedBytes) => {
+                partProgress.set(partNumber, loadedBytes);
+                reportProgress();
+            });
+
+            partProgress.set(partNumber, blob.size);
+            completedParts.push({
+                PartNumber: partNumber,
+                ETag: etag,
+            });
+            reportProgress();
+        }
+    };
+
+    const workers = [];
+    for (let i = 0; i < Math.min(CONCURRENCY, totalParts); i++) {
+        workers.push(uploadWorker());
+    }
+    await Promise.all(workers);
 
     const completedUpload = await requestJson("/complete", {
       key: uploadSession.key,

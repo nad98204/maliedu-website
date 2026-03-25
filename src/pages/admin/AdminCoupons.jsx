@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import { db } from "../../firebase";
 
-const AdminCoupons = () => {
+const AdminCoupons = ({ hideHeader = false, searchQuery = "" }) => {
     const [coupons, setCoupons] = useState([]);
     const [loading, setLoading] = useState(true);
     const [isAdding, setIsAdding] = useState(false);
@@ -130,23 +130,25 @@ const AdminCoupons = () => {
     );
 
     return (
-        <div className="space-y-6 animate-fade-in">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-                        <Tag className="w-6 h-6 text-secret-wax" />
-                        Quản lý Mã giảm giá
-                    </h1>
-                    <p className="text-slate-500 text-sm mt-1">Tạo và quản lý các chương trình khuyến mãi</p>
+        <div className="max-w-[1600px] mx-auto px-4 py-8 lg:px-12 lg:py-16 space-y-12 animate-fade-in">
+            {!hideHeader && (
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+                            <Tag className="w-6 h-6 text-secret-wax" />
+                            Quản lý Mã giảm giá
+                        </h1>
+                        <p className="text-slate-500 text-sm mt-1">Tạo và quản lý các chương trình khuyến mãi</p>
+                    </div>
+                    <button
+                        onClick={() => setIsAdding(!isAdding)}
+                        className="flex items-center gap-2 px-4 py-2 bg-secret-wax text-white rounded-lg hover:bg-secret-ink transition-colors font-medium shadow-md"
+                    >
+                        {isAdding ? <XCircle className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
+                        {isAdding ? "Hủy tạo mới" : "Thêm mã mới"}
+                    </button>
                 </div>
-                <button
-                    onClick={() => setIsAdding(!isAdding)}
-                    className="flex items-center gap-2 px-4 py-2 bg-secret-wax text-white rounded-lg hover:bg-secret-ink transition-colors font-medium shadow-md"
-                >
-                    {isAdding ? <XCircle className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
-                    {isAdding ? "Hủy tạo mới" : "Thêm mã mới"}
-                </button>
-            </div>
+            )}
 
             {message && (
                 <div className={`p-4 rounded-lg flex items-center gap-2 ${message.includes('Lỗi') ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
@@ -236,13 +238,17 @@ const AdminCoupons = () => {
 
             {/* Coupons List */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {coupons.length === 0 ? (
+                {coupons
+                    .filter(c => c.code.toLowerCase().includes(searchQuery.toLowerCase()))
+                    .length === 0 ? (
                     <div className="col-span-full py-12 text-center text-slate-500 bg-white rounded-xl border border-dashed border-slate-300">
                         <Tag className="w-12 h-12 mx-auto mb-3 text-slate-300" />
-                        <p>Chưa có mã giảm giá nào. Hãy tạo mã đầu tiên!</p>
+                        <p>Chưa tìm thấy mã giảm giá nào.</p>
                     </div>
                 ) : (
-                    coupons.map(coupon => {
+                    coupons
+                        .filter(c => c.code.toLowerCase().includes(searchQuery.toLowerCase()))
+                        .map(coupon => {
                         const isExpired = new Date(coupon.expiryDate) < new Date();
                         return (
                             <div key={coupon.id} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col hover:shadow-md transition-shadow">

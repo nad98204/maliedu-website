@@ -212,8 +212,12 @@ const VideoWrapper = ({
                         <div className={`mt-2 overflow-hidden transition-all duration-300 ${isSwitcherOpen ? 'max-h-[400px] opacity-100' : 'max-h-0 opacity-0 invisible'}`}>
                             <div className="rounded-2xl border border-slate-100 bg-white shadow-lg overflow-y-auto max-h-[400px]">
                                 {sections.map((section, sIdx) => (
-                                    <div key={sIdx} className="border-b border-slate-50 last:border-0 text-[11px] font-bold uppercase tracking-wider text-slate-400 bg-slate-50/50 px-4 py-2">
-                                        {section.title}
+                                    <div key={sIdx} className="border-b border-slate-50 last:border-0">
+                                        {section.title && (
+                                            <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 bg-slate-50/50 px-4 py-2">
+                                                {section.title}
+                                            </div>
+                                        )}
                                         <div className="divide-y divide-slate-50 mt-1">
                                             {(section.lessons || []).map((lesson, lIdx) => {
                                                 const isActive = (lesson.id || lesson.videoId) === currentLessonId;

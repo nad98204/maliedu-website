@@ -287,42 +287,44 @@ const PlayerSidebar = ({
                                     className="border-b border-slate-100 last:border-0"
                                 >
                                     <div className="bg-white">
-                                        <button
-                                            type="button"
-                                            onClick={() =>
-                                                toggleSection(
-                                                    section.sectionIndex,
-                                                    sectionId === currentSectionId
-                                                )
-                                            }
-                                            className="flex w-full items-start justify-between gap-3 px-4 py-3 transition-colors hover:bg-slate-50"
-                                        >
-                                            <div className="min-w-0 flex-1 text-left">
-                                                <h4 className="line-clamp-1 text-sm font-bold text-slate-800">
-                                                    {section.title}
-                                                </h4>
-                                                <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                                                    <span>{section.lessons.length} bài học</span>
-                                                    {sectionLevelResources.length > 0 && (
-                                                        <span className="rounded-full bg-red-50 px-2 py-0.5 font-semibold text-red-500">
-                                                            {sectionLevelResources.length} tài liệu
-                                                            theo phần
-                                                        </span>
-                                                    )}
-                                                    {lessonLevelResourceCount > 0 && (
-                                                        <span className="rounded-full bg-red-50 px-2 py-0.5 font-semibold text-red-500">
-                                                            {lessonLevelResourceCount} tài liệu theo
-                                                            bài
-                                                        </span>
-                                                    )}
+                                        {section.title && (
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    toggleSection(
+                                                        section.sectionIndex,
+                                                        sectionId === currentSectionId
+                                                    )
+                                                }
+                                                className="flex w-full items-start justify-between gap-3 px-4 py-3 transition-colors hover:bg-slate-50"
+                                            >
+                                                <div className="min-w-0 flex-1 text-left">
+                                                    <h4 className="line-clamp-1 text-sm font-bold text-slate-800">
+                                                        {section.title}
+                                                    </h4>
+                                                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                                                        <span>{section.lessons.length} bài học</span>
+                                                        {sectionLevelResources.length > 0 && (
+                                                            <span className="rounded-full bg-red-50 px-2 py-0.5 font-semibold text-red-500">
+                                                                {sectionLevelResources.length} tài liệu
+                                                                theo phần
+                                                            </span>
+                                                        )}
+                                                        {lessonLevelResourceCount > 0 && (
+                                                            <span className="rounded-full bg-red-50 px-2 py-0.5 font-semibold text-red-500">
+                                                                {lessonLevelResourceCount} tài liệu theo
+                                                                bài
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </div>
-                                            </div>
-                                            {isSectionOpen ? (
-                                                <ChevronUp className="mt-1 h-4 w-4 shrink-0 text-slate-400" />
-                                            ) : (
-                                                <ChevronDown className="mt-1 h-4 w-4 shrink-0 text-slate-400" />
-                                            )}
-                                        </button>
+                                                {isSectionOpen ? (
+                                                    <ChevronUp className="mt-1 h-4 w-4 shrink-0 text-slate-400" />
+                                                ) : (
+                                                    <ChevronDown className="mt-1 h-4 w-4 shrink-0 text-slate-400" />
+                                                )}
+                                            </button>
+                                        )}
 
                                         {sectionLevelResources.length > 0 && (
                                             <div className="px-4 pb-3">
@@ -356,7 +358,7 @@ const PlayerSidebar = ({
 
                                     <div
                                         className={`overflow-hidden transition-all duration-300 ${
-                                            isSectionOpen ? 'max-h-[2000px]' : 'max-h-0'
+                                            !section.title || isSectionOpen ? 'max-h-[2000px]' : 'max-h-0'
                                         }`}
                                     >
                                         {section.lessons.map((lesson, lessonIndex) => {

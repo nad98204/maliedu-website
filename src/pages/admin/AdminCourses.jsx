@@ -14,6 +14,13 @@ import {
   Trash2,
   Plus,
   X,
+  Search,
+  BookOpen,
+  Filter,
+  Zap,
+  MapPin,
+  Layers,
+  Globe,
   Upload,
   Image as ImageIcon,
   Video,
@@ -28,12 +35,15 @@ import {
   Award,
   FileText,
   GripVertical,
+  TrendingUp,
+  MessageSquare,
+  ArrowRight,
 } from "lucide-react";
 
 import { db } from "../../firebase";
 import RichTextEditor from "../../components/RichTextEditor";
 import { uploadToCloudinary } from "../../utils/uploadService";
-import { uploadFileToS3 } from "../../utils/s3UploadService";
+import { uploadFileToS3, uploadVideoToS3 } from "../../utils/s3UploadService";
 import AdminCategories from "./AdminCategories";
 import AdminCoupons from "./AdminCoupons";
 import AdminInstructors from "./AdminInstructors"; // NEW IMPORT
@@ -121,9 +131,57 @@ const AdminCourses = () => {
   const [toast, setToast] = useState(null);
 
   const [mainTab, setMainTab] = useState("courses"); // courses, categories, coupons
+  const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("info");
   const [expandedLessons, setExpandedLessons] = useState({}); // Key: `${sIdx}-${lIdx}`, Value: boolean
-  const [uploadingTo, setUploadingTo] = useState(null);
+  const [uploadTasks, setUploadTasks] = useState({}); // { 'key': { fileName, progress, status, error } }
+
+  const handleStartUpload = async (sIdx, lIdx, file, isNew = false) => {
+    if (!file) return;
+    const taskKey = isNew ? `new-${sIdx}` : `${sIdx}-${lIdx}`;
+
+    setUploadTasks(prev => ({
+      ...prev,
+      [taskKey]: { fileName: file.name, progress: 0, status: 'uploading' }
+    }));
+
+    try {
+      const videoUrl = await uploadVideoToS3(file, (percent) => {
+        setUploadTasks(prev => ({
+          ...prev,
+          [taskKey]: { ...prev[taskKey], progress: percent }
+        }));
+      });
+
+      if (isNew) {
+        const input = document.getElementById(`lesson-video-${sIdx}`);
+        if (input) {
+          input.value = videoUrl;
+          const durInput = document.getElementById(`lesson-duration-${sIdx}`);
+          if (durInput && !durInput.value) {
+            fetchVideoDuration(videoUrl).then(duration => {
+              if (duration) durInput.value = duration;
+            });
+          }
+        }
+      } else {
+        handleUpdateLesson(sIdx, lIdx, "videoId", videoUrl);
+      }
+
+      setUploadTasks(prev => {
+        const next = { ...prev };
+        delete next[taskKey];
+        return next;
+      });
+      showToast(`Tải lên "${file.name}" thành công!`, "success");
+    } catch (err) {
+      setUploadTasks(prev => ({
+        ...prev,
+        [taskKey]: { ...prev[taskKey], status: 'error', error: err.message }
+      }));
+      showToast(`Lỗi tải lên "${file.name}": ${err.message}`, "error");
+    }
+  };
   const [uploadingDocumentKey, setUploadingDocumentKey] = useState(null);
   const [documentUploadProgress, setDocumentUploadProgress] = useState(null);
   const [draggedCourseResourceIndex, setDraggedCourseResourceIndex] =
@@ -224,14 +282,14 @@ const AdminCourses = () => {
   }, []);
 
   // -- SECTION & LESSON HANDLERS --
-  const handleAddSection = () => {
+  const handleAddSection = (hasTitle = true) => {
     setFormData((prev) => ({
       ...prev,
       curriculum: [
         ...(prev.curriculum || []),
         {
           id: createLocalId("section"),
-          title: "Chương mới",
+          title: hasTitle ? "Chương mới" : "",
           lessons: [],
         },
       ],
@@ -308,7 +366,7 @@ const AdminCourses = () => {
         curriculum: newCurriculum,
         courseResources: (prev.courseResources || []).map((resource) =>
           removedLessonKeys.includes(resource.linkedLessonId) ||
-          resource.linkedSectionId === removedSectionId
+            resource.linkedSectionId === removedSectionId
             ? { ...resource, linkedLessonId: "", linkedSectionId: "" }
             : resource,
         ),
@@ -750,6 +808,58 @@ const AdminCourses = () => {
     }
   };
 
+  const [isAutoSaving, setIsAutoSaving] = useState(false);
+  const [lastAutoSave, setLastAutoSave] = useState(null);
+
+  // Auto-save to LocalStorage whenever formData changes (Fast backup)
+  useEffect(() => {
+    if (!isFormOpen) return;
+    try {
+      const draftKey = editingCourse?.id ? `draft_${editingCourse.id}` : "draft_new_course";
+      localStorage.setItem(draftKey, JSON.stringify(formData));
+    } catch (e) {
+      console.error("LocalStorage save failed", e);
+    }
+  }, [formData, isFormOpen, editingCourse]);
+
+  // Debounced Auto-save to Cloud (Firestore) - every 10s of inactivity
+  useEffect(() => {
+    if (!isFormOpen || !editingCourse?.id || isSubmitting) return;
+
+    const timer = setTimeout(async () => {
+      setIsAutoSaving(true);
+      try {
+        await updateDoc(doc(db, "courses", editingCourse.id), {
+          ...formData,
+          updatedAt: new Date(),
+          isDraft: true,
+        });
+        setLastAutoSave(new Date());
+      } catch (err) {
+        console.error("Auto-save to cloud failed:", err);
+      } finally {
+        setIsAutoSaving(false);
+      }
+    }, 10000);
+
+    return () => clearTimeout(timer);
+  }, [formData, isFormOpen, editingCourse, isSubmitting]);
+
+  const handleCloseForm = () => {
+    // Check if anything major changed
+    const hasManyChanges = formData.curriculum.length > 0 || formData.name !== "";
+    if (hasManyChanges) {
+      if (
+        !window.confirm(
+          "Bạn có chắc muốn đóng? Các thay đổi chưa lưu có thể bị mất (tuy nhiên bản nháp đã được lưu tự động).",
+        )
+      ) {
+        return;
+      }
+    }
+    setIsFormOpen(false);
+  };
+
   const handleMoveLesson = (sIdx, lIdx, direction) => {
     setFormData((prev) => {
       const nextCurriculum = [...(prev.curriculum || [])];
@@ -1005,8 +1115,8 @@ const AdminCourses = () => {
 
       curriculum: normalizeCurriculumForForm(
         course.curriculum &&
-        course.curriculum.length > 0 &&
-        course.curriculum[0].lessons
+          course.curriculum.length > 0 &&
+          course.curriculum[0].lessons
           ? course.curriculum
           : course.curriculum && course.curriculum.length > 0
             ? [{ title: "Nội dung khóa học", lessons: course.curriculum }]
@@ -1088,8 +1198,8 @@ const AdminCourses = () => {
         curriculum: normalizedCurriculum,
         whatYouWillLearn: formData.whatYouWillLearn
           ? formData.whatYouWillLearn
-              .split("\n")
-              .filter((line) => line.trim() !== "")
+            .split("\n")
+            .filter((line) => line.trim() !== "")
           : [],
         courseResources: normalizedCourseResources,
         price: formData.isForSale ? Number(formData.price) : 0,
@@ -1146,7 +1256,9 @@ const AdminCourses = () => {
     () =>
       (formData.curriculum || []).map((section, sectionIndex) => ({
         value: getSectionIdentifier(section, `section-${sectionIndex}`),
-        label: `Chương ${sectionIndex + 1}: ${section.title || "Chưa đặt tên"}`,
+        label: section.title
+          ? `Chương ${sectionIndex + 1}: ${section.title}`
+          : `Buổi học lẻ (Phần ${sectionIndex + 1})`,
       })),
     [formData.curriculum],
   );
@@ -1197,7 +1309,7 @@ const AdminCourses = () => {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-[1600px] mx-auto px-4 py-8 lg:px-12 lg:py-16 space-y-12">
       {/* Toast */}
       {toast && (
         <div
@@ -1207,58 +1319,89 @@ const AdminCourses = () => {
         </div>
       )}
 
-      {/* Header with Tabs */}
-      <div className="flex flex-col gap-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">
+      {/* Header section */}
+      <div className="flex flex-col gap-8 pb-4">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+          <div className="space-y-1">
+            <h1 className="text-3xl font-black text-slate-900 tracking-tight">
               Quản lý Đào tạo
             </h1>
-            <p className="mt-1 text-sm text-slate-500">
-              Quản lý khóa học, chuyên mục và chương trình khuyến mãi
+            <p className="text-slate-500 font-medium">
+              Kiểm soát nội dung, giảng viên và các chương trình ưu đãi của hệ thống.
             </p>
           </div>
-          {(mainTab === "courses" || mainTab === "offline_courses") && (
+
+          <div className="flex items-center gap-3">
             <button
               onClick={handleAddNew}
-              className="inline-flex items-center gap-2 rounded-lg bg-secret-wax px-4 py-2 text-sm font-semibold text-white transition hover:bg-secret-ink"
+              className="group flex items-center gap-2 rounded-2xl bg-slate-900 px-6 py-3.5 text-sm font-bold text-white transition-all hover:bg-secret-wax hover:shadow-xl hover:shadow-secret-wax/20 active:scale-95 shadow-md shadow-slate-200"
             >
-              <Plus className="h-4 w-4" /> Thêm khóa học
+              <Plus className="h-5 w-5 transition-transform group-hover:rotate-90" />
+              Tạo khóa học mới
             </button>
-          )}
+          </div>
         </div>
 
-        {/* Main Tabs */}
-        <div className="flex p-1 bg-slate-100 rounded-xl w-fit">
-          <button
-            onClick={() => setMainTab("courses")}
-            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${mainTab === "courses" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
-          >
-            Khóa học Online
-          </button>
-          <button
-            onClick={() => setMainTab("offline_courses")}
-            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${mainTab === "offline_courses" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
-          >
-            Khóa học Offline
-          </button>
-          <button
-            onClick={() => setMainTab("instructors")}
-            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${mainTab === "instructors" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
-          >
-            Giảng viên
-          </button>
-          <button
-            onClick={() => setMainTab("categories")}
-            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${mainTab === "categories" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
-          >
-            Chuyên mục
-          </button>
-          <button
-            onClick={() => setMainTab("coupons")}
-            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${mainTab === "coupons" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
-          >
-            Mã giảm giá
+        {/* Quick Stats Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[
+            { label: 'Tổng khóa học', value: courses.length, icon: BookOpen, color: 'text-blue-600', bg: 'bg-blue-50/50' },
+            { label: 'Khóa học Online', value: courses.filter(c => c.isForSale !== false).length, icon: Layers, color: 'text-emerald-600', bg: 'bg-emerald-50/50' },
+            { label: 'Khóa học Offline', value: courses.filter(c => c.isForSale === false).length, icon: MapPin, color: 'text-orange-600', bg: 'bg-orange-50/50' },
+            { label: 'Đang hoạt động', value: courses.filter(c => c.isActive !== false).length, icon: Zap, color: 'text-purple-600', bg: 'bg-purple-50/50' },
+          ].map((stat, i) => (
+            <div key={i} className={`flex items-center gap-4 p-4 rounded-3xl border border-slate-100 bg-white hover:border-slate-200 transition-all shadow-sm`}>
+              <div className={`p-3 rounded-2xl ${stat.bg} ${stat.color}`}>
+                <stat.icon className="h-5 w-5" />
+              </div>
+              <div>
+                <div className="text-xl font-black text-slate-900">{stat.value}</div>
+                <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">{stat.label}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Toolbar: Tabs & Search integrated */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 p-1.5 bg-white border border-slate-100 rounded-3xl shadow-sm">
+        <div className="flex p-1 bg-slate-50 rounded-2xl w-fit">
+          {[
+            { id: 'courses', label: 'Online' },
+            { id: 'offline_courses', label: 'Offline' },
+            { id: 'instructors', label: 'Giảng viên' },
+            { id: 'categories', label: 'Chuyên mục' },
+            { id: 'coupons', label: 'Mã giảm giá' },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setMainTab(tab.id)}
+              className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 ${mainTab === tab.id
+                  ? "bg-white text-secret-wax shadow-md shadow-slate-200/50 ring-1 ring-slate-100"
+                  : "text-slate-500 hover:text-slate-900 hover:bg-white/50"
+                }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-4 px-2">
+          {(mainTab === "courses" || mainTab === "offline_courses") && (
+            <div className="relative group min-w-[300px]">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-secret-wax transition-colors" />
+              <input
+                type="text"
+                placeholder="Tìm kiếm khóa học nhanh..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-11 pr-4 py-2.5 bg-slate-50/50 border-0 rounded-2xl text-sm placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-secret-wax/5 focus:bg-white focus:shadow-inner transition-all"
+              />
+            </div>
+          )}
+
+          <button className="p-2.5 text-slate-400 hover:text-slate-900 hover:bg-slate-50 rounded-2xl transition-colors border border-transparent hover:border-slate-100">
+            <Filter className="h-5 w-5" />
           </button>
         </div>
       </div>
@@ -1267,108 +1410,142 @@ const AdminCourses = () => {
       {(mainTab === "courses" || mainTab === "offline_courses") && (
         <div className="space-y-6 animate-fade-in">
           {/* Courses Table */}
-          <div className="rounded-2xl bg-white p-6 shadow-sm">
+          <div className="rounded-2xl bg-white border border-slate-100 shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="border-b border-slate-200">
+              <table className="w-full text-sm text-left">
+                <thead className="bg-slate-50/50 border-b border-slate-100">
                   <tr>
-                    <th className="pb-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
-                      Ảnh
+                    <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                      Nội dung khóa học
                     </th>
-                    <th className="pb-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
-                      Tên khóa học
+                    <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                      Chuyên mục
                     </th>
-                    <th className="pb-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
-                      Giá bán
+                    <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                      Chi phí / Giá bán
                     </th>
-                    <th className="pb-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
-                      Trạng thái
+                    <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                      Tình trạng
                     </th>
-                    <th className="pb-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-600">
-                      Hành động
+                    <th className="px-6 py-5 text-right text-[10px] font-black uppercase tracking-widest text-slate-400">
+                      Thao tác
                     </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {courses.filter(c => mainTab === 'offline_courses' ? c.isForSale === false : c.isForSale !== false).map((course) => (
-                    <tr key={course.id} className="hover:bg-slate-50">
-                      <td className="py-4">
-                        <img
-                          src={
-                            course.thumbnailUrl ||
-                            "https://via.placeholder.com/150"
-                          }
-                          alt={course.name}
-                          className="h-12 w-20 rounded-lg object-cover"
-                        />
-                      </td>
-                      <td className="py-4">
-                        <div className="font-medium text-slate-900">
-                          {course.name}
-                        </div>
-                        <div className="text-xs text-slate-500">
-                          /{course.slug}
-                        </div>
-                      </td>
-                      <td className="py-4">
-                        {course.isForSale !== false ? (
-                          <>
-                            <div className="text-sm font-bold text-red-600">
-                              {course.salePrice
-                                ? formatPrice(course.salePrice)
-                                : formatPrice(course.price || 0)}
+                  {courses
+                    .filter(c => mainTab === 'offline_courses' ? c.isForSale === false : c.isForSale !== false)
+                    .filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase()))
+                    .map((course) => (
+                      <tr key={course.id} className="group hover:bg-slate-50/50 transition-colors duration-200">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-4">
+                            <div className="relative h-16 w-16 flex-shrink-0 group-hover:scale-105 transition-transform duration-300">
+                              <img
+                                src={course.thumbnailUrl || "https://via.placeholder.com/150"}
+                                alt={course.name}
+                                className="h-full w-full rounded-2xl object-cover shadow-sm ring-1 ring-slate-100"
+                              />
+                              {course.isForSale === false && (
+                                <div className="absolute -top-1 -right-1 bg-sky-500 text-white p-1 rounded-full shadow-lg border-2 border-white">
+                                  <Award className="h-2.5 w-2.5" />
+                                </div>
+                              )}
                             </div>
-                            {course.salePrice && (
-                              <div className="text-xs text-slate-400 line-through">
-                                {formatPrice(course.price || 0)}
+                            <div>
+                              <div className="font-bold text-slate-900 leading-tight group-hover:text-secret-wax transition-colors max-w-[280px]">
+                                {course.name}
                               </div>
-                            )}
-                          </>
-                        ) : (
-                          <span className="text-xs text-slate-500 italic">
-                            Miễn phí (Admin cấp quyền)
+                              <div className="flex items-center gap-2 mt-1.5">
+                                <div className="text-[10px] font-mono text-slate-400">
+                                  /{course.slug}
+                                </div>
+                                <span className="h-1 w-1 rounded-full bg-slate-300" />
+                                <div className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">
+                                  {course.curriculum?.length || 0} chương học
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-slate-50 text-slate-500 text-[10px] font-bold border border-slate-100 uppercase tracking-tighter">
+                            {course.category || "—"}
                           </span>
-                        )}
-                      </td>
-                      <td className="py-4">
-                        <div className="flex flex-col gap-1">
-                          <span
-                            className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${course.isPublished ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"}`}
-                          >
-                            {course.isPublished ? "Đang bán" : "Tạm ẩn"}
-                          </span>
-                          {course.isForSale === false && (
-                            <span className="inline-flex rounded-full px-2 py-1 text-xs font-medium bg-blue-100 text-blue-700">
-                              Chỉ admin cấp quyền
+                        </td>
+                        <td className="px-6 py-4">
+                          {course.isForSale !== false ? (
+                            <div className="flex flex-col">
+                              <span className="text-base font-bold text-slate-900">
+                                {course.salePrice
+                                  ? formatPrice(course.salePrice)
+                                  : formatPrice(course.price || 0)}
+                              </span>
+                              {course.salePrice && (
+                                <span className="text-xs text-slate-400 line-through">
+                                  {formatPrice(course.price || 0)}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-sky-50 text-sky-600 text-[11px] font-bold uppercase tracking-wider border border-sky-100">
+                              <span className="h-1.5 w-1.5 rounded-full bg-sky-500 animate-pulse" />
+                              Miễn phí học thử
                             </span>
                           )}
-                        </div>
-                      </td>
-                      <td className="py-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => handleEdit(course)}
-                            className="rounded-lg p-2 text-blue-600 hover:bg-blue-50"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(course.id)}
-                            className="rounded-lg p-2 text-red-600 hover:bg-red-50"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex flex-col gap-1.5">
+                            <span
+                              className={`inline-flex items-center justify-center w-fit gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wider border transition-all ${course.isPublished
+                                  ? "bg-emerald-50 text-emerald-600 border-emerald-100"
+                                  : "bg-rose-50 text-rose-600 border-rose-100"
+                                }`}
+                            >
+                              <span className={`h-1.5 w-1.5 rounded-full ${course.isPublished ? "bg-emerald-500" : "bg-rose-500"}`} />
+                              {course.isPublished ? "Đang bán" : "Tạm ẩn"}
+                            </span>
+                            {course.isForSale === false && (
+                              <span className="text-[10px] font-medium text-slate-400 italic">
+                                Cần Admin cấp quyền
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              onClick={() => handleEdit(course)}
+                              className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all duration-200"
+                              title="Chỉnh sửa"
+                            >
+                              <Edit className="h-4.5 w-4.5" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(course.id)}
+                              className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all duration-200"
+                              title="Xóa khóa học"
+                            >
+                              <Trash2 className="h-4.5 w-4.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
                   {courses.filter(c => mainTab === 'offline_courses' ? c.isForSale === false : c.isForSale !== false).length === 0 && (
                     <tr>
                       <td
-                        colSpan="5"
-                        className="py-12 text-center text-sm text-slate-500"
+                        colSpan="4"
+                        className="py-16 text-center"
                       >
-                        Chưa có khóa học nào.
+                        <div className="flex flex-col items-center gap-2">
+                          <div className="p-3 bg-slate-50 rounded-2xl text-slate-300">
+                            <Plus className="h-8 w-8" />
+                          </div>
+                          <p className="text-sm font-bold text-slate-400">
+                            Hệ thống chưa ghi nhận khóa học này.
+                          </p>
+                        </div>
                       </td>
                     </tr>
                   )}
@@ -1379,94 +1556,110 @@ const AdminCourses = () => {
         </div>
       )}
 
-      {mainTab === "categories" && <AdminCategories />}
-      {mainTab === "instructors" && <AdminInstructors />}
-      {mainTab === "coupons" && <AdminCoupons />}
+      {mainTab === "categories" && <AdminCategories hideHeader={true} searchQuery={searchQuery} />}
+      {mainTab === "instructors" && <AdminInstructors hideHeader={true} searchQuery={searchQuery} />}
+      {mainTab === "coupons" && <AdminCoupons hideHeader={true} searchQuery={searchQuery} />}
 
-      {/* Modal */}
+      {/* Modal - Sophisticated White Design */}
       {isFormOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-5xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl">
-            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-6 py-4">
-              <h2 className="text-xl font-bold text-slate-900">
-                {editingCourse ? "Sửa khóa học" : "Thêm khóa học mới"}
-              </h2>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+          <div className="w-full max-w-5xl max-h-[92vh] flex flex-col rounded-[32px] bg-white shadow-2xl shadow-slate-200/50 overflow-hidden ring-1 ring-slate-100 animate-in zoom-in-95 duration-300">
+            {/* Modal Header */}
+            <div className="sticky top-0 z-10 flex items-center justify-between px-10 py-6 bg-white border-b border-slate-50">
+              <div>
+                <h2 className="text-2xl font-black text-slate-900 tracking-tight">
+                  {editingCourse ? "Chỉnh sửa khóa học" : "Thiết lập khóa học mới"}
+                </h2>
+                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                  ID: {editingCourse?.id || 'HỆ THỐNG TỰ TẠO'}
+                </p>
+              </div>
               <button
-                onClick={() => setIsFormOpen(false)}
-                className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                onClick={handleCloseForm}
+                className="group p-2.5 rounded-2xl bg-slate-50 text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all active:scale-90"
               >
-                <X className="h-5 w-5" />
+                <X className="h-6 w-6 transition-transform group-hover:rotate-90" />
               </button>
             </div>
 
-            {/* Tabs */}
-            <div className="flex border-b border-slate-200 px-6">
-              <button
-                onClick={() => setActiveTab("info")}
-                className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === "info" ? "border-secret-wax text-secret-wax" : "border-transparent text-slate-500 hover:text-slate-700"}`}
-              >
-                Thông tin chung
-              </button>
-              <button
-                onClick={() => setActiveTab("instructor")}
-                className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === "instructor" ? "border-secret-wax text-secret-wax" : "border-transparent text-slate-500 hover:text-slate-700"}`}
-              >
-                Giảng viên & Chỉ số
-              </button>
-              <button
-                onClick={() => setActiveTab("curriculum")}
-                className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === "curriculum" ? "border-secret-wax text-secret-wax" : "border-transparent text-slate-500 hover:text-slate-700"}`}
-              >
-                Lộ trình bài học ({formData.curriculum?.length || 0})
-              </button>
+            {/* Premium Tabs Section */}
+            <div className="flex px-10 gap-10 bg-white">
+              {[
+                { id: 'info', label: 'Thông tin chung', icon: FileText },
+                { id: 'instructor', label: 'Giảng viên & Chỉ số', icon: Users },
+                { id: 'curriculum', label: `Lộ trình bài học (${formData.curriculum?.length || 0})`, icon: Video },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`group relative py-6 flex items-center gap-2.5 text-sm font-bold transition-all ${activeTab === tab.id
+                      ? "text-secret-wax"
+                      : "text-slate-400 hover:text-slate-600"
+                    }`}
+                >
+                  <tab.icon className={`w-4.5 h-4.5 transition-colors ${activeTab === tab.id ? "text-secret-wax" : "text-slate-300 group-hover:text-slate-400"}`} />
+                  {tab.label}
+                  {activeTab === tab.id && (
+                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-secret-wax rounded-full animate-in slide-in-from-bottom-2 duration-300" />
+                  )}
+                </button>
+              ))}
             </div>
 
             <form
               onSubmit={handleSubmit}
-              className="p-6 overflow-y-auto flex-1"
+              className="p-10 overflow-y-auto flex-1 custom-scrollbar space-y-8 bg-slate-50/30"
             >
               {activeTab === "info" ? (
-                <div className="grid gap-6 lg:grid-cols-2">
-                  {/* Left: Info */}
-                  <div className="space-y-5">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-slate-700">
-                        Tên khóa học <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        name="name"
-                        value={formData.name}
-                        onChange={handleInputChange}
-                        className="w-full rounded-lg border border-slate-200 px-4 py-2 focus:ring-2 focus:ring-secret-wax/20 focus:border-secret-wax outline-none"
-                        required
-                        placeholder="Nhập tên khóa học..."
-                      />
-                    </div>
+                <div className="grid gap-10 lg:grid-cols-2">
+                  {/* Left Column: Essential Info */}
+                  <div className="space-y-8">
+                    <div className="p-8 rounded-3xl bg-white border border-slate-100 shadow-sm space-y-6">
+                      <div className="space-y-2.5">
+                        <label className="text-[11px] font-black uppercase tracking-widest text-slate-400">
+                          Tên khóa học <span className="text-rose-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          name="name"
+                          value={formData.name}
+                          onChange={handleInputChange}
+                          className="w-full h-12 rounded-2xl bg-white border border-slate-100 px-5 text-sm font-bold text-slate-900 focus:ring-4 focus:ring-secret-wax/5 focus:border-secret-wax focus:shadow-inner outline-none transition-all placeholder:text-slate-300"
+                          required
+                          placeholder="VD: Tự thôi miên chữa lành"
+                        />
+                      </div>
 
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-slate-700">
-                        Chuyên mục <span className="text-red-500">*</span>
-                      </label>
-                      <div className="flex flex-wrap gap-2 p-3 border border-slate-200 rounded-lg bg-slate-50 min-h-[50px]">
-                        {categories.map((cat) => (
-                          <label
-                            key={cat.id}
-                            className="inline-flex items-center gap-2 cursor-pointer bg-white px-3 py-1.5 rounded-full border hover:border-secret-wax transition-colors select-none"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={(formData.categories || []).includes(
-                                cat.slug,
-                              )}
-                              onChange={() => handleCategoryChange(cat.slug)}
-                              className="h-4 w-4 text-secret-wax focus:ring-secret-wax border-gray-300 rounded"
-                            />
-                            <span className="text-sm text-slate-700 font-medium">
-                              {cat.name}
-                            </span>
-                          </label>
-                        ))}
+                      <div className="space-y-2.5">
+                        <label className="text-[11px] font-black uppercase tracking-widest text-slate-400">
+                          Chuyên mục <span className="text-rose-500">*</span>
+                        </label>
+                        <div className="grid grid-cols-2 gap-3">
+                          {categories.map((cat) => (
+                            <label
+                              key={cat.id}
+                              className={`flex items-center gap-3 cursor-pointer px-4 py-3 rounded-2xl border transition-all select-none ${(formData.categories || []).includes(cat.slug)
+                                  ? "bg-secret-wax/5 border-secret-wax text-secret-wax font-black"
+                                  : "bg-white border-slate-100 border-dashed text-slate-500 hover:border-slate-200"
+                                }`}
+                            >
+                              <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all ${(formData.categories || []).includes(cat.slug)
+                                  ? "border-secret-wax bg-secret-wax"
+                                  : "border-slate-200 bg-white group-hover:border-slate-300"
+                                }`}>
+                                <div className={`w-1.5 h-1.5 rounded-full bg-white transition-transform ${(formData.categories || []).includes(cat.slug) ? "scale-100" : "scale-0"
+                                  }`} />
+                                <input
+                                  type="checkbox"
+                                  className="sr-only"
+                                  checked={(formData.categories || []).includes(cat.slug)}
+                                  onChange={() => handleCategoryChange(cat.slug)}
+                                />
+                              </div>
+                              <span className="text-xs">{cat.name}</span>
+                            </label>
+                          ))}
+                        </div>
                         {categories.length === 0 && (
                           <span className="text-sm text-slate-400">
                             Đang tải danh sách...
@@ -1534,22 +1727,21 @@ const AdminCourses = () => {
                     {formData.isForSale && (
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <label className="text-sm font-medium text-slate-700">
-                            Giá gốc (VND){" "}
-                            <span className="text-red-500">*</span>
+                          <label className="text-sm font-bold text-slate-700 flex items-center gap-1.5 text-red-600">
+                            Giá gốc (VND) <span className="text-red-500">*</span>
                           </label>
                           <input
                             type="number"
                             name="price"
                             value={formData.price}
                             onChange={handleInputChange}
-                            className="w-full rounded-lg border border-slate-200 px-4 py-2 focus:ring-2 focus:ring-secret-wax/20 focus:border-secret-wax outline-none"
+                            className="w-full rounded-xl border border-slate-200 px-4 py-2.5 focus:ring-4 focus:ring-secret-wax/5 focus:border-secret-wax outline-none transition-all font-bold text-lg"
                             required
                             placeholder="VD: 5000000"
                           />
                         </div>
                         <div className="space-y-2">
-                          <label className="text-sm font-medium text-slate-700">
+                          <label className="text-sm font-bold text-slate-700 flex items-center gap-1.5 text-emerald-600">
                             Giá khuyến mãi (VND)
                           </label>
                           <input
@@ -1557,7 +1749,7 @@ const AdminCourses = () => {
                             name="salePrice"
                             value={formData.salePrice}
                             onChange={handleInputChange}
-                            className="w-full rounded-lg border border-slate-200 px-4 py-2 focus:ring-2 focus:ring-secret-wax/20 focus:border-secret-wax outline-none"
+                            className="w-full rounded-xl border border-slate-200 px-4 py-2.5 focus:ring-4 focus:ring-secret-wax/5 focus:border-secret-wax outline-none transition-all font-bold text-lg text-emerald-600"
                             placeholder="VD: 2999000"
                           />
                         </div>
@@ -1671,1147 +1863,642 @@ const AdminCourses = () => {
                     </div>
                   </div>
 
-                  {/* Right: Media & Content */}
-                  <div className="space-y-5">
-                    <div className="space-y-3">
-                      <label className="text-sm font-medium text-slate-700">
-                        Ảnh bìa khóa học
-                      </label>
+                  {/* Right Column: Media */}
+                  <div className="space-y-8">
+                    <div className="p-8 rounded-3xl bg-white border border-slate-100 shadow-sm space-y-8">
+                      <div className="space-y-4">
+                        <label className="text-[11px] font-black uppercase tracking-widest text-slate-400">
+                          Ảnh minh họa khóa học
+                        </label>
 
-                      {/* Upload / URL Input */}
-                      <div className="flex flex-col gap-3">
-                        <div className="flex justify-center px-6 pt-5 pb-6 border-2 border-slate-300 border-dashed rounded-lg bg-slate-50 hover:bg-slate-100 transition relative">
-                          {isUploadingImage ? (
-                            <div className="text-center">
-                              <div className="w-6 h-6 border-2 border-secret-wax border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-                              <span className="text-xs">Đang tải...</span>
+                        <div className="grid grid-cols-1 gap-6">
+                          {formData.thumbnailUrl ? (
+                            <div className="relative h-56 w-full group rounded-[24px] overflow-hidden shadow-xl shadow-slate-200 ring-1 ring-slate-100">
+                              <img
+                                src={formData.thumbnailUrl}
+                                alt="Preview"
+                                className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
+                              />
+                              <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3 backdrop-blur-sm">
+                                <button
+                                  type="button"
+                                  onClick={handleRemoveImage}
+                                  className="p-3 bg-white text-rose-600 rounded-2xl shadow-xl hover:scale-110 transition-transform"
+                                >
+                                  <Trash2 className="w-5 h-5" />
+                                </button>
+                              </div>
                             </div>
                           ) : (
-                            <label className="cursor-pointer text-center">
-                              <ImageIcon className="mx-auto h-8 w-8 text-slate-400" />
-                              <span className="mt-2 block text-sm font-medium text-secret-wax">
-                                Tải ảnh lên
-                              </span>
-                              <input
-                                type="file"
-                                className="sr-only"
-                                accept="image/*"
-                                onChange={handleImageUpload}
-                              />
+                            <label className="flex flex-col items-center justify-center h-56 w-full rounded-[24px] border-2 border-dashed border-slate-200 bg-slate-50/50 hover:bg-slate-50 hover:border-secret-wax transition-all cursor-pointer group">
+                              {isUploadingImage ? (
+                                <div className="flex flex-col items-center gap-3">
+                                  <div className="w-10 h-10 border-4 border-secret-wax/20 border-t-secret-wax rounded-full animate-spin" />
+                                  <span className="text-sm font-bold text-secret-wax">Đang xử lý ảnh...</span>
+                                </div>
+                              ) : (
+                                <>
+                                  <div className="p-4 rounded-3xl bg-white shadow-sm mb-4 group-hover:scale-110 transition-transform">
+                                    <ImageIcon className="h-8 w-8 text-slate-300 group-hover:text-secret-wax" />
+                                  </div>
+                                  <span className="text-sm font-bold text-slate-500 group-hover:text-secret-wax">Click để tải ảnh lên</span>
+                                  <span className="text-[10px] text-slate-400 mt-1 uppercase tracking-widest">JPG, PNG, WebP (16:9)</span>
+                                </>
+                              )}
+                              <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} disabled={isUploadingImage} />
                             </label>
                           )}
-                        </div>
-                        <input
-                          type="text"
-                          name="thumbnailUrl"
-                          value={formData.thumbnailUrl}
-                          onChange={handleInputChange}
-                          className="w-full rounded-lg border border-slate-200 px-4 py-2 text-sm focus:ring-2 focus:ring-secret-wax/20 focus:border-secret-wax outline-none"
-                          placeholder="Hoặc dán URL ảnh..."
-                        />
-                      </div>
 
-                      {formData.thumbnailUrl && (
-                        <div className="relative h-40 w-full overflow-hidden rounded-lg border border-slate-200">
-                          <img
-                            src={formData.thumbnailUrl}
-                            alt="Preview"
-                            className="h-full w-full object-cover"
+                          <input
+                            type="text"
+                            name="thumbnailUrl"
+                            value={formData.thumbnailUrl}
+                            onChange={handleInputChange}
+                            className="w-full h-11 rounded-2xl bg-slate-50/50 border border-slate-100 px-5 text-xs font-bold text-slate-500 focus:bg-white focus:ring-4 focus:ring-secret-wax/5 focus:border-secret-wax outline-none transition-all placeholder:text-slate-300"
+                            placeholder="Hoặc dán link ảnh trực tiếp tại đây..."
                           />
-                          <button
-                            type="button"
-                            onClick={handleRemoveImage}
-                            className="absolute top-2 right-2 rounded-full bg-white/90 p-1 text-red-600 shadow-sm hover:bg-red-50"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
                         </div>
-                      )}
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-slate-700">
-                        Nội dung giới thiệu chi tiết
-                      </label>
-                      <div className="h-96 overflow-y-auto rounded-lg border border-slate-200">
-                        <RichTextEditor
-                          value={formData.content}
-                          onChange={handleContentChange}
-                          placeholder="Nội dung chi tiết của khóa học..."
-                        />
                       </div>
+
                     </div>
                   </div>
                 </div>
               ) : activeTab === "instructor" ? (
-                <div className="space-y-8">
-                  {/* Instructor Info */}
-                  <div className="bg-slate-50 p-6 rounded-xl border border-slate-200">
-                    <div className="flex items-center justify-between mb-6">
-                      <div className="flex items-center gap-3">
-                        <User className="w-6 h-6 text-secret-wax" />
-                        <h3 className="text-lg font-bold text-slate-800">
-                          Thông tin Giảng viên
-                        </h3>
-
-                        <select
-                          onChange={(e) => {
-                            const instId = e.target.value;
-                            if (!instId) return;
-                            const inst = instructors.find(
-                              (i) => i.id === instId,
-                            );
-                            if (inst) {
-                              setFormData((prev) => ({
-                                ...prev,
-                                authorId: inst.id, // Store ID
-                                instructorName: inst.name || "",
-                                instructorTitle: inst.title || "",
-                                instructorBio: inst.bio || "",
-                                instructorImageUrl: inst.avatar || "",
-                              }));
-                            }
-                          }}
-                          className="ml-2 text-sm border border-slate-300 rounded-lg px-2 py-1 outline-none focus:border-secret-wax max-w-[200px]"
-                        >
-                          <option value="">-- Chọn nhanh --</option>
-                          {instructors.map((inst) => (
-                            <option key={inst.id} value={inst.id}>
-                              {inst.name}
-                            </option>
-                          ))}
-                        </select>
+                <div className="space-y-10 animate-in fade-in duration-500">
+                  {/* Instructor Profile Card */}
+                  <div className="p-8 rounded-[32px] bg-white border border-slate-100 shadow-sm space-y-8">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-slate-50">
+                      <div className="flex items-center gap-4">
+                        <div className="p-3.5 rounded-2xl bg-indigo-50 text-indigo-600">
+                          <User className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <h3 className="text-xl font-black text-slate-900 leading-tight">Hồ sơ Giảng viên</h3>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Thông tin hiển thị trên trang khóa học</p>
+                        </div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setFormData((prev) => ({
+
+                      <div className="flex items-center gap-3">
+                        <div className="relative group">
+                          <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-secret-wax transition-colors" />
+                          <select
+                            onChange={(e) => {
+                              const instId = e.target.value;
+                              if (!instId) return;
+                              const inst = instructors.find(i => i.id === instId);
+                              if (inst) {
+                                setFormData(prev => ({
+                                  ...prev,
+                                  authorId: inst.id,
+                                  instructorName: inst.name || "",
+                                  instructorTitle: inst.title || "",
+                                  instructorBio: inst.bio || "",
+                                  instructorImageUrl: inst.avatar || "",
+                                }));
+                              }
+                            }}
+                            className="pl-9 pr-8 py-2.5 rounded-2xl bg-slate-50 border-0 text-sm font-bold text-slate-600 focus:bg-white focus:ring-4 focus:ring-secret-wax/5 outline-none transition-all cursor-pointer appearance-none"
+                          >
+                            <option value="">Chọn nhanh giảng viên...</option>
+                            {instructors.map((inst) => (
+                              <option key={inst.id} value={inst.id}>{inst.name}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => setFormData(prev => ({
                             ...prev,
                             instructorName: DEFAULT_INSTRUCTOR.name,
                             instructorTitle: DEFAULT_INSTRUCTOR.title,
                             instructorBio: DEFAULT_INSTRUCTOR.bio,
-                            instructorStudentCount:
-                              DEFAULT_INSTRUCTOR.studentCount,
-                            instructorCourseCount:
-                              DEFAULT_INSTRUCTOR.courseCount,
-                          }))
-                        }
-                        className="text-xs flex items-center gap-1 bg-white border border-slate-300 text-slate-600 px-3 py-1.5 rounded-lg hover:bg-slate-100 hover:text-secret-wax transition-colors"
-                      >
-                        <FileText className="w-3 h-3" />
-                        Điền thông tin mặc định
-                      </button>
+                            instructorStudentCount: DEFAULT_INSTRUCTOR.studentCount,
+                            instructorCourseCount: DEFAULT_INSTRUCTOR.courseCount,
+                          }))}
+                          className="px-4 py-2.5 rounded-2xl border border-dashed border-slate-200 text-[11px] font-black text-slate-500 hover:text-secret-wax hover:border-secret-wax transition-all uppercase tracking-tight"
+                        >
+                          Dùng mặc định
+                        </button>
+                      </div>
                     </div>
 
-                    <div className="grid md:grid-cols-2 gap-6">
-                      <div className="space-y-4">
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium text-slate-700">
-                            Tên giảng viên
-                          </label>
+                    <div className="grid md:grid-cols-2 gap-10">
+                      <div className="space-y-6">
+                        <div className="space-y-2.5">
+                          <label className="text-[11px] font-black uppercase tracking-widest text-slate-400">Tên chuyên gia</label>
                           <input
                             type="text"
                             name="instructorName"
                             value={formData.instructorName}
                             onChange={handleInputChange}
-                            className="w-full rounded-lg border border-slate-200 px-4 py-2 outline-none focus:border-secret-wax"
+                            className="w-full h-11 rounded-2xl bg-white border border-slate-100 px-4 text-sm font-bold text-slate-900 focus:ring-4 focus:ring-secret-wax/5 focus:border-secret-wax outline-none transition-all"
                             placeholder="VD: Mong Coaching"
                           />
                         </div>
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium text-slate-700">
-                            Danh xưng / Chức danh
-                          </label>
+                        <div className="space-y-2.5">
+                          <label className="text-[11px] font-black uppercase tracking-widest text-slate-400">Danh xưng / Học vị</label>
                           <input
                             type="text"
                             name="instructorTitle"
                             value={formData.instructorTitle}
                             onChange={handleInputChange}
-                            className="w-full rounded-lg border border-slate-200 px-4 py-2 outline-none focus:border-secret-wax"
+                            className="w-full h-11 rounded-2xl bg-white border border-slate-100 px-4 text-sm font-bold text-slate-900 focus:ring-4 focus:ring-secret-wax/5 focus:border-secret-wax outline-none transition-all"
                             placeholder="VD: Life Coach & Spiritual Mentor"
                           />
                         </div>
-                      </div>
 
-                      <div className="mt-4 md:mt-0">
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium text-slate-700">
-                            Ảnh đại diện
-                          </label>
-
-                          {/* Moved Uploader Here */}
-                          <div className="flex flex-col gap-3">
-                            <div className="flex justify-center px-6 pt-5 pb-6 border-2 border-slate-300 border-dashed rounded-lg bg-slate-50 hover:bg-slate-100 transition relative">
-                              {isUploadingInstructorImage ? (
-                                <div className="text-center">
-                                  <div className="w-6 h-6 border-2 border-secret-wax border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-                                  <span className="text-xs">Đang tải...</span>
-                                </div>
-                              ) : (
-                                <label className="cursor-pointer text-center">
-                                  <ImageIcon className="mx-auto h-8 w-8 text-slate-400" />
-                                  <span className="mt-2 block text-sm font-medium text-secret-wax">
-                                    Tải ảnh
-                                  </span>
-                                  <input
-                                    type="file"
-                                    className="sr-only"
-                                    accept="image/*"
-                                    onChange={handleInstructorImageUpload}
-                                  />
-                                </label>
-                              )}
-                            </div>
+                        <div className="space-y-2.5">
+                          <label className="text-[11px] font-black uppercase tracking-widest text-slate-400">Ảnh đại diện Giảng viên</label>
+                          <div className="flex items-center gap-4">
+                            {formData.instructorImageUrl ? (
+                              <div className="relative h-16 w-16 rounded-2xl overflow-hidden ring-2 ring-slate-100">
+                                <img src={formData.instructorImageUrl} alt="Instructor" className="w-full h-full object-cover" />
+                                <button type="button" onClick={handleRemoveInstructorImage} className="absolute inset-0 bg-black/40 flex items-center justify-center text-white opacity-0 hover:opacity-100 transition-opacity">
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </div>
+                            ) : (
+                              <label className="h-16 w-16 rounded-2xl border-2 border-dashed border-slate-100 flex items-center justify-center cursor-pointer hover:bg-slate-50 transition-colors">
+                                {isUploadingInstructorImage ? (
+                                  <div className="w-5 h-5 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+                                ) : (
+                                  <ImageIcon className="w-6 h-6 text-slate-200" />
+                                )}
+                                <input type="file" className="hidden" accept="image/*" onChange={handleInstructorImageUpload} disabled={isUploadingInstructorImage} />
+                              </label>
+                            )}
                             <input
                               type="text"
                               name="instructorImageUrl"
                               value={formData.instructorImageUrl}
                               onChange={handleInputChange}
-                              className="w-full rounded-lg border border-slate-200 px-4 py-2 text-sm focus:ring-2 focus:ring-secret-wax/20 focus:border-secret-wax outline-none"
-                              placeholder="Hoặc dán URL ảnh..."
+                              className="flex-1 h-11 rounded-2xl bg-slate-50 px-4 text-xs font-bold text-slate-500 focus:bg-white focus:ring-4 focus:ring-secret-wax/5 outline-none transition-all"
+                              placeholder="Dán URL ảnh đại diện..."
                             />
                           </div>
-
-                          {formData.instructorImageUrl && (
-                            <div className="relative h-20 w-20 overflow-hidden rounded-full border border-slate-200 mx-auto mt-2">
-                              <img
-                                src={formData.instructorImageUrl}
-                                alt="Preview"
-                                className="h-full w-full object-cover"
-                              />
-                              <button
-                                type="button"
-                                onClick={handleRemoveInstructorImage}
-                                className="absolute top-0 right-0 rounded-full bg-white/90 p-1 text-red-600 shadow-sm hover:bg-red-50"
-                              >
-                                <X className="h-3 w-3" />
-                              </button>
-                            </div>
-                          )}
                         </div>
                       </div>
 
-                      <div className="md:col-span-2 space-y-2">
-                        <label className="text-sm font-medium text-slate-700">
-                          Giới thiệu giảng viên (Bio)
-                        </label>
+                      <div className="space-y-2.5">
+                        <label className="text-[11px] font-black uppercase tracking-widest text-slate-400">Tiểu sử ngắn</label>
                         <textarea
                           name="instructorBio"
                           value={formData.instructorBio}
                           onChange={handleInputChange}
-                          rows="4"
-                          className="w-full rounded-lg border border-slate-200 px-4 py-2 outline-none focus:border-secret-wax"
-                          placeholder="Mô tả về kinh nghiệm và sứ mệnh của giảng viên..."
+                          rows="6"
+                          className="w-full rounded-2xl bg-white border border-slate-100 p-4 text-sm font-medium text-slate-600 focus:ring-4 focus:ring-secret-wax/5 focus:border-secret-wax outline-none transition-all leading-relaxed"
+                          placeholder="Mô tả tóm tắt kinh nghiệm giảng viên..."
                         />
                       </div>
                     </div>
                   </div>
 
-                  <div className="bg-slate-50 p-6 rounded-xl border border-slate-200">
-                    <div className="flex items-center gap-3 mb-6">
-                      <Monitor className="w-6 h-6 text-secret-wax" />
-                      <h3 className="text-lg font-bold text-slate-800">
-                        Chỉ số ảo & Đánh giá
-                      </h3>
+                  {/* Metrics Card */}
+                  <div className="p-8 rounded-[32px] bg-white border border-slate-100 shadow-sm space-y-8">
+                    <div className="flex items-center gap-4">
+                      <div className="p-3.5 rounded-2xl bg-amber-50 text-amber-600">
+                        <TrendingUp className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-black text-slate-900 leading-tight">Chỉ số & Đánh giá</h3>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Các thông số niềm tin hiển thị tại Landing Page</p>
+                      </div>
                     </div>
+
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-slate-700">
-                          Số học viên hiển thị
-                        </label>
-                        <input
-                          type="text"
-                          name="fakeStudentCount"
-                          value={formData.fakeStudentCount}
-                          onChange={handleInputChange}
-                          className="w-full rounded-lg border border-slate-200 px-4 py-2 outline-none focus:border-secret-wax"
-                          placeholder="VD: 1,200+ hoặc 500"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-slate-700">
-                          Đánh giá (Số sao)
-                        </label>
-                        <input
-                          type="text"
-                          name="fakeRating"
-                          value={formData.fakeRating}
-                          onChange={handleInputChange}
-                          className="w-full rounded-lg border border-slate-200 px-4 py-2 outline-none focus:border-secret-wax"
-                          placeholder="VD: 4.8 hoặc 5.0"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-slate-700">
-                          Số lượt đánh giá
-                        </label>
-                        <input
-                          type="text"
-                          name="fakeReviewCount"
-                          value={formData.fakeReviewCount}
-                          onChange={handleInputChange}
-                          className="w-full rounded-lg border border-slate-200 px-4 py-2 outline-none focus:border-secret-wax"
-                          placeholder="VD: 120+ hoặc 45"
-                        />
-                      </div>
+                      {[
+                        { label: 'Số học viên', name: 'fakeStudentCount', color: 'text-blue-600', icon: Users },
+                        { label: 'Số sao đánh giá', name: 'fakeRating', color: 'text-amber-600', icon: Star },
+                        { label: 'Lượt đánh giá', name: 'fakeReviewCount', color: 'text-purple-600', icon: MessageSquare },
+                      ].map((field) => (
+                        <div key={field.name} className="p-6 rounded-3xl bg-slate-50/50 border border-slate-100 transition-all focus-within:bg-white focus-within:shadow-xl focus-within:shadow-slate-200/5 focus-within:-translate-y-1">
+                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1.5">
+                            <field.icon className="w-3 h-3" />
+                            {field.label}
+                          </label>
+                          <input
+                            type="text"
+                            name={field.name}
+                            value={formData[field.name]}
+                            onChange={handleInputChange}
+                            className={`w-full bg-transparent border-none p-0 text-2xl font-black ${field.color} focus:ring-0 outline-none`}
+                            placeholder="VD: 5,000+"
+                          />
+                        </div>
+                      ))}
                     </div>
                   </div>
                 </div>
               ) : (
-                <div className="space-y-8">
-                  <div className="flex justify-between items-center bg-slate-50 p-4 rounded-xl border border-slate-200">
-                    <h3 className="font-bold text-slate-800">
-                      Lộ trình học tập
-                    </h3>
-                    <button
-                      type="button"
-                      onClick={handleAddSection}
-                      className="bg-white border border-slate-300 text-slate-700 px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-slate-50 hover:text-secret-wax flex items-center gap-2"
-                    >
-                      <Plus className="w-4 h-4" />
-                      Thêm chương mới
-                    </button>
+                <div className="space-y-8 animate-in fade-in duration-500">
+                  {/* Curriculum Header */}
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 p-8 rounded-[32px] bg-white border border-slate-100 shadow-sm">
+                    <div className="flex items-center gap-4">
+                      <div className="p-3.5 rounded-2xl bg-rose-50 text-rose-600">
+                        <Video className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-black text-slate-900 leading-tight">Lộ trình bài học</h3>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Xây dựng cấu trúc khóa học của bạn</p>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-3">
+                      <button
+                        type="button"
+                        onClick={() => handleAddSection(false)}
+                        className="px-5 py-2.5 rounded-2xl bg-white border border-slate-200 text-sm font-black text-slate-600 hover:border-secret-wax hover:text-secret-wax transition-all flex items-center gap-2 shadow-sm"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Bài học lẻ
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleAddSection(true)}
+                        className="px-5 py-2.5 rounded-2xl bg-secret-wax text-white text-sm font-black hover:bg-secret-ink transition-all flex items-center gap-2 shadow-lg shadow-secret-wax/20"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Thêm chương mới
+                      </button>
+                    </div>
                   </div>
 
                   {formData.curriculum && formData.curriculum.length > 0 ? (
-                    <div className="space-y-6">
-                      {/* Ensure curriculum is treated as sections array */}
-                      {(formData.curriculum[0]?.lessons
-                        ? formData.curriculum
-                        : [
-                            {
-                              title: "Nội dung khóa học",
-                              lessons: formData.curriculum,
-                            },
-                          ]
-                      ).map((section, sIdx) => {
-                        // If we are editing, we should probably stick to one structure.
-                        // For now, let's assume we convert everyone to sections on Save, or here.
-                        // To avoid complex UI logic mixed with converting, let's assume `formData.curriculum` IS sections.
-                        // IF it's old data (lessons array), we wrapped it in useEffect or handleEdit?
-                        // Better: In handleEdit, normalize it. So here we just map sections.
-                        return (
-                          <div
-                            key={sIdx}
-                            className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm"
-                          >
-                            <div className="bg-slate-50 p-4 border-b border-slate-200 flex items-center gap-4">
-                              <span className="font-bold text-slate-500">
-                                Chương {sIdx + 1}:
-                              </span>
-                              <input
-                                type="text"
-                                value={section.title || ""}
-                                onChange={(e) =>
-                                  handleSectionTitleChange(sIdx, e.target.value)
-                                }
-                                placeholder="Tên chương học..."
-                                className="flex-1 bg-transparent border-none font-bold text-slate-800 focus:ring-0 placeholder:font-normal placeholder:text-slate-400"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveSection(sIdx)}
-                                className="text-slate-400 hover:text-red-500"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
+                    <div className="space-y-10 pb-10">
+                      {formData.curriculum.map((section, sIdx) => (
+                        <div key={sIdx} className="group/section rounded-[40px] bg-white border border-slate-100 shadow-sm hover:shadow-xl hover:shadow-slate-200/40 transition-all duration-500 overflow-hidden">
+                          {/* Section Header */}
+                          <div className="p-8 pb-6 flex items-center justify-between bg-white">
+                            <div className="flex items-center gap-4 flex-1">
+                              {section.title ? (
+                                <>
+                                  <div className="w-10 h-10 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center text-[10px] font-black text-slate-400">
+                                    {String(sIdx + 1).padStart(2, '0')}
+                                  </div>
+                                  <input
+                                    type="text"
+                                    value={section.title}
+                                    onChange={(e) => handleSectionTitleChange(sIdx, e.target.value)}
+                                    placeholder="Tên chương học..."
+                                    className="flex-1 bg-transparent border-0 text-xl font-black text-slate-900 focus:ring-0 placeholder:text-slate-300"
+                                  />
+                                </>
+                              ) : (
+                                <div className="flex items-center gap-3">
+                                  <div className="px-3 py-1 rounded-full bg-slate-50 border border-slate-200 text-[10px] font-black text-slate-400 uppercase tracking-widest">Không phân chương</div>
+                                  <button type="button" onClick={() => handleSectionTitleChange(sIdx, "Chương mới")} className="text-[10px] font-black text-blue-500 hover:text-blue-600 uppercase tracking-widest">+ Đặt tên chương</button>
+                                </div>
+                              )}
                             </div>
+                            <button type="button" onClick={() => handleRemoveSection(sIdx)} className="p-3 rounded-2xl bg-rose-50/50 text-rose-300 hover:text-rose-600 hover:bg-rose-50 transition-all ml-4">
+                              <Trash2 className="w-5 h-5" />
+                            </button>
+                          </div>
 
-                            {/* Add Lesson to Section */}
-                            <div className="p-4 bg-slate-50/50 border-b border-slate-100">
-                              <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
-                                <div className="md:col-span-5">
+                          {/* Quick Add Lesson for Section */}
+                          <div className="px-8 py-6 bg-slate-50/50 border-y border-slate-100">
+                            <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                              <div className="md:col-span-5">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2 block">Tên bài học</label>
+                                <input
+                                  type="text"
+                                  placeholder="VD: Giới thiệu khóa học..."
+                                  className="w-full h-11 rounded-2xl bg-white border border-slate-200 px-4 text-sm font-bold focus:ring-4 focus:ring-secret-wax/5 focus:border-secret-wax outline-none transition-all"
+                                  id={`lesson-title-${sIdx}`}
+                                />
+                              </div>
+                              <div className="md:col-span-4">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2 block">Video ID</label>
+                                <div className="flex gap-2">
                                   <input
                                     type="text"
-                                    placeholder="Tên bài học..."
-                                    className="w-full text-sm rounded-lg border border-slate-200 px-3 py-2"
-                                    id={`lesson-title-${sIdx}`}
-                                  />
-                                </div>
-                                <div className="md:col-span-4 flex gap-2 items-center">
-                                  <input
-                                    type="text"
-                                    placeholder="Video URL / ID..."
-                                    className="w-full text-sm rounded-lg border border-slate-200 px-3 py-2"
+                                    placeholder="ID/Link..."
+                                    className="flex-1 h-11 rounded-2xl bg-white border border-slate-200 px-4 text-sm font-bold focus:ring-4 focus:ring-secret-wax/5 focus:border-secret-wax outline-none transition-all"
                                     id={`lesson-video-${sIdx}`}
-                                    onBlur={async (e) => {
-                                      const url = e.target.value;
-                                      const durInput = document.getElementById(
-                                        `lesson-duration-${sIdx}`,
-                                      );
-                                      if (url && durInput && !durInput.value) {
-                                        const duration =
-                                          await fetchVideoDuration(url);
-                                        if (duration) durInput.value = duration;
-                                      }
-                                    }}
                                   />
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      setUploadingTo({ sIdx, isNew: true })
-                                    }
-                                    className="p-2 border border-slate-200 rounded-lg text-slate-500 hover:text-secret-wax hover:bg-slate-50"
-                                    title="Tải video lên máy chủ"
-                                  >
-                                    <Upload className="w-4 h-4" />
-                                  </button>
-                                </div>
-                                <div className="md:col-span-2">
-                                  <input
-                                    type="text"
-                                    placeholder="Phút..."
-                                    className="w-full text-sm rounded-lg border border-slate-200 px-3 py-2"
-                                    id={`lesson-duration-${sIdx}`}
-                                  />
-                                </div>
-                                <div className="md:col-span-1">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const titleInput =
-                                        document.getElementById(
-                                          `lesson-title-${sIdx}`,
-                                        );
-                                      const videoInput =
-                                        document.getElementById(
-                                          `lesson-video-${sIdx}`,
-                                        );
-                                      const durInput = document.getElementById(
-                                        `lesson-duration-${sIdx}`,
-                                      );
-                                      if (
-                                        titleInput.value &&
-                                        videoInput.value
-                                      ) {
-                                        handleAddLessonToSection(sIdx, {
-                                          title: titleInput.value,
-                                          videoId: videoInput.value,
-                                          duration: durInput.value,
-                                        });
-                                        titleInput.value = "";
-                                        videoInput.value = "";
-                                        durInput.value = "";
-                                      } else {
-                                        showToast(
-                                          "Nhập tên và ID bài học",
-                                          "error",
-                                        );
-                                      }
-                                    }}
-                                    className="w-full h-full bg-secret-wax text-white rounded-lg flex items-center justify-center hover:bg-secret-ink"
-                                  >
-                                    <Plus className="w-4 h-4" />
-                                  </button>
+                                  <label className="h-11 w-11 flex items-center justify-center rounded-2xl bg-white border border-slate-200 text-slate-400 hover:text-secret-wax hover:border-secret-wax cursor-pointer transition-all">
+                                    <input
+                                      type="file"
+                                      className="hidden"
+                                      accept="video/*"
+                                      onChange={(e) => handleStartUpload(sIdx, null, e.target.files[0], true)}
+                                    />
+                                    {uploadTasks[`new-${sIdx}`] ? (
+                                      <div className="w-5 h-5 border-2 border-secret-wax/30 border-t-secret-wax rounded-full animate-spin" />
+                                    ) : (
+                                      <Upload className="w-4 h-4" />
+                                    )}
+                                  </label>
                                 </div>
                               </div>
+                              {uploadTasks[`new-${sIdx}`] && (
+                                <div className="md:col-span-12">
+                                  <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                                    <div
+                                      className="bg-secret-wax h-full transition-all duration-300"
+                                      style={{ width: `${uploadTasks[`new-${sIdx}`].progress || 0}%` }}
+                                    />
+                                  </div>
+                                  <p className="text-[10px] font-bold text-secret-wax mt-1 uppercase tracking-widest">
+                                    Đang tải lên: {uploadTasks[`new-${sIdx}`].progress || 0}%
+                                  </p>
+                                </div>
+                              )}
+                              <div className="md:col-span-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2 block">Thời lượng</label>
+                                <input
+                                  type="text"
+                                  placeholder="Phút..."
+                                  className="w-full h-11 rounded-2xl bg-white border border-slate-200 px-4 text-sm font-bold focus:ring-4 focus:ring-secret-wax/5 focus:border-secret-wax outline-none transition-all"
+                                  id={`lesson-duration-${sIdx}`}
+                                />
+                              </div>
+                              <div className="md:col-span-1 flex items-end">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const t = document.getElementById(`lesson-title-${sIdx}`);
+                                    const v = document.getElementById(`lesson-video-${sIdx}`);
+                                    const d = document.getElementById(`lesson-duration-${sIdx}`);
+                                    if (t.value && v.value) {
+                                      handleAddLessonToSection(sIdx, { title: t.value, videoId: v.value, duration: d.value });
+                                      t.value = ""; v.value = ""; d.value = "";
+                                    } else {
+                                      showToast("Vui lòng nhập tên và video", "error");
+                                    }
+                                  }}
+                                  className="w-full h-11 bg-secret-wax text-white rounded-2xl flex items-center justify-center hover:bg-secret-ink shadow-lg shadow-secret-wax/20 transition-all"
+                                >
+                                  <Plus className="w-5 h-5" />
+                                </button>
+                              </div>
                             </div>
+                          </div>
 
-                            {/* Lessons List */}
-                            <div className="divide-y divide-slate-100">
-                              {section.lessons &&
-                                section.lessons.map((lesson, lIdx) => {
-                                  const lessonExpansionKey =
-                                    getLessonExpansionKey(lesson, sIdx, lIdx);
-                                  const isLessonExpanded = Boolean(
-                                    expandedLessons[lessonExpansionKey],
-                                  );
+                          {/* Lessons List in Section */}
+                          <div className="p-4 space-y-3">
+                            {(section.lessons || []).map((lesson, lIdx) => {
+                              const expKey = getLessonExpansionKey(lesson, sIdx, lIdx);
+                              const isExp = Boolean(expandedLessons[expKey]);
 
-                                  return (
-                                  <div
-                                    key={
-                                      lesson.id ||
-                                      lesson.videoId ||
-                                      `lesson-${sIdx}-${lIdx}`
-                                    }
-                                    onDragOver={(event) =>
-                                      handleLessonDragOver(event, sIdx, lIdx)
-                                    }
-                                    onDrop={(event) =>
-                                      handleLessonDrop(event, sIdx, lIdx)
-                                    }
-                                    className={`p-3 flex flex-col md:flex-row md:items-start justify-between group gap-4 border-b border-slate-100 last:border-0 transition-colors ${
-                                      isLessonDropTarget(sIdx, lIdx)
-                                        ? "bg-orange-50"
-                                        : "hover:bg-slate-50"
-                                    }`}
-                                  >
-                                    <div className="flex items-start gap-3 flex-1">
-                                      <button
-                                        type="button"
-                                        draggable
-                                        onDragStart={(event) =>
-                                          handleLessonDragStart(
-                                            event,
-                                            sIdx,
-                                            lIdx,
-                                          )
-                                        }
-                                        onDragEnd={() => {
-                                          setDraggedLessonLocation(null);
-                                          setLessonDropTarget(null);
-                                        }}
-                                        className="inline-flex h-8 w-8 shrink-0 cursor-grab items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 transition-colors hover:border-secret-wax hover:text-secret-wax active:cursor-grabbing"
-                                        title="Keo de di chuyen bai hoc"
-                                      >
-                                        <GripVertical className="h-4 w-4" />
-                                      </button>
-
-                                      <div className="w-6 h-6 rounded-full bg-white border border-slate-200 text-xs flex items-center justify-center text-slate-500 shrink-0 mt-1">
+                              return (
+                                <div key={lesson.id || lIdx} className="rounded-3xl border border-slate-50 bg-white hover:border-slate-200 transition-all overflow-hidden">
+                                  <div className="p-4 flex flex-col md:flex-row md:items-center gap-4">
+                                    <div className="flex items-center gap-3 flex-1">
+                                      <div className="w-8 h-8 rounded-xl bg-slate-50 flex items-center justify-center text-[10px] font-black text-slate-400">
                                         {lIdx + 1}
                                       </div>
-
-                                      <div className="flex-1 space-y-3">
-                                        {/* Main Info */}
-                                        <div className="grid grid-cols-1 md:grid-cols-12 gap-2">
-                                          <div className="md:col-span-12 flex items-center gap-2">
-                                            <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-2">
-                                              <div className="md:col-span-6">
-                                                <input
-                                                  type="text"
-                                                  value={lesson.title}
-                                                  onChange={(e) =>
-                                                    handleUpdateLesson(
-                                                      sIdx,
-                                                      lIdx,
-                                                      "title",
-                                                      e.target.value,
-                                                    )
-                                                  }
-                                                  className="w-full font-medium text-slate-800 text-sm bg-transparent border border-transparent hover:border-slate-300 focus:border-secret-wax focus:bg-white rounded px-2 py-1 outline-none transition-all"
-                                                  placeholder="Tên bài học"
-                                                />
-                                              </div>
-                                              <div className="md:col-span-4 flex items-center gap-1">
-                                                <input
-                                                  type="text"
-                                                  value={lesson.videoId}
-                                                  onChange={(e) =>
-                                                    handleUpdateLesson(
-                                                      sIdx,
-                                                      lIdx,
-                                                      "videoId",
-                                                      e.target.value,
-                                                    )
-                                                  }
-                                                  onBlur={(e) =>
-                                                    handleVideoScan(
-                                                      sIdx,
-                                                      lIdx,
-                                                      e.target.value,
-                                                    )
-                                                  }
-                                                  className="w-full text-xs text-slate-500 bg-transparent border border-transparent hover:border-slate-300 focus:border-secret-wax focus:bg-white rounded px-2 py-1 outline-none transition-all"
-                                                  placeholder="Video URL / ID"
-                                                />
-                                                <button
-                                                  type="button"
-                                                  onClick={() =>
-                                                    setUploadingTo({
-                                                      sIdx,
-                                                      lIdx,
-                                                    })
-                                                  }
-                                                  className="p-1 rounded text-slate-400 hover:text-secret-wax hover:bg-slate-100 shrink-0"
-                                                  title="Tải video lên máy chủ"
-                                                >
-                                                  <Upload className="w-3 h-3" />
-                                                </button>
-                                              </div>
-                                              <div className="md:col-span-2">
-                                                <input
-                                                  type="text"
-                                                  value={lesson.duration}
-                                                  onChange={(e) =>
-                                                    handleUpdateLesson(
-                                                      sIdx,
-                                                      lIdx,
-                                                      "duration",
-                                                      e.target.value,
-                                                    )
-                                                  }
-                                                  className="w-full text-xs text-slate-500 bg-transparent border border-transparent hover:border-slate-300 focus:border-secret-wax focus:bg-white rounded px-2 py-1 outline-none transition-all text-center"
-                                                  placeholder="Phút"
-                                                />
-                                              </div>
-                                            </div>
-                                            <button
-                                              type="button"
-                                              onClick={() =>
-                                                toggleLessonExpansion(
-                                                  lesson,
-                                                  sIdx,
-                                                  lIdx,
-                                                )
-                                              }
-                                              className={`p-1.5 rounded hover:bg-slate-100 transition-colors ${isLessonExpanded ? "text-secret-wax bg-orange-50" : "text-slate-400"}`}
-                                              title={
-                                                isLessonExpanded
-                                                  ? "Thu gọn chi tiết"
-                                                  : "Mở rộng chi tiết"
-                                              }
-                                            >
-                                              {isLessonExpanded ? (
-                                                <EyeOff className="w-4 h-4" />
-                                              ) : (
-                                                <Edit className="w-4 h-4" />
-                                              )}
-                                            </button>
-                                          </div>
-                                        </div>
-
-                                        {/* Details (Description & Resources) - Collapsible */}
-                                        {isLessonExpanded && (
-                                          <div className="bg-slate-50 rounded-lg p-3 space-y-3 border border-slate-100 animate-in fade-in slide-in-from-top-2 duration-200">
-                                            <div className="space-y-1">
-                                              <label className="text-xs font-bold text-slate-400 uppercase">
-                                                Mô tả bài học
-                                              </label>
-                                              <textarea
-                                                placeholder="Mô tả chi tiết bài học (hiện ở tab Giới thiệu trong Player)..."
-                                                value={lesson.description || ""}
-                                                onChange={(e) =>
-                                                  handleUpdateLesson(
-                                                    sIdx,
-                                                    lIdx,
-                                                    "description",
-                                                    e.target.value,
-                                                  )
-                                                }
-                                                className="w-full text-sm rounded bg-white border border-slate-200 px-3 py-2 h-16 focus:border-secret-wax outline-none"
-                                              />
-                                            </div>
-
-                                            <div className="space-y-1">
-                                              <label className="text-xs font-bold text-slate-400 uppercase">
-                                                Tài liệu đính kèm
-                                              </label>
-                                              <div className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
-                                                <input
-                                                  type="text"
-                                                  placeholder="Tên tài liệu (VD: Slide bài giảng)..."
-                                                  value={
-                                                    lesson.resourceName || ""
-                                                  }
-                                                  onChange={(e) =>
-                                                    handleUpdateLesson(
-                                                      sIdx,
-                                                      lIdx,
-                                                      "resourceName",
-                                                      e.target.value,
-                                                    )
-                                                  }
-                                                  className="w-full text-sm rounded bg-white border border-slate-200 px-3 py-2 focus:border-secret-wax outline-none"
-                                                />
-                                                <input
-                                                  type="text"
-                                                  placeholder="Link tài liệu (URL)..."
-                                                  value={
-                                                    lesson.resourceLink || ""
-                                                  }
-                                                  onChange={(e) =>
-                                                    handleUpdateLesson(
-                                                      sIdx,
-                                                      lIdx,
-                                                      "resourceLink",
-                                                      e.target.value,
-                                                    )
-                                                  }
-                                                  className="w-full text-sm rounded bg-white border border-slate-200 px-3 py-2 focus:border-secret-wax outline-none"
-                                                />
-                                                <label
-                                                  className={`inline-flex cursor-pointer items-center justify-center rounded border border-slate-200 px-3 py-2 text-sm font-medium transition-colors ${
-                                                    uploadingDocumentKey ===
-                                                    `lesson-${sIdx}-${lIdx}`
-                                                      ? "bg-slate-100 text-slate-500"
-                                                      : "bg-white text-slate-600 hover:border-secret-wax hover:text-secret-wax"
-                                                  }`}
-                                                  title="Tải file tài liệu lên"
-                                                >
-                                                  <input
-                                                    type="file"
-                                                    className="hidden"
-                                                    accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.txt,.csv,image/*"
-                                                    onChange={(e) =>
-                                                      handleDocumentUpload(e, {
-                                                        type: "lesson",
-                                                        sIdx,
-                                                        lIdx,
-                                                      })
-                                                    }
-                                                    disabled={
-                                                      uploadingDocumentKey ===
-                                                      `lesson-${sIdx}-${lIdx}`
-                                                    }
-                                                  />
-                                                  {uploadingDocumentKey ===
-                                                  `lesson-${sIdx}-${lIdx}` ? (
-                                                    <span className="text-xs font-semibold">
-                                                      {typeof documentUploadProgress ===
-                                                      "number"
-                                                        ? `${documentUploadProgress}%`
-                                                        : "..."}
-                                                    </span>
-                                                  ) : (
-                                                    <Upload className="h-4 w-4" />
-                                                  )}
-                                                </label>
-                                              </div>
-                                            </div>
-                                          </div>
-                                        )}
-                                      </div>
+                                      <input
+                                        type="text"
+                                        value={lesson.title}
+                                        onChange={(e) => handleUpdateLesson(sIdx, lIdx, "title", e.target.value)}
+                                        className="flex-1 bg-transparent border-0 text-sm font-bold text-slate-700 focus:ring-0"
+                                      />
                                     </div>
 
-                                    {/* Actions */}
-                                    <div className="flex items-center gap-1 shrink-0 pt-1">
+                                    <div className="flex items-center gap-2">
+                                      <div className="relative group/vid flex items-center gap-1">
+                                        <input
+                                          type="text"
+                                          value={lesson.videoId}
+                                          onChange={(e) => handleUpdateLesson(sIdx, lIdx, "videoId", e.target.value)}
+                                          className="w-32 bg-slate-50 rounded-xl px-3 py-1.5 text-[10px] font-bold text-slate-500 border-0 focus:ring-2 focus:ring-secret-wax/20 outline-none"
+                                          placeholder="Video ID"
+                                        />
+                                        <label className="p-2 rounded-xl bg-slate-50 text-slate-400 hover:text-secret-wax hover:bg-white transition-all cursor-pointer">
+                                          <input
+                                            type="file"
+                                            className="hidden"
+                                            accept="video/*"
+                                            onChange={(e) => handleStartUpload(sIdx, lIdx, e.target.files[0], false)}
+                                          />
+                                          {uploadTasks[`${sIdx}-${lIdx}`] ? (
+                                            <div className="w-4 h-4 border-2 border-secret-wax/30 border-t-secret-wax rounded-full animate-spin" />
+                                          ) : (
+                                            <Upload className="w-4 h-4" />
+                                          )}
+                                        </label>
+                                      </div>
                                       <button
                                         type="button"
-                                        onClick={() =>
-                                          handleUpdateLesson(
-                                            sIdx,
-                                            lIdx,
-                                            "isFreePreview",
-                                            !lesson.isFreePreview,
-                                          )
-                                        }
-                                        className={`p-1.5 rounded transition-colors ${lesson.isFreePreview ? "bg-green-100 text-green-600" : "bg-slate-100 text-slate-400 hover:bg-slate-200"}`}
-                                        title={
-                                          lesson.isFreePreview
-                                            ? "Đang cho phép học thử"
-                                            : "Bấm để cho phép học thử"
-                                        }
+                                        onClick={() => toggleLessonExpansion(lesson, sIdx, lIdx)}
+                                        className={`p-2 rounded-xl transition-all ${isExp ? 'bg-secret-wax text-white' : 'bg-slate-50 text-slate-400 hover:text-slate-600'}`}
                                       >
-                                        {lesson.isFreePreview ? (
-                                          <Eye className="w-4 h-4" />
-                                        ) : (
-                                          <EyeOff className="w-4 h-4" />
-                                        )}
-                                      </button>
-
-                                      <div className="w-px h-4 bg-slate-200 mx-1"></div>
-
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          handleMoveLesson(sIdx, lIdx, -1)
-                                        }
-                                        disabled={lIdx === 0}
-                                        className="p-1.5 rounded text-slate-400 hover:text-secret-wax hover:bg-slate-100 disabled:opacity-30 disabled:hover:text-slate-400"
-                                      >
-                                        <ArrowUp className="w-4 h-4" />
+                                        <Edit className="w-4 h-4" />
                                       </button>
                                       <button
                                         type="button"
-                                        onClick={() =>
-                                          handleMoveLesson(sIdx, lIdx, 1)
-                                        }
-                                        disabled={
-                                          lIdx === section.lessons.length - 1
-                                        }
-                                        className="p-1.5 rounded text-slate-400 hover:text-secret-wax hover:bg-slate-100 disabled:opacity-30 disabled:hover:text-slate-400"
-                                      >
-                                        <ArrowDown className="w-4 h-4" />
-                                      </button>
-
-                                      <div className="w-px h-4 bg-slate-200 mx-1"></div>
-
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          handleRemoveLessonFromSection(
-                                            sIdx,
-                                            lIdx,
-                                          )
-                                        }
-                                        className="p-1.5 rounded text-red-400 hover:text-red-600 hover:bg-red-50"
+                                        onClick={() => handleRemoveLessonFromSection(sIdx, lIdx)}
+                                        className="p-2 rounded-xl bg-rose-50 text-rose-300 hover:text-rose-500 transition-all"
                                       >
                                         <Trash2 className="w-4 h-4" />
                                       </button>
                                     </div>
                                   </div>
-                                  );
-                                })}
-                              {draggedLessonLocation &&
-                                section.lessons &&
-                                section.lessons.length > 0 && (
-                                  <div className="px-3 pb-3">
-                                    <div
-                                      onDragOver={(event) =>
-                                        handleLessonDragOver(
-                                          event,
-                                          sIdx,
-                                          section.lessons.length,
-                                        )
-                                      }
-                                      onDrop={(event) =>
-                                        handleLessonDrop(
-                                          event,
-                                          sIdx,
-                                          section.lessons.length,
-                                        )
-                                      }
-                                      className={`rounded-lg border border-dashed px-3 py-2 text-center text-xs transition-colors ${
-                                        isLessonDropTarget(
-                                          sIdx,
-                                          section.lessons.length,
-                                        )
-                                          ? "border-secret-wax bg-orange-50 text-secret-wax"
-                                          : "border-slate-200 text-slate-400"
-                                      }`}
-                                    >
-                                      Tha bai vao cuoi chuong nay
+
+                                  {uploadTasks[`${sIdx}-${lIdx}`] && (
+                                    <div className="px-6 py-2 border-t border-slate-50 bg-slate-50/20">
+                                      <div className="w-full bg-slate-100 rounded-full h-1 overflow-hidden">
+                                        <div
+                                          className="bg-secret-wax h-full transition-all duration-300"
+                                          style={{ width: `${uploadTasks[`${sIdx}-${lIdx}`].progress || 0}%` }}
+                                        />
+                                      </div>
+                                      <div className="flex justify-between items-center mt-1">
+                                        <p className="text-[9px] font-bold text-secret-wax uppercase tracking-tight">
+                                          Tải lên bài học: {uploadTasks[`${sIdx}-${lIdx}`].progress || 0}%
+                                        </p>
+                                        <p className="text-[9px] font-bold text-slate-400">
+                                          {uploadTasks[`${sIdx}-${lIdx}`].fileName}
+                                        </p>
+                                      </div>
                                     </div>
-                                  </div>
-                                )}
-                              {(!section.lessons ||
-                                section.lessons.length === 0) && (
-                                <div
-                                  onDragOver={(event) =>
-                                    handleLessonDragOver(event, sIdx, 0)
-                                  }
-                                  onDrop={(event) =>
-                                    handleLessonDrop(event, sIdx, 0)
-                                  }
-                                  className={`mx-3 my-3 rounded-lg border border-dashed p-4 text-center text-xs italic transition-colors ${
-                                    isLessonDropTarget(sIdx, 0)
-                                      ? "border-secret-wax bg-orange-50 text-secret-wax"
-                                      : "border-slate-200 text-slate-400"
-                                  }`}
-                                >
-                                  Chưa có bài học nào trong chương này.
+                                  )}
+
+                                  {isExp && (
+                                    <div className="px-6 pb-6 pt-2 grid md:grid-cols-2 gap-6 animate-in fade-in slide-in-from-top-2 duration-300">
+                                      <div className="space-y-3">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Mô tả bài giảng</label>
+                                        <textarea
+                                          value={lesson.description || ""}
+                                          onChange={(e) => handleUpdateLesson(sIdx, lIdx, "description", e.target.value)}
+                                          className="w-full h-24 rounded-2xl bg-slate-50 border-0 p-4 text-xs font-medium text-slate-600 focus:bg-white focus:ring-4 focus:ring-secret-wax/5 outline-none transition-all"
+                                          placeholder="Tóm tắt nội dung bài học..."
+                                        />
+                                      </div>
+                                      <div className="space-y-6">
+                                        <div className="space-y-3">
+                                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tài liệu đính kèm</label>
+                                          <div className="flex gap-2">
+                                            <input
+                                              type="text"
+                                              value={lesson.resourceLink || ""}
+                                              onChange={(e) => handleUpdateLesson(sIdx, lIdx, "resourceLink", e.target.value)}
+                                              className="flex-1 rounded-xl bg-slate-50 px-3 py-2 text-xs font-bold text-slate-500 border-0"
+                                              placeholder="Link URL tài liệu..."
+                                            />
+                                            <label className="h-10 w-10 flex items-center justify-center rounded-xl bg-slate-100 text-slate-500 hover:bg-secret-wax hover:text-white cursor-pointer transition-all">
+                                              <input type="file" className="hidden" onChange={(e) => handleDocumentUpload(e, { type: "lesson", sIdx, lIdx })} />
+                                              <Upload className="w-4 h-4" />
+                                            </label>
+                                          </div>
+                                        </div>
+
+                                        <div className="flex items-center justify-between p-4 rounded-2xl bg-indigo-50/50 border border-indigo-100/50">
+                                          <div className="flex items-center gap-3">
+                                            <div className={`p-2 rounded-lg ${lesson.isFreePreview ? 'bg-indigo-500 text-white' : 'bg-white text-indigo-300'}`}>
+                                              <Eye className="w-4 h-4" />
+                                            </div>
+                                            <div>
+                                              <div className="text-xs font-black text-indigo-900">Cho phép học thử</div>
+                                              <div className="text-[10px] text-indigo-500 font-medium">Học viên có thể xem không cần mua</div>
+                                            </div>
+                                          </div>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleUpdateLesson(sIdx, lIdx, "isFreePreview", !lesson.isFreePreview)}
+                                            className={`w-10 h-5 rounded-full transition-all relative ${lesson.isFreePreview ? 'bg-indigo-500' : 'bg-slate-300'}`}
+                                          >
+                                            <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${lesson.isFreePreview ? 'right-1' : 'left-1'}`} />
+                                          </button>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
                                 </div>
-                              )}
-                            </div>
+                              );
+                            })}
+
+                            {(section.lessons || []).length === 0 && (
+                              <div className="p-12 text-center border-2 border-dashed border-slate-100 rounded-[32px]">
+                                <p className="text-xs font-bold text-slate-300 uppercase tracking-widest">Chưa có bài học</p>
+                              </div>
+                            )}
                           </div>
-                        );
-                      })}
+                        </div>
+                      ))}
                     </div>
                   ) : (
-                    <div className="text-center py-12 bg-slate-50 border border-dashed border-slate-300 rounded-xl">
-                      <p className="text-slate-500 mb-2">
-                        Chưa có nội dung nào.
-                      </p>
-                      <button
-                        type="button"
-                        onClick={handleAddSection}
-                        className="text-secret-wax font-bold hover:underline"
-                      >
-                        + Thêm chương đầu tiên
-                      </button>
+                    <div className="flex flex-col items-center justify-center py-20 bg-white rounded-[40px] border border-slate-100 border-dashed">
+                      <div className="p-6 rounded-3xl bg-slate-50 text-slate-200 mb-4">
+                        <Layers className="w-12 h-12" />
+                      </div>
+                      <h4 className="text-lg font-black text-slate-900">Chưa có lộ trình đào tạo</h4>
+                      <p className="text-sm text-slate-400 mt-1">Bắt đầu bằng cách thêm chương học hoặc bài giảng lẻ</p>
                     </div>
                   )}
 
-                  <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-                    <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                      <div>
-                        <h3 className="text-base font-bold text-slate-800">
-                          Tài liệu chung của khóa học
-                        </h3>
-                        <p className="text-sm text-slate-500">
-                          Có thể để tài liệu ở mục chung, gắn theo chương,
-                          hoặc gắn theo một bài học cụ thể trong chương.
-                        </p>
+                  {/* Course Resources Section */}
+                  <div className="p-10 rounded-[40px] bg-white border border-slate-100 shadow-sm space-y-8">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="p-3.5 rounded-2xl bg-emerald-50 text-emerald-600">
+                          <FileText className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <h3 className="text-xl font-black text-slate-900 leading-tight">Tài liệu của khóa</h3>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Quản lý các file đính kèm chung cho toàn bộ khóa học</p>
+                        </div>
                       </div>
+
                       <button
                         type="button"
                         onClick={handleAddCourseResource}
-                        className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm transition-colors hover:text-secret-wax"
+                        className="px-5 py-2.5 rounded-2xl bg-emerald-500 text-white text-sm font-black hover:bg-emerald-600 transition-all flex items-center gap-2 shadow-lg shadow-emerald-500/20"
                       >
-                        <Plus className="h-4 w-4" />
-                        Thêm tài liệu
+                        <Plus className="w-4 h-4" />
+                        Thêm tài liệu mới
                       </button>
                     </div>
 
-                    {formData.courseResources?.length > 0 ? (
-                      <div className="mt-4 space-y-3">
-                        {formData.courseResources.map((resource, resourceIdx) => {
-                          const selectedSectionId =
-                            resource.linkedSectionId ||
-                            lessonToSectionMap[resource.linkedLessonId] ||
-                            "";
-                          const sectionLessonOptions =
-                            lessonOptionsBySection[selectedSectionId] || [];
-
-                          return (
-                            <div
-                              key={resource.id || resourceIdx}
-                              onDragOver={(event) => event.preventDefault()}
-                              onDrop={(event) =>
-                                handleCourseResourceDrop(event, resourceIdx)
-                              }
-                              className={`rounded-xl border bg-slate-50 p-3 transition-colors ${
-                                draggedCourseResourceIndex === resourceIdx
-                                  ? "border-secret-wax/50 bg-orange-50"
-                                  : "border-slate-200"
-                              }`}
-                            >
-                              <div className="flex flex-col gap-3 md:flex-row md:items-start">
-                                <button
-                                  type="button"
-                                  draggable
-                                  onDragStart={(event) =>
-                                    handleCourseResourceDragStart(
-                                      event,
-                                      resourceIdx,
-                                    )
-                                  }
-                                  onDragEnd={() =>
-                                    setDraggedCourseResourceIndex(null)
-                                  }
-                                  className="inline-flex h-10 w-10 shrink-0 cursor-grab items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 transition-colors hover:border-secret-wax hover:text-secret-wax active:cursor-grabbing"
-                                  title="Keo de sap xep tai lieu"
-                                >
-                                  <GripVertical className="h-4 w-4" />
-                                </button>
-
-                                <div className="grid flex-1 grid-cols-1 gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)_minmax(210px,1fr)_minmax(210px,1fr)_auto_auto_auto]">
-                                <input
-                                  type="text"
-                                  value={resource.name || ""}
-                                  onChange={(e) =>
-                                    handleUpdateCourseResource(
-                                      resourceIdx,
-                                      "name",
-                                      e.target.value,
-                                    )
-                                  }
-                                  placeholder="Tên tài liệu..."
-                                  className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-secret-wax"
-                                />
-                                <input
-                                  type="text"
-                                  value={resource.url || ""}
-                                  onChange={(e) =>
-                                    handleUpdateCourseResource(
-                                      resourceIdx,
-                                      "url",
-                                      e.target.value,
-                                    )
-                                  }
-                                  placeholder="Link tài liệu (URL)..."
-                                  className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-secret-wax"
-                                />
-                                <select
-                                  value={selectedSectionId}
-                                  onChange={(e) =>
-                                    handleCourseResourceSectionChange(
-                                      resourceIdx,
-                                      e.target.value,
-                                    )
-                                  }
-                                  className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-secret-wax"
-                                >
-                                  <option value="">Không gắn vào chương nào</option>
-                                  {sectionOptions.length === 0 ? (
-                                    <option value="" disabled>
-                                      Hãy thêm chương trước
-                                    </option>
-                                  ) : (
-                                    sectionOptions.map((option) => (
-                                      <option
-                                        key={option.value}
-                                        value={option.value}
-                                      >
-                                        {option.label}
-                                      </option>
-                                    ))
-                                  )}
-                                </select>
-                                <select
-                                  value={resource.linkedLessonId || ""}
-                                  onChange={(e) =>
-                                    handleCourseResourceLessonChange(
-                                      resourceIdx,
-                                      e.target.value,
-                                    )
-                                  }
-                                  disabled={!selectedSectionId}
-                                  className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-secret-wax disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
-                                >
-                                  {!selectedSectionId ? (
-                                    <option value="">Chọn chương trước</option>
-                                  ) : (
-                                    <>
-                                      <option value="">Chỉ gắn theo chương</option>
-                                      {sectionLessonOptions.length === 0 ? (
-                                        <option value="" disabled>
-                                          Chương này chưa có bài học
-                                        </option>
-                                      ) : (
-                                        sectionLessonOptions.map((option) => (
-                                          <option
-                                            key={option.value}
-                                            value={option.value}
-                                          >
-                                            {option.label}
-                                          </option>
-                                        ))
-                                      )}
-                                    </>
-                                  )}
-                                </select>
-                                <label
-                                  className={`inline-flex cursor-pointer items-center justify-center rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium transition-colors ${
-                                    uploadingDocumentKey ===
-                                    `course-${resourceIdx}`
-                                      ? "bg-slate-100 text-slate-500"
-                                      : "bg-white text-slate-600 hover:border-secret-wax hover:text-secret-wax"
-                                  }`}
-                                  title="Tai file tai lieu len"
-                                >
-                                  <input
-                                    type="file"
-                                    className="hidden"
-                                    accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.txt,.csv,image/*"
-                                    onChange={(e) =>
-                                      handleDocumentUpload(e, {
-                                        type: "course",
-                                        index: resourceIdx,
-                                      })
-                                    }
-                                    disabled={
-                                      uploadingDocumentKey ===
-                                      `course-${resourceIdx}`
-                                    }
-                                  />
-                                  {uploadingDocumentKey ===
-                                  `course-${resourceIdx}` ? (
-                                    <span className="text-xs font-semibold">
-                                      {typeof documentUploadProgress ===
-                                      "number"
-                                        ? `${documentUploadProgress}%`
-                                        : "..."}
-                                    </span>
-                                  ) : (
-                                    <Upload className="h-4 w-4" />
-                                  )}
-                                </label>
-                                <div className="flex items-center gap-1">
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      handleMoveCourseResource(resourceIdx, -1)
-                                    }
-                                    disabled={resourceIdx === 0}
-                                    className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white p-2 text-slate-400 transition-colors hover:text-secret-wax disabled:opacity-30"
-                                    title="Dua len tren"
-                                  >
-                                    <ArrowUp className="h-4 w-4" />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      handleMoveCourseResource(resourceIdx, 1)
-                                    }
-                                    disabled={
-                                      resourceIdx ===
-                                      formData.courseResources.length - 1
-                                    }
-                                    className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white p-2 text-slate-400 transition-colors hover:text-secret-wax disabled:opacity-30"
-                                    title="Dua xuong duoi"
-                                  >
-                                    <ArrowDown className="h-4 w-4" />
-                                  </button>
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    handleRemoveCourseResource(resourceIdx)
-                                  }
-                                  className="inline-flex items-center justify-center rounded-lg border border-red-200 bg-white px-3 py-2 text-red-500 transition-colors hover:bg-red-50"
-                                  title="Xoa tai lieu"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </button>
-                              </div>
+                    <div className="grid grid-cols-1 gap-4">
+                      {(formData.courseResources || []).map((resource, idx) => (
+                        <div key={resource.id || idx} className="p-4 rounded-3xl bg-slate-50 border border-slate-100 flex flex-wrap md:flex-nowrap items-center gap-4">
+                          <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <input
+                              type="text"
+                              value={resource.name || ""}
+                              onChange={(e) => handleUpdateCourseResource(idx, "name", e.target.value)}
+                              placeholder="Tên tài liệu..."
+                              className="w-full h-11 rounded-2xl bg-white border border-slate-200 px-4 text-sm font-bold focus:ring-4 focus:ring-secret-wax/5 outline-none transition-all"
+                            />
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                value={resource.url || ""}
+                                onChange={(e) => handleUpdateCourseResource(idx, "url", e.target.value)}
+                                placeholder="Link URL..."
+                                className="flex-1 h-11 rounded-2xl bg-white border border-slate-200 px-4 text-sm font-bold focus:ring-4 focus:ring-secret-wax/5 outline-none transition-all"
+                              />
+                              <label className="h-11 w-11 shrink-0 flex items-center justify-center rounded-2xl bg-white border border-slate-200 text-slate-400 hover:text-emerald-500 hover:border-emerald-500 cursor-pointer transition-all">
+                                <input type="file" className="hidden" onChange={(e) => handleDocumentUpload(e, { type: "course", index: idx })} disabled={uploadingDocumentKey === `course-${idx}`} />
+                                {uploadingDocumentKey === `course-${idx}` ? (
+                                  <div className="w-5 h-5 border-2 border-emerald-200 border-t-emerald-500 rounded-full animate-spin" />
+                                ) : (
+                                  <Upload className="w-4 h-4" />
+                                )}
+                              </label>
                             </div>
                           </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div className="mt-4 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
-                        Chưa có tài liệu chung nào cho khóa học này.
-                      </div>
-                    )}
+                          {uploadingDocumentKey === `course-${idx}` && (
+                            <div className="w-full md:absolute md:bottom-2 md:left-4 md:right-16 mt-2 md:mt-0">
+                              <div className="w-full bg-slate-100 rounded-full h-1 overflow-hidden">
+                                <div
+                                  className="bg-emerald-500 h-full transition-all duration-300"
+                                  style={{ width: `${documentUploadProgress || 0}%` }}
+                                />
+                              </div>
+                            </div>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveCourseResource(idx)}
+                            className="p-3 rounded-2xl bg-rose-50 text-rose-300 hover:text-rose-600 transition-all"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </button>
+                        </div>
+                      ))}
+
+                      {(formData.courseResources || []).length === 0 && (
+                        <div className="py-12 flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-[32px] bg-white">
+                          <p className="text-xs font-black text-slate-300 uppercase tracking-widest">Nên đính kèm tài liệu học tập để tăng trải nghiệm</p>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
-
-              {/* Form Actions */}
-              <div className="sticky bottom-0 bg-white pt-4 pb-2 border-t border-slate-100 flex justify-end gap-3 mt-8">
-                <button
-                  type="button"
-                  onClick={() => setIsFormOpen(false)}
-                  className="rounded-lg border border-slate-300 px-5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                >
-                  Hủy
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="rounded-lg bg-secret-wax px-5 py-2 text-sm font-semibold text-white hover:bg-secret-ink disabled:opacity-50"
-                >
-                  {isSubmitting ? "Đang lưu..." : "Lưu khóa học"}
-                </button>
-              </div>
             </form>
-          </div>
-        </div>
-      )}
 
-      {/* Video Upload Modal */}
-      {uploadingTo && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden relative animate-fade-in animate-in zoom-in-95 duration-200">
-            <div className="flex justify-between items-center p-4 border-b border-slate-100">
-              <h3 className="font-bold text-slate-800">
-                Tải video lên S3 (Long Vân)
-              </h3>
+            {/* Modal Footer */}
+            <div className="p-8 border-t border-slate-100 bg-white flex items-center justify-end gap-4 rounded-b-[40px]">
               <button
-                onClick={() => setUploadingTo(null)}
-                className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-slate-800 transition"
-                title="Đóng"
+                type="button"
+                onClick={() => setIsFormOpen(false)}
+                className="px-8 py-3.5 rounded-2xl bg-white border border-slate-200 text-sm font-black text-slate-500 hover:bg-slate-50 hover:border-slate-300 transition-all"
               >
-                <X className="w-5 h-5" />
+                Hủy bỏ
               </button>
-            </div>
-            <div className="p-6">
-              <S3VideoUploader
-                onUploadSuccess={(url) => {
-                  if (uploadingTo.isNew) {
-                    const input = document.getElementById(
-                      `lesson-video-${uploadingTo.sIdx}`,
-                    );
-                    if (input) {
-                      input.value = url;
-                      input.focus();
-                      input.blur(); // trigger auto scan
-                    }
-                  } else {
-                    handleUpdateLesson(
-                      uploadingTo.sIdx,
-                      uploadingTo.lIdx,
-                      "videoId",
-                      url,
-                    );
-                    // Auto scan duration for existing lesson
-                    fetchVideoDuration(url).then((duration) => {
-                      if (duration) {
-                        handleUpdateLesson(
-                          uploadingTo.sIdx,
-                          uploadingTo.lIdx,
-                          "duration",
-                          duration,
-                        );
-                      }
-                    });
-                  }
-                  showToast("Tải video thành công, đã điền link!");
-                  setUploadingTo(null);
-                }}
-              />
+              <button
+                type="button"
+                onClick={handleSubmit}
+                className="px-10 py-3.5 rounded-2xl bg-secret-wax text-white text-sm font-black hover:bg-secret-ink transition-all shadow-xl shadow-secret-wax/20 flex items-center gap-2 group"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Đang lưu...
+                  </>
+                ) : (
+                  <>
+                    Lưu khóa học
+                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>

@@ -13,7 +13,7 @@ import {
 import { Edit, Trash2, Plus, X, Search, FolderOpen, Save } from 'lucide-react';
 import { db } from '../../firebase';
 
-const AdminCategories = () => {
+const AdminCategories = ({ hideHeader = false, searchQuery: externalSearchQuery = "" }) => {
     const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -121,12 +121,13 @@ const AdminCategories = () => {
         }
     };
 
+    const effectiveSearchTerm = hideHeader ? externalSearchQuery : searchTerm;
     const filteredCategories = categories.filter(c =>
-        c.name.toLowerCase().includes(searchTerm.toLowerCase())
+        c.name.toLowerCase().includes(effectiveSearchTerm.toLowerCase())
     );
 
     return (
-        <div className="space-y-6">
+        <div className="max-w-[1600px] mx-auto px-4 py-8 lg:px-12 lg:py-16 space-y-12">
             {/* Toast */}
             {toast && (
                 <div className={`fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg text-white ${toast.type === 'error' ? 'bg-red-500' : 'bg-green-500'}`}>
@@ -134,75 +135,85 @@ const AdminCategories = () => {
                 </div>
             )}
 
-            {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-900">Quản lý Chuyên mục</h1>
-                    <p className="mt-1 text-sm text-slate-500">Phân loại khóa học để người dùng dễ tìm kiếm</p>
+            {!hideHeader && (
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Chuyên mục</h1>
+                        <p className="mt-1 text-sm text-slate-500">Phân loại khóa học giúp học viên dễ dàng tìm kiếm</p>
+                    </div>
+                    <button
+                        onClick={handleAddNew}
+                        className="inline-flex items-center gap-2 rounded-xl bg-secret-wax px-5 py-2.5 text-sm font-bold text-white transition-all shadow-sm hover:bg-secret-ink hover:shadow-md active:scale-95"
+                    >
+                        <Plus className="h-4 w-4" /> Thêm chuyên mục
+                    </button>
                 </div>
-                <button
-                    onClick={handleAddNew}
-                    className="inline-flex items-center gap-2 rounded-lg bg-secret-wax px-4 py-2 text-sm font-semibold text-white transition hover:bg-secret-ink"
-                >
-                    <Plus className="h-4 w-4" /> Thêm chuyên mục
-                </button>
-            </div>
+            )}
 
             {/* Content */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200">
-                {/* Search */}
-                <div className="p-4 border-b border-slate-200">
-                    <div className="relative max-w-md">
-                        <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-                        <input
-                            type="text"
-                            placeholder="Tìm kiếm chuyên mục..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-secret-wax focus:ring-1 focus:ring-secret-wax/20"
-                        />
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                {!hideHeader && (
+                    <div className="p-4 border-b border-slate-100 bg-slate-50/30">
+                        <div className="relative group max-w-md">
+                            <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400 group-focus-within:text-secret-wax transition-colors" />
+                            <input
+                                type="text"
+                                placeholder="Tìm kiếm chuyên mục..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-secret-wax focus:ring-4 focus:ring-secret-wax/5 transition-all text-sm"
+                            />
+                        </div>
                     </div>
-                </div>
+                )}
 
                 {/* Table */}
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm text-left">
-                        <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
+                        <thead className="text-[11px] text-slate-500 uppercase font-bold tracking-wider bg-slate-50/50 border-b border-slate-100">
                             <tr>
-                                <th className="px-6 py-3 font-semibold">Tên chuyên mục</th>
-                                <th className="px-6 py-3 font-semibold">Slug (Đường dẫn)</th>
-                                <th className="px-6 py-3 font-semibold text-right">Hành động</th>
+                                <th className="px-6 py-4">Tên chuyên mục</th>
+                                <th className="px-6 py-4">Slug (Đường dẫn)</th>
+                                <th className="px-6 py-4 text-right">Hành động</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {loading ? (
                                 <tr>
-                                    <td colSpan="3" className="px-6 py-8 text-center text-slate-500">Đang tải...</td>
+                                    <td colSpan="3" className="px-6 py-12 text-center text-slate-400">
+                                        <div className="flex flex-col items-center gap-2">
+                                            <div className="w-6 h-6 border-2 border-secret-wax border-t-transparent rounded-full animate-spin"></div>
+                                            <span className="text-sm font-medium">Đang tải...</span>
+                                        </div>
+                                    </td>
                                 </tr>
                             ) : filteredCategories.length > 0 ? (
                                 filteredCategories.map((category) => (
-                                    <tr key={category.id} className="hover:bg-slate-50 transition-colors">
-                                        <td className="px-6 py-4 font-medium text-slate-900 border-l-4 border-transparent hover:border-secret-wax">
-                                            {category.name}
+                                    <tr key={category.id} className="group hover:bg-slate-50/50 transition-colors">
+                                        <td className="px-6 py-4 font-bold text-slate-900 group-hover:text-secret-wax transition-colors">
+                                            <div className="flex items-center gap-2">
+                                                <div className="h-2 w-2 rounded-full bg-secret-wax/20 group-hover:bg-secret-wax transition-colors"></div>
+                                                {category.name}
+                                            </div>
                                         </td>
-                                        <td className="px-6 py-4 text-slate-500 font-mono text-xs">
-                                            {category.slug}
+                                        <td className="px-6 py-4 text-slate-400 font-mono text-[11px]">
+                                            /{category.slug}
                                         </td>
                                         <td className="px-6 py-4 text-right">
-                                            <div className="flex items-center justify-end gap-2">
+                                            <div className="flex items-center justify-end gap-1">
                                                 <button
                                                     onClick={() => handleEdit(category)}
-                                                    className="p-1.5 text-blue-600 hover:bg-blue-50 rounded"
+                                                    className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all duration-200"
                                                     title="Sửa"
                                                 >
-                                                    <Edit className="w-4 h-4" />
+                                                    <Edit className="w-4.5 h-4.5" />
                                                 </button>
                                                 <button
                                                     onClick={() => handleDelete(category.id)}
-                                                    className="p-1.5 text-red-600 hover:bg-red-50 rounded"
+                                                    className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all duration-200"
                                                     title="Xóa"
                                                 >
-                                                    <Trash2 className="w-4 h-4" />
+                                                    <Trash2 className="w-4.5 h-4.5" />
                                                 </button>
                                             </div>
                                         </td>
@@ -210,8 +221,15 @@ const AdminCategories = () => {
                                 ))
                             ) : (
                                 <tr>
-                                    <td colSpan="3" className="px-6 py-8 text-center text-slate-500 italic">
-                                        {searchTerm ? 'Không tìm thấy kết quả phù hợp' : 'Chưa có chuyên mục nào. Hãy tạo mới!'}
+                                    <td colSpan="3" className="px-6 py-16 text-center">
+                                        <div className="flex flex-col items-center gap-2">
+                                            <div className="p-3 bg-slate-50 rounded-2xl text-slate-300">
+                                                <FolderOpen className="h-8 w-8" />
+                                            </div>
+                                            <p className="text-sm font-medium text-slate-400">
+                                                {searchTerm ? 'Không tìm thấy kết quả phù hợp' : 'Chưa có chuyên mục nào.'}
+                                            </p>
+                                        </div>
                                     </td>
                                 </tr>
                             )}
