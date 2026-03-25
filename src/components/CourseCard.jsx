@@ -88,23 +88,23 @@ const CourseCard = ({ course }) => {
                 </div>
 
                 {/* Footer: Price & Button */}
-                <div className="pt-5 border-t border-slate-100 flex items-center justify-between gap-2">
-                    <div className="flex flex-col min-w-0">
+                <div className="pt-5 border-t border-slate-100 flex items-center justify-between gap-3">
+                    <div className="flex flex-col">
                         {course.isForSale === false ? (
-                            <span className="text-xl font-black text-emerald-600 truncate">
+                            <span className="text-xl font-black text-emerald-600">
                                 Miễn phí
                             </span>
                         ) : course.salePrice ? (
                             <>
-                                <span className="text-[11px] text-slate-400 line-through font-bold mb-0.5 truncate uppercase tracking-tighter">
+                                <span className="text-[11px] text-slate-400 line-through font-bold mb-0.5 uppercase tracking-tighter">
                                     {formatPrice(course.price)}
                                 </span>
-                                <span className="text-[20px] md:text-[22px] font-black text-[#8B2E2E] truncate leading-none">
+                                <span className="text-[18px] md:text-[21px] font-black text-[#8B2E2E] leading-none whitespace-nowrap">
                                     {formatPrice(course.salePrice)}
                                 </span>
                             </>
                         ) : (
-                            <span className="text-[20px] md:text-[22px] font-black text-[#8B2E2E] truncate leading-none">
+                            <span className="text-[18px] md:text-[21px] font-black text-[#8B2E2E] leading-none whitespace-nowrap">
                                 {formatPrice(course.price || 0)}
                             </span>
                         )}
@@ -112,7 +112,7 @@ const CourseCard = ({ course }) => {
 
                     <Link
                         to={`/khoa-hoc/${course.slug || course.id}`}
-                        className="px-6 py-3 rounded-full bg-gradient-to-r from-[#F85149] to-[#FF7B39] text-white text-[13px] font-black shadow-lg shadow-red-100 hover:shadow-red-200 transition-all transform hover:scale-105 active:scale-95 whitespace-nowrap"
+                        className="px-4 md:px-5 py-2.5 rounded-full bg-gradient-to-r from-[#F85149] to-[#FF7B39] text-white text-[12px] md:text-[13px] font-black shadow-lg shadow-red-100 hover:shadow-red-200 transition-all transform hover:scale-105 active:scale-95 whitespace-nowrap"
                     >
                         Vào học ngay
                     </Link>
