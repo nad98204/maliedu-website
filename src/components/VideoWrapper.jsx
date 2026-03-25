@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
 import ReactPlayer from 'react-player';
-import { CheckCircle, ChevronDown, ChevronLeft, ChevronRight, Play } from 'lucide-react';
+import { CheckCircle, ChevronDown, ChevronLeft, ChevronRight, Play, Settings } from 'lucide-react';
 
 const VideoWrapper = ({
     videoUrl,
     title,
-    isNotesMode = false,
     onEnded,
     onDuration,
     onProgress,
@@ -23,6 +22,48 @@ const VideoWrapper = ({
     children
 }) => {
     const [isSwitcherOpen, setIsSwitcherOpen] = useState(false);
+    const [isQualityOpen, setIsQualityOpen] = useState(false);
+    const [selectedQuality, setSelectedQuality] = useState('720p');
+
+    const parseVideoUrl = (url) => {
+        if (!url) return { default: null, qualities: {} };
+        
+        // Handle JSON format: {"720p": "url1", "1080p": "url2"}
+        if (url.trim().startsWith('{')) {
+            try {
+                const qualities = JSON.parse(url);
+                const keys = Object.keys(qualities);
+                return { 
+                    default: qualities[selectedQuality] || qualities[keys[0]], 
+                    qualities 
+                };
+            } catch (e) {
+                console.error('Error parsing video qualities JSON:', e);
+            }
+        }
+
+        // Handle Comma format: 720p:url1,1080p:url2
+        if (url.includes(':http') && url.includes(',')) {
+            const parts = url.split(',');
+            const qualities = {};
+            parts.forEach(p => {
+                const [label, ...srcParts] = p.split(':');
+                if (label && srcParts.length > 0) {
+                    qualities[label.trim()] = srcParts.join(':').trim();
+                }
+            });
+            const keys = Object.keys(qualities);
+            return { 
+                default: qualities[selectedQuality] || qualities[keys[0]], 
+                qualities 
+            };
+        }
+
+        return { default: url.trim(), qualities: {} };
+    };
+
+    const videoData = parseVideoUrl(videoUrl);
+    const currentUrl = videoData.qualities[selectedQuality] || videoData.default;
 
     const getPlayableUrl = (url) => {
         if (!url) return null;
@@ -42,8 +83,10 @@ const VideoWrapper = ({
     };
 
     const isVideoFile = (url) => /\.(mp4|webm|ogg|mov)$/i.test(url);
-    const playableUrl = getPlayableUrl(videoUrl);
+    const isHLS = (url) => url.includes('.m3u8');
+    const playableUrl = getPlayableUrl(currentUrl);
     const isFile = playableUrl && isVideoFile(playableUrl);
+    const useHLS = playableUrl && isHLS(playableUrl);
 
     return (
         <div className="mx-auto w-full max-w-5xl" onContextMenu={(e) => e.preventDefault()}>
@@ -63,11 +106,15 @@ const VideoWrapper = ({
                     */}
                     <div className="relative w-full overflow-hidden rounded-xl bg-black shadow-sm" style={{ aspectRatio: '16/9', minHeight: '180px' }}>
                         <div className="absolute inset-0 flex items-center justify-center">
-                            {isFile ? (
+                            {(isFile && !useHLS) ? (
                                 <video
+                                    key={playableUrl} // Force re-render on URL change
                                     src={playableUrl}
                                     className="h-full w-full object-contain"
                                     controls
+                                    playsInline
+                                    autoPlay={playing}
+                                    preload="auto"
                                     controlsList="nodownload"
                                     onContextMenu={(e) => e.preventDefault()}
                                     onEnded={onEnded}
@@ -75,6 +122,7 @@ const VideoWrapper = ({
                                     onLoadedMetadata={(e) => onDuration?.(e.target.duration)}
                                     onPlay={() => setPlaying(true)}
                                     onPause={() => setPlaying(false)}
+                                    onError={(e) => console.error('Native Video Error:', e)}
                                 />
                             ) : (
                                 <ReactPlayer
@@ -83,18 +131,69 @@ const VideoWrapper = ({
                                     height="100%"
                                     playing={playing}
                                     controls
+                                    playsinline
+                                    pip
+                                    stopOnUnmount={false}
                                     onError={(error) => console.error('ReactPlayer Error:', error)}
                                     onEnded={onEnded}
                                     onDuration={onDuration}
                                     onProgress={onProgress}
                                     onPlay={() => setPlaying(true)}
                                     onPause={() => setPlaying(false)}
-                                    config={{ youtube: { playerVars: { showinfo: 1 } } }}
+                                    config={{ 
+                                        youtube: { playerVars: { showinfo: 1, rel: 0 } },
+                                        file: { 
+                                            forceHLS: useHLS,
+                                            attributes: {
+                                                preload: 'auto',
+                                                controlsList: 'nodownload',
+                                                style: { width: '100%', height: '100%', objectFit: 'contain' }
+                                            }
+                                        }
+                                    }}
                                 />
                             )}
                         </div>
                     </div>
                 </div>
+                
+                {/* Quality Selector (if multiple qualities exist) */}
+                {Object.keys(videoData.qualities).length > 0 && (
+                    <div className="mt-2 flex justify-end px-2">
+                        <div className="relative">
+                            <button
+                                onClick={() => setIsQualityOpen(!isQualityOpen)}
+                                className="flex items-center gap-1.5 rounded-full bg-slate-800/10 px-3 py-1.5 text-xs font-bold text-slate-700 backdrop-blur-sm transition-all hover:bg-slate-800/20"
+                            >
+                                <Settings className={`h-3.5 w-3.5 ${isQualityOpen ? 'rotate-90' : ''} transition-transform`} />
+                                <span>{selectedQuality}</span>
+                            </button>
+                            
+                            {isQualityOpen && (
+                                <div className="absolute right-0 bottom-full mb-2 z-50 w-32 overflow-hidden rounded-xl border border-slate-200 bg-white p-1 shadow-xl animate-in fade-in slide-in-from-bottom-2">
+                                    <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-50 mb-1">
+                                        Chất lượng
+                                    </div>
+                                    {Object.keys(videoData.qualities).map((q) => (
+                                        <button
+                                            key={q}
+                                            onClick={() => {
+                                                setSelectedQuality(q);
+                                                setIsQualityOpen(false);
+                                            }}
+                                            className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-xs font-bold transition-colors ${
+                                                selectedQuality === q ? 'bg-red-50 text-[#B91C1C]' : 'text-slate-600 hover:bg-slate-50'
+                                            }`}
+                                        >
+                                            {q}
+                                            {selectedQuality === q && <CheckCircle className="h-3.5 w-3.5" />}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
             </div>
 
             <div className="px-4 md:px-0">

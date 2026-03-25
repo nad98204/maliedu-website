@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Users, BookOpen, Eye } from 'lucide-react';
 import { formatPrice } from '../utils/orderService';
+import { normalizeCloudinaryImage } from '../utils/imageUtils';
 
 const CourseCard = ({ course }) => {
     // Helper to strip HTML tags and normalize text
@@ -36,8 +37,9 @@ const CourseCard = ({ course }) => {
             {/* Image Container */}
             <Link to={`/khoa-hoc/${course.slug || course.id}`} className="relative aspect-[16/10] overflow-hidden block">
                 <img
-                    src={course.thumbnailUrl || 'https://via.placeholder.com/600x400?text=Course+Image'}
+                    src={normalizeCloudinaryImage(course.thumbnailUrl || '', 'f_auto,q_auto,c_fill,w_600,h_375') || 'https://via.placeholder.com/600x400?text=Course+Image'}
                     alt={course.name}
+                    loading="lazy"
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                 />
 

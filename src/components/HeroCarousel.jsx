@@ -4,24 +4,12 @@ import { collection, getDocs, query } from "firebase/firestore";
 
 import { db } from "../firebase";
 import { readHomeBannerCache, writeHomeBannerCache } from "../utils/homeBannerCache";
+import { normalizeCloudinaryImage } from "../utils/imageUtils";
 
 const MOBILE_MEDIA_QUERY = "(max-width: 768px)";
 const DEFAULT_DESKTOP_ASPECT_RATIO = 16 / 9;
 const DEFAULT_MOBILE_ASPECT_RATIO = 4 / 5;
 
-const normalizeCloudinaryImage = (url, transform) => {
-  if (!url || typeof url !== "string" || !url.includes("res.cloudinary.com")) {
-    return url ?? "";
-  }
-
-  const marker = "/upload/";
-  const markerIndex = url.indexOf(marker);
-  if (markerIndex === -1) return url;
-
-  const prefix = url.slice(0, markerIndex + marker.length);
-  const rest = url.slice(markerIndex + marker.length);
-  return `${prefix}${transform}/${rest}`;
-};
 
 const toPositiveNumber = (value) => {
   const parsed = Number(value);
@@ -134,9 +122,12 @@ const HeroCarousel = () => {
   }, [slides, isMobileViewport]);
 
   const slideCount = filteredSlides.length;
+  // Ensure we always have a safe index even if slideCount changes
+  const safeIndex = slideCount > 0 ? currentIndex % slideCount : 0;
+
   const activeSlide = useMemo(
-    () => (slideCount > 0 ? filteredSlides[currentIndex] : null),
-    [currentIndex, slideCount, filteredSlides]
+    () => (slideCount > 0 ? filteredSlides[safeIndex] : null),
+    [safeIndex, slideCount, filteredSlides]
   );
 
   // Prefetch remaining slides once we have them (after first render)
@@ -225,12 +216,6 @@ const HeroCarousel = () => {
     return () => clearInterval(intervalId);
   }, [slideCount]);
 
-  // Keep currentIndex in range when slide count changes
-  useEffect(() => {
-    if (slideCount > 0 && currentIndex >= slideCount) {
-      setCurrentIndex(slideCount - 1);
-    }
-  }, [slideCount]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const getClientX = (event) => {
     if ("touches" in event) {
@@ -330,7 +315,7 @@ const HeroCarousel = () => {
       onDragStart={(event) => event.preventDefault()}
     >
       {filteredSlides.map((slide, index) => {
-        const isActive = index === currentIndex;
+        const isActive = index === safeIndex;
         return (
           <div
             key={slide.id}
@@ -421,7 +406,7 @@ const HeroCarousel = () => {
 
           <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 sm:bottom-3.5 md:bottom-4">
             {filteredSlides.map((slide, index) => {
-              const isDot = index === currentIndex;
+              const isDot = index === safeIndex;
               return (
                 <button
                   key={`${slide.id}-dot`}

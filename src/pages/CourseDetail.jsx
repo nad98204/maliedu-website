@@ -13,6 +13,7 @@ import RelatedCourses from '../components/RelatedCourses';
 import CourseReviews from '../components/CourseReviews';
 import AuthModal from '../components/AuthModal';
 import { getLessonKey, getPreferredPreviewLesson, resolveCourseAccess } from '../utils/courseAccess';
+import { normalizeCloudinaryImage } from '../utils/imageUtils';
 
 const CourseDetail = () => {
     const { slug } = useParams();
@@ -249,7 +250,7 @@ const CourseDetail = () => {
             <SEO
                 title={course.name}
                 description={course.description}
-                image={course.thumbnailUrl}
+                image={normalizeCloudinaryImage(course.thumbnailUrl || '', 'f_auto,q_auto,w_1200')}
                 url={`/khoa-hoc/${course.id}`}
                 type="product"
             />
@@ -258,8 +259,8 @@ const CourseDetail = () => {
             <div className="relative overflow-hidden bg-[#450a0a] pt-6 sm:pt-14 pb-[60px] sm:pb-[104px] border-b border-gray-100">
                 {/* Layer 1: Blurred Thumbnail Background */}
                 <div
-                    className="absolute inset-0 z-0 bg-cover bg-center scale-110 blur-lg opacity-40"
-                    style={{ backgroundImage: `url(${course.thumbnailUrl || "https://via.placeholder.com/1920x600"})` }}
+                    className="absolute inset-0 z-0 bg-cover bg-center scale-110 blur-lg opacity-40 transition-opacity duration-1000"
+                    style={{ backgroundImage: `url(${normalizeCloudinaryImage(course.thumbnailUrl || '', 'f_auto,q_auto,w_800,e_blur:1000') || "https://via.placeholder.com/1920x600"})` }}
                 ></div>
 
                 {/* Layer 2: Dark Red Overlay (Gradient for refinement) */}
@@ -410,8 +411,9 @@ const CourseDetail = () => {
                         <div className="bg-white border border-slate-200 rounded-xl p-6 flex flex-col md:flex-row items-center md:items-start gap-6">
                             <Link to={`/giang-vien/${course.authorId || ''}`} className="shrink-0">
                                 <img
-                                    src={course.instructorImageUrl || "https://res.cloudinary.com/dstukyjzd/image/upload/v1736737568/z6127415478441_3dd15f40940dc417387405e608a28796_c459o5.jpg"}
+                                    src={normalizeCloudinaryImage(course.instructorImageUrl || "https://res.cloudinary.com/dstukyjzd/image/upload/v1736737568/z6127415478441_3dd15f40940dc417387405e608a28796_c459o5.jpg", 'f_auto,q_auto,c_thumb,g_face,w_200,h_200')}
                                     alt={course.instructorName}
+                                    loading="lazy"
                                     className="w-24 h-24 rounded-full object-cover border-4 border-slate-50 shadow-md hover:border-secret-wax transition-colors"
                                 />
                             </Link>

@@ -16,7 +16,6 @@ import {
     deleteDoc,
     doc,
     onSnapshot,
-    orderBy,
     query,
     serverTimestamp,
     where
@@ -124,21 +123,6 @@ const formatDescriptionContent = (value = '') => {
 
 const getLessonNoteStorageKey = (lessonId = 'default') => `maliedu-smart-note:${lessonId}`;
 
-const buildSmartNoteStarter = (lessonTitle = 'Bài học này') =>
-    `TÓM TẮT BÀI HỌC: ${lessonTitle}
-- Điều quan trọng nhất:
-
-Ý CHÍNH
-1.
-2.
-3.
-
-VIỆC CẦN LÀM NGAY
-[ ]
-[ ]
-
-CÂU HỎI CẦN XEM LẠI
-- `;
 
 const SMART_NOTE_ACTIONS = [
     {
@@ -179,7 +163,6 @@ const PlayerTabs = ({
     currentContextResources = [],
     resourceFocusRequest,
     lessonId,
-    lessonTitle,
     currentUser,
     hasFullAccess = true,
     onLessonSelect,
@@ -187,7 +170,6 @@ const PlayerTabs = ({
 }) => {
     const [activeTab, setActiveTab] = useState('overview');
     const [note, setNote] = useState('');
-    const [lastSavedAt, setLastSavedAt] = useState(null);
     const [isNoteReady, setIsNoteReady] = useState(false);
     const [comments, setComments] = useState([]);
     const [newComment, setNewComment] = useState('');
@@ -208,19 +190,23 @@ const PlayerTabs = ({
 
         const commentsQuery = query(
             collection(db, 'comments'),
-            where('lessonId', '==', lessonId),
-            orderBy('createdAt', 'desc')
+            where('lessonId', '==', lessonId)
         );
 
         const unsubscribe = onSnapshot(
             commentsQuery,
             (snapshot) => {
-                setComments(
-                    snapshot.docs.map((commentDoc) => ({
+                const sortedComments = snapshot.docs
+                    .map((commentDoc) => ({
                         id: commentDoc.id,
                         ...commentDoc.data()
                     }))
-                );
+                    .sort((a, b) => {
+                        const timeA = a.createdAt?.seconds || 0;
+                        const timeB = b.createdAt?.seconds || 0;
+                        return timeB - timeA;
+                    });
+                setComments(sortedComments);
             },
             (error) => {
                 console.error('Error fetching comments:', error);
@@ -274,14 +260,15 @@ const PlayerTabs = ({
         }
     };
 
-    const tabs = [
-        { id: 'overview', label: 'Mô tả', icon: BookOpen },
-        { id: 'resources', label: 'Tài liệu', icon: FileText },
-        { id: 'notes', label: 'Ghi chép', icon: PenTool },
-        { id: 'discussion', label: 'Thảo luận', icon: MessageCircle }
-    ];
-
-    const visibleTabs = hasFullAccess ? tabs : [tabs[0]];
+    const visibleTabs = useMemo(() => {
+        const tabs = [
+            { id: 'overview', label: 'Mô tả', icon: BookOpen },
+            { id: 'resources', label: 'Tài liệu', icon: FileText },
+            { id: 'notes', label: 'Ghi chép', icon: PenTool },
+            { id: 'discussion', label: 'Thảo luận', icon: MessageCircle }
+        ];
+        return hasFullAccess ? tabs : [tabs[0]];
+    }, [hasFullAccess]);
     const visibleResourceGroups = useMemo(
         () => resourceGroups.filter((group) => group.resources.length > 0),
         [resourceGroups]
@@ -290,31 +277,6 @@ const PlayerTabs = ({
         () => formatDescriptionContent(description),
         [description]
     );
-    const noteStats = useMemo(() => {
-        const trimmedNote = note.trim();
-
-        if (!trimmedNote) {
-            return {
-                lineCount: 0,
-                wordCount: 0
-            };
-        }
-
-        return {
-            lineCount: trimmedNote.split('\n').filter((line) => line.trim()).length,
-            wordCount: trimmedNote.split(/\s+/).filter(Boolean).length
-        };
-    }, [note]);
-    const savedNoteLabel = useMemo(() => {
-        if (!lastSavedAt) {
-            return 'Đang tự động lưu';
-        }
-
-        return `Đã lưu ${new Date(lastSavedAt).toLocaleTimeString('vi-VN', {
-            hour: '2-digit',
-            minute: '2-digit'
-        })}`;
-    }, [lastSavedAt]);
 
     useEffect(() => {
         if (!visibleTabs.some((tab) => tab.id === activeTab)) {
@@ -331,20 +293,11 @@ const PlayerTabs = ({
 
         const storedValue = window.localStorage.getItem(getLessonNoteStorageKey(lessonId));
 
-        if (!storedValue) {
-            setNote('');
-            setLastSavedAt(null);
-            setIsNoteReady(true);
-            return;
-        }
-
         try {
             const parsedValue = JSON.parse(storedValue);
             setNote(parsedValue.content || '');
-            setLastSavedAt(parsedValue.savedAt || null);
-        } catch (error) {
+        } catch {
             setNote(storedValue);
-            setLastSavedAt(null);
         }
 
         setIsNoteReady(true);
@@ -359,21 +312,17 @@ const PlayerTabs = ({
         const saveTimer = window.setTimeout(() => {
             if (!note.trim()) {
                 window.localStorage.removeItem(storageKey);
-                setLastSavedAt(null);
                 return;
             }
-
-            const savedAt = new Date().toISOString();
 
             window.localStorage.setItem(
                 storageKey,
                 JSON.stringify({
                     content: note,
-                    savedAt
+                    savedAt: new Date().toISOString()
                 })
             );
-            setLastSavedAt(savedAt);
-        }, 350);
+        }, 1000);
 
         return () => window.clearTimeout(saveTimer);
     }, [isNoteReady, lessonId, note]);
@@ -456,36 +405,6 @@ const PlayerTabs = ({
         delete resourceItemRefs.current[resourceId];
     };
 
-    const insertIntoNote = (snippet) => {
-        if (!snippet) return;
-
-        const textarea = noteTextareaRef.current;
-        const currentValue = note;
-
-        if (!textarea) {
-            setNote((previousNote) =>
-                previousNote.trim() ? `${previousNote}\n\n${snippet}` : snippet
-            );
-            return;
-        }
-
-        const selectionStart = textarea.selectionStart ?? currentValue.length;
-        const selectionEnd = textarea.selectionEnd ?? currentValue.length;
-        const prefix = currentValue.slice(0, selectionStart);
-        const suffix = currentValue.slice(selectionEnd);
-        const needsLeadingBreak = prefix && !prefix.endsWith('\n') ? '\n\n' : '';
-        const needsTrailingBreak = suffix && !suffix.startsWith('\n') ? '\n\n' : '';
-        const insertedText = `${needsLeadingBreak}${snippet}${needsTrailingBreak}`;
-        const nextValue = `${prefix}${insertedText}${suffix}`;
-        const cursorPosition = prefix.length + insertedText.length;
-
-        setNote(nextValue);
-
-        window.requestAnimationFrame(() => {
-            textarea.focus();
-            textarea.setSelectionRange(cursorPosition, cursorPosition);
-        });
-    };
 
 
 
