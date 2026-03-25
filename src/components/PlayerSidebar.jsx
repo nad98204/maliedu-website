@@ -269,62 +269,82 @@ const PlayerSidebar = ({
             <div className="custom-scrollbar flex-1 overflow-y-auto">
                 {activeTab === 'curriculum' ? (
                     filteredSections.length > 0 ? (
-                        filteredSections.map((section) => {
-                            const sectionId = section.id || `section-${section.sectionIndex}`;
-                            const sectionResources = sectionResourceMap[sectionId] || [];
-                            const sectionLevelResources = sectionResources.filter(
-                                (resource) => !resource.lessonId
-                            );
-                            const lessonLevelResourceCount =
-                                sectionResources.length - sectionLevelResources.length;
-                            const isSectionOpen =
-                                openSections[section.sectionIndex] ??
-                                sectionId === currentSectionId;
+                        (() => {
+                            let titledSectionCount = 0;
+                            let globalLessonIndex = 0;
+                            return filteredSections.map((section, sIdx) => {
+                                const sectionId = section.id || `section-${section.sectionIndex}`;
+                                const sectionResources = sectionResourceMap[sectionId] || [];
+                                const sectionLevelResources = sectionResources.filter(
+                                    (resource) => !resource.lessonId
+                                );
+                                const isSectionOpen =
+                                    openSections[section.sectionIndex] ??
+                                    sectionId === currentSectionId;
 
-                            return (
-                                <div
-                                    key={`${sectionId}-${section.title}`}
-                                    className="border-b border-slate-100 last:border-0"
-                                >
-                                    <div className="bg-white">
-                                        {section.title && (
-                                            <button
-                                                type="button"
-                                                onClick={() =>
-                                                    toggleSection(
-                                                        section.sectionIndex,
-                                                        sectionId === currentSectionId
-                                                    )
-                                                }
-                                                className="flex w-full items-start justify-between gap-3 px-4 py-3 transition-colors hover:bg-slate-50"
-                                            >
-                                                <div className="min-w-0 flex-1 text-left">
-                                                    <h4 className="line-clamp-1 text-sm font-bold text-slate-800">
-                                                        {section.title}
-                                                    </h4>
-                                                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                                                        <span>{section.lessons.length} bài học</span>
-                                                        {sectionLevelResources.length > 0 && (
-                                                            <span className="rounded-full bg-red-50 px-2 py-0.5 font-semibold text-red-500">
-                                                                {sectionLevelResources.length} tài liệu
-                                                                theo phần
+                                if (section.title) titledSectionCount++;
+                                const displaySectionNumber = section.title ? titledSectionCount : null;
+
+                                return (
+                                    <div
+                                        key={`${sectionId}-${section.title}`}
+                                        className={`border-b border-slate-100 last:border-0 ${section.title ? 'mb-3 last:mb-0' : 'mb-6 last:mb-0'} ${!section.title && sIdx > 0 ? 'mt-4' : ''}`}
+                                    >
+                                        <div className={`bg-white overflow-hidden ${section.title ? 'rounded-lg border border-slate-100 mx-2 shadow-sm' : 'border border-slate-100 shadow-sm sm:mx-2 sm:rounded-lg'}`}>
+                                            {section.title ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                        toggleSection(
+                                                            section.sectionIndex,
+                                                            sectionId === currentSectionId
+                                                        )
+                                                    }
+                                                    className={`flex w-full items-center justify-between gap-3 px-4 py-3.5 transition-all ${
+                                                        isSectionOpen 
+                                                            ? 'bg-slate-50/80 border-b border-slate-100' 
+                                                            : 'bg-white hover:bg-slate-50'
+                                                    }`}
+                                                >
+                                                    <div className="min-w-0 flex-1 text-left">
+                                                        <div className="flex items-center gap-2 mb-1">
+                                                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                                                Phần {displaySectionNumber}
                                                             </span>
-                                                        )}
-                                                        {lessonLevelResourceCount > 0 && (
-                                                            <span className="rounded-full bg-red-50 px-2 py-0.5 font-semibold text-red-500">
-                                                                {lessonLevelResourceCount} tài liệu theo
-                                                                bài
-                                                            </span>
-                                                        )}
+                                                            {isSectionOpen && (
+                                                                <span className="h-1 w-1 rounded-full bg-red-400"></span>
+                                                            )}
+                                                        </div>
+                                                        <h4 className={`line-clamp-1 text-sm font-bold ${isSectionOpen ? 'text-[#B91C1C]' : 'text-slate-800'}`}>
+                                                            {section.title}
+                                                        </h4>
+                                                        <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-slate-500 font-medium">
+                                                            <span>{section.lessons.length} bài học</span>
+                                                            {sectionLevelResources.length > 0 && (
+                                                                <span className="flex items-center gap-1 text-red-500">
+                                                                    <span className="h-1.5 w-1.5 rounded-full bg-red-500"></span>
+                                                                    {sectionLevelResources.length} tài liệu
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     </div>
+                                                <div className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors ${isSectionOpen ? 'bg-red-50 text-[#B91C1C]' : 'bg-slate-50 text-slate-400'}`}>
+                                                    {isSectionOpen ? (
+                                                        <ChevronUp className="h-4 w-4 shrink-0" />
+                                                    ) : (
+                                                        <ChevronDown className="h-4 w-4 shrink-0" />
+                                                    )}
                                                 </div>
-                                                {isSectionOpen ? (
-                                                    <ChevronUp className="mt-1 h-4 w-4 shrink-0 text-slate-400" />
-                                                ) : (
-                                                    <ChevronDown className="mt-1 h-4 w-4 shrink-0 text-slate-400" />
-                                                )}
                                             </button>
-                                        )}
+                                            ) : (
+                                                <div className="bg-slate-100/50 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="h-1.5 w-1.5 rounded-full bg-slate-400"></div>
+                                                        <span className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.1em]">Kiến thức bổ sung</span>
+                                                    </div>
+                                                    <span className="text-[10px] font-medium text-slate-400">{section.lessons.length} bài học</span>
+                                                </div>
+                                            )}
 
                                         {sectionLevelResources.length > 0 && (
                                             <div className="px-4 pb-3">
@@ -361,150 +381,162 @@ const PlayerSidebar = ({
                                             !section.title || isSectionOpen ? 'max-h-[2000px]' : 'max-h-0'
                                         }`}
                                     >
-                                        {section.lessons.map((lesson, lessonIndex) => {
-                                            const lessonKey = lesson.id || lesson.videoId;
-                                            const isCurrent =
-                                                currentLessonId === lessonKey ||
-                                                (currentLessonId === undefined &&
-                                                    section.sectionIndex === 0 &&
-                                                    lessonIndex === 0);
-                                            const isCompleted = !!progress[lessonKey];
-                                            const isLocked = false;
-                                            const lessonResources =
-                                                lessonResourceMap[lessonKey] || [];
-                                            const visibleResources = lessonResources;
-                                            const sectionOnlyCount = isCurrent
-                                                ? currentContextResources.filter(
-                                                      (resource) =>
-                                                          !resource.lessonId &&
-                                                          resource.sectionId === sectionId
-                                                  ).length
-                                                : 0;
+                                            {section.lessons.map((lesson, lessonIndex) => {
+                                                globalLessonIndex++;
+                                                const lessonKey = lesson.id || lesson.videoId;
+                                                const isCurrent =
+                                                    currentLessonId === lessonKey ||
+                                                    (currentLessonId === undefined &&
+                                                        section.sectionIndex === 0 &&
+                                                        lessonIndex === 0);
+                                                const isCompleted = !!progress[lessonKey];
+                                                const isLocked = false;
+                                                const lessonResources =
+                                                    lessonResourceMap[lessonKey] || [];
+                                                const visibleResources = lessonResources;
+                                                const sectionOnlyCount = isCurrent
+                                                    ? currentContextResources.filter(
+                                                          (resource) =>
+                                                              !resource.lessonId &&
+                                                              resource.sectionId === sectionId
+                                                      ).length
+                                                    : 0;
 
-                                            return (
-                                                <div
-                                                    key={
-                                                        lessonKey ||
-                                                        `${section.sectionIndex}-${lessonIndex}`
-                                                    }
-                                                    className={`border-l-4 transition-all ${
-                                                        isCurrent
-                                                            ? 'border-[#B91C1C] bg-red-50'
-                                                            : 'border-transparent bg-white hover:bg-slate-50'
-                                                    }`}
-                                                >
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => onLessonSelect?.(lesson)}
-                                                        className="flex w-full items-start gap-3 px-3 pt-3 text-left"
-                                                    >
-                                                        <div className="mt-0.5 shrink-0">
-                                                            {isCurrent ? (
-                                                                <PlayCircle className="h-4 w-4 animate-pulse text-[#B91C1C]" />
-                                                            ) : isCompleted ? (
-                                                                <CheckCircle className="h-4 w-4 text-green-500" />
-                                                            ) : isLocked ? (
-                                                                <Lock className="h-4 w-4 text-slate-300" />
-                                                            ) : (
-                                                                <div className="h-4 w-4 rounded-full border border-slate-300"></div>
-                                                            )}
-                                                        </div>
+                                                // Detect "extra" lesson (lẻ)
+                                                const prevLesson = section.lessons[lessonIndex - 1];
+                                                const isNumbered = (title) => /^[0-9\.]+|Nguyên lý [0-9]/.test(title);
+                                                const showExtraDivider = prevLesson && isNumbered(prevLesson.title) && !isNumbered(lesson.title);
 
-                                                        <div className="min-w-0 flex-1">
-                                                            <div className="flex items-start justify-between gap-2">
-                                                                <p
-                                                                    className={`line-clamp-2 text-sm font-medium ${
-                                                                        isCurrent
-                                                                            ? 'text-[#B91C1C]'
-                                                                            : 'text-slate-700'
-                                                                    }`}
-                                                                >
-                                                                    {lesson.title}
-                                                                </p>
-                                                                {visibleResources.length > 0 && (
-                                                                    <span
-                                                                        className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                                                return (
+                                                    <React.Fragment key={lessonKey || `${section.sectionIndex}-${lessonIndex}`}>
+                                                        {showExtraDivider && (
+                                                            <div className="bg-slate-50/50 px-4 py-2 border-y border-slate-100/50">
+                                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Kiến thức bổ sung</span>
+                                                            </div>
+                                                        )}
+                                                        <div
+                                                            className={`border-l-4 transition-all ${
+                                                                isCurrent
+                                                                    ? 'border-[#B91C1C] bg-red-50'
+                                                                    : 'border-transparent bg-white hover:bg-slate-50'
+                                                            }`}
+                                                        >
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => onLessonSelect?.(lesson)}
+                                                                className="flex w-full items-start gap-3 px-3 pt-3 text-left"
+                                                            >
+                                                                <div className="mt-0.5 shrink-0">
+                                                                    {isCurrent ? (
+                                                                        <PlayCircle className="h-4 w-4 animate-pulse text-[#B91C1C]" />
+                                                                    ) : isCompleted ? (
+                                                                        <CheckCircle className="h-4 w-4 text-green-500" />
+                                                                    ) : isLocked ? (
+                                                                        <Lock className="h-4 w-4 text-slate-300" />
+                                                                    ) : (
+                                                                        <div className="h-5 w-5 rounded-full border border-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-400">
+                                                                            {globalLessonIndex}
+                                                                        </div>
+                                                                    )}
+                                                            </div>
+
+                                                            <div className="min-w-0 flex-1">
+                                                                <div className="flex items-start justify-between gap-2">
+                                                                    <p
+                                                                        className={`line-clamp-2 text-sm font-medium ${
                                                                             isCurrent
-                                                                                ? 'bg-[#B91C1C] text-white'
-                                                                                : 'bg-red-100 text-[#B91C1C]'
+                                                                                ? 'text-[#B91C1C]'
+                                                                                : 'text-slate-700'
                                                                         }`}
                                                                     >
-                                                                        {visibleResources.length}{' '}
-                                                                        tài liệu
-                                                                    </span>
-                                                                )}
-                                                            </div>
+                                                                        {lesson.title}
+                                                                    </p>
+                                                                    {visibleResources.length > 0 && (
+                                                                        <span
+                                                                            className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                                                                                isCurrent
+                                                                                    ? 'bg-[#B91C1C] text-white'
+                                                                                    : 'bg-red-100 text-[#B91C1C]'
+                                                                            }`}
+                                                                        >
+                                                                            {visibleResources.length}{' '}
+                                                                            tài liệu
+                                                                        </span>
+                                                                    )}
+                                                                </div>
 
-                                                            <div className="mt-1 flex flex-wrap items-center gap-2">
-                                                                <span className="flex items-center gap-1 text-xs text-slate-500">
-                                                                    <Video className="h-3 w-3" />
-                                                                    {lesson.duration || '00:00'}
-                                                                </span>
-                                                                {lessonResources.length > 0 && (
-                                                                    <span className="text-[11px] font-semibold text-red-500">
-                                                                        Có tài liệu riêng
+                                                                <div className="mt-1 flex flex-wrap items-center gap-2">
+                                                                    <span className="flex items-center gap-1 text-xs text-slate-500">
+                                                                        <Video className="h-3 w-3" />
+                                                                        {lesson.duration || '00:00'}
                                                                     </span>
-                                                                )}
-                                                                {sectionOnlyCount > 0 && (
-                                                                    <span className="text-[11px] font-semibold text-red-500">
-                                                                        + {sectionOnlyCount} tài
-                                                                        liệu phần
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    </button>
-
-                                                    {visibleResources.length > 0 && (
-                                                        <div className="px-3 pb-3">
-                                                            <div
-                                                                className={`rounded-xl border px-2.5 py-2 ${
-                                                                    isCurrent
-                                                                        ? 'border-red-200 bg-white'
-                                                                        : 'border-red-100 bg-red-50/70'
-                                                                }`}
-                                                            >
-                                                                <p className="text-[11px] font-bold uppercase tracking-wide text-red-500">
-                                                                    {isCurrent
-                                                                        ? 'Tài liệu hiện có'
-                                                                        : 'Tài liệu'}
-                                                                </p>
-                                                                <div className="mt-2 flex flex-wrap gap-1.5">
-                                                                    {visibleResources
-                                                                        .slice(0, 2)
-                                                                        .map((resource) => (
-                                                                            <button
-                                                                                key={resource.id}
-                                                                                type="button"
-                                                                                onClick={() =>
-                                                                                    onResourceSelect?.(
-                                                                                        resource
-                                                                                    )
-                                                                                }
-                                                                                className="rounded-full bg-white px-2 py-1 text-[11px] font-medium text-slate-700 ring-1 ring-red-100 transition-all hover:-translate-y-0.5 hover:text-[#B91C1C]"
-                                                                            >
-                                                                                {resource.name}
-                                                                            </button>
-                                                                        ))}
-                                                                    {visibleResources.length > 2 && (
-                                                                        <span className="rounded-full bg-white px-2 py-1 text-[11px] font-bold text-red-500 ring-1 ring-red-100">
-                                                                            +
-                                                                            {visibleResources.length -
-                                                                                2}
+                                                                    {lessonResources.length > 0 && (
+                                                                        <span className="text-[11px] font-semibold text-red-500">
+                                                                            Có tài liệu riêng
+                                                                        </span>
+                                                                    )}
+                                                                    {sectionOnlyCount > 0 && (
+                                                                        <span className="text-[11px] font-semibold text-red-500">
+                                                                            + {sectionOnlyCount} tài
+                                                                            liệu phần
                                                                         </span>
                                                                     )}
                                                                 </div>
                                                             </div>
-                                                        </div>
-                                                    )}
-                                                </div>
+                                                        </button>
+
+                                                        {visibleResources.length > 0 && (
+                                                            <div className="px-3 pb-3">
+                                                                <div
+                                                                    className={`rounded-xl border px-2.5 py-2 ${
+                                                                        isCurrent
+                                                                            ? 'border-red-200 bg-white'
+                                                                            : 'border-red-100 bg-red-50/70'
+                                                                    }`}
+                                                                >
+                                                                    <p className="text-[11px] font-bold uppercase tracking-wide text-red-500">
+                                                                        {isCurrent
+                                                                            ? 'Tài liệu hiện có'
+                                                                            : 'Tài liệu'}
+                                                                    </p>
+                                                                    <div className="mt-2 flex flex-wrap gap-1.5">
+                                                                        {visibleResources
+                                                                            .slice(0, 2)
+                                                                            .map((resource) => (
+                                                                                <button
+                                                                                    key={resource.id}
+                                                                                    type="button"
+                                                                                    onClick={() =>
+                                                                                        onResourceSelect?.(
+                                                                                            resource
+                                                                                        )
+                                                                                    }
+                                                                                    className="rounded-full bg-white px-2 py-1 text-[11px] font-medium text-slate-700 ring-1 ring-red-100 transition-all hover:-translate-y-0.5 hover:text-[#B91C1C]"
+                                                                                >
+                                                                                    {resource.name}
+                                                                                </button>
+                                                                            ))}
+                                                                        {visibleResources.length > 2 && (
+                                                                            <span className="rounded-full bg-white px-2 py-1 text-[11px] font-bold text-red-500 ring-1 ring-red-100">
+                                                                                +
+                                                                                {visibleResources.length -
+                                                                                    2}
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </React.Fragment>
                                             );
                                         })}
                                     </div>
                                 </div>
                             );
-                        })
-                    ) : (
+                        });
+                    })()
+                ) : (
                         <div className="px-4 py-10 text-center text-sm text-slate-400">
                             Không tìm thấy bài học phù hợp.
                         </div>

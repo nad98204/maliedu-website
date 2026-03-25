@@ -89,7 +89,7 @@ const VideoWrapper = ({
     const useHLS = playableUrl && isHLS(playableUrl);
 
     return (
-        <div className="mx-auto w-full max-w-5xl" onContextMenu={(e) => e.preventDefault()}>
+        <div className="mx-auto w-full max-w-6xl" onContextMenu={(e) => e.preventDefault()}>
             {/* 
                 Video Sticky Container:
                 Dùng flex-shrink-0 để đảm bảo container này KHÔNG BAO GIỜ bị ép nhỏ chiều cao 
@@ -99,7 +99,7 @@ const VideoWrapper = ({
                 className="sticky top-0 z-20 -mx-3 shrink-0 bg-slate-100/90 px-3 pb-2 pt-3 backdrop-blur-md md:static md:m-0 md:bg-transparent md:p-0 md:backdrop-blur-none"
                 style={{ transform: 'translateZ(0)' }}
             >
-                <div className="rounded-[24px] border border-slate-200 bg-white p-2 shadow-lg md:rounded-2xl">
+                <div className="rounded-[24px] border border-slate-200/60 bg-white p-2 shadow-[0_8px_30px_rgb(0,0,0,0.06)] md:rounded-3xl md:p-3">
                     {/* 
                         Khóa cứng aspectRatio và min-height để trình duyệt 
                         không thể render Video mỏng/xẹp (biến dạng).
@@ -241,7 +241,7 @@ const VideoWrapper = ({
                     </div>
                 </div>
 
-                <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div className="mt-4 flex flex-col gap-3 md:hidden">
                     <div className="flex flex-col w-full gap-3 md:flex-row md:items-center md:gap-4">
                         <div className="grid grid-cols-2 gap-3 md:flex md:items-center">
                             <button

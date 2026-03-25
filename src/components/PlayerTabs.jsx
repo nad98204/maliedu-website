@@ -409,7 +409,7 @@ const PlayerTabs = ({
 
 
     return (
-        <div id="player-tabs" className="mx-auto mt-6 w-full max-w-5xl pb-16 md:mt-8 md:pb-20">
+        <div id="player-tabs" className="mx-auto mt-6 w-full max-w-6xl pb-16 md:mt-8 md:pb-20">
             <div className="mb-4 grid w-full grid-cols-4 gap-1.5 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm md:mb-6 md:w-fit md:grid-cols-none md:flex md:flex-wrap md:gap-2 md:rounded-xl md:p-2">
                 {visibleTabs.map((tab) => (
                     <button

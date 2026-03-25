@@ -11,7 +11,7 @@ import {
     updateDoc,
     where
 } from 'firebase/firestore';
-import { ChevronLeft, Menu, Star } from 'lucide-react';
+import { CheckCircle, ChevronLeft, Menu, Star } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from '../firebase';
 import PlayerSidebar from '../components/PlayerSidebar';
@@ -683,11 +683,11 @@ const CoursePlayer = () => {
 
     return (
         <div className="flex min-h-screen flex-col bg-slate-100 text-slate-800 md:h-screen md:overflow-hidden md:bg-gray-50">
-            <header className="z-20 flex h-16 shrink-0 items-center justify-between border-b border-red-800/20 bg-[#B91C1C] px-3 shadow-md md:px-6">
+            <header className="z-20 flex h-16 shrink-0 items-center justify-between border-b border-white/5 bg-gradient-to-r from-[#B91C1C] via-[#B91C1C] to-[#991B1B] px-3 shadow-[0_4px_30px_-5px_rgba(0,0,0,0.25)] md:px-6">
                 <div className="flex min-w-0 flex-1 items-center gap-3 md:gap-6">
                     <Link
                         to={`/khoa-hoc/${course.id}`}
-                        className="flex shrink-0 items-center gap-2 rounded-full bg-white/10 p-2 text-white transition-colors hover:bg-white/15 hover:text-white md:rounded-none md:bg-transparent md:p-0 md:text-sm md:font-bold md:text-red-100 md:hover:bg-transparent"
+                        className="flex shrink-0 items-center gap-2 rounded-full bg-white/10 p-2 text-white transition-all hover:bg-white/20 active:scale-95 md:rounded-lg md:px-3 md:py-1.5 md:text-xs md:font-extrabold md:text-white md:border md:border-white/10"
                     >
                         <ChevronLeft className="h-5 w-5" />
                         <span className="hidden md:inline">Trang chủ khóa học</span>
@@ -714,6 +714,25 @@ const CoursePlayer = () => {
                     </div>
 
                     <div className="mr-4 hidden items-center gap-3 md:flex">
+                        <div className="flex flex-col items-center gap-1">
+                            <button
+                                onClick={handleLessonComplete}
+                                className={`flex items-center gap-2.5 rounded-lg px-4 py-2 text-[11px] font-extrabold uppercase tracking-wide transition-all active:scale-95 ${
+                                    progress[currentLessonId]
+                                        ? 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-lg shadow-emerald-500/20'
+                                        : 'bg-white/10 text-white border border-white/20 hover:bg-white/20 hover:border-white/30'
+                                }`}
+                            >
+                                <CheckCircle className={`h-4 w-4 ${progress[currentLessonId] ? 'text-white' : 'text-white/60'}`} />
+                                <span>{progress[currentLessonId] ? 'Đã hoàn thành' : 'Đã học xong'}</span>
+                            </button>
+                            {!progress[currentLessonId] && (
+                                <span className="text-[9px] font-bold text-white/50">
+                                    Học xong hãy tick vào đây
+                                </span>
+                            )}
+                        </div>
+
                         <div className="flex flex-col items-end">
                             <span className="text-xs font-bold text-white/90">Đã hoàn thành</span>
                             <span className="text-xs text-red-100">

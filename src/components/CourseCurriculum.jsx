@@ -102,86 +102,129 @@ const CourseCurriculum = ({ course, courseId, onPreviewClick }) => {
                 </button>
             </div>
 
-            <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm">
-                {sections.map((section, idx) => (
-                    <div key={idx} className="border-b border-slate-100 last:border-0">
-                        {/* Header */}
-                        <button
-                            onClick={() => toggleSection(idx)}
-                            className={`w-full flex items-start sm:items-center justify-between p-4 transition-all duration-300 text-left ${openSections[idx] ? 'bg-slate-50/80 shadow-inner' : 'bg-white hover:bg-slate-50'}`}
-                        >
-                            <div className="flex items-start sm:items-center gap-3 text-left w-full mr-4">
-                                <div className={`mt-0.5 sm:mt-0 p-1.5 rounded-full transition-all duration-300 shrink-0 ${openSections[idx] ? 'bg-secret-wax/10 text-secret-wax rotate-180' : 'bg-slate-100 text-slate-400'}`}>
-                                    <ChevronDown className="w-3.5 h-3.5 sm:w-4 h-4" />
-                                </div>
-                                <span className={`font-bold text-sm sm:text-base leading-snug transition-colors break-words ${openSections[idx] ? 'text-secret-ink' : 'text-slate-800'}`}>
-                                    {section.title}
-                                </span>
-                            </div>
-                            <span className="text-[10px] sm:text-xs font-medium text-slate-400 shrink-0 py-1 px-2.5 bg-slate-50/50 rounded-lg border border-slate-100">
-                                {section.lessons.length} bài
-                            </span>
-                        </button>
+            <div className="space-y-4">
+                {(() => {
+                    let titledSectionCount = 0;
+                    return sections.map((section, idx) => {
+                        if (section.title) titledSectionCount++;
+                        const displayNumber = section.title ? titledSectionCount : null;
 
-                        {/* Lessons List */}
-                        <div className={`transition-all duration-500 ease-in-out overflow-hidden ${openSections[idx] ? 'max-h-[3000px] opacity-100' : 'max-h-0 opacity-0 invisible'}`}>
-                            <div className="bg-white">
-                                {section.lessons.map((lesson, lIdx) => {
-                                    const lessonKey = getLessonKey(lesson);
-                                    const isAccessible = lessonKey ? previewableLessonKeys.has(lessonKey) : false;
-
-                                    return (
-                                        <div key={lIdx} className="flex items-center justify-between p-3.5 pl-4 sm:pl-12 hover:bg-slate-50/50 border-b border-slate-50 last:border-0 transition-all group">
-                                            <div className="flex items-start gap-3 overflow-hidden pr-2">
-                                                <div className="mt-0.5 shrink-0 bg-slate-100/50 p-1.5 rounded-md group-hover:bg-secret-wax/10 transition-colors">
-                                                    {lesson.type === 'file' ? (
-                                                        <FileText className="w-3.5 h-3.5 text-slate-400" />
-                                                    ) : (
-                                                        <PlayCircle className="w-3.5 h-3.5 text-slate-400 group-hover:text-secret-wax transition-colors" />
-                                                    )}
+                        return (
+                            <div key={idx} className="group/section">
+                                <div className={`overflow-hidden transition-all ${section.title ? 'border border-slate-200 rounded-xl bg-white shadow-sm hover:border-slate-300' : ''}`}>
+                                    {/* Header */}
+                                    {section.title ? (
+                                        <button
+                                            onClick={() => toggleSection(idx)}
+                                            className={`w-full flex items-start sm:items-center justify-between p-4 transition-all duration-300 text-left ${openSections[idx] ? 'bg-slate-50/80' : 'bg-white hover:bg-slate-50'}`}
+                                        >
+                                            <div className="flex items-start sm:items-center gap-4 text-left w-full mr-4">
+                                                <div className="flex flex-col items-center shrink-0">
+                                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Phần</span>
+                                                    <span className="text-sm font-bold text-slate-600 bg-slate-100 w-6 h-6 flex items-center justify-center rounded-full">
+                                                        {displayNumber}
+                                                    </span>
                                                 </div>
-                                                <span className="text-[13px] sm:text-sm text-slate-600 font-medium group-hover:text-secret-ink transition-colors leading-relaxed">
-                                                    {lesson.title}
-                                                </span>
+                                                <div className="flex-1 min-w-0">
+                                                    <h4 className={`font-bold text-sm sm:text-base leading-snug transition-colors break-words ${openSections[idx] ? 'text-secret-ink' : 'text-slate-800'}`}>
+                                                        {section.title}
+                                                    </h4>
+                                                    <div className="mt-1 flex items-center gap-3 text-[11px] font-medium text-slate-500">
+                                                        <span>{section.lessons.length} bài học</span>
+                                                        {section.lessons.some(l => previewableLessonKeys.has(getLessonKey(l))) && (
+                                                            <span className="text-green-600 flex items-center gap-1">
+                                                                <span className="h-1 w-1 rounded-full bg-green-500"></span>
+                                                                Có bài học thử
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
                                             </div>
-
-                                            <div className="flex items-center gap-3 shrink-0 ml-auto">
-                                                <span className="hidden sm:flex text-xs text-slate-400 items-center gap-1 font-mono">
-                                                    <Clock className="w-3 h-3" />
-                                                    {String(lesson.duration).includes(':') ? lesson.duration : `${lesson.duration || 0}:00`}
-                                                </span>
-
-                                                {isAccessible ? (
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            if (onPreviewClick) {
-                                                                onPreviewClick(lesson);
-                                                            } else {
-                                                                const params = new URLSearchParams({ preview: '1' });
-                                                                if (lessonKey) {
-                                                                    params.set('lesson', lessonKey);
-                                                                }
-                                                                navigate(`/bai-giang/${courseId}?${params.toString()}`);
-                                                            }
-                                                        }}
-                                                        className="text-[10px] font-bold text-white bg-green-500 hover:bg-green-600 px-2.5 py-1 rounded-full shadow-sm shadow-green-200 transition-all hover:scale-105 active:scale-95"
-                                                    >
-                                                        Học thử
-                                                    </button>
-                                                ) : (
-                                                    <div className="p-1.5 rounded-full bg-slate-50 border border-slate-100/50">
-                                                        <Lock className="w-3 h-3 text-slate-300" />
+                                            <div className={`h-8 w-8 rounded-full flex items-center justify-center transition-all ${openSections[idx] ? 'bg-secret-wax text-white rotate-180' : 'bg-slate-50 text-slate-400'}`}>
+                                                <ChevronDown className="w-4 h-4" />
+                                            </div>
+                                        </button>
+                                    ) : (
+                                        <div className="bg-slate-50/80 px-4 py-2 border-b border-slate-100 flex items-center justify-between">
+                                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Kiến thức bổ sung</span>
+                                            <span className="text-[10px] font-medium text-slate-400">{section.lessons.length} bài học</span>
+                                        </div>
+                                    )}
+    
+                            {/* Lessons List */}
+                            <div className={`transition-all duration-500 ease-in-out overflow-hidden ${openSections[idx] ? 'max-h-[3000px] opacity-100 border-t border-slate-100' : 'max-h-0 opacity-0 invisible'}`}>
+                                <div className="bg-white divide-y divide-slate-50">
+                                    {section.lessons.map((lesson, lIdx) => {
+                                        const lessonKey = getLessonKey(lesson);
+                                        const isAccessible = lessonKey ? previewableLessonKeys.has(lessonKey) : false;
+                                        
+                                        // Detect "extra" lesson (lẻ) - heuristic: if title doesn't start with number after a sequence of numbered lessons
+                                        const prevLesson = section.lessons[lIdx - 1];
+                                        const isNumbered = (title) => /^[0-9\.]+|Nguyên lý [0-9]/.test(title);
+                                        const showExtraDivider = prevLesson && isNumbered(prevLesson.title) && !isNumbered(lesson.title);
+    
+                                        return (
+                                            <React.Fragment key={lIdx}>
+                                                {showExtraDivider && (
+                                                    <div className="bg-slate-50/50 px-4 py-2 border-y border-slate-50">
+                                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Kiến thức bổ sung</span>
                                                     </div>
                                                 )}
-                                            </div>
-                                        </div>
-                                    )
-                                })}
+                                                <div className="flex items-center justify-between p-3.5 pl-4 sm:pl-12 hover:bg-slate-50/50 transition-all group">
+                                                    <div className="flex items-start gap-3 overflow-hidden pr-2">
+                                                        <div className="mt-0.5 shrink-0 bg-slate-100/50 p-1.5 rounded-md group-hover:bg-secret-wax/10 transition-colors">
+                                                            {lesson.type === 'file' ? (
+                                                                <FileText className="w-3.5 h-3.5 text-slate-400" />
+                                                            ) : (
+                                                                <PlayCircle className="w-3.5 h-3.5 text-slate-400 group-hover:text-secret-wax transition-colors" />
+                                                            )}
+                                                        </div>
+                                                        <span className="text-[13px] sm:text-sm text-slate-600 font-medium group-hover:text-secret-ink transition-colors leading-relaxed">
+                                                            {lesson.title}
+                                                        </span>
+                                                    </div>
+    
+                                                    <div className="flex items-center gap-3 shrink-0 ml-auto">
+                                                        <span className="hidden sm:flex text-xs text-slate-400 items-center gap-1 font-mono">
+                                                            <Clock className="w-3 h-3" />
+                                                            {String(lesson.duration).includes(':') ? lesson.duration : `${lesson.duration || 0}:00`}
+                                                        </span>
+    
+                                                        {isAccessible ? (
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    if (onPreviewClick) {
+                                                                        onPreviewClick(lesson);
+                                                                    } else {
+                                                                        const params = new URLSearchParams({ preview: '1' });
+                                                                        if (lessonKey) {
+                                                                            params.set('lesson', lessonKey);
+                                                                        }
+                                                                        navigate(`/bai-giang/${courseId}?${params.toString()}`);
+                                                                    }
+                                                                }}
+                                                                className="text-[10px] font-bold text-white bg-green-500 hover:bg-green-600 px-2.5 py-1 rounded-full shadow-sm shadow-green-200 transition-all hover:scale-105 active:scale-95"
+                                                            >
+                                                                Học thử
+                                                            </button>
+                                                        ) : (
+                                                            <div className="p-1.5 rounded-full bg-slate-50 border border-slate-100/50">
+                                                                <Lock className="w-3 h-3 text-slate-300" />
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </React.Fragment>
+                                        )
+                                    })}
+                                </div>
                             </div>
                         </div>
                     </div>
-                ))}
+                )
+            })
+        })()}
             </div>
         </div>
     );

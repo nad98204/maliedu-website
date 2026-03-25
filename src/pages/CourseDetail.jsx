@@ -245,6 +245,12 @@ const CourseDetail = () => {
         );
     }
 
+    const whatYouWillLearn = Array.isArray(course?.whatYouWillLearn)
+        ? course.whatYouWillLearn
+        : (typeof course?.whatYouWillLearn === 'string'
+            ? course.whatYouWillLearn.split('\n').filter(l => l.trim())
+            : []);
+
     return (
         <div className="font-sans bg-slate-50 min-h-screen pb-20">
             <SEO
@@ -347,8 +353,8 @@ const CourseDetail = () => {
                         <div className="bg-white border border-green-100 rounded-xl p-6 shadow-sm">
                             <h3 className="text-xl font-bold text-slate-900 mb-4">Bạn sẽ học được gì?</h3>
                             <div className="grid grid-cols-1 gap-3">
-                                {course.whatYouWillLearn && course.whatYouWillLearn.length > 0 ? (
-                                    course.whatYouWillLearn.map((item, idx) => (
+                                {whatYouWillLearn.length > 0 ? (
+                                    whatYouWillLearn.map((item, idx) => (
                                         <div key={idx} className="flex items-start gap-2.5">
                                             <Check className="w-5 h-5 text-green-500 shrink-0 mt-0.5" />
                                             <span className="text-slate-700 text-sm">{item}</span>

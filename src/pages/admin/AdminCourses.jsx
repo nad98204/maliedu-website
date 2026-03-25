@@ -829,10 +829,11 @@ const AdminCourses = () => {
     const timer = setTimeout(async () => {
       setIsAutoSaving(true);
       try {
+        const courseData = getNormalizedCourseData(formData);
         await updateDoc(doc(db, "courses", editingCourse.id), {
-          ...formData,
-          updatedAt: new Date(),
+          ...courseData,
           isDraft: true,
+          updatedAt: Date.now(), // Consistently using Date.now()
         });
         setLastAutoSave(new Date());
       } catch (err) {
@@ -1126,87 +1127,91 @@ const AdminCourses = () => {
     setIsFormOpen(true);
   };
 
+  const getNormalizedCourseData = (data) => {
+    const normalizedCurriculum = normalizeCurriculumForForm(data.curriculum);
+    const lessonSectionMap = normalizedCurriculum.reduce(
+      (accumulator, section, sectionIndex) => {
+        const sectionId = getSectionIdentifier(
+          section,
+          `section-${sectionIndex}`,
+        );
+
+        (section.lessons || []).forEach((lesson) => {
+          if (lesson.id) {
+            accumulator[lesson.id] = sectionId;
+          }
+
+          if (lesson.videoId) {
+            accumulator[lesson.videoId] = sectionId;
+          }
+        });
+
+        return accumulator;
+      },
+      {},
+    );
+
+    const validSectionIds = new Set(
+      normalizedCurriculum
+        .map((section) => getSectionIdentifier(section))
+        .filter(Boolean),
+    );
+
+    const validLessonIds = new Set(
+      normalizedCurriculum.flatMap((section) =>
+        (section.lessons || []).flatMap((lesson) =>
+          [lesson.id, lesson.videoId].filter(Boolean),
+        ),
+      ),
+    );
+
+    const normalizedCourseResources = reindexCourseResources(
+      normalizeCourseResources(data.courseResources)
+        .map((resource) => {
+          const linkedLessonId = validLessonIds.has(resource.linkedLessonId)
+            ? resource.linkedLessonId
+            : "";
+          const inferredSectionId = linkedLessonId
+            ? lessonSectionMap[linkedLessonId] || ""
+            : "";
+          const linkedSectionId = validSectionIds.has(resource.linkedSectionId)
+            ? resource.linkedSectionId
+            : inferredSectionId;
+
+          return {
+            ...resource,
+            name: resource.name?.trim() || "",
+            url: resource.url?.trim() || "",
+            linkedLessonId,
+            linkedSectionId,
+          };
+        })
+        .filter((resource) => resource.url),
+    );
+
+    return {
+      ...data,
+      categories: data.categories || [],
+      category: data.categories?.length > 0 ? data.categories[0] : "",
+      curriculum: normalizedCurriculum,
+      whatYouWillLearn: data.whatYouWillLearn
+        ? Array.isArray(data.whatYouWillLearn)
+          ? data.whatYouWillLearn
+          : data.whatYouWillLearn.split("\n").filter((line) => line.trim() !== "")
+        : [],
+      courseResources: normalizedCourseResources,
+      price: data.isForSale ? Number(data.price) : 0,
+      salePrice:
+        data.isForSale && data.salePrice ? Number(data.salePrice) : null,
+    };
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      const normalizedCurriculum = normalizeCurriculumForForm(
-        formData.curriculum,
-      );
-      const lessonSectionMap = normalizedCurriculum.reduce(
-        (accumulator, section, sectionIndex) => {
-          const sectionId = getSectionIdentifier(
-            section,
-            `section-${sectionIndex}`,
-          );
-
-          (section.lessons || []).forEach((lesson) => {
-            if (lesson.id) {
-              accumulator[lesson.id] = sectionId;
-            }
-
-            if (lesson.videoId) {
-              accumulator[lesson.videoId] = sectionId;
-            }
-          });
-
-          return accumulator;
-        },
-        {},
-      );
-      const validSectionIds = new Set(
-        normalizedCurriculum
-          .map((section) => getSectionIdentifier(section))
-          .filter(Boolean),
-      );
-      const validLessonIds = new Set(
-        normalizedCurriculum.flatMap((section) =>
-          (section.lessons || []).flatMap((lesson) =>
-            [lesson.id, lesson.videoId].filter(Boolean),
-          ),
-        ),
-      );
-      const normalizedCourseResources = reindexCourseResources(
-        normalizeCourseResources(formData.courseResources)
-          .map((resource) => {
-            const linkedLessonId = validLessonIds.has(resource.linkedLessonId)
-              ? resource.linkedLessonId
-              : "";
-            const inferredSectionId = linkedLessonId
-              ? lessonSectionMap[linkedLessonId] || ""
-              : "";
-            const linkedSectionId =
-              validSectionIds.has(resource.linkedSectionId)
-                ? resource.linkedSectionId
-                : inferredSectionId;
-
-            return {
-              ...resource,
-              name: resource.name?.trim() || "",
-              url: resource.url?.trim() || "",
-              linkedLessonId,
-              linkedSectionId,
-            };
-          })
-          .filter((resource) => resource.url),
-      );
-
       const courseData = {
-        ...formData,
-        categories: formData.categories,
-        category: formData.categories.length > 0 ? formData.categories[0] : "", // Backward compatibility
-        curriculum: normalizedCurriculum,
-        whatYouWillLearn: formData.whatYouWillLearn
-          ? formData.whatYouWillLearn
-            .split("\n")
-            .filter((line) => line.trim() !== "")
-          : [],
-        courseResources: normalizedCourseResources,
-        price: formData.isForSale ? Number(formData.price) : 0,
-        salePrice:
-          formData.isForSale && formData.salePrice
-            ? Number(formData.salePrice)
-            : null,
+        ...getNormalizedCourseData(formData),
         updatedAt: Date.now(),
       };
 
