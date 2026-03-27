@@ -1,4 +1,4 @@
-import { ArrowRight, Phone, Sparkles, User } from "lucide-react";
+import { ArrowRight, Mail, Phone, Sparkles, User } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -10,6 +10,7 @@ import {
   getMetaBrowserData,
   initMetaPixel,
   resolveMetaEventData,
+  setMetaUserData,
   trackMetaEvent,
 } from "../../../utils/metaPixel";
 
@@ -37,7 +38,7 @@ const normalizePath = (path) => {
 const FormDangKy = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [formState, setFormState] = useState({ name: "", phone: "" });
+  const [formState, setFormState] = useState({ name: "", phone: "", email: "" });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [remoteConfig, setRemoteConfig] = useState(DEFAULT_REMOTE_CONFIG);
 
@@ -128,7 +129,7 @@ const FormDangKy = () => {
       const crmResponse = await submitToCRM({
         name: formState.name,
         phone: formState.phone.replace(/\s/g, ""),
-        email: "",
+        email: formState.email.trim().toLowerCase(),
         source_key: sourceKey,
         utm_source: searchParams.get("utm_source") || "",
         utm_medium: searchParams.get("utm_medium") || "",
@@ -154,6 +155,7 @@ const FormDangKy = () => {
 
       const normalizedPhone = formState.phone.replace(/\D/g, "").replace(/^0/, "84");
       const hashedPhone = normalizedPhone ? await sha256(normalizedPhone) : "";
+      const hashedEmail = formState.email ? await sha256(formState.email.trim().toLowerCase()) : "";
 
       const nameParts = formState.name.trim().split(/\s+/).filter(Boolean);
       const firstName = nameParts.length > 0 ? nameParts[nameParts.length - 1] : "";
@@ -170,15 +172,20 @@ const FormDangKy = () => {
         ...metaEventData,
       };
 
+      const userDataCommon = {
+        ...(hashedPhone ? { ph: [hashedPhone] } : {}),
+        ...(hashedEmail ? { em: [hashedEmail] } : {}),
+        ...(hashedFn ? { fn: [hashedFn] } : {}),
+        ...(hashedLn ? { ln: [hashedLn] } : {}),
+        ...(hashedExternalId ? { external_id: [hashedExternalId] } : {}),
+      };
+
       if (remoteConfig.fbPixel) {
         initMetaPixel(remoteConfig.fbPixel);
-        trackMetaEvent("Lead", leadEventData, {
-          eventID: leadEventId,
-          test_event_code: "TEST14396",
-        });
+        setMetaUserData(userDataCommon);
+        trackMetaEvent("Lead", leadEventData, { eventID: leadEventId });
         trackMetaEvent("CompleteRegistration", metaEventData, {
           eventID: completeRegistrationEventId,
-          test_event_code: "TEST14396",
         });
       }
 
@@ -195,11 +202,8 @@ const FormDangKy = () => {
           }
 
           const { fbp, fbc } = getMetaBrowserData(window.location.search);
-          const userData = {
-            ...(hashedPhone ? { ph: [hashedPhone] } : {}),
-            ...(hashedFn ? { fn: [hashedFn] } : {}),
-            ...(hashedLn ? { ln: [hashedLn] } : {}),
-            ...(hashedExternalId ? { external_id: [hashedExternalId] } : {}),
+          const userDataCapi = {
+            ...userDataCommon,
             ...(clientIp ? { client_ip_address: clientIp } : {}),
             client_user_agent: navigator.userAgent,
             ...(fbp ? { fbp } : {}),
@@ -214,7 +218,7 @@ const FormDangKy = () => {
                 action_source: "website",
                 event_id: leadEventId,
                 event_source_url: window.location.href,
-                user_data: userData,
+                user_data: userDataCapi,
                 custom_data: leadEventData,
               },
               {
@@ -223,11 +227,10 @@ const FormDangKy = () => {
                 action_source: "website",
                 event_id: completeRegistrationEventId,
                 event_source_url: window.location.href,
-                user_data: userData,
+                user_data: userDataCapi,
                 custom_data: metaEventData,
               },
             ],
-            test_event_code: "TEST14396",
           };
 
           const fbCapiUrl = `https://graph.facebook.com/v19.0/${remoteConfig.fbPixel}/events?access_token=${remoteConfig.fbCapiToken}`;
@@ -243,7 +246,7 @@ const FormDangKy = () => {
       }
 
       toast.success("Đăng ký thành công!");
-      setFormState({ name: "", phone: "" });
+      setFormState({ name: "", phone: "", email: "" });
       navigate(`/cam-on-khoi-thong?eventId=${encodeURIComponent(completeRegistrationEventId)}`);
     } catch (error) {
       toast.error("Lỗi: " + (error.message || "Không xác định"));
@@ -347,6 +350,36 @@ const FormDangKy = () => {
                       placeholder="Nhập họ và tên đầy đủ"
                       required
                       autoComplete="name"
+                      className="w-full rounded-xl px-4 py-3.5 text-sm text-white placeholder:text-white/30 transition-all duration-200 focus:outline-none"
+                      style={{
+                        background: "rgba(255,255,255,0.07)",
+                        border: "1px solid rgba(201,150,26,0.25)",
+                        boxShadow: "inset 0 1px 2px rgba(0,0,0,0.2)",
+                      }}
+                      onFocus={(e) => {
+                        e.target.style.border = "1px solid rgba(201,150,26,0.7)";
+                        e.target.style.boxShadow = "0 0 0 3px rgba(201,150,26,0.12)";
+                        e.target.style.background = "rgba(255,255,255,0.1)";
+                      }}
+                      onBlur={(e) => {
+                        e.target.style.border = "1px solid rgba(201,150,26,0.25)";
+                        e.target.style.boxShadow = "inset 0 1px 2px rgba(0,0,0,0.2)";
+                        e.target.style.background = "rgba(255,255,255,0.07)";
+                      }}
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[#C9961A]">
+                      <Mail className="w-3.5 h-3.5" /> Địa chỉ Email
+                    </label>
+                    <input
+                      type="email"
+                      value={formState.email}
+                      onChange={handleChange("email")}
+                      placeholder="Nhập email của bạn (Ví dụ: ten@gmail.com)"
+                      required
+                      autoComplete="email"
                       className="w-full rounded-xl px-4 py-3.5 text-sm text-white placeholder:text-white/30 transition-all duration-200 focus:outline-none"
                       style={{
                         background: "rgba(255,255,255,0.07)",

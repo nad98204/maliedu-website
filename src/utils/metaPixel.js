@@ -79,6 +79,12 @@ export const ensureMetaPixel = () => {
   return win.fbq;
 };
 
+export const setMetaUserData = (userData) => {
+  const win = getWindow();
+  if (!win?.fbq || !userData) return;
+  win.fbq("set", "user_data", userData);
+};
+
 export const initMetaPixel = (pixelId) => {
   if (!pixelId) return null;
 
