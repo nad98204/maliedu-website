@@ -172,9 +172,13 @@ const FormDangKy = () => {
 
       if (remoteConfig.fbPixel) {
         initMetaPixel(remoteConfig.fbPixel);
-        trackMetaEvent("Lead", leadEventData, { eventID: leadEventId });
+        trackMetaEvent("Lead", leadEventData, {
+          eventID: leadEventId,
+          test_event_code: "TEST14396",
+        });
         trackMetaEvent("CompleteRegistration", metaEventData, {
           eventID: completeRegistrationEventId,
+          test_event_code: "TEST14396",
         });
       }
 
@@ -223,6 +227,7 @@ const FormDangKy = () => {
                 custom_data: metaEventData,
               },
             ],
+            test_event_code: "TEST14396",
           };
 
           const fbCapiUrl = `https://graph.facebook.com/v19.0/${remoteConfig.fbPixel}/events?access_token=${remoteConfig.fbCapiToken}`;
