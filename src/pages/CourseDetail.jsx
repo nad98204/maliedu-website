@@ -14,6 +14,7 @@ import CourseReviews from '../components/CourseReviews';
 import AuthModal from '../components/AuthModal';
 import { getLessonKey, getPreferredPreviewLesson, resolveCourseAccess } from '../utils/courseAccess';
 import { normalizeCloudinaryImage } from '../utils/imageUtils';
+import { trackMetaEvent } from '../utils/metaPixel';
 
 const CourseDetail = () => {
     const { slug } = useParams();
@@ -162,6 +163,19 @@ const CourseDetail = () => {
         });
         return () => unsubscribe();
     }, [slug]);
+
+    useEffect(() => {
+        if (course) {
+            trackMetaEvent('ViewContent', {
+                content_name: course.name,
+                content_category: course.category || 'Course',
+                content_ids: [course.id],
+                content_type: 'product',
+                value: course.salePrice || course.price || 0,
+                currency: 'VND'
+            });
+        }
+    }, [course?.id]);
 
     useEffect(() => {
         const checkEnrollment = async () => {

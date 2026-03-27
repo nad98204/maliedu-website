@@ -1,61 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { ArrowRight, CheckCircle2, Clock, ShieldAlert } from "lucide-react";
-import { collection, getDocs } from "firebase/firestore";
-import { crmFirestore } from "../../firebase";
-import {
-  initMetaPixel,
-  trackMetaEvent,
-} from "../../utils/metaPixel";
 import { KHOI_THONG_DONG_TIEN_CONFIG } from "./landingConfig";
 
 const DEFAULT_ZALO_LINK = KHOI_THONG_DONG_TIEN_CONFIG.zaloLink;
-const DEFAULT_PIXEL_ID = "1526874981588150";
 
 const CamOnKhoiThong = () => {
   const [timeLeft, setTimeLeft] = useState(5 * 60);
-  const [zaloLink, setZaloLink] = useState(DEFAULT_ZALO_LINK);
-  const [pixelId, setPixelId] = useState("");
-  const [isConfigReady, setIsConfigReady] = useState(false);
-
-  useEffect(() => {
-    let isCancelled = false;
-
-    const fetchConfig = async () => {
-      try {
-        const querySnap = await getDocs(collection(crmFirestore, "landing_pages"));
-        const matchDoc = querySnap.docs.find(
-          (item) =>
-            item.id === "khoi-thong-dong-tien" ||
-            item.data().slug?.includes("khoi-thong-dong-tien")
-        );
-
-        if (isCancelled) return;
-
-        if (matchDoc) {
-          const data = matchDoc.data();
-          setZaloLink(DEFAULT_ZALO_LINK);
-          setPixelId(data.fbPixel || DEFAULT_PIXEL_ID);
-        } else {
-          setZaloLink(DEFAULT_ZALO_LINK);
-          setPixelId(DEFAULT_PIXEL_ID);
-        }
-        setIsConfigReady(true);
-      } catch (error) {
-        console.error("Loi lay config thank you:", error);
-        if (!isCancelled) {
-          setZaloLink(DEFAULT_ZALO_LINK);
-          setPixelId(DEFAULT_PIXEL_ID);
-          setIsConfigReady(true);
-        }
-      }
-    };
-
-    fetchConfig();
-
-    return () => {
-      isCancelled = true;
-    };
-  }, []);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -64,13 +14,6 @@ const CamOnKhoiThong = () => {
 
     return () => window.clearInterval(timer);
   }, []);
-
-  useEffect(() => {
-    if (!isConfigReady || !pixelId) return;
-
-    initMetaPixel(pixelId);
-    trackMetaEvent("PageView");
-  }, [isConfigReady, pixelId]);
 
   const minutes = Math.floor(timeLeft / 60);
   const seconds = timeLeft % 60;
@@ -154,7 +97,7 @@ const CamOnKhoiThong = () => {
         <div className="w-full relative group">
           <div className="absolute -inset-1 bg-[#0068FF] rounded-full blur opacity-40 group-hover:opacity-70 transition duration-500 group-hover:duration-200" />
           <a
-            href={zaloLink}
+            href={DEFAULT_ZALO_LINK}
             target="_blank"
             rel="noopener noreferrer"
             className="relative w-full flex flex-col items-center justify-center gap-1 rounded-full py-3.5 px-6 text-white overflow-hidden transition-all duration-300 transform group-hover:scale-[1.02] shadow-[0_10px_25px_rgba(0,104,255,0.4)]"

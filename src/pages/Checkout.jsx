@@ -8,6 +8,7 @@ import { db, auth } from "../firebase";
 import { createOrder, formatPrice } from "../utils/orderService";
 import { collection, query, where, getDocs, addDoc, serverTimestamp } from "firebase/firestore";
 import { useCart } from "../context/CartContext";
+import { trackMetaEvent } from "../utils/metaPixel";
 
 const Checkout = () => {
     const { courseId } = useParams();
@@ -82,6 +83,19 @@ const Checkout = () => {
 
         return () => unsubscribe();
     }, [courseId, navigate, cartItems, totalAmount]);
+
+    useEffect(() => {
+        if (course) {
+            trackMetaEvent("InitiateCheckout", {
+                content_name: course.name || "Checkout",
+                content_ids: course.id === 'cart' ? cartItems.map(i => i.id) : [course.id],
+                content_type: 'product',
+                num_items: course.id === 'cart' ? cartItems.length : 1,
+                value: calculateFinalPrice(),
+                currency: 'VND'
+            });
+        }
+    }, [course?.id]);
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;

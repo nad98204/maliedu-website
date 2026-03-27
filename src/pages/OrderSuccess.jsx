@@ -4,6 +4,14 @@ import { Copy, CheckCircle, Home, Loader2, RefreshCw, Clock, AlertCircle, Zap, S
 
 import { getOrderById, formatPrice } from "../utils/orderService";
 import { getBankSettings, generateQrUrl, generateTransferContent } from "../utils/bankPaymentService";
+import { 
+    trackMetaEvent, 
+    getMetaBrowserData, 
+    sendCapiEvent, 
+    hashData, 
+    normalizeNameForHash,
+    setMetaUserData
+} from "../utils/metaPixel";
 
 // ============================
 // DANH SÁCH NGÂN HÀNG + DEEPLINK
@@ -234,6 +242,68 @@ const OrderSuccess = () => {
             ]);
             setBankSettings(settings);
             setLoading(false);
+
+            // TRACK PURCHASE (PIXEL + CAPI)
+            if (orderData && !sessionStorage.getItem(`mali_purchase_${orderData.orderCode}`)) {
+                const trackPurchase = async () => {
+                    try {
+                        const { fbp, fbc } = getMetaBrowserData(window.location.search);
+                        let clientIp = "";
+                        try {
+                            const ipRes = await fetch("https://api64.ipify.org?format=json");
+                            const ipData = await ipRes.json();
+                            clientIp = ipData.ip || "";
+                        } catch (ipErr) {
+                            console.error("IP Fetch error", ipErr);
+                        }
+
+                        // Prepare PII
+                        const email = orderData.customerEmail || "";
+                        const phone = (orderData.customerPhone || "").replace(/\D/g, "").replace(/^0/, "84");
+                        const fullName = orderData.customerName || "";
+                        const nameParts = fullName.trim().split(/\s+/).filter(Boolean);
+                        const fn = nameParts.length > 0 ? nameParts[nameParts.length - 1] : "";
+                        const ln = nameParts.length > 1 ? nameParts.slice(0, -1).join(" ") : "";
+
+                        const hashedEmail = await hashData(email);
+                        const hashedPhone = await hashData(phone);
+                        const hashedFn = await hashData(normalizeNameForHash(fn));
+                        const hashedLn = await hashData(normalizeNameForHash(ln));
+
+                        const userData = {
+                            em: [hashedEmail],
+                            ph: [hashedPhone],
+                            fn: [hashedFn],
+                            ln: [hashedLn],
+                            client_ip_address: clientIp,
+                            client_user_agent: navigator.userAgent,
+                            fbp,
+                            fbc
+                        };
+
+                        const customData = {
+                            content_name: orderData.courseName,
+                            content_ids: (orderData.items || []).map(i => i.id),
+                            content_type: 'product',
+                            value: orderData.amount,
+                            currency: 'VND',
+                            num_items: (orderData.items || []).length || 1
+                        };
+
+                        // Browser Track
+                        setMetaUserData({ em: [hashedEmail], ph: [hashedPhone], fn: [hashedFn], ln: [hashedLn] });
+                        trackMetaEvent("Purchase", customData, { eventID: orderData.orderCode });
+
+                        // CAPI Track
+                        await sendCapiEvent("Purchase", orderData.orderCode, userData, customData);
+                        
+                        sessionStorage.setItem(`mali_purchase_${orderData.orderCode}`, 'true');
+                    } catch (err) {
+                        console.error("Purchase Tracking Error:", err);
+                    }
+                };
+                trackPurchase();
+            }
 
             if (orderData?.status === 'pending') {
                 const interval = setInterval(async () => {

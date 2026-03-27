@@ -1,10 +1,7 @@
-import React, { useEffect, useState } from "react";
-import { collection, getDocs } from "firebase/firestore";
+import React from "react";
 import Footer from "../../components/Footer";
 import SEO from "../../components/SEO";
-import { crmFirestore } from "../../firebase";
 import { getRouteSeo } from "../../seo/routeSeo";
-import { initMetaPixel, trackMetaEvent } from "../../utils/metaPixel";
 import BannerChinh from "./sections/BannerChinh";
 import CauChuyenNguoiSangLap from "./sections/CauChuyenNguoiSangLap";
 import DoiTuongPhuHop from "./sections/DoiTuongPhuHop";
@@ -14,62 +11,8 @@ import LichTrinhHoc from "./sections/LichTrinhHoc";
 import PhanNoiDau from "./sections/PhanNoiDau";
 import VideoHocVien from "./sections/VideoHocVien";
 
-const DEFAULT_PIXEL_ID = "1526874981588150";
-
-const normalizePath = (path) => {
-  if (!path) return "/";
-
-  const cleanPath = path.split("?")[0].split("#")[0];
-  return cleanPath.replace(/\/+$/, "") || "/";
-};
-
 const KhoiThongDongTien = () => {
-  const [pixelId, setPixelId] = useState("");
-  const [isPixelReady, setIsPixelReady] = useState(false);
   const seo = getRouteSeo("/dao-tao/khoi-thong-dong-tien");
-
-  useEffect(() => {
-    let isCancelled = false;
-
-    const fetchConfig = async () => {
-      try {
-        const currentPath = normalizePath(window.location.pathname);
-        const querySnap = await getDocs(collection(crmFirestore, "landing_pages"));
-        const matchDoc = querySnap.docs.find((item) => {
-          const slug = normalizePath(item.data().slug || "");
-          return (
-            slug === currentPath ||
-            item.id === "khoi-thong-dong-tien" ||
-            currentPath.includes("khoi-thong-dong-tien")
-          );
-        });
-
-        if (!isCancelled) {
-          setPixelId(matchDoc?.data().fbPixel || DEFAULT_PIXEL_ID);
-          setIsPixelReady(true);
-        }
-      } catch (error) {
-        console.error("Loi lay config:", error);
-        if (!isCancelled) {
-          setPixelId(DEFAULT_PIXEL_ID);
-          setIsPixelReady(true);
-        }
-      }
-    };
-
-    fetchConfig();
-
-    return () => {
-      isCancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!isPixelReady || !pixelId) return;
-
-    initMetaPixel(pixelId);
-    trackMetaEvent("PageView");
-  }, [isPixelReady, pixelId]);
 
   return (
     <div
