@@ -3,6 +3,7 @@ import { crmFirestore, crmRealtimeDB } from "../../firebase";
 import { doc, getDoc, setDoc, serverTimestamp, collection, getDocs, onSnapshot, deleteDoc } from "firebase/firestore";
 import { ref, onValue } from "firebase/database";
 import { toast } from "react-hot-toast";
+import { normalizeMetaCurrency } from "../../utils/metaPixel";
 import {
     Layout, Settings, Save,
     AlertTriangle, CheckCircle,
@@ -28,7 +29,9 @@ const AdminLandings = () => {
         assignedSale: "Round Robin",
         zaloLink: "",
         fbPixel: "",
-        fbCapiToken: ""
+        fbCapiToken: "",
+        fbCurrency: "VND",
+        fbEventValue: "0"
     });
     const [selectedCourseId, setSelectedCourseId] = useState("");
     const [selectedK, setSelectedK] = useState("");
@@ -80,7 +83,9 @@ const AdminLandings = () => {
             assignedSale: mappingData.assignedSale || "Round Robin",
             zaloLink: mappingData.targetZalo || landing.zaloLink || "",
             fbPixel: landing.fbPixel || "",
-            fbCapiToken: landing.fbCapiToken || ""
+            fbCapiToken: landing.fbCapiToken || "",
+            fbCurrency: landing.fbCurrency || "VND",
+            fbEventValue: String(landing.fbEventValue ?? 0)
         });
 
         const parts = landing.active_source_key.split('_');
@@ -100,7 +105,9 @@ const AdminLandings = () => {
             assignedSale: "Round Robin",
             zaloLink: "",
             fbPixel: "",
-            fbCapiToken: ""
+            fbCapiToken: "",
+            fbCurrency: "VND",
+            fbEventValue: "0"
         });
         setSelectedCourseId("");
         setSelectedK("");
@@ -129,6 +136,9 @@ const AdminLandings = () => {
 
         const id = activeEditId === "new" ? slugify(form.name) : activeEditId;
         const sourceKey = form.active_source_key;
+        const fbCurrency = normalizeMetaCurrency(form.fbCurrency);
+        const parsedEventValue = Number(String(form.fbEventValue ?? "").replace(",", "."));
+        const fbEventValue = Number.isFinite(parsedEventValue) && parsedEventValue >= 0 ? parsedEventValue : 0;
 
         try {
             await setDoc(doc(crmFirestore, "landing_pages", id), {
@@ -139,6 +149,8 @@ const AdminLandings = () => {
                 zaloLink: form.zaloLink || "",
                 fbPixel: form.fbPixel || "",
                 fbCapiToken: form.fbCapiToken || "",
+                fbCurrency,
+                fbEventValue,
                 updatedAt: serverTimestamp()
             }, { merge: true });
 
@@ -343,6 +355,35 @@ const AdminLandings = () => {
                                     value={form.fbCapiToken || ""}
                                     onChange={e => setForm({ ...form, fbCapiToken: e.target.value })}
                                 />
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-semibold text-slate-600 mb-2">Mã tiền tệ Meta</label>
+                                    <input
+                                        type="text"
+                                        maxLength={3}
+                                        className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 outline-none transition-all text-sm uppercase"
+                                        placeholder="VND"
+                                        value={form.fbCurrency || ""}
+                                        onChange={e => setForm({ ...form, fbCurrency: e.target.value.toUpperCase() })}
+                                    />
+                                    <p className="text-xs text-slate-400 mt-1">Mã 3 ký tự như `VND` hoặc `USD`.</p>
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-semibold text-slate-600 mb-2">Giá trị event</label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 outline-none transition-all text-sm"
+                                        placeholder="0"
+                                        value={form.fbEventValue ?? "0"}
+                                        onChange={e => setForm({ ...form, fbEventValue: e.target.value })}
+                                    />
+                                    <p className="text-xs text-slate-400 mt-1">Để `0` hoặc bỏ trống nếu không muốn gửi value cho Meta.</p>
+                                </div>
                             </div>
                         </div>
 

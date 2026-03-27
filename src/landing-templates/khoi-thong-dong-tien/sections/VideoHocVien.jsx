@@ -8,7 +8,7 @@ const STUDENT_VIDEOS = [
     status: "THÀNH CÔNG",
     desc: "Chia sẻ trải nghiệm chân thực và kết quả đột phá sau khi thấu hiểu quy luật Luật Hấp Dẫn.",
     views: "1.2K lượt xem",
-    videoUrl: "https://storage.googleapis.com/msgsndr/Ap9y6wdpftIPKJBsddZ2/media/689611b86346f43e6e53ff86.mp4",
+    videoUrl: "https://s3-hn1-api.longvan.vn/video-khoa-hoc/videos/1774580108130-491093613-B-nh-Xe-Cu-c---i.mp4",
   },
   {
     name: "Hoàng Minh",
@@ -16,7 +16,7 @@ const STUDENT_VIDEOS = [
     status: "BỨT PHÁ",
     desc: "Từ nghi ngờ đến tin tưởng tuyệt đối, áp dụng và nhận về kết quả tài chính vượt ngoài mong đợi.",
     views: "956 lượt xem",
-    videoUrl: "https://storage.googleapis.com/msgsndr/Ap9y6wdpftIPKJBsddZ2/media/689611b86346f43e6e53ff86.mp4",
+    videoUrl: "https://s3-hn1-api.longvan.vn/video-khoa-hoc/videos/1774580108130-491093613-B-nh-Xe-Cu-c---i.mp4",
   },
   {
     name: "Quỳnh Hoa",
@@ -24,7 +24,7 @@ const STUDENT_VIDEOS = [
     status: "HẠNH PHÚC",
     desc: "Tìm thấy sự bình an trong tâm trí và thu hút dòng tiền bền vững thông qua thực hành tỉnh thức.",
     views: "1.5K lượt xem",
-    videoUrl: "https://storage.googleapis.com/msgsndr/Ap9y6wdpftIPKJBsddZ2/media/689611b86346f43e6e53ff86.mp4",
+    videoUrl: "https://s3-hn1-api.longvan.vn/video-khoa-hoc/videos/1774580108130-491093613-B-nh-Xe-Cu-c---i.mp4",
   },
 ];
 

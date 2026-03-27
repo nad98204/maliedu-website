@@ -1,39 +1,21 @@
 import React, { useEffect, useState } from "react";
 import { ArrowRight, CheckCircle2, Clock, ShieldAlert } from "lucide-react";
 import { collection, getDocs } from "firebase/firestore";
-import { useSearchParams } from "react-router-dom";
 import { crmFirestore } from "../../firebase";
 import {
   initMetaPixel,
   trackMetaEvent,
-  trackMetaEventOnce,
 } from "../../utils/metaPixel";
 import { KHOI_THONG_DONG_TIEN_CONFIG } from "./landingConfig";
 
 const DEFAULT_ZALO_LINK = KHOI_THONG_DONG_TIEN_CONFIG.zaloLink;
 const DEFAULT_PIXEL_ID = "1526874981588150";
-const DEFAULT_TRACK_CONFIG = {
-  fbCurrency: "VND",
-  fbEventValue: 0,
-};
-
-const resolveMetaEventData = (config) => {
-  const numericValue = Number(config?.fbEventValue ?? config?.eventValue ?? 0);
-
-  return {
-    value: Number.isFinite(numericValue) ? numericValue : 0,
-    currency: String(config?.fbCurrency || config?.currency || "VND").toUpperCase(),
-  };
-};
 
 const CamOnKhoiThong = () => {
   const [timeLeft, setTimeLeft] = useState(5 * 60);
   const [zaloLink, setZaloLink] = useState(DEFAULT_ZALO_LINK);
   const [pixelId, setPixelId] = useState("");
-  const [trackConfig, setTrackConfig] = useState(DEFAULT_TRACK_CONFIG);
   const [isConfigReady, setIsConfigReady] = useState(false);
-  const [searchParams] = useSearchParams();
-  const eventId = searchParams.get("eventId") || "";
 
   useEffect(() => {
     let isCancelled = false;
@@ -53,7 +35,6 @@ const CamOnKhoiThong = () => {
           const data = matchDoc.data();
           setZaloLink(DEFAULT_ZALO_LINK);
           setPixelId(data.fbPixel || DEFAULT_PIXEL_ID);
-          setTrackConfig((prev) => ({ ...prev, ...data }));
         } else {
           setZaloLink(DEFAULT_ZALO_LINK);
           setPixelId(DEFAULT_PIXEL_ID);
@@ -89,17 +70,7 @@ const CamOnKhoiThong = () => {
 
     initMetaPixel(pixelId);
     trackMetaEvent("PageView");
-
-    if (!eventId) return;
-
-    const storageKey = `khoi-thong-dong-tien:complete-registration:${eventId}`;
-    trackMetaEventOnce({
-      storageKey,
-      eventName: "CompleteRegistration",
-      params: resolveMetaEventData(trackConfig),
-      options: { eventID: eventId },
-    });
-  }, [eventId, isConfigReady, pixelId, trackConfig]);
+  }, [isConfigReady, pixelId]);
 
   const minutes = Math.floor(timeLeft / 60);
   const seconds = timeLeft % 60;
@@ -109,15 +80,6 @@ const CamOnKhoiThong = () => {
       className="min-h-screen font-sans relative flex items-center justify-center py-10 px-4 scroll-smooth"
       style={{ background: "linear-gradient(180deg, #F5EDD8 0%, #EAD9B8 30%, #F2E6CC 60%, #EAD9B8 100%)" }}
     >
-      <noscript>
-        <img
-          height="1"
-          width="1"
-          style={{ display: "none" }}
-          src={`https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1`}
-        />
-      </noscript>
-
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <div className="absolute top-[-10%] left-[-10%] w-[400px] h-[400px] bg-[#7A2113] rounded-full blur-[120px] opacity-10" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-[#C9961A] rounded-full blur-[150px] opacity-15" />
@@ -195,9 +157,6 @@ const CamOnKhoiThong = () => {
             href={zaloLink}
             target="_blank"
             rel="noopener noreferrer"
-            onClick={() => {
-              trackMetaEvent("Contact", { content_name: "Bam vao nhom Zalo" });
-            }}
             className="relative w-full flex flex-col items-center justify-center gap-1 rounded-full py-3.5 px-6 text-white overflow-hidden transition-all duration-300 transform group-hover:scale-[1.02] shadow-[0_10px_25px_rgba(0,104,255,0.4)]"
             style={{ background: "linear-gradient(180deg, #1877F2 0%, #0056D2 100%)" }}
           >

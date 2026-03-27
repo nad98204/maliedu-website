@@ -79,15 +79,6 @@ const KhoiThongDongTien = () => {
       }}
     >
       <SEO {...seo} />
-      <noscript>
-        <img
-          height="1"
-          width="1"
-          style={{ display: "none" }}
-          src={`https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1`}
-        />
-      </noscript>
-
       <div
         className="absolute inset-0 z-0 pointer-events-none"
         style={{

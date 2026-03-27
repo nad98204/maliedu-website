@@ -9,6 +9,7 @@ import {
   createMetaEventId,
   getMetaBrowserData,
   initMetaPixel,
+  resolveMetaEventData,
   trackMetaEvent,
 } from "../../../utils/metaPixel";
 
@@ -24,15 +25,6 @@ const DEFAULT_REMOTE_CONFIG = {
   isLoading: true,
   fbCurrency: "VND",
   fbEventValue: 0,
-};
-
-const resolveMetaEventData = (config) => {
-  const numericValue = Number(config?.fbEventValue ?? config?.eventValue ?? 0);
-
-  return {
-    value: Number.isFinite(numericValue) ? numericValue : 0,
-    currency: String(config?.fbCurrency || config?.currency || "VND").toUpperCase(),
-  };
 };
 
 const normalizePath = (path) => {
@@ -181,6 +173,9 @@ const FormDangKy = () => {
       if (remoteConfig.fbPixel) {
         initMetaPixel(remoteConfig.fbPixel);
         trackMetaEvent("Lead", leadEventData, { eventID: leadEventId });
+        trackMetaEvent("CompleteRegistration", metaEventData, {
+          eventID: completeRegistrationEventId,
+        });
       }
 
       if (remoteConfig.fbPixel && remoteConfig.fbCapiToken) {

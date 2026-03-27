@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { KHOI_THONG_DONG_TIEN_CONFIG } from "../landingConfig";
 
 const VIDEO_URL =
-  "https://storage.googleapis.com/msgsndr/Ap9y6wdpftIPKJBsddZ2/media/689611b86346f43e6e53ff86.mp4";
+  "https://s3-hn1-api.longvan.vn/video-khoa-hoc/videos/1774580108130-491093613-B-nh-Xe-Cu-c---i.mp4";
 const TITLE_IMG_URL =
   "https://assets.cdn.filesafe.space/Ap9y6wdpftIPKJBsddZ2/media/6895aa923b96f708cbbf70c2.jpeg";
+const VIDEO_POSTER_URL =
+  "https://res.cloudinary.com/dstukyjzd/image/upload/v1767682614/Kh%C6%A1i_Th%C3%B4ng_D%C3%B2ng_Ti%E1%BB%81n_M%C3%A0u_Xanh_sjajsx.jpg";
 
 /* ─── VideoPlayer ────────────────────────────────────────────── */
 const VideoPlayer = () => {
@@ -12,8 +14,26 @@ const VideoPlayer = () => {
   const [playing, setPlaying] = useState(true);
   const [muted, setMuted] = useState(true);
   const [volume, setVolume] = useState(0.7);
+  const [isVideoReady, setIsVideoReady] = useState(false);
+  const [hasVideoError, setHasVideoError] = useState(false);
   const [showPause, setShowPause] = useState(false);
   let hideTimer = useRef(null);
+
+  const attemptAutoplay = useCallback(() => {
+    const v = videoRef.current;
+    if (!v) return;
+
+    const playPromise = v.play();
+    if (playPromise?.catch) {
+      playPromise.catch(() => {
+        v.muted = true;
+        const retryPromise = v.play();
+        if (retryPromise?.catch) {
+          retryPromise.catch(() => setPlaying(false));
+        }
+      });
+    }
+  }, []);
 
   const togglePlay = () => {
     const v = videoRef.current;
@@ -58,14 +78,12 @@ const VideoPlayer = () => {
   useEffect(() => {
     const v = videoRef.current;
     if (v) {
+      v.defaultMuted = true;
       v.muted = true;
       v.volume = 0.7;
-      v.play().catch(() => {
-        v.muted = true;
-        v.play();
-      });
+      attemptAutoplay();
     }
-  }, []);
+  }, [attemptAutoplay]);
 
   useEffect(() => () => clearTimeout(hideTimer.current), []);
 
@@ -81,12 +99,38 @@ const VideoPlayer = () => {
           className="w-full h-full object-cover"
           autoPlay
           muted
+          defaultMuted
           loop
           playsInline
           preload="auto"
+          poster={VIDEO_POSTER_URL}
+          onLoadedData={() => {
+            setIsVideoReady(true);
+            setHasVideoError(false);
+            attemptAutoplay();
+          }}
+          onCanPlay={attemptAutoplay}
+          onPlaying={() => {
+            setPlaying(true);
+            setIsVideoReady(true);
+          }}
+          onPause={() => setPlaying(false)}
+          onError={() => {
+            setHasVideoError(true);
+            setIsVideoReady(false);
+            setPlaying(false);
+          }}
         >
           <source src={VIDEO_URL} type="video/mp4" />
         </video>
+
+        {!isVideoReady && !hasVideoError && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/10 backdrop-blur-[1px] pointer-events-none">
+            <div className="rounded-full px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-[#FFE566] bg-black/55 border border-[#C9961A]/70">
+              Dang tai video...
+            </div>
+          </div>
+        )}
 
         {/* Play/Pause feedback icon (briefly shown on click) */}
         <div
@@ -273,13 +317,16 @@ const BannerChinh = () => (
         </div>
 
         {/* Quote */}
-        <div className="relative text-center px-8 py-4 lg:px-10 lg:py-5 max-w-[500px] mx-auto z-10 bg-white/40 backdrop-blur-sm rounded-xl border border-white/50 shadow-sm">
+        <div className="relative text-center px-4 sm:px-10 py-5 lg:px-10 lg:py-5 max-w-[500px] mx-auto z-10 bg-white/40 backdrop-blur-sm rounded-xl border border-white/50 shadow-sm">
           {/* Dấu ngoặc kép trang trí */}
-          <div className="absolute top-2 left-3 text-[#C9961A] opacity-40 text-4xl font-serif leading-none">“</div>
-          <div className="absolute bottom-[-10px] right-3 text-[#C9961A] opacity-40 text-4xl font-serif leading-none">”</div>
+          <div className="absolute top-1 left-1.5 sm:left-3 text-[#C9961A] opacity-40 text-4xl font-serif leading-none">“</div>
+          <div className="absolute bottom-[-12px] right-1.5 sm:right-3 text-[#C9961A] opacity-40 text-4xl font-serif leading-none">”</div>
 
           <p className="text-[0.8rem] sm:text-[0.85rem] lg:text-[0.9rem] leading-[1.6] text-[#5A3A1A] italic font-medium px-2">
-            Giúp bạn giải phóng tắc nghẽn tài chính, nâng cao tần số nội tâm và xây dựng lộ trình đạt mục tiêu tài chính
+            <span className="hidden sm:inline">Giúp bạn </span>
+            giải phóng tắc nghẽn tài chính, nâng cao tần số nội tâm
+            <br className="sm:hidden" />
+            và xây dựng lộ trình đạt mục tiêu tài chính
           </p>
         </div>
 

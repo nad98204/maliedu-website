@@ -1,7 +1,54 @@
 const FB_PIXEL_SCRIPT_SRC = "https://connect.facebook.net/en_US/fbevents.js";
+const DEFAULT_META_CURRENCY = "VND";
 
 const getWindow = () => (typeof window !== "undefined" ? window : null);
 const getDocument = () => (typeof document !== "undefined" ? document : null);
+
+const normalizeMetaValue = (value, fallback = 0) => {
+  if (typeof value === "number") {
+    return Number.isFinite(value) && value >= 0 ? value : fallback;
+  }
+
+  if (typeof value !== "string") return fallback;
+
+  let normalized = value.trim().replace(/\s+/g, "");
+  if (!normalized) return fallback;
+
+  if (/^-?\d{1,3}(\.\d{3})*,\d+$/.test(normalized)) {
+    normalized = normalized.replace(/\./g, "").replace(",", ".");
+  } else if (/^-?\d{1,3}(,\d{3})*\.\d+$/.test(normalized)) {
+    normalized = normalized.replace(/,/g, "");
+  } else if (/^-?\d+,\d+$/.test(normalized)) {
+    normalized = normalized.replace(",", ".");
+  } else {
+    normalized = normalized.replace(/,/g, "");
+  }
+
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+};
+
+export const normalizeMetaCurrency = (currency, fallback = DEFAULT_META_CURRENCY) => {
+  const normalized = String(currency ?? "")
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z]/g, "");
+
+  return /^[A-Z]{3}$/.test(normalized) ? normalized : fallback;
+};
+
+export const resolveMetaEventData = (config = {}) => {
+  const value = normalizeMetaValue(config?.fbEventValue ?? config?.eventValue ?? 0);
+
+  if (value <= 0) {
+    return {};
+  }
+
+  return {
+    value,
+    currency: normalizeMetaCurrency(config?.fbCurrency ?? config?.currency, DEFAULT_META_CURRENCY),
+  };
+};
 
 export const ensureMetaPixel = () => {
   const win = getWindow();
