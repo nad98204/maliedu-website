@@ -8,6 +8,8 @@ import * as LandingTemplates from "../../../landing-templates";
 import dongTienThinhVuongTuBanTheConfig from "../../../landing-templates/dong-tien-thinh-vuong-tu-ban-the/config.json";
 import exampleConfig from "../../../landing-templates/example-template/config.json";
 import thienGiaoThuaConfig from "../../../landing-templates/thien-giao-thua/config.json";
+import khoiThongConfig from "../../../landing-templates/khoi-thong-dong-tien/config.json";
+import khoiThongPreview from "../../../landing-templates/khoi-thong-dong-tien/preview.png";
 
 /**
  * Admin Landing Builder
@@ -20,7 +22,7 @@ const AdminLandingBuilder = () => {
             {
                 id: 'example-template',
                 component: LandingTemplates.ExampleTemplate,
-                config: {...exampleConfig, folderId: null} // Thêm folderId
+                config: {...exampleConfig, folderId: null}
             },
             {
                 id: 'thien-giao-thua',
@@ -31,6 +33,31 @@ const AdminLandingBuilder = () => {
                 id: 'dong-tien-thinh-vuong-tu-ban-the',
                 component: LandingTemplates.DongTienThinhVuongTuBanThe,
                 config: {...dongTienThinhVuongTuBanTheConfig, folderId: null}
+            },
+            {
+                id: 'khoi-thong-dong-tien',
+                component: LandingTemplates.KhoiThongDongTien,
+                config: {
+                    ...khoiThongConfig,
+                    thumbnail: khoiThongPreview,
+                    slug: '/dao-tao/khoi-thong-dong-tien',
+                    status: 'active',
+                    folderId: null
+                }
+            },
+            {
+                id: 'khoi-thong-dong-tien-leader',
+                component: LandingTemplates.KhoiThongDongTien,
+                config: {
+                    ...khoiThongConfig,
+                    id: 'khoi-thong-dong-tien-leader',
+                    name: 'Khơi Thông Dòng Tiền — Leader',
+                    description: 'Bản dành riêng cho Leader. Data đổ về funnel/leader thay vì funnel/ads.',
+                    thumbnail: khoiThongPreview,
+                    slug: '/dao-tao/khoi-thong-dong-tien-leader',
+                    status: 'active',
+                    folderId: null
+                }
             }
         ];
     });

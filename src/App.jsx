@@ -121,7 +121,8 @@ const AppShell = () => {
         <Suspense fallback={<PageLoader />}>
           <Routes>
             {/* Landing / Checkout Simple Routes */}
-            <Route path="/dao-tao/khoi-thong-dong-tien" element={<KhoiThongDongTien />} />
+            <Route path="/dao-tao/khoi-thong-dong-tien" element={<KhoiThongDongTien targetFunnel="ads" />} />
+            <Route path="/dao-tao/khoi-thong-dong-tien-leader" element={<KhoiThongDongTien targetFunnel="leader" />} />
             <Route path="/cam-on-khoi-thong" element={<CamOnKhoiThong />} />
             <Route path="/dao-tao/luat-hap-dan" element={<LuatHapDan />} />
             <Route path="/dao-tao/vut-toc-muc-tieu" element={<VutTocMucTieu />} />

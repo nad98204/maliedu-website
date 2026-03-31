@@ -11,7 +11,7 @@ import LichTrinhHoc from "./sections/LichTrinhHoc";
 import PhanNoiDau from "./sections/PhanNoiDau";
 import VideoHocVien from "./sections/VideoHocVien";
 
-const KhoiThongDongTien = () => {
+const KhoiThongDongTien = ({ targetFunnel }) => {
   const seo = getRouteSeo("/dao-tao/khoi-thong-dong-tien");
 
   return (
@@ -44,7 +44,7 @@ const KhoiThongDongTien = () => {
         <KetQuaHocVien />
         <CauChuyenNguoiSangLap />
         <VideoHocVien />
-        <FormDangKy />
+        <FormDangKy targetFunnel={targetFunnel} />
       </div>
       <Footer />
     </div>

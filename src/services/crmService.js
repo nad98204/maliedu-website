@@ -33,10 +33,30 @@ export const submitToCRM = async (formData) => {
             cpContent: formData.utm_content || "",
             cpTerm: formData.utm_term || "",
 
+            // BỔ SUNG CÁC TRƯỜNG CHO PHỄU LEADER / PHÊU ADS (TÙY CHỈNH)
+            funnel_type: formData.funnel_type || "",
+            referrer: formData.referrer || "",
+            is_learned_loa: formData.is_learned_loa || "",
+            hasRegisteredLHD: formData.is_learned_loa === "ĐÃ HỌC LUẬT HẤP DẪN", // CRM Live dùng trường này
+            funnel_channel: formData.funnel_channel || "",
+            assigned_to: formData.assigned_to || "",
+            assignedName: formData.assigned_to || "", // CRM Live dùng trường này
+            registered_loa: formData.registered_loa || "",
+            staff_in_charge: formData.staff_in_charge || "",
+            // SYNC KHÓA K ĐỘNG
+            course_k: formData.course_k || "",
+            batch_id: formData.batch_id || "",
+            // BẮT BUỘC: batchName là field CRM dùng để lọc theo K, phải đồng bộ với course_k
+            batchName: formData.course_k || formData.batch_id || "",
+
             createdAt: Date.now()
         };
 
         // 3. Ghi vào kho
+        console.log("------------------------------------------");
+        console.log("PAYLOAD GỬI CRM:", payload);
+        console.log("------------------------------------------");
+
         const funnelRef = ref(crmRealtimeDB, nodePath);
         const newLeadRef = push(funnelRef); // Tạo phiếu mới
         await set(newLeadRef, payload);     // Điền thông tin vào
