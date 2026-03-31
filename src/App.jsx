@@ -52,6 +52,7 @@ const LandingPageViewer = lazy(() => import("./pages/LandingPageViewer"));
 
 // Landing Templates
 const KhoiThongDongTien = lazy(() => import("./landing-templates").then(m => ({ default: m.KhoiThongDongTien })));
+const KhoiThongDongTienLeader = lazy(() => import("./landing-templates").then(m => ({ default: m.KhoiThongDongTienLeader })));
 const CamOnKhoiThong = lazy(() => import("./landing-templates/khoi-thong-dong-tien/CamOnKhoiThong"));
 const LuatHapDan = lazy(() => import("./pages/landingpage/LuatHapDan"));
 const VutTocMucTieu = lazy(() => import("./pages/landingpage/VutTocMucTieu"));
@@ -121,8 +122,8 @@ const AppShell = () => {
         <Suspense fallback={<PageLoader />}>
           <Routes>
             {/* Landing / Checkout Simple Routes */}
-            <Route path="/dao-tao/khoi-thong-dong-tien" element={<KhoiThongDongTien targetFunnel="ads" />} />
-            <Route path="/dao-tao/khoi-thong-dong-tien-leader" element={<KhoiThongDongTien targetFunnel="leader" />} />
+            <Route path="/dao-tao/khoi-thong-dong-tien" element={<KhoiThongDongTien targetFunnel="ads" source_key="1768973703248" />} />
+            <Route path="/dao-tao/khoi-thong-dong-tien-leader" element={<KhoiThongDongTienLeader />} />
             <Route path="/cam-on-khoi-thong" element={<CamOnKhoiThong />} />
             <Route path="/dao-tao/luat-hap-dan" element={<LuatHapDan />} />
             <Route path="/dao-tao/vut-toc-muc-tieu" element={<VutTocMucTieu />} />

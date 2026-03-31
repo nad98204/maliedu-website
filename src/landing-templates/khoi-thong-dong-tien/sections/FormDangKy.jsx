@@ -31,9 +31,14 @@ const DEFAULT_REMOTE_CONFIG = {
 
 const normalizePath = (path) => {
   if (!path) return "/";
-
-  const cleanPath = path.split("?")[0].split("#")[0];
-  return cleanPath.replace(/\/+$/, "") || "/";
+  try {
+    // Giải mã URL (để khớp với tiếng Việt có dấu nếu có)
+    const decoded = decodeURIComponent(path.split("?")[0].split("#")[0]);
+    // lowerCase, bỏ gạch chéo ở cả đầu và cuối để so sánh nguyên bản nhất
+    return decoded.toLowerCase().replace(/^\/+|\/+$/g, "") || "root";
+  } catch {
+    return path.split("?")[0].split("#")[0].toLowerCase().replace(/^\/+|\/+$/g, "") || "root";
+  }
 };
 
 const OPTIONS_REFERRER = [
@@ -90,7 +95,7 @@ const CustomRadio = ({ label, options, value, onChange, error, layout = "grid" }
   </div>
 );
 
-const FormDangKy = ({ targetFunnel }) => {
+const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [formState, setFormState] = useState({ name: "", phone: "", referrer: "", hasLearnedLOA: "" });
@@ -98,36 +103,50 @@ const FormDangKy = ({ targetFunnel }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [remoteConfig, setRemoteConfig] = useState(DEFAULT_REMOTE_CONFIG);
 
-  const currentPath = window.location.pathname;
+  const currentPathNormalized = normalizePath(window.location.pathname);
   
-  // Phát hiện funnel type: ưu tiên cấu hình từ Admin (remoteConfig.funnel_type) > URL > prop
+  // --- PHÂN LUỒNG NGHIÊM NGẶT (Strict Routing Protocol) ---
+  // Ưu tiên Props (Hardcoded) > Cấu hình Admin (Remote) > Logic đường dẫn (URL)
   const isLeader =
-    remoteConfig.funnel_type === "leader" ||
-    remoteConfig.funnel_type === "leader_funnel" ||
-    currentPath.includes("kh%C6%A1i-th%C3%B4ng-d%C3%B2ng-ti%E1%BB%81n-leader") ||
-    currentPath.includes("khoi-thong-dong-tien-leader") ||
+    targetFunnel === "leader" ||
     targetFunnel === "leader_funnel" ||
-    targetFunnel === "leader";
+    (remoteConfig.funnel_type && remoteConfig.funnel_type.toLowerCase().includes("leader")) ||
+    (currentPathNormalized.includes("leader") && !targetFunnel);
+
+  const finalFunnel = isLeader ? "leader" : "ads";
+  const finalSourceKey = (initialSourceKey && initialSourceKey !== "organic_web") 
+    ? initialSourceKey 
+    : remoteConfig.active_source_key || "organic_web";
+
+  // Debug để kiểm soát luồng
+  useEffect(() => {
+    console.log(`[FormSync] 🛰 Resolved Channel: ${finalFunnel} | Key: ${finalSourceKey}`);
+  }, [finalFunnel, finalSourceKey]);
 
   useEffect(() => {
     let isCancelled = false;
 
     const fetchConfig = async () => {
       try {
-        const currentPath = normalizePath(window.location.pathname);
+        const normalizedRequestPath = normalizePath(window.location.pathname);
+        console.log("[FormDangKy] 🔍 Attempting to match slug:", normalizedRequestPath);
+
         const querySnap = await getDocs(collection(crmFirestore, "landing_pages"));
-        // 1. Ưu tiên tìm chính xác theo Slug
+        
+        // 1. Ưu tiên tìm CHÍNH XÁC theo Slug (Đã chuẩn hóa)
         let matchDoc = querySnap.docs.find((item) => {
-          const slug = normalizePath(item.data().slug || "");
-          return slug === currentPath;
+          const configSlug = normalizePath(item.data().slug || "");
+          return configSlug !== "root" && configSlug === normalizedRequestPath;
         });
 
-        // 2. Nếu không thấy chính xác, mới tìm theo ID hoặc include (Dự phòng cho các bản cũ)
+        // 2. Nếu không thấy chính xác, mới tìm theo ID (Fallback cho các bản cũ hoặc trang chính)
         if (!matchDoc) {
           matchDoc = querySnap.docs.find((item) => {
+            const configSlug = normalizePath(item.data().slug || "");
             return (
-              item.id === "khoi-thong-dong-tien" ||
-              currentPath.includes("khoi-thong-dong-tien")
+              (item.id === "khoi-thong-dong-tien" || configSlug === "dao-tao/khoi-thong-dong-tien") &&
+              normalizedRequestPath.includes("khoi-thong-dong-tien") && 
+              !normalizedRequestPath.includes("leader")
             );
           });
         }
@@ -136,7 +155,7 @@ const FormDangKy = ({ targetFunnel }) => {
 
         if (matchDoc) {
           const configData = matchDoc.data();
-          console.log("[FormDangKy] ✅ Config loaded from Firestore:", matchDoc.id, configData);
+          console.log("[FormDangKy] ✅ Matched Firestore Config:", matchDoc.id, configData);
           setRemoteConfig({
             ...DEFAULT_REMOTE_CONFIG,
             ...configData,
@@ -145,7 +164,7 @@ const FormDangKy = ({ targetFunnel }) => {
           return;
         }
 
-        console.log("[FormDangKy] ⚠️ No exact slug match found. Falling back to public_settings.");
+        console.log("[FormDangKy] ⚠️ No specific slug match found in Firestore. Falling back to public_settings.");
 
         const docRef = doc(crmFirestore, "public_settings", "landing_config");
         const docSnap = await getDoc(docRef);
@@ -235,44 +254,49 @@ const FormDangKy = ({ targetFunnel }) => {
     try {
       console.log("[FormDangKy] 🔍 DEBUG:", {
         isLeader,
+        initialSourceKey,
         currentPath: window.location.pathname,
-        remoteConfig_course_k: remoteConfig.course_k,
-        remoteConfig_active_source_key: remoteConfig.active_source_key,
-        remoteConfig_isLoading: remoteConfig.isLoading,
-        referrer: formState.referrer,
-        hasLearnedLOA: formState.hasLearnedLOA,
+        batch_id: remoteConfig.course_k,
+        active_source_key: remoteConfig.active_source_key,
+        isLoading_config: remoteConfig.isLoading,
       });
 
-      const sourceKey =
-        searchParams.get("source_key") ||
-        searchParams.get("src") ||
-        // active_source_key có thể là NUMBER hoặc STRING trong Firestore - dùng String() để an toàn
-        (remoteConfig.active_source_key != null ? String(remoteConfig.active_source_key) : "") ||
-        "organic_web";
-
-      // ===== PHÂN LOẠI FUNNEL (Dùng config từ Admin để đảm bảo chính xác 100%) =====
-      // Ưu tiên: remoteConfig.funnel_type > isLeader (URL detection) > prop
-      const configFunnelType = remoteConfig.funnel_type || (isLeader ? "leader" : "ads");
-      const isFinalLeader = configFunnelType === "leader" || configFunnelType === "leader_funnel";
+      // ===== SỬ DỤNG LUỒNG DỮ LIỆU ĐÃ CHUẨN HÓA (Strict Sync) =====
+      const baseKey = finalSourceKey;
+      const currentFunnel = finalFunnel;
       
       // Xác định người giới thiệu (Leader)
       const isReferrerLeader = formState.referrer && formState.referrer !== "Người khác giới thiệu tôi";
       
-      // Routing logic: Leader page hoặc có referrer leader → gửi vào nhóm Leader
+      // Routing logic: Nếu là phễu Leader hoặc có referrer cụ thể → gửi vào nhóm Leader
       let finalTargetFunnel;
       let funnelChannel;
-      let assignedTo = "";
+      let assignedTo = (isReferrerLeader) ? formState.referrer.trim() : "";
 
-      if (isFinalLeader || isReferrerLeader) {
+      if (currentFunnel === "leader" || isReferrerLeader) {
         finalTargetFunnel = "leader";
         funnelChannel = "leader_funnel";
-        if (isReferrerLeader) assignedTo = formState.referrer.trim();
       } else {
         finalTargetFunnel = "ads";
         funnelChannel = "ads_funnel";
       }
 
-      console.log("[FormDangKy] 🎯 Funnel routing:", { configFunnelType, isFinalLeader, isReferrerLeader, finalTargetFunnel, funnelChannel, assignedTo });
+      // Lấy Khóa K hiện tại (mặc định K41 nếu không có trong config)
+      const currentBatch = remoteConfig.course_k || "K41";
+      const batchSuffix = `_k${currentBatch.toLowerCase().replace(/k/g, "")}`;
+
+      // Đảm bảo mã nguồn luôn có hậu tố khóa (VD: _k41)
+      const submissionSourceKey = (() => {
+        if (baseKey.toLowerCase().match(/_k\d+$/i)) return baseKey;
+        return `${baseKey}${batchSuffix}`;
+      })();
+
+      console.log("[FormDangKy] 🚀 SUBMITTING PAYLOAD:", { 
+        funnel: finalTargetFunnel, 
+        channel: funnelChannel, 
+        source: submissionSourceKey,
+        assignedTo
+      });
 
       const crmResponse = await submitToCRM({
         name: formState.name,
@@ -283,38 +307,19 @@ const FormDangKy = ({ targetFunnel }) => {
         utm_campaign: searchParams.get("utm_campaign") || "",
         utm_content: searchParams.get("utm_content") || "",
         utm_term: searchParams.get("utm_term") || "",
+        courseName: "Khơi Thông Dòng Tiền - Phễu",
         targetFunnel: finalTargetFunnel,
-        // BẮT BUỘC: funnel_type phải đúng để CRM phân loại tab chính xác
-        funnel_type: isFinalLeader ? "leader" : "ads",
-        source_type: funnelChannel, // "leader_funnel" hoặc "ads_funnel"
-        funnel_channel: funnelChannel, // Trường chính để CRM filter tab
+        funnel_type: finalTargetFunnel, // "ads" hoặc "leader"
+        source_type: finalTargetFunnel === "ads" ? "ads" : "leader_funnel", 
+        funnel_channel: funnelChannel, 
         assigned_to: assignedTo,
-        // Đồng bộ cột CRM (Firestore style mapping)
         registered_loa: formState.hasLearnedLOA,
         is_learned_loa: formState.hasLearnedLOA,
         referrer: formState.referrer || "",
         staff_in_charge: assignedTo,
-        // Dữ liệu khóa K động
-        course_k: remoteConfig.course_k || "K41",
-        batch_id: remoteConfig.course_k || "K41",
-        // ĐẢM BẢO SOURCE_KEY CÓ HẬU TỐ (VD: 12345_k41)
-        source_key: (() => {
-          // active_source_key có thể là NUMBER trong Firestore - dùng String() để convert
-          const configKey = remoteConfig.active_source_key != null
-            ? String(remoteConfig.active_source_key).trim()
-            : "";
-          
-          // Ưu tiên config key, sau đó URL param, cuối cùng fallback
-          const baseKey = configKey || sourceKey || "organic";
-          
-          console.log("[FormDangKy] source_key debug:", { configKey, sourceKey, baseKey, course_k: remoteConfig.course_k });
-          
-          // Nếu đã có hậu tố _kXX rồi thì giữ nguyên, nếu chưa có thì nối thêm
-          if (baseKey.toLowerCase().match(/_k\d+$/i)) return baseKey;
-          
-          const batchSuffix = (remoteConfig.course_k || "K41").toLowerCase();
-          return `${baseKey}_${batchSuffix}`;
-        })(),
+        course_k: currentBatch,
+        batch_id: currentBatch,
+        source_key: submissionSourceKey,
       });
 
       const sha256 = async (input) => {

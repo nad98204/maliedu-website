@@ -7,7 +7,7 @@ import { normalizeMetaCurrency } from "../../utils/metaPixel";
 import {
     Layout, Settings, Save,
     AlertTriangle, CheckCircle,
-    Plus, Trash2, Globe, Zap, Edit2,
+    Plus, Trash2, Globe, Zap, Edit2, LayoutList,
     UserCheck, Filter as FilterIcon, Link, Eye, Copy,
     Users, TrendingUp, Search, Database, RefreshCw
 } from "lucide-react";
@@ -165,10 +165,21 @@ const AdminLandings = () => {
     const handleKChange = (k) => {
         const kVal = k.toUpperCase();
         setSelectedK(kVal);
+        
+        // Cập nhật mã nguồn tự động
         if (selectedCourseId) {
             const course = courses.find(c => String(c.id) === String(selectedCourseId));
             const keyBase = course ? (course.id.length > 15 ? slugify(course.name) : course.id) : selectedCourseId;
-            setForm(prev => ({ ...prev, active_source_key: `${keyBase}_${kVal.toLowerCase()}` }));
+            
+            const nextSourceKey = `${keyBase}_${kVal.toLowerCase()}`;
+            setForm(prev => ({ 
+                ...prev, 
+                course_k: kVal,
+                active_source_key: nextSourceKey 
+            }));
+            console.log(`[AdminLandings] ⚡ Auto-generated preview: ${nextSourceKey}`);
+        } else {
+            setForm(prev => ({ ...prev, course_k: kVal }));
         }
     };
 
@@ -176,40 +187,53 @@ const AdminLandings = () => {
         if (!form.name || !form.slug) return toast.error("Vui lòng nhập Tên và Link!");
 
         const id = activeEditId === "new" ? slugify(form.name) : activeEditId;
-        const sourceKey = form.active_source_key;
+        
+        // --- LOGIC ÉP HẬU TỐ SOURCE_KEY (Sửa tận gốc ở Firebase) ---
+        let sourceKey = String(form.active_source_key || "organic_web").trim();
+        const currentK = (form.course_k || "K41").toLowerCase().replace(/k/g, "");
+        const suffix = `_k${currentK}`;
+
+        // Nếu mã nguồn chưa có hậu tố _k[số], tự động gắn vào
+        if (!sourceKey.toLowerCase().match(/_k\d+$/i)) {
+            sourceKey = `${sourceKey}${suffix}`;
+            console.log(`[AdminLandings] 🛠 Auto-fixing sourceKey: ${form.active_source_key} -> ${sourceKey}`);
+        }
+
         const fbCurrency = normalizeMetaCurrency(form.fbCurrency);
         const parsedEventValue = Number(String(form.fbEventValue ?? "").replace(",", "."));
         const fbEventValue = Number.isFinite(parsedEventValue) && parsedEventValue >= 0 ? parsedEventValue : 0;
 
         try {
+            // 1. Lưu vào Landing Pages config
             await setDoc(doc(crmFirestore, "landing_pages", id), {
                 name: form.name,
                 slug: form.slug,
-                active_source_key: sourceKey,
+                active_source_key: sourceKey, // Lưu mã đã có hậu tố
                 is_maintenance: form.is_maintenance,
                 zaloLink: form.zaloLink || "",
                 fbPixel: form.fbPixel || "",
                 fbCapiToken: form.fbCapiToken || "",
                 fbCurrency,
                 fbEventValue,
-                course_k: form.course_k || "",
-                targetFunnel: (form.funnel_type || "ads").toUpperCase(), // Sync with funnel_type
+                course_k: form.course_k || "K41",
+                targetFunnel: (form.funnel_type || "ads").toUpperCase(),
                 funnel_type: form.funnel_type || "ads",
                 updatedAt: serverTimestamp()
             }, { merge: true });
 
+            // 2. Lưu vào Source Configs (Để CRM nhận diện được metadata)
             await setDoc(doc(crmFirestore, "source_configs", sourceKey), {
                 id: sourceKey,
                 source_name: form.name,
                 targetCourseId: selectedCourseId,
-                targetK: selectedK,
+                targetK: selectedK || form.course_k || "K41",
                 targetFunnel: (form.funnel_type || "ads").toUpperCase(),
                 assignedSale: form.assignedSale,
                 targetZalo: form.zaloLink || "",
                 updatedAt: serverTimestamp()
             }, { merge: true });
 
-            toast.success("Đã lưu Landing Page thành công!");
+            toast.success(`Đã lưu thành công! Mã nguồn: ${sourceKey}`);
             setShowCreateForm(false);
             setActiveEditId(null);
         } catch (e) {
@@ -239,39 +263,70 @@ const AdminLandings = () => {
 
     const handleQuickEditKAll = async () => {
         if (!quickEditK) return toast.error("Vui lòng nhập Khóa K mới!");
-        if (!window.confirm(`Bạn có chắc chắn muốn đổi TOÀN BỘ Landing Page trong Phễu Leader sang ${quickEditK}?`)) return;
-
-        const leaderLandings = landings.filter(l => (l.funnel_type === "leader" || l.targetFunnel === "LEADER"));
-        if (leaderLandings.length === 0) return toast.error("Không có Landing Page nào để cập nhật!");
+        if (!window.confirm(`Đồng bộ TOÀN BỘ Landing Page sang ${quickEditK}?`)) return;
 
         setIsLoading(true);
+        const suffix = `_k${quickEditK.toLowerCase().replace('k', '')}`;
         try {
-            const promises = leaderLandings.map(l => {
+            const promises = landings.map(l => {
+                const base = String(l.active_source_key || "").split('_k')[0];
+                const newKey = `${base}${suffix}`;
                 return setDoc(doc(crmFirestore, "landing_pages", l.id), {
                     course_k: quickEditK,
+                    active_source_key: newKey,
                     updatedAt: serverTimestamp()
                 }, { merge: true });
             });
             await Promise.all(promises);
-            toast.success(`Đã cập nhật ${leaderLandings.length} landing pages sang ${quickEditK}`);
+            toast.success("Đã đồng bộ toàn bộ hệ thống!");
             setIsQuickEditing(false);
-            setQuickEditK("");
         } catch (e) {
-            toast.error("Lỗi cập nhật: " + e.message);
+            toast.error("Lỗi: " + e.message);
         } finally {
             setIsLoading(false);
         }
     };
 
     const handleQuickEditSingleK = async (landingId, newK) => {
+        const landing = landings.find(l => l.id === landingId);
+        const base = String(landing?.active_source_key || "").split('_k')[0];
+        const suffix = `_k${newK.toLowerCase().replace('k', '')}`;
+        const newKey = `${base}${suffix}`;
+
         try {
             await setDoc(doc(crmFirestore, "landing_pages", landingId), {
                 course_k: newK,
+                active_source_key: newKey,
                 updatedAt: serverTimestamp()
             }, { merge: true });
-            toast.success("Đã cập nhật!");
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
+    const handleRestoreStandardCodes = async () => {
+        if (!window.confirm("Khôi phục mã chuẩn (Ads: 03248, Leader: 83248)?")) return;
+        setIsLoading(true);
+        try {
+            const promises = landings.map(l => {
+                let base = String(l.active_source_key || "").split('_k')[0];
+                const kSuffix = `_k${(l.course_k || "K41").toLowerCase().replace('k', '')}`;
+                
+                const name = l.name?.toLowerCase() || "";
+                if (name.includes("leader")) base = "1768973783248";
+                else if (name.includes("chính") || name.includes("ads")) base = "1768973703248";
+
+                return setDoc(doc(crmFirestore, "landing_pages", l.id), {
+                    active_source_key: `${base}${kSuffix}`,
+                    updatedAt: serverTimestamp()
+                }, { merge: true });
+            });
+            await Promise.all(promises);
+            toast.success("Đã khôi phục mã nguồn chuẩn cho các phễu!");
         } catch (e) {
             toast.error("Lỗi: " + e.message);
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -593,14 +648,22 @@ const AdminLandings = () => {
                 </div>
 
                 {/* List View */}
-                {activeTab === "LEADER" ? (
+                {activeTab !== "BRAND" ? (
                     <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
                         <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
                             <h3 className="font-bold text-slate-700 flex items-center gap-2">
-                                <Users size={18} className="text-emerald-600" />
-                                Danh sách Landing Phễu Leader
+                                <LayoutList size={18} className="text-indigo-600" />
+                                Quản lý Nhanh & Đồng bộ Khóa K
                             </h3>
                             <div className="flex items-center gap-2">
+                                <button
+                                    onClick={handleRestoreStandardCodes}
+                                    className="px-3 py-1.5 text-[10px] font-bold text-amber-600 bg-amber-50 hover:bg-amber-100 rounded-lg flex items-center gap-1.5 transition-colors border border-amber-200"
+                                    title="Khôi phục mã 03248 (Ads) và 83248 (Leader) dựa theo tên trang"
+                                >
+                                    <RefreshCw size={14} className={isLoading ? "animate-spin" : ""} />
+                                    Sửa mã chuẩn
+                                </button>
                                 {isQuickEditing ? (
                                     <div className="flex items-center gap-2 bg-white p-1 rounded-lg border border-indigo-200 shadow-sm animate-in fade-in zoom-in duration-200">
                                         <input 
@@ -746,11 +809,17 @@ const AdminLandings = () => {
                                     <div className="bg-slate-50 rounded-lg p-3 mb-4 space-y-1">
                                         <div className="flex items-center justify-between">
                                             <p className="text-[9px] text-slate-400 uppercase font-black">Khóa K</p>
-                                            <p className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 rounded">{landing.course_k || 'N/A'}</p>
+                                            <p className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 rounded">
+                                                {(() => {
+                                                    if (landing.course_k && landing.course_k !== 'N/A') return landing.course_k;
+                                                    const match = String(landing.active_source_key || '').match(/_k(\d+)$/i);
+                                                    return match ? `K${match[1]}` : 'N/A';
+                                                })()}
+                                            </p>
                                         </div>
                                         <div className="flex items-center justify-between">
                                             <p className="text-[9px] text-slate-400 uppercase font-black">Mã nguồn</p>
-                                            <p className="text-[10px] font-mono text-slate-400 truncate max-w-[120px]">{landing.active_source_key}</p>
+                                            <p className="text-[10px] font-mono text-slate-400 truncate max-w-[124px]">{landing.active_source_key || "Chưa cấu hình"}</p>
                                         </div>
                                     </div>
 

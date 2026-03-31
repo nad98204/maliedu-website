@@ -11,7 +11,7 @@ import LichTrinhHoc from "./sections/LichTrinhHoc";
 import PhanNoiDau from "./sections/PhanNoiDau";
 import VideoHocVien from "./sections/VideoHocVien";
 
-const KhoiThongDongTien = ({ targetFunnel, source_key }) => {
+const KhoiThongDongTienLeader = () => {
   const seo = getRouteSeo("/dao-tao/khoi-thong-dong-tien");
 
   return (
@@ -21,7 +21,7 @@ const KhoiThongDongTien = ({ targetFunnel, source_key }) => {
         background: "linear-gradient(180deg, #FFFFFF 0%, #FDF7EC 15%, #F5EDD8 50%, #EAD9B8 100%)",
       }}
     >
-      <SEO {...seo} />
+      <SEO {...seo} title="Trang Đăng Ký - Phễu Leader - Khơi Thông Dòng Tiền" />
       <div
         className="absolute inset-0 z-0 pointer-events-none"
         style={{
@@ -44,11 +44,12 @@ const KhoiThongDongTien = ({ targetFunnel, source_key }) => {
         <KetQuaHocVien />
         <CauChuyenNguoiSangLap />
         <VideoHocVien />
-        <FormDangKy targetFunnel={targetFunnel} source_key={source_key} />
+        {/* MẶC ĐỊNH MÃ NGUỒN LEADER RIÊNG BIỆT */}
+        <FormDangKy targetFunnel="leader" source_key="1768973783248" />
       </div>
       <Footer />
     </div>
   );
 };
 
-export default KhoiThongDongTien;
+export default KhoiThongDongTienLeader;

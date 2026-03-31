@@ -10,8 +10,14 @@ export const submitToCRM = async (formData) => {
         console.log("Đang gửi dữ liệu về CRM (Realtime DB)...", formData);
 
         // 1. Xác định bắn vào phễu nào (Mặc định là ADS)
-        const funnelType = (formData.targetFunnel || "ads").toLowerCase();
-        // Đường dẫn kho: funnels/ads
+        let funnelType = (formData.targetFunnel || "ads").toLowerCase();
+        
+        // --- CHỐT PATH CHUẨN ĐỒNG BỘ CRM ---
+        if (funnelType === "leader") {
+            funnelType = "leader_funnel";
+        }
+        
+        // Đường dẫn kho: funnels/ads hoặc funnels/leader_funnel
         const nodePath = `funnels/${funnelType}`;
 
         // 2. Đóng gói dữ liệu đúng chuẩn CRM yêu cầu (Theo tài liệu tích hợp)
@@ -23,6 +29,8 @@ export const submitToCRM = async (formData) => {
             // BẮT BUỘC: Phải có mã để CRM giải mã
             source_key: formData.source_key || "organic_web",
             status: "NEW", // Trạng thái "Mới"
+            createdVia: "landing", // Bắt buộc để CRM xử lý
+            createdAt: new Date().toISOString(), // Mốc thời gian chuẩn ISO
 
             note: formData.note || "Đăng ký từ Landing Page",
 
@@ -43,13 +51,12 @@ export const submitToCRM = async (formData) => {
             assignedName: formData.assigned_to || "", // CRM Live dùng trường này
             registered_loa: formData.registered_loa || "",
             staff_in_charge: formData.staff_in_charge || "",
-            // SYNC KHÓA K ĐỘNG
+            // MÃ NGUỒN VÀ KHÓA K ĐỘNG
+            courseName: formData.courseName || "Khơi Thông Dòng Tiền - Phễu",
             course_k: formData.course_k || "",
             batch_id: formData.batch_id || "",
             // BẮT BUỘC: batchName là field CRM dùng để lọc theo K, phải đồng bộ với course_k
-            batchName: formData.course_k || formData.batch_id || "",
-
-            createdAt: Date.now()
+            batchName: formData.course_k || formData.batch_id || ""
         };
 
         // 3. Ghi vào kho
