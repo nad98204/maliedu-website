@@ -6,6 +6,7 @@ import { db } from '../firebase';
 import CourseCard from '../components/CourseCard';
 import CourseFilter from '../components/CourseFilter';
 import { formatPrice } from '../utils/orderService';
+import SEO from '../components/SEO';
 
 // --- MINI COURSE CARD for sliders ---
 const MiniCourseCard = ({ course }) => {
