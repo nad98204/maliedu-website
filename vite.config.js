@@ -90,5 +90,14 @@ export default defineConfig({
   define: {
     global: 'window',
   },
+  build: {
+    // Exclude functions folder from client bundle (Cloudflare Workers code)
+    rollupOptions: {
+      external: (id) => id.includes('/functions/') || id.includes('\\functions\\')
+    }
+  },
+  optimizeDeps: {
+    exclude: ['functions']
+  }
 });
 // Trigger Vite restart

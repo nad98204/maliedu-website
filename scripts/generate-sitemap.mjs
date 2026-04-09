@@ -44,6 +44,8 @@ const PROJECT_ID = process.env.FIREBASE_PROJECT_ID;
 const CLIENT_EMAIL = process.env.FIREBASE_CLIENT_EMAIL;
 const RAW_PRIVATE_KEY = process.env.FIREBASE_PRIVATE_KEY;
 
+let firebaseInitialized = false;
+
 // Nếu có đủ biến môi trường inline → dùng service account trực tiếp
 if (PROJECT_ID && CLIENT_EMAIL && RAW_PRIVATE_KEY) {
   // "\n" literal trong .env → thay thành ký tự newline thật
@@ -56,24 +58,27 @@ if (PROJECT_ID && CLIENT_EMAIL && RAW_PRIVATE_KEY) {
       privateKey,
     }),
   });
+  firebaseInitialized = true;
   console.log(`🔐 Dùng service account: ${CLIENT_EMAIL} (project: ${PROJECT_ID})`);
 } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
   // Dùng file serviceAccountKey.json qua biến môi trường chuẩn của Google
   admin.initializeApp({
     credential: admin.credential.applicationDefault(),
   });
+  firebaseInitialized = true;
   console.log(`🔐 Dùng Application Default Credentials (GOOGLE_APPLICATION_CREDENTIALS)`);
 } else {
-  console.error(
-    "❌  Thiếu thông tin xác thực Firebase Admin.\n" +
-      "   Vui lòng cung cấp một trong hai:\n" +
+  console.warn(
+    "⚠️  Không có thông tin xác thực Firebase Admin.\n" +
+      "   Sitemap sẽ chỉ chứa các route tĩnh (không có dữ liệu động từ Firestore).\n" +
+      "   Để có đầy đủ dữ liệu, cung cấp một trong hai:\n" +
       "   (A) Ba biến môi trường: FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY\n" +
       "   (B) Biến GOOGLE_APPLICATION_CREDENTIALS trỏ đến file serviceAccountKey.json"
   );
-  process.exit(1);
 }
 
-const db = admin.firestore();
+// Only get Firestore if Firebase was initialized
+const db = firebaseInitialized ? admin.firestore() : null;
 
 // ---------------------------------------------------------------------------
 // 2. Định nghĩa các route tĩnh (public, có thể index bởi search engine)
@@ -165,9 +170,15 @@ async function generateSitemap() {
   }
 
   // ── 4b. Courses (Khóa học) ───────────────────────────────────────────────
-  console.log("📦 Đang lấy danh sách khóa học (courses)...");
+  // Skip if Firebase not initialized (db is undefined)
+  if (!db) {
+    console.log("📦 Bỏ qua danh sách khóa học (không có kết nối Firebase)");
+  } else {
+    console.log("📦 Đang lấy danh sách khóa học (courses)...");
+  }
   let courseCount = 0;
   try {
+    if (!db) throw new Error("Firebase not initialized");
     const snapshot = await db
       .collection("courses")
       .where("isPublished", "==", true)
@@ -194,9 +205,14 @@ async function generateSitemap() {
   // ── 4c. Posts / Tin tức ──────────────────────────────────────────────────
   // Collection "posts" chứa cả bài viết thông thường (/bai-viet/:slug)
   // và tin tức theo danh mục "Tin tức" (/tin-tuc/:slug).
-  console.log("📝 Đang lấy bài viết (posts)...");
+  if (!db) {
+    console.log("📝 Bỏ qua bài viết (không có kết nối Firebase)");
+  } else {
+    console.log("📝 Đang lấy bài viết (posts)...");
+  }
   let postCount = 0;
   try {
+    if (!db) throw new Error("Firebase not initialized");
     const snapshot = await db
       .collection("posts")
       .where("isPublished", "==", true)
@@ -226,9 +242,14 @@ async function generateSitemap() {
 
   // ── 4d. News (nếu có collection riêng) ───────────────────────────────────
   // Một số dự án tách riêng collection "news". Kiểm tra thêm để không bỏ sót.
-  console.log("📰 Đang kiểm tra collection 'news'...");
+  if (!db) {
+    console.log("📰 Bỏ qua collection 'news' (không có kết nối Firebase)");
+  } else {
+    console.log("📰 Đang kiểm tra collection 'news'...");
+  }
   let newsCount = 0;
   try {
+    if (!db) throw new Error("Firebase not initialized");
     const snapshot = await db
       .collection("news")
       .where("isPublished", "==", true)
@@ -262,9 +283,14 @@ async function generateSitemap() {
   }
 
   // ── 4e. Recruitment (Tuyển dụng) ─────────────────────────────────────────
-  console.log("👔 Đang lấy tin tuyển dụng (recruitment)...");
+  if (!db) {
+    console.log("👔 Bỏ qua tin tuyển dụng (không có kết nối Firebase)");
+  } else {
+    console.log("👔 Đang lấy tin tuyển dụng (recruitment)...");
+  }
   let recruitCount = 0;
   try {
+    if (!db) throw new Error("Firebase not initialized");
     const snapshot = await db
       .collection("recruitment")
       .where("isPublished", "==", true)

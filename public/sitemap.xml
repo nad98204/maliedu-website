@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Sitemap tự động sinh lúc build – 2026-04-09 -->
-<!-- Tổng URL: 22 (tĩnh: 20, khóa học: 1, bài viết: 1, news: 0, tuyển dụng: 0) -->
+<!-- Tổng URL: 20 (tĩnh: 20, khóa học: 0, bài viết: 0, news: 0, tuyển dụng: 0) -->
 <urlset
   xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -104,18 +104,6 @@
   <url>
     <loc>https://luathapdan.edu.vn/kien-thuc/video-podcast</loc>
     <changefreq>weekly</changefreq>
-    <priority>0.7</priority>
-  </url>
-  <url>
-    <loc>https://luathapdan.edu.vn/khoa-hoc/khoa-hoc-tu-thoi-mien</loc>
-    <lastmod>2026-03-30</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
-  </url>
-  <url>
-    <loc>https://luathapdan.edu.vn/bai-viet/3-sai-lam-chi-mang-khi-ung-dung-luat-hap-dan-khien-ban-mai-be-tac-va-cach-khac-phuc</loc>
-    <lastmod>2026-01-20</lastmod>
-    <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
 </urlset>
