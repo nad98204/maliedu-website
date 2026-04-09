@@ -242,8 +242,38 @@ const CourseDetail = () => {
 
     if (loading) {
         return (
-            <div className="bg-white min-h-screen flex items-center justify-center">
-                <div className="w-16 h-16 border-4 border-secret-wax/30 border-t-secret-wax rounded-full animate-spin"></div>
+            <div className="font-sans bg-slate-50 min-h-screen pb-20 animate-pulse">
+                {/* Hero skeleton */}
+                <div className="bg-[#450a0a] pt-6 sm:pt-14 pb-[60px] sm:pb-[104px]">
+                    <div className="max-w-7xl mx-auto px-4">
+                        <div className="h-6 w-40 bg-white/20 rounded mb-8" />
+                        <div className="h-12 w-3/4 bg-white/20 rounded mb-4" />
+                        <div className="h-4 w-full max-w-2xl bg-white/10 rounded mb-2" />
+                        <div className="h-4 w-2/3 bg-white/10 rounded" />
+                    </div>
+                </div>
+                {/* Content skeleton */}
+                <div className="max-w-7xl mx-auto px-4 py-4 sm:py-8 flex flex-col-reverse lg:grid lg:grid-cols-3 gap-4 sm:gap-8">
+                    <div className="lg:col-span-2 space-y-6">
+                        <div className="h-64 bg-slate-200 rounded-xl" />
+                        <div className="space-y-3">
+                            <div className="h-4 bg-slate-200 rounded w-full" />
+                            <div className="h-4 bg-slate-200 rounded w-5/6" />
+                            <div className="h-4 bg-slate-200 rounded w-4/6" />
+                        </div>
+                    </div>
+                    {/* Sidebar skeleton reserves space to prevent CLS */}
+                    <div className="lg:col-span-1 -mt-[60px] lg:-mt-[76px]">
+                        <div className="rounded-2xl border-4 border-white bg-white shadow-2xl overflow-hidden">
+                            <div className="aspect-video bg-slate-200" />
+                            <div className="p-6 space-y-4">
+                                <div className="h-8 bg-slate-200 rounded w-1/2" />
+                                <div className="h-12 bg-slate-200 rounded" />
+                                <div className="h-10 bg-slate-100 rounded" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         );
     }
@@ -269,10 +299,63 @@ const CourseDetail = () => {
         <div className="font-sans bg-slate-50 min-h-screen pb-20">
             <SEO
                 title={course.name}
-                description={course.description}
+                description={(() => {
+                    if (course.seoDescription) return course.seoDescription.substring(0, 160);
+                    const rawText = (course.description || '')
+                        .replace(/&nbsp;/g, ' ')
+                        .replace(/<[^>]*>/g, '')
+                        .replace(/\s+/g, ' ')
+                        .trim();
+                    return rawText.substring(0, 150);
+                })()}
                 image={normalizeCloudinaryImage(course.thumbnailUrl || '', 'f_auto,q_auto,w_1200')}
-                url={`/khoa-hoc/${course.id}`}
-                type="product"
+                url={`/khoa-hoc/${course.slug || course.id}`}
+                type="article"
+                jsonLd={[
+                    {
+                        "@context": "https://schema.org",
+                        "@type": "Course",
+                        "name": course.name,
+                        "description": (() => {
+                            if (course.seoDescription) return course.seoDescription.substring(0, 500);
+                            return (course.description || '')
+                                .replace(/&nbsp;/g, ' ')
+                                .replace(/<[^>]*>/g, '')
+                                .replace(/\s+/g, ' ')
+                                .trim()
+                                .substring(0, 500);
+                        })(),
+                        "url": `https://maliedu.vn/khoa-hoc/${course.slug || course.id}`,
+                        "image": normalizeCloudinaryImage(course.thumbnailUrl || '', 'f_auto,q_auto,w_1200'),
+                        "provider": {
+                            "@type": "Organization",
+                            "name": course.instructorName || "Mali Edu",
+                            "sameAs": "https://maliedu.vn"
+                        },
+                        "offers": {
+                            "@type": "Offer",
+                            "priceCurrency": "VND",
+                            "price": course.salePrice || course.price || 0,
+                            "availability": "https://schema.org/InStock",
+                            "url": `https://maliedu.vn/khoa-hoc/${course.slug || course.id}`
+                        },
+                        ...(course.instructorName ? {
+                            "instructor": {
+                                "@type": "Person",
+                                "name": course.instructorName
+                            }
+                        } : {})
+                    },
+                    {
+                        "@context": "https://schema.org",
+                        "@type": "BreadcrumbList",
+                        "itemListElement": [
+                            { "@type": "ListItem", "position": 1, "name": "Trang chủ", "item": "https://maliedu.vn/" },
+                            { "@type": "ListItem", "position": 2, "name": "Khóa học", "item": "https://maliedu.vn/khoa-hoc" },
+                            { "@type": "ListItem", "position": 3, "name": course.name, "item": `https://maliedu.vn/khoa-hoc/${course.slug || course.id}` }
+                        ]
+                    }
+                ]}
             />
 
             {/* HERO SECTION (Blurred Thumbnail + Dark Red Overlay) */}
@@ -365,7 +448,7 @@ const CourseDetail = () => {
                     <div id="intro" className="scroll-mt-24 space-y-8">
                         {/* What You'll Learn Box */}
                         <div className="bg-white border border-green-100 rounded-xl p-6 shadow-sm">
-                            <h3 className="text-xl font-bold text-slate-900 mb-4">Bạn sẽ học được gì?</h3>
+                            <h2 className="text-xl font-bold text-slate-900 mb-4">Bạn sẽ học được gì?</h2>
                             <div className="grid grid-cols-1 gap-3">
                                 {whatYouWillLearn.length > 0 ? (
                                     whatYouWillLearn.map((item, idx) => (
@@ -394,7 +477,7 @@ const CourseDetail = () => {
 
                         {/* Description */}
                         <div className="prose prose-slate max-w-none relative">
-                            <h3 className="text-2xl font-bold font-sans text-slate-900 mb-4">Giới thiệu khóa học</h3>
+                            <h2 className="text-2xl font-bold font-sans text-slate-900 mb-4">Giới thiệu khóa học</h2>
                             <div
                                 className={`text-slate-600 leading-relaxed text-sm break-words [&_p]:mb-4 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 overflow-hidden transition-all duration-500 ease-in-out ${isDescExpanded ? 'max-h-full' : 'max-h-60'}`}
                                 dangerouslySetInnerHTML={{ __html: course?.content ? course.content.replace(/&nbsp;/g, ' ') : (course?.description ? course.description.replace(/&nbsp;/g, ' ') : '') }}
@@ -427,7 +510,7 @@ const CourseDetail = () => {
 
                     {/* INSTRUCTOR SECTION */}
                     <div id="instructor" className="scroll-mt-24">
-                        <h3 className="text-2xl font-bold font-sans text-slate-900 mb-6">Giảng viên</h3>
+                        <h2 className="text-2xl font-bold font-sans text-slate-900 mb-6">Giảng viên</h2>
                         <div className="bg-white border border-slate-200 rounded-xl p-6 flex flex-col md:flex-row items-center md:items-start gap-6">
                             <Link to={`/giang-vien/${course.authorId || ''}`} className="shrink-0">
                                 <img
@@ -439,7 +522,7 @@ const CourseDetail = () => {
                             </Link>
                             <div className="text-center md:text-left">
                                 <Link to={`/giang-vien/${course.authorId || ''}`} className="hover:text-secret-wax transition-colors">
-                                    <h4 className="text-xl font-bold text-slate-900">{course.instructorName || "Mong Coaching"}</h4>
+                                    <h3 className="text-xl font-bold text-slate-900">{course.instructorName || "Mong Coaching"}</h3>
                                 </Link>
                                 <p className="text-secret-wax font-medium text-sm mb-3">{course.instructorTitle || "Life Coach & Spiritual Mentor"}</p>
                                 <div className="flex items-center justify-center md:justify-start gap-3 text-sm text-slate-600 mb-4">
@@ -461,7 +544,7 @@ const CourseDetail = () => {
 
                     {/* REVIEWS SECTION */}
                     <div id="reviews" className="scroll-mt-24">
-                        <h3 className="text-2xl font-bold font-sans text-slate-900 mb-6">Đánh giá từ học viên</h3>
+                        <h2 className="text-2xl font-bold font-sans text-slate-900 mb-6">Đánh giá từ học viên</h2>
                         <CourseReviews courseId={course.id} currentUser={currentUser} />
                     </div>
 

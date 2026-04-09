@@ -141,7 +141,7 @@ const AppShell = () => {
             <Route path="/kien-thuc/:slug" element={<PostList />} />
             <Route path="/cam-nhan/:category?" element={<Testimonials />} />
             <Route path="/tuyen-dung" element={<Recruitment />} />
-            <Route path="/tuyen-dung/:id" element={<RecruitmentDetail />} />
+            <Route path="/tuyen-dung/:slug" element={<RecruitmentDetail />} />
             <Route path="/khoa-hoc" element={<CourseList />} />
             <Route path="/khoa-hoc/:slug" element={<CourseDetail />} />
             <Route path="/giang-vien/:id" element={<InstructorProfile />} />

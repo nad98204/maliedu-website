@@ -173,7 +173,10 @@ const Testimonials = () => {
                             <div key={index} className="flex-shrink-0 h-full aspect-[3/2] -ml-4 md:-ml-8">
                                 <img
                                     src={img}
-                                    alt="Hero Film Roll"
+                                    alt="Học viên thành công tại Mali Edu"
+                                    loading="lazy"
+                                    width="720"
+                                    height="480"
                                     className="w-full h-full object-cover [mask-image:linear-gradient(to_right,transparent,black_10%,black_90%,transparent)]"
                                 />
                             </div>

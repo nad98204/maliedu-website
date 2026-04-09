@@ -40,6 +40,8 @@ const CourseCard = ({ course }) => {
                     src={normalizeCloudinaryImage(course.thumbnailUrl || '', 'f_auto,q_auto,c_fill,w_600,h_375') || 'https://via.placeholder.com/600x400?text=Course+Image'}
                     alt={course.name}
                     loading="lazy"
+                    width="600"
+                    height="375"
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                 />
 

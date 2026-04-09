@@ -24,6 +24,7 @@ const AdminRecruitment = () => {
     // Form state
     const [formData, setFormData] = useState({
         title: '',
+        slug: '',
         category: '',
         targetCount: 1,
         hiredCount: 0,
@@ -66,6 +67,19 @@ const AdminRecruitment = () => {
         }
     };
 
+    // Auto-generate slug from title
+    const generateSlug = (title) => {
+        return title
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[đĐ]/g, 'd')
+            .replace(/[^a-z0-9\s-]/g, '')
+            .trim()
+            .replace(/\s+/g, '-')
+            .replace(/-+/g, '-');
+    };
+
     useEffect(() => {
         fetchJobs();
     }, []);
@@ -82,6 +96,7 @@ const AdminRecruitment = () => {
         setFormData((prev) => ({
             ...prev,
             [name]: type === 'checkbox' ? checked : (type === 'number' ? Number(value) : value),
+            ...(name === 'title' && { slug: generateSlug(value) }),
         }));
     };
 
@@ -95,6 +110,7 @@ const AdminRecruitment = () => {
         setEditingJob(null);
         setFormData({
             title: '',
+            slug: '',
             category: CATEGORIES[0],
             jobType: 'Full-time',
             targetCount: 1,
@@ -113,6 +129,7 @@ const AdminRecruitment = () => {
         setEditingJob(job);
         setFormData({
             title: job.title || '',
+            slug: job.slug || '',
             category: job.category || CATEGORIES[0],
             jobType: job.jobType || 'Full-time',
             targetCount: job.targetCount || 1,
@@ -133,6 +150,7 @@ const AdminRecruitment = () => {
         try {
             const jobData = {
                 ...formData,
+                slug: formData.slug || generateSlug(formData.title),
                 updatedAt: Date.now(),
             };
 
@@ -312,6 +330,25 @@ const AdminRecruitment = () => {
                                             placeholder="VD: Chuyên viên Kinh doanh"
                                             required
                                         />
+                                    </div>
+
+                                    {/* Slug */}
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-slate-700">
+                                            Slug (URL) <span className="text-red-500">*</span>
+                                        </label>
+                                        <input
+                                            type="text"
+                                            name="slug"
+                                            value={formData.slug}
+                                            onChange={handleInputChange}
+                                            className="w-full rounded-lg border border-slate-200 px-4 py-2 text-sm font-mono focus:border-secret-wax focus:outline-none focus:ring-2 focus:ring-secret-wax/20"
+                                            placeholder="slug-cong-viec"
+                                            required
+                                        />
+                                        <p className="text-xs text-slate-500">
+                                            URL: /tuyen-dung/{formData.slug || 'slug-cong-viec'}
+                                        </p>
                                     </div>
 
                                     {/* Category */}

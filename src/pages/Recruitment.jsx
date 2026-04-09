@@ -3,6 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { Briefcase, CheckCircle, ChevronDown, Clock, MapPin, Send, Upload, User, Users } from "lucide-react";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "../firebase";
+import SEO from "../components/SEO";
 
 const Recruitment = () => {
     const location = useLocation();
@@ -134,6 +135,11 @@ const Recruitment = () => {
 
     return (
         <div className="min-h-screen bg-white font-inter text-slate-800">
+            <SEO 
+                title="Cơ hội nghệ nghiệp - Tuyển dụng Mali Edu"
+                description="Tham gia đội ngũ Mali Edu để cùng lan tỏa giá trị chuyển hóa nội tâm và tiềm thức. Khám phá các vị trí tuyển dụng mới nhất."
+                url="/tuyen-dung"
+            />
             {/* 1. HERO SECTION (REDESIGN HBR STYLE) */}
             <section className="relative h-[600px] flex items-center justify-center px-4 overflow-hidden">
                 {/* Background Image with Overlay */}
@@ -336,7 +342,7 @@ const Recruitment = () => {
                                                                             HOT
                                                                         </span>
                                                                     )}
-                                                                    <Link to={`/tuyen-dung/${job.id}`} className={`text-lg md:text-xl font-bold uppercase tracking-wide transition-colors block hover:underline ${job.isHot && !isClosed ? 'text-yellow-400 group-hover:text-yellow-300' : 'text-white'
+                                                                    <Link to={`/tuyen-dung/${job.slug || job.id}`} className={`text-lg md:text-xl font-bold uppercase tracking-wide transition-colors block hover:underline ${job.isHot && !isClosed ? 'text-yellow-400 group-hover:text-yellow-300' : 'text-white'
                                                                         }`}>
                                                                         {job.title}
                                                                     </Link>
@@ -390,7 +396,7 @@ const Recruitment = () => {
                                                                 </div>
 
                                                                 <Link
-                                                                    to={`/tuyen-dung/${job.id}`}
+                                                                    to={`/tuyen-dung/${job.slug || job.id}`}
                                                                     className={`flex items-center justify-center px-6 py-2.5 rounded-lg font-bold text-sm transition-all transform shrink-0 ml-auto md:ml-0 ${isClosed
                                                                         ? "bg-white/10 text-white/40 cursor-not-allowed pointer-events-none"
                                                                         : "bg-white text-[#1e1b4b] hover:bg-yellow-400 hover:text-[#1e1b4b] hover:-translate-y-1 shadow-lg shadow-white/10"

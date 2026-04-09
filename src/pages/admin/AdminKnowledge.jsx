@@ -187,6 +187,7 @@ const AdminKnowledge = () => {
         try {
             const postData = {
                 ...formData,
+                slug: formData.slug || generateSlug(formData.title),
                 updatedAt: Date.now(),
             };
 

@@ -208,6 +208,7 @@ const AdminPosts = () => {
 
             const postData = {
                 ...formData,
+                slug: formData.slug || generateSlug(formData.title),
                 content: finalContent, // Use the fresh content
                 updatedAt: Date.now(),
             };

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { MapPin, Phone, Mail } from 'lucide-react';
-import { Helmet } from 'react-helmet-async';
+import SEO from '../components/SEO';
 
 const Contact = () => {
     const [formData, setFormData] = useState({
@@ -73,9 +73,11 @@ const Contact = () => {
 
     return (
         <div className="bg-white font-sans overflow-hidden">
-            <Helmet>
-                <title>Liên hệ tư vấn - Mali Edu</title>
-            </Helmet>
+            <SEO 
+                title="Liên hệ tư vấn - Mali Edu"
+                description="Kết nối với Mali Edu để nhận tư vấn về các khóa học chuyển hóa nội tâm, tiềm thức và tài chính."
+                url="/lien-he"
+            />
             {/* HERO SECTION */}
             <section className="bg-secret-paper pt-20 pb-12">
                 <motion.div

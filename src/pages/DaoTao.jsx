@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
+import SEO from "../components/SEO";
 
 const diagramPoints = [
   { label: "Tiền bạc", className: "top-0 left-1/2 -translate-x-1/2 -translate-y-3" },
@@ -136,6 +137,11 @@ const DaoTao = () => {
 
   return (
     <div className="bg-[#f7f2e9] text-[#1f1a14] min-h-screen pb-12">
+      <SEO 
+        title="Đào tạo & Sự kiện - Mali Edu"
+        description="Tham gia các chương trình đào tạo chuyên sâu về Khơi Thông Dòng Tiền, Luật Hấp Dẫn và Mục Tiêu tài chính."
+        url="/dao-tao"
+      />
       <FlowUnlockSection />
       <PlaceholderBlock id="luat-hap-dan" title="Luật Hấp Dẫn" />
       <PlaceholderBlock id="vut-toc-muc-tieu" title="Vút Tốc Mục Tiêu" />

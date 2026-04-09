@@ -60,7 +60,8 @@ const BlockContentRenderer = ({ data }) => {
                                 <div className={`rounded-xl overflow-hidden shadow-lg ${blockData.withBackground ? 'bg-gray-100 p-4' : ''} ${blockData.withBorder ? 'border border-gray-200' : ''}`}>
                                     <img
                                         src={blockData.file.url}
-                                        alt={blockData.caption || ''}
+                                        alt={blockData.caption || 'Hình ảnh bài viết'}
+                                        loading="lazy"
                                         className={`w-full h-auto object-cover ${blockData.stretched ? 'w-full' : ''}`}
                                     />
                                 </div>
@@ -96,8 +97,9 @@ const BlockContentRenderer = ({ data }) => {
                             <div key={id} className="my-8 aspect-video w-full rounded-xl overflow-hidden shadow-lg bg-black">
                                 <iframe
                                     src={embedUrl}
-                                    title="Embedded Content"
+                                    title={blockData.caption || 'Video núng trong bài viết'}
                                     className="w-full h-full"
+                                    loading="lazy"
                                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                                     allowFullScreen
                                 />

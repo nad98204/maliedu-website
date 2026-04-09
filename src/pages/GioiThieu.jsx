@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
+import SEO from "../components/SEO";
 import {
   BookOpenCheck,
   Compass,
@@ -138,6 +139,11 @@ const GioiThieu = () => {
 
   return (
     <div className="bg-[#FAF9F6] text-gray-800 font-sans selection:bg-[#D4AF37] selection:text-white">
+      <SEO 
+        title="Giới thiệu về Mali Edu"
+        description="Tìm hiểu về Mali Edu - Đơn vị đào tạo phát triển bản thân, chuyển hóa nội tâm và vận hành tiềm thức thực tế."
+        url="/gioi-thieu"
+      />
 
       {/* 1. HERO SECTION - Refined Artistic Style */}
       <section id="ve-mali-edu" className="relative pt-24 pb-6 lg:pt-32 lg:pb-16 overflow-hidden bg-secret-paper bg-paper-texture text-secret-ink">

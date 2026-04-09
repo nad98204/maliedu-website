@@ -18,6 +18,7 @@ const Home = () => {
   return (
     <>
       <SEO />
+      <h1 className="sr-only">Mali Edu - Luật Hấp Dẫn, Phát Triển Bản Thân & Khai Phá Tiềm Thức</h1>
       <HeroCarousel />
 
       <AboutSection />

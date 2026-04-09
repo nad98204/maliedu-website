@@ -11,6 +11,8 @@ import {
 } from "../../utils/adminAccess";
 import { getFirebaseAuthMessage } from "../../utils/firebaseAuthErrors";
 import { registerSession } from "../../utils/sessionService";
+import { isInAppBrowser } from "../../utils/browserDetection";
+import InAppBrowserModal from "../../components/InAppBrowserModal";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -18,6 +20,7 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showBrowserWarning, setShowBrowserWarning] = useState(false);
 
   const handleAfterLogin = async (user) => {
     const userProfile = await ensureUserProfile({ db, user });
@@ -69,6 +72,12 @@ const Login = () => {
   };
 
   const handleGoogleLogin = async () => {
+    // Step 1: Check for In-App Browser (Zalo, FB, etc.)
+    if (isInAppBrowser()) {
+      setShowBrowserWarning(true);
+      return;
+    }
+
     setError("");
     setIsSubmitting(true);
     try {
@@ -174,6 +183,11 @@ const Login = () => {
           </Link>
         </div>
       </div>
+
+      <InAppBrowserModal 
+        isOpen={showBrowserWarning} 
+        onClose={() => setShowBrowserWarning(false)} 
+      />
     </div>
   );
 };

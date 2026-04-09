@@ -48,10 +48,21 @@ const NewsDetail = () => {
                     return new Date().toLocaleDateString('vi-VN');
                 };
 
+                // Helper to get ISO string for JSON-LD
+                const toISOString = (timestamp) => {
+                    if (!timestamp) return new Date().toISOString();
+                    if (timestamp?.toDate) return timestamp.toDate().toISOString();
+                    if (typeof timestamp === 'number') return new Date(timestamp).toISOString();
+                    if (typeof timestamp === 'string') return timestamp;
+                    return new Date().toISOString();
+                };
+
                 const postData = {
                     id: postSnapshot.docs[0].id,
                     ...data,
-                    createdAt: formatDate(data.createdAt)
+                    createdAt: formatDate(data.createdAt),
+                    createdAtISO: toISOString(data.createdAt),
+                    updatedAtISO: toISOString(data.updatedAt || data.createdAt)
                 };
                 setPost(postData);
 
@@ -106,6 +117,44 @@ const NewsDetail = () => {
                 image={post.thumbnailUrl}
                 url={`/tin-tuc/${slug}`}
                 type="article"
+                jsonLd={[
+                    {
+                        "@context": "https://schema.org",
+                        "@type": "NewsArticle",
+                        "headline": post.title,
+                        "description": post.excerpt || '',
+                        "image": post.thumbnailUrl
+                            ? [post.thumbnailUrl]
+                            : ["https://maliedu.vn/og-default.jpg"],
+                        "datePublished": post.createdAtISO || post.createdAt || new Date().toISOString(),
+                        "dateModified": post.updatedAtISO || post.createdAtISO || post.createdAt || new Date().toISOString(),
+                        "author": {
+                            "@type": "Person",
+                            "name": post.author || "Mali Edu"
+                        },
+                        "publisher": {
+                            "@type": "Organization",
+                            "name": "Mali Edu",
+                            "logo": {
+                                "@type": "ImageObject",
+                                "url": "https://maliedu.vn/logo.png"
+                            }
+                        },
+                        "mainEntityOfPage": {
+                            "@type": "WebPage",
+                            "@id": `https://maliedu.vn/tin-tuc/${slug}`
+                        }
+                    },
+                    {
+                        "@context": "https://schema.org",
+                        "@type": "BreadcrumbList",
+                        "itemListElement": [
+                            { "@type": "ListItem", "position": 1, "name": "Trang chủ", "item": "https://maliedu.vn/" },
+                            { "@type": "ListItem", "position": 2, "name": "Tin tức", "item": "https://maliedu.vn/tin-tuc" },
+                            { "@type": "ListItem", "position": 3, "name": post.title, "item": `https://maliedu.vn/tin-tuc/${slug}` }
+                        ]
+                    }
+                ]}
             />
 
             {/* Breadcrumb */}
@@ -186,11 +235,12 @@ const NewsDetail = () => {
                             {/* Featured Image / Video */}
                             <div className="mb-10 rounded-xl overflow-hidden shadow-sm">
                                 {post.type === 'video' && post.videoUrl ? (
-                                    <div className="aspect-video w-full">
+                                    <div className="aspect-video w-full bg-black">
                                         <iframe
                                             src={getYouTubeEmbedUrl(post.videoUrl)}
-                                            title={post.title}
+                                            title={`${post.title} – video bài viết`}
                                             className="w-full h-full"
+                                            loading="lazy"
                                             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                                             allowFullScreen
                                         ></iframe>
@@ -203,6 +253,9 @@ const NewsDetail = () => {
                                             e.target.src = "https://placehold.co/800x500?text=Mali+Edu";
                                         }}
                                         alt={post.title}
+                                        loading="eager"
+                                        width="800"
+                                        height="500"
                                         className="w-full h-auto object-cover"
                                     />
                                 )}
@@ -317,10 +370,13 @@ const NewsDetail = () => {
                                 <div className="space-y-6">
                                     {recentPosts.slice(0, 5).map(p => (
                                         <Link key={p.id} to={`/tin-tuc/${p.slug}`} className="group flex gap-4 items-start">
-                                            <div className="w-24 h-24 flex-shrink-0 rounded-lg overflow-hidden">
+                                            <div className="w-24 h-24 flex-shrink-0 rounded-lg overflow-hidden bg-slate-100">
                                                 <img
                                                     src={p.thumbnailUrl}
                                                     alt={p.title}
+                                                    loading="lazy"
+                                                    width="96"
+                                                    height="96"
                                                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                                                 />
                                             </div>
@@ -346,7 +402,10 @@ const NewsDetail = () => {
                                         e.target.onerror = null;
                                         e.target.src = "https://placehold.co/400x600/8B2E2E/FFF?text=KHOA+HOC+MALI+EDU&font=playfair";
                                     }}
-                                    alt="Quảng cáo khóa học"
+                                    alt="Đăng ký khóa học nghề Mali Edu"
+                                    loading="lazy"
+                                    width="400"
+                                    height="600"
                                     className="w-full h-auto object-cover"
                                 />
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex flex-col justify-end p-6">

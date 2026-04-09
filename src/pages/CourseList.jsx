@@ -24,6 +24,9 @@ const MiniCourseCard = ({ course }) => {
                     <img
                         src={course.thumbnailUrl || 'https://via.placeholder.com/400x225'}
                         alt={course.name}
+                        loading="lazy"
+                        width="400"
+                        height="250"
                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                     />
                     {hasDiscount && (
@@ -303,6 +306,12 @@ const CourseList = () => {
 
     return (
         <div className="min-h-screen bg-neutral-50">
+            <SEO 
+                title="Danh sách khóa học"
+                description="Khám phá các khóa học về Luật Hấp Dẫn, Phát Triển Bản Thân và Khai Phá Tiềm Thức tại Mali Edu."
+                url="/khoa-hoc"
+            />
+            <h1 className="sr-only">Khóa học Đào tạo - Mali Edu</h1>
 
             {/* ============ SECTION 1: TOP NEWEST ============ */}
             <div className="bg-white border-b border-slate-100 pt-10 pb-6">
@@ -368,6 +377,9 @@ const CourseList = () => {
                                         <img
                                             src={TOPIC_IMAGES[topic.id] || 'https://images.unsplash.com/photo-1501504905252-473c47e087f8?w=400&q=80'}
                                             alt={topic.name}
+                                            loading="lazy"
+                                            width="400"
+                                            height="250"
                                             className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                                         />
                                         

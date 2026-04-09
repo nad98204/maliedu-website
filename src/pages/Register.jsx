@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { createUserWithEmailAndPassword, signInWithPopup } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
 import { auth, db, crmFirestore, createGoogleProvider } from "../firebase";
 import { ensureUserProfile } from "../utils/userService";
-import { useEffect } from "react";
-import { doc, getDoc } from "firebase/firestore";
+import { isInAppBrowser } from "../utils/browserDetection";
+import InAppBrowserModal from "../components/InAppBrowserModal";
 
 const Register = () => {
     const navigate = useNavigate();
@@ -13,6 +14,7 @@ const Register = () => {
     const [confirmPassword, setConfirmPassword] = useState("");
     const [error, setError] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [showBrowserWarning, setShowBrowserWarning] = useState(false);
     const [remoteConfig, setRemoteConfig] = useState({
         is_maintenance: false,
         isLoading: true
@@ -69,6 +71,12 @@ const Register = () => {
     };
 
     const handleGoogleLogin = async () => {
+        // Step 1: Check for In-App Browser (Zalo, FB, etc.)
+        if (isInAppBrowser()) {
+            setShowBrowserWarning(true);
+            return;
+        }
+
         setError("");
         setIsSubmitting(true);
         try {
@@ -197,6 +205,11 @@ const Register = () => {
                     </Link>
                 </div>
             </div>
+
+            <InAppBrowserModal 
+                isOpen={showBrowserWarning} 
+                onClose={() => setShowBrowserWarning(false)} 
+            />
         </div>
     );
 };

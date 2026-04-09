@@ -4,7 +4,7 @@ import { Search, Play, Calendar } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
-import { Helmet } from 'react-helmet-async';
+import SEO from '../components/SEO';
 
 const News = () => {
     const [activeFilter, setActiveFilter] = useState('all');
@@ -91,9 +91,11 @@ const News = () => {
 
     return (
         <div className="bg-white font-sans overflow-hidden">
-            <Helmet>
-                <title>Tin tức & Sự kiện - Mali Edu</title>
-            </Helmet>
+            <SEO 
+                title="Tin tức & Sự kiện - Mali Edu"
+                description="Cập nhật những tin tức mới nhất, kiến thức chuyển hóa và câu chuyện thành công tại Mali Edu."
+                url="/tin-tuc"
+            />
             {/* HERO HEADER */}
             <header className="bg-secret-paper pt-28 pb-16">
                 <motion.div
@@ -251,6 +253,9 @@ const NewsCard = ({ post }) => {
                         e.target.src = "https://placehold.co/600x400?text=Mali+Edu";
                     }}
                     alt={post.title}
+                    loading="lazy"
+                    width="600"
+                    height="224"
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                 />
 

@@ -48,7 +48,7 @@ const VideoModal = ({ youtubeId, onClose }) => {
           width="100%"
           height="100%"
           src={`https://www.youtube.com/embed/${youtubeId}?autoplay=1`}
-          title="Video testimonial"
+          title="Xem video cảm nhận học viên MaliEdu"
           frameBorder="0"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowFullScreen
@@ -537,7 +537,10 @@ const SuccessStories = () => {
                             <div className={styles.thumbnail}>
                               <img
                                 src={`https://img.youtube.com/vi/${item.testimonial.youtubeId}/hqdefault.jpg`}
-                                alt={`${item.testimonial.name} video`}
+                                alt={`${item.testimonial.name} – cảm nhận học viên về ${item.testimonial.programTag}`}
+                                loading="lazy"
+                                width="480"
+                                height="360"
                                 className={styles.thumbnailImage}
                               />
 

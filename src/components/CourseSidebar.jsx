@@ -40,10 +40,13 @@ const CourseSidebar = ({ course, onBuyClick, isEnrolled }) => {
     return (
         <div className="sticky top-24 z-10">
             <div className="ring-1 ring-gray-100/50 flex min-h-[600px] flex-col overflow-hidden rounded-2xl border-4 border-white bg-white shadow-2xl">
-                <div className="relative aspect-video">
+                <div className="relative aspect-video bg-slate-100">
                     <img
                         src={course.thumbnailUrl || 'https://via.placeholder.com/600x400'}
                         alt={course.name}
+                        loading="eager"
+                        width="600"
+                        height="338"
                         className="h-full w-full object-cover"
                     />
                     {!isEnrolled && course.isForSale !== false && course.salePrice && (

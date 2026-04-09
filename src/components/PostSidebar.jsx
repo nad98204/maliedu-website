@@ -123,7 +123,7 @@ const PostSidebar = ({ currentCategory, currentPostId }) => {
 
 // Mini Card Component
 const SidebarPostCard = ({ post }) => (
-    <Link to={`/tin-tuc/${post.slug}`} className="group flex flex-col gap-2">
+    <Link to={`/bai-viet/${post.slug}`} className="group flex flex-col gap-2">
         {/* Thumbnail */}
         <div className="relative w-full h-32 shrink-0 rounded-lg overflow-hidden">
             <img

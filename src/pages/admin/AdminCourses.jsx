@@ -1191,6 +1191,7 @@ const AdminCourses = () => {
 
     return {
       ...data,
+      slug: data.slug || generateSlug(data.name),
       categories: data.categories || [],
       category: data.categories?.length > 0 ? data.categories[0] : "",
       curriculum: normalizedCurriculum,

@@ -80,7 +80,7 @@ const CourseCurriculum = ({ course, courseId, onPreviewClick }) => {
         <div className="mb-12" id="curriculum">
             <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6 border-b border-slate-100 pb-4">
                 <div className="flex flex-col gap-1">
-                    <h3 className="text-2xl font-bold font-sans text-slate-900 tracking-tight">Nội dung khóa học</h3>
+                    <h2 className="text-2xl font-bold font-sans text-slate-900 tracking-tight">Nội dung khóa học</h2>
                     <div className="flex items-center gap-2 text-sm text-slate-500 font-medium">
                         <span className="flex items-center gap-1.5 bg-slate-100 px-2.5 py-1 rounded-full text-[10px] sm:text-xs text-slate-600">
                             <span className="font-bold text-slate-900">{sections.length}</span> chương

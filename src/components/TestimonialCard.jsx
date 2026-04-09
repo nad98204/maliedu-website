@@ -30,14 +30,22 @@ const TestimonialCard = ({ article }) => {
                 {embedUrl ? (
                     <iframe
                         src={embedUrl}
-                        title={article.title}
+                        title={`Video cảm nhận: ${article.title}`}
                         className="w-full h-full"
+                        loading="lazy"
                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                         allowFullScreen
                         frameBorder="0"
                     ></iframe>
                 ) : article.thumbnailUrl ? (
-                    <img src={article.thumbnailUrl} alt="Feedback" className="w-full h-full object-cover" />
+                    <img
+                        src={article.thumbnailUrl}
+                        alt={`Học viên ${article.title}`}
+                        loading="lazy"
+                        width="560"
+                        height="315"
+                        className="w-full h-full object-cover"
+                    />
                 ) : (
                     <div className="w-full h-full flex items-center justify-center text-slate-400 text-sm">
                         No Media

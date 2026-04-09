@@ -39,7 +39,13 @@ const PostDetail = () => {
                 const postData = {
                     id: postSnapshot.docs[0].id,
                     ...data,
-                    createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toLocaleDateString('vi-VN') : data.createdAt
+                    createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toLocaleDateString('vi-VN') : data.createdAt,
+                    createdAtISO: data.createdAt?.toDate
+                        ? data.createdAt.toDate().toISOString()
+                        : (typeof data.createdAt === 'number' ? new Date(data.createdAt).toISOString() : new Date().toISOString()),
+                    updatedAtISO: data.updatedAt?.toDate
+                        ? data.updatedAt.toDate().toISOString()
+                        : (data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : new Date().toISOString())
                 };
                 setPost(postData);
             } catch (error) {
@@ -89,8 +95,46 @@ const PostDetail = () => {
                 title={post ? post.title : 'Đang tải...'}
                 description={post?.excerpt || 'Chi tiết bài viết tại MaliEdu'}
                 image={post?.thumbnailUrl}
-                url={`/tin-tuc/${slug}`}
+                url={`/bai-viet/${slug}`}
                 type="article"
+                jsonLd={[
+                    {
+                        "@context": "https://schema.org",
+                        "@type": "Article",
+                        "headline": post.title,
+                        "description": post.excerpt || '',
+                        "image": post.thumbnailUrl
+                            ? [post.thumbnailUrl]
+                            : ["https://maliedu.vn/og-default.jpg"],
+                        "datePublished": post.createdAtISO || post.createdAt || new Date().toISOString(),
+                        "dateModified": post.updatedAtISO || post.createdAtISO || post.createdAt || new Date().toISOString(),
+                        "author": {
+                            "@type": "Person",
+                            "name": post.author || "Mali Edu"
+                        },
+                        "publisher": {
+                            "@type": "Organization",
+                            "name": "Mali Edu",
+                            "logo": {
+                                "@type": "ImageObject",
+                                "url": "https://maliedu.vn/logo.png"
+                            }
+                        },
+                        "mainEntityOfPage": {
+                            "@type": "WebPage",
+                            "@id": `https://maliedu.vn/bai-viet/${slug}`
+                        }
+                    },
+                    {
+                        "@context": "https://schema.org",
+                        "@type": "BreadcrumbList",
+                        "itemListElement": [
+                            { "@type": "ListItem", "position": 1, "name": "Trang chủ", "item": "https://maliedu.vn/" },
+                            { "@type": "ListItem", "position": 2, "name": "Tin tức", "item": "https://maliedu.vn/tin-tuc" },
+                            { "@type": "ListItem", "position": 3, "name": post.title, "item": `https://maliedu.vn/bai-viet/${slug}` }
+                        ]
+                    }
+                ]}
             />
 
             {/* HERO HEADER */}
@@ -162,8 +206,9 @@ const PostDetail = () => {
                                         <div className="relative w-full rounded-2xl overflow-hidden shadow-2xl bg-black aspect-video">
                                             <iframe
                                                 src={getYouTubeEmbedUrl(post.videoUrl)}
-                                                title={post.title}
+                                                title={`${post.title} – video`}
                                                 className="w-full h-full"
+                                                loading="lazy"
                                                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                                                 allowFullScreen
                                             ></iframe>
@@ -181,6 +226,9 @@ const PostDetail = () => {
                                                 e.target.src = "https://placehold.co/600x400?text=Mali+Edu";
                                             }}
                                             alt={post.title}
+                                            loading="eager"
+                                            width="800"
+                                            height="400"
                                             className="w-full max-w-2xl h-[250px] md:h-[400px] object-cover rounded-2xl shadow-sm mb-6"
                                         />
                                     </motion.div>
@@ -314,7 +362,7 @@ const RelatedPostCard = ({ post, delay }) => {
         >
             <Link to={`/tin-tuc/${post.slug}`}>
                 {/* Thumbnail */}
-                <div className="relative h-48 overflow-hidden">
+                <div className="relative h-48 overflow-hidden bg-slate-100">
                     <img
                         src={post.thumbnailUrl || "https://placehold.co/600x400?text=Mali+Edu"}
                         onError={(e) => {
@@ -322,6 +370,9 @@ const RelatedPostCard = ({ post, delay }) => {
                             e.target.src = "https://placehold.co/600x400?text=Mali+Edu";
                         }}
                         alt={post.title}
+                        loading="lazy"
+                        width="600"
+                        height="192"
                         className="w-full h-full object-cover transition-transform duration-500 hover:scale-110"
                     />
                     {post.type === 'video' && (

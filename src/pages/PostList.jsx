@@ -4,7 +4,7 @@ import { Search, Play, Calendar, ArrowLeft } from 'lucide-react';
 import { Link, useParams, Navigate } from 'react-router-dom';
 import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
-import { Helmet } from 'react-helmet-async';
+import SEO from '../components/SEO';
 
 const CATEGORY_DATA = {
     "luat-nhan-qua-hap-dan": {
@@ -111,10 +111,11 @@ const PostList = () => {
 
     return (
         <div className="bg-white font-sans overflow-hidden min-h-screen">
-            <Helmet>
-                <title>{categoryInfo.title} - Mali Edu</title>
-                <meta name="description" content={categoryInfo.desc} />
-            </Helmet>
+            <SEO 
+                title={`${categoryInfo.title} - Kho Kiến Thức`}
+                description={categoryInfo.desc}
+                url={`/kien-thuc/${slug}`}
+            />
 
             {/* HERO HEADER */}
             <header className="bg-gradient-to-br from-secret-paper to-white pt-12 pb-16 border-b border-secret-wax/10">
@@ -241,6 +242,9 @@ const PostCard = ({ post }) => {
                         e.target.src = "https://placehold.co/600x400?text=Mali+Edu";
                     }}
                     alt={post.title}
+                    loading="lazy"
+                    width="600"
+                    height="375"
                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                 />
 
@@ -286,7 +290,7 @@ const PostCard = ({ post }) => {
                 </p>
 
                 <Link
-                    to={`/tin-tuc/${post.slug}`}
+                    to={`/bai-viet/${post.slug}`}
                     className="inline-flex items-center gap-2 font-sans font-semibold text-sm text-secret-wax/80 hover:text-secret-wax transition-colors self-start"
                 >
                     <span>Đọc tiếp</span>

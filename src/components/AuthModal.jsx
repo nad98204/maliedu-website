@@ -12,6 +12,9 @@ import { ensureUserProfile } from '../utils/userService';
 import { getFirebaseAuthMessage } from '../utils/firebaseAuthErrors';
 import { warmUpGoogleSignIn } from '../utils/googleAuthWarmup';
 
+import { isInAppBrowser } from '../utils/browserDetection';
+import InAppBrowserModal from './InAppBrowserModal';
+
 const syncGoogleUserProfile = async (user) => {
     try {
         await ensureUserProfile({ db, user });
@@ -22,6 +25,7 @@ const syncGoogleUserProfile = async (user) => {
 
 const AuthModal = ({ isOpen, onClose }) => {
     const [isLogin, setIsLogin] = useState(true);
+    const [showBrowserWarning, setShowBrowserWarning] = useState(false);
     const [googleLoading, setGoogleLoading] = useState(false);
     const [emailLoading, setEmailLoading] = useState(false);
     const [error, setError] = useState('');
@@ -36,6 +40,7 @@ const AuthModal = ({ isOpen, onClose }) => {
         }
 
         setError('');
+        setShowBrowserWarning(false);
         setGoogleLoading(false);
         setEmailLoading(false);
         warmUpGoogleSignIn();
@@ -46,6 +51,12 @@ const AuthModal = ({ isOpen, onClose }) => {
     }
 
     const handleGoogleLogin = async () => {
+        // Step 1: Check for In-App Browser (Zalo, FB, etc.)
+        if (isInAppBrowser()) {
+            setShowBrowserWarning(true);
+            return;
+        }
+
         if (googleLoading || emailLoading) {
             return;
         }
@@ -246,6 +257,11 @@ const AuthModal = ({ isOpen, onClose }) => {
                     </div>
                 </div>
             </div>
+
+            <InAppBrowserModal 
+                isOpen={showBrowserWarning} 
+                onClose={() => setShowBrowserWarning(false)} 
+            />
         </div>
     );
 };

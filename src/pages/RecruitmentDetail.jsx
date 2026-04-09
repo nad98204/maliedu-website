@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
-import { doc, getDoc } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore";
 import { db } from "../firebase";
+import SEO from "../components/SEO";
 import { Briefcase, Clock, MapPin, DollarSign, Calendar, Upload, Send, CheckCircle, ArrowLeft, Info } from "lucide-react";
 
 const RecruitmentDetail = () => {
-    const { id } = useParams();
+    const { slug } = useParams();
     const [job, setJob] = useState(null);
     const [loading, setLoading] = useState(true);
     const [formData, setFormData] = useState({
@@ -19,13 +20,22 @@ const RecruitmentDetail = () => {
         window.scrollTo(0, 0);
         const fetchJob = async () => {
             try {
-                const docRef = doc(db, "jobs", id);
+                // Try fetching by ID first (backward compatibility)
+                const docRef = doc(db, "jobs", slug);
                 const docSnap = await getDoc(docRef);
 
                 if (docSnap.exists()) {
                     setJob({ id: docSnap.id, ...docSnap.data() });
                 } else {
-                    console.error("No such document!");
+                    // Try fetching by slug field
+                    const q = query(collection(db, "jobs"), where("slug", "==", slug));
+                    const querySnapshot = await getDocs(q);
+                    if (!querySnapshot.empty) {
+                        const d = querySnapshot.docs[0];
+                        setJob({ id: d.id, ...d.data() });
+                    } else {
+                        console.error("No such job!");
+                    }
                 }
             } catch (error) {
                 console.error("Error fetching job:", error);
@@ -34,8 +44,8 @@ const RecruitmentDetail = () => {
             }
         };
 
-        if (id) fetchJob();
-    }, [id]);
+        if (slug) fetchJob();
+    }, [slug]);
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -70,6 +80,11 @@ const RecruitmentDetail = () => {
 
     return (
         <div className="min-h-screen bg-[#FFFBF0] font-inter text-slate-800 pb-20">
+            <SEO 
+                title={`${job.title} - Tuyển dụng Mali Edu`}
+                description={`Tuyển dụng ${job.title} tại Mali Edu. Mức lương: ${job.salary || 'Thỏa thuận'}. Tham gia đội ngũ chúng tôi ngay!`}
+                url={`/tuyen-dung/${job.slug || job.id}`}
+            />
             {/* 1. HEADER - BRAND GRADIENT */}
             <div className="bg-gradient-to-br from-[#B91C1C] to-[#991B1B] text-white py-16 px-4 relative overflow-hidden">
                 <div className="absolute top-0 right-0 opacity-10 pointer-events-none transform translate-x-1/4 -translate-y-1/4">
