@@ -38,6 +38,7 @@ import {
   TrendingUp,
   MessageSquare,
   ArrowRight,
+  ChevronDown,
 } from "lucide-react";
 
 import { db } from "../../firebase";
@@ -134,6 +135,10 @@ const AdminCourses = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("info");
   const [expandedLessons, setExpandedLessons] = useState({}); // Key: `${sIdx}-${lIdx}`, Value: boolean
+  const [expandedSections, setExpandedSections] = useState({}); // Key: sectionId, Value: boolean
+  const [expandedSectionsLoaded, setExpandedSectionsLoaded] = useState(false);
+  const [quickAddExpanded, setQuickAddExpanded] = useState({}); // Key: sIdx, Value: boolean
+  const [expandedResources, setExpandedResources] = useState({}); // Key: resource.id || idx, Value: boolean
   const [uploadTasks, setUploadTasks] = useState({}); // { 'key': { fileName, progress, status, error } }
 
   const handleStartUpload = async (sIdx, lIdx, file, isNew = false) => {
@@ -199,6 +204,67 @@ const AdminCourses = () => {
       [key]: !prev[key],
     }));
   };
+
+  // --- SECTION EXPANSION (COLLAPSE/EXPAND) ---
+  const STORAGE_KEY = "admin_courses_expanded_sections";
+
+  const loadExpandedSectionsFromStorage = () => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        setExpandedSections(parsed);
+      }
+    } catch (error) {
+      console.error("Error loading expanded sections from localStorage:", error);
+    } finally {
+      setExpandedSectionsLoaded(true);
+    }
+  };
+
+  const saveExpandedSectionsToStorage = (sections) => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(sections));
+    } catch (error) {
+      console.error("Error saving expanded sections to localStorage:", error);
+    }
+  };
+
+  const getSectionExpansionKey = (section, sIdx) =>
+    getSectionIdentifier(section, `section-${sIdx}`);
+
+  const toggleSectionExpansion = (section, sIdx) => {
+    const key = getSectionExpansionKey(section, sIdx);
+    setExpandedSections((prev) => {
+      const next = { ...prev, [key]: !prev[key] };
+      saveExpandedSectionsToStorage(next);
+      return next;
+    });
+  };
+
+  const isSectionExpanded = (section, sIdx) => {
+    const key = getSectionExpansionKey(section, sIdx);
+    // Mặc định mở (true) nếu chưa có trong state
+    return expandedSections[key] !== false;
+  };
+
+  const toggleQuickAdd = (sIdx) => {
+    setQuickAddExpanded(prev => ({
+      ...prev,
+      [sIdx]: !prev[sIdx]
+    }));
+  };
+
+  const isQuickAddExpanded = (sIdx) => quickAddExpanded[sIdx] === true;
+
+  const toggleResourceExpansion = (resourceId) => {
+    setExpandedResources(prev => ({
+      ...prev,
+      [resourceId]: !prev[resourceId]
+    }));
+  };
+
+  const isResourceExpanded = (resourceId) => expandedResources[resourceId] === true;
 
   // Form state
   const [formData, setFormData] = useState({
@@ -279,6 +345,11 @@ const AdminCourses = () => {
 
   useEffect(() => {
     fetchCourses();
+  }, []);
+
+  // Load expanded sections state from localStorage on mount
+  useEffect(() => {
+    loadExpandedSectionsFromStorage();
   }, []);
 
   // -- SECTION & LESSON HANDLERS --
@@ -999,10 +1070,10 @@ const AdminCourses = () => {
 
     setIsUploadingImage(true);
     try {
-      const uploadResult = await uploadToCloudinary(selectedFile);
+      const publicUrl = await uploadFileToS3(selectedFile, null, { folder: "thumbnails" });
       setFormData((prev) => ({
         ...prev,
-        thumbnailUrl: uploadResult.secureUrl,
+        thumbnailUrl: publicUrl,
       }));
       showToast("Tải ảnh bìa thành công!");
     } catch (error) {
@@ -1028,10 +1099,10 @@ const AdminCourses = () => {
 
     setIsUploadingInstructorImage(true);
     try {
-      const uploadResult = await uploadToCloudinary(selectedFile);
+      const publicUrl = await uploadFileToS3(selectedFile, null, { folder: "instructors" });
       setFormData((prev) => ({
         ...prev,
-        instructorImageUrl: uploadResult.secureUrl,
+        instructorImageUrl: publicUrl,
       }));
       showToast("Tải ảnh giảng viên thành công!");
     } catch (error) {
@@ -2133,7 +2204,31 @@ const AdminCourses = () => {
                   {formData.curriculum && formData.curriculum.length > 0 ? (
                     <div className="space-y-10 pb-10">
                       {formData.curriculum.map((section, sIdx) => (
-                        <div key={sIdx} className="group/section rounded-[40px] bg-white border border-slate-100 shadow-sm hover:shadow-xl hover:shadow-slate-200/40 transition-all duration-500 overflow-hidden">
+                        <div
+                          key={sIdx}
+                          draggable
+                          onDragStart={(e) => {
+                            e.dataTransfer.setData("text/plain", String(sIdx));
+                            e.dataTransfer.effectAllowed = "move";
+                          }}
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            e.dataTransfer.dropEffect = "move";
+                          }}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            const sourceIdx = Number(e.dataTransfer.getData("text/plain"));
+                            if (sourceIdx !== sIdx && !isNaN(sourceIdx)) {
+                              setFormData(prev => {
+                                const newCurriculum = [...(prev.curriculum || [])];
+                                const [moved] = newCurriculum.splice(sourceIdx, 1);
+                                newCurriculum.splice(sIdx, 0, moved);
+                                return { ...prev, curriculum: newCurriculum };
+                              });
+                            }
+                          }}
+                          className="group/section rounded-[40px] bg-white border border-slate-100 shadow-sm hover:shadow-xl hover:shadow-slate-200/40 transition-all duration-500 overflow-hidden"
+                        >
                           {/* Section Header */}
                           <div className="p-8 pb-6 flex items-center justify-between bg-white">
                             <div className="flex items-center gap-4 flex-1">
@@ -2157,13 +2252,34 @@ const AdminCourses = () => {
                                 </div>
                               )}
                             </div>
-                            <button type="button" onClick={() => handleRemoveSection(sIdx)} className="p-3 rounded-2xl bg-rose-50/50 text-rose-300 hover:text-rose-600 hover:bg-rose-50 transition-all ml-4">
+                            <button
+                              type="button"
+                              onClick={() => toggleSectionExpansion(section, sIdx)}
+                              className="p-3 rounded-2xl bg-slate-50/50 text-slate-400 hover:text-secret-wax hover:bg-slate-50 transition-all ml-2"
+                              title={isSectionExpanded(section, sIdx) ? "Thu gọn chương" : "Mở rộng chương"}
+                            >
+                              <ChevronDown
+                                className={`w-5 h-5 transition-transform duration-300 ${isSectionExpanded(section, sIdx) ? "" : "-rotate-90"}`}
+                              />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => toggleQuickAdd(sIdx)}
+                              className={`p-3 rounded-2xl transition-all ml-2 ${isQuickAddExpanded(sIdx) ? 'bg-secret-wax text-white shadow-lg shadow-secret-wax/25' : 'bg-slate-50 text-slate-400 hover:text-secret-wax hover:bg-slate-100'}`}
+                              title="Thêm bài học mới"
+                            >
+                              <Plus className={`w-5 h-5 transition-transform duration-300 ${isQuickAddExpanded(sIdx) ? 'rotate-45' : ''}`} />
+                            </button>
+                            <button type="button" onClick={() => handleRemoveSection(sIdx)} className="p-3 rounded-2xl bg-rose-50/50 text-rose-300 hover:text-rose-600 hover:bg-rose-50 transition-all ml-2">
                               <Trash2 className="w-5 h-5" />
                             </button>
                           </div>
 
-                          {/* Quick Add Lesson for Section */}
-                          <div className="px-8 py-6 bg-slate-50/50 border-y border-slate-100">
+                          {/* Quick Add Lesson for Section - Collapsible */}
+                          {isSectionExpanded(section, sIdx) ? (
+                          <>
+                          {isQuickAddExpanded(sIdx) && (
+                          <div className="px-8 py-6 bg-slate-50/50 border-y border-slate-100 animate-in slide-in-from-top-2 duration-200">
                             <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
                               <div className="md:col-span-5">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2 block">Tên bài học</label>
@@ -2241,6 +2357,7 @@ const AdminCourses = () => {
                               </div>
                             </div>
                           </div>
+                          )}
 
                           {/* Lessons List in Section */}
                           <div className="p-4 space-y-3">
@@ -2249,9 +2366,28 @@ const AdminCourses = () => {
                               const isExp = Boolean(expandedLessons[expKey]);
 
                               return (
-                                <div key={lesson.id || lIdx} className="rounded-3xl border border-slate-50 bg-white hover:border-slate-200 transition-all overflow-hidden">
+                                <div
+                                  key={lesson.id || lIdx}
+                                  draggable
+                                  onDragStart={(e) => handleLessonDragStart(e, sIdx, lIdx)}
+                                  onDragOver={(e) => handleLessonDragOver(e, sIdx, lIdx)}
+                                  onDrop={(e) => handleLessonDrop(e, sIdx, lIdx)}
+                                  onDragLeave={() => setLessonDropTarget(null)}
+                                  className={`rounded-3xl border transition-all overflow-hidden ${isLessonDropTarget(sIdx, lIdx) ? 'border-secret-wax bg-secret-wax/5 ring-2 ring-secret-wax/20' : 'border-slate-50 bg-white hover:border-slate-200'}`}
+                                >
                                   <div className="p-4 flex flex-col md:flex-row md:items-center gap-4">
                                     <div className="flex items-center gap-3 flex-1">
+                                      {/* Drag Handle */}
+                                      <button
+                                        type="button"
+                                        draggable
+                                        onDragStart={(e) => handleLessonDragStart(e, sIdx, lIdx)}
+                                        className="p-1.5 rounded-lg text-slate-300 hover:text-slate-500 hover:bg-slate-100 cursor-grab active:cursor-grabbing transition-all"
+                                        title="Kéo để di chuyển bài học"
+                                      >
+                                        <GripVertical className="w-4 h-4" />
+                                      </button>
+
                                       <div className="w-8 h-8 rounded-xl bg-slate-50 flex items-center justify-center text-[10px] font-black text-slate-400">
                                         {lIdx + 1}
                                       </div>
@@ -2382,6 +2518,15 @@ const AdminCourses = () => {
                               </div>
                             )}
                           </div>
+                        </>
+                      ) : (
+                        /* Collapsed State - Show summary */
+                        <div className="px-8 py-4 bg-slate-50/30 border-t border-slate-100">
+                          <p className="text-sm text-slate-400 font-medium">
+                            {(section.lessons || []).length} bài học • Click để mở rộng
+                          </p>
+                        </div>
+                      )}
                         </div>
                       ))}
                     </div>
@@ -2420,50 +2565,112 @@ const AdminCourses = () => {
 
                     <div className="grid grid-cols-1 gap-4">
                       {(formData.courseResources || []).map((resource, idx) => (
-                        <div key={resource.id || idx} className="p-4 rounded-3xl bg-slate-50 border border-slate-100 flex flex-wrap md:flex-nowrap items-center gap-4">
-                          <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <input
-                              type="text"
-                              value={resource.name || ""}
-                              onChange={(e) => handleUpdateCourseResource(idx, "name", e.target.value)}
-                              placeholder="Tên tài liệu..."
-                              className="w-full h-11 rounded-2xl bg-white border border-slate-200 px-4 text-sm font-bold focus:ring-4 focus:ring-secret-wax/5 outline-none transition-all"
-                            />
-                            <div className="flex gap-2">
-                              <input
-                                type="text"
-                                value={resource.url || ""}
-                                onChange={(e) => handleUpdateCourseResource(idx, "url", e.target.value)}
-                                placeholder="Link URL..."
-                                className="flex-1 h-11 rounded-2xl bg-white border border-slate-200 px-4 text-sm font-bold focus:ring-4 focus:ring-secret-wax/5 outline-none transition-all"
-                              />
-                              <label className="h-11 w-11 shrink-0 flex items-center justify-center rounded-2xl bg-white border border-slate-200 text-slate-400 hover:text-emerald-500 hover:border-emerald-500 cursor-pointer transition-all">
-                                <input type="file" className="hidden" onChange={(e) => handleDocumentUpload(e, { type: "course", index: idx })} disabled={uploadingDocumentKey === `course-${idx}`} />
-                                {uploadingDocumentKey === `course-${idx}` ? (
-                                  <div className="w-5 h-5 border-2 border-emerald-200 border-t-emerald-500 rounded-full animate-spin" />
-                                ) : (
-                                  <Upload className="w-4 h-4" />
+                        <div key={resource.id || idx} className="p-4 rounded-3xl bg-slate-50 border border-slate-100">
+                          {/* Header - always visible */}
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                              <div className="p-2 rounded-xl bg-emerald-100 text-emerald-600 shrink-0">
+                                <FileText className="w-5 h-5" />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-sm font-bold text-slate-900 truncate">{resource.name || "Chưa đặt tên"}</p>
+                                {resource.linkedSectionId && (
+                                  <p className="text-xs text-slate-500 truncate">
+                                    {sectionOptions.find(s => s.value === resource.linkedSectionId)?.label || ""}
+                                    {resource.linkedLessonId && " → " + (lessonOptionsBySection[resource.linkedSectionId]?.find(l => l.value === resource.linkedLessonId)?.label || "")}
+                                  </p>
                                 )}
-                              </label>
-                            </div>
-                          </div>
-                          {uploadingDocumentKey === `course-${idx}` && (
-                            <div className="w-full md:absolute md:bottom-2 md:left-4 md:right-16 mt-2 md:mt-0">
-                              <div className="w-full bg-slate-100 rounded-full h-1 overflow-hidden">
-                                <div
-                                  className="bg-emerald-500 h-full transition-all duration-300"
-                                  style={{ width: `${documentUploadProgress || 0}%` }}
-                                />
                               </div>
                             </div>
+
+                            <div className="flex items-center gap-2 ml-4 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => toggleResourceExpansion(resource.id || idx)}
+                                className={`p-2.5 rounded-xl transition-all ${isResourceExpanded(resource.id || idx) ? 'bg-emerald-500 text-white' : 'bg-white text-slate-400 hover:text-emerald-500 hover:bg-emerald-50'}`}
+                                title={isResourceExpanded(resource.id || idx) ? "Thu gọn" : "Mở rộng"}
+                              >
+                                <ChevronDown className={`w-5 h-5 transition-transform duration-300 ${isResourceExpanded(resource.id || idx) ? '' : '-rotate-90'}`} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveCourseResource(idx)}
+                                className="p-2.5 rounded-xl bg-rose-50 text-rose-300 hover:text-rose-600 hover:bg-rose-100 transition-all"
+                              >
+                                <Trash2 className="w-5 h-5" />
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Expanded content - inputs */}
+                          {isResourceExpanded(resource.id || idx) && (
+                            <div className="mt-4 pt-4 border-t border-slate-200 space-y-4 animate-in slide-in-from-top-2 duration-200">
+                              {/* Name + URL row */}
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <input
+                                  type="text"
+                                  value={resource.name || ""}
+                                  onChange={(e) => handleUpdateCourseResource(idx, "name", e.target.value)}
+                                  placeholder="Tên tài liệu..."
+                                  className="w-full h-11 rounded-2xl bg-white border border-slate-200 px-4 text-sm font-bold focus:ring-4 focus:ring-secret-wax/5 outline-none transition-all"
+                                />
+                                <div className="flex gap-2">
+                                  <input
+                                    type="text"
+                                    value={resource.url || ""}
+                                    onChange={(e) => handleUpdateCourseResource(idx, "url", e.target.value)}
+                                    placeholder="Link URL..."
+                                    className="flex-1 h-11 rounded-2xl bg-white border border-slate-200 px-4 text-sm font-bold focus:ring-4 focus:ring-secret-wax/5 outline-none transition-all"
+                                  />
+                                  <label className="h-11 w-11 shrink-0 flex items-center justify-center rounded-2xl bg-white border border-slate-200 text-slate-400 hover:text-emerald-500 hover:border-emerald-500 cursor-pointer transition-all">
+                                    <input type="file" className="hidden" onChange={(e) => handleDocumentUpload(e, { type: "course", index: idx })} disabled={uploadingDocumentKey === `course-${idx}`} />
+                                    {uploadingDocumentKey === `course-${idx}` ? (
+                                      <div className="w-5 h-5 border-2 border-emerald-200 border-t-emerald-500 rounded-full animate-spin" />
+                                    ) : (
+                                      <Upload className="w-4 h-4" />
+                                    )}
+                                  </label>
+                                </div>
+                              </div>
+
+                              {/* Section & Lesson Link row */}
+                              <div className="flex flex-col sm:flex-row gap-3">
+                                <select
+                                  value={resource.linkedSectionId || ""}
+                                  onChange={(e) => handleCourseResourceSectionChange(idx, e.target.value)}
+                                  className="h-11 rounded-2xl bg-white border border-slate-200 px-4 text-sm font-bold text-slate-600 focus:ring-4 focus:ring-secret-wax/5 outline-none flex-1"
+                                >
+                                  <option value="">-- Không gắn chương --</option>
+                                  {sectionOptions.map((opt) => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                  ))}
+                                </select>
+
+                                <select
+                                  value={resource.linkedLessonId || ""}
+                                  onChange={(e) => handleCourseResourceLessonChange(idx, e.target.value)}
+                                  disabled={!resource.linkedSectionId}
+                                  className={`h-11 rounded-2xl border px-4 text-sm font-bold outline-none flex-1 ${resource.linkedSectionId ? 'bg-white border-slate-200 text-slate-600' : 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed'}`}
+                                >
+                                  <option value="">
+                                    {resource.linkedSectionId ? "-- Chọn buổi học --" : "-- Chọn chương trước --"}
+                                  </option>
+                                  {resource.linkedSectionId && lessonOptionsBySection[resource.linkedSectionId]?.map((opt) => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              {uploadingDocumentKey === `course-${idx}` && (
+                                <div className="mt-2">
+                                  <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                                    <div className="bg-emerald-500 h-full transition-all duration-300" style={{ width: `${documentUploadProgress || 0}%` }} />
+                                  </div>
+                                  <p className="text-xs font-bold text-emerald-600 mt-1">Đang tải lên...</p>
+                                </div>
+                              )}
+                            </div>
                           )}
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveCourseResource(idx)}
-                            className="p-3 rounded-2xl bg-rose-50 text-rose-300 hover:text-rose-600 transition-all"
-                          >
-                            <Trash2 className="w-5 h-5" />
-                          </button>
                         </div>
                       ))}
 
