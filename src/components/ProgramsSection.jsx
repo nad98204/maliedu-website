@@ -85,7 +85,7 @@ const PROGRAMS = [
 
 const ProgramsSection = () => {
   return (
-    <section className="pillars relative overflow-hidden py-10 lg:py-24">
+    <section className="pillars relative overflow-hidden py-20 lg:py-24">
       <style>{`
         .pillars__backdrop {
           background:
@@ -130,7 +130,21 @@ const ProgramsSection = () => {
       <div className="absolute inset-0 pillars__backdrop" />
       <div className="absolute inset-0 pillars__noise" />
       <div className="relative max-w-6xl mx-auto px-4 lg:px-8">
-        <div className="text-center max-w-3xl mx-auto">
+        {/* Header - Mobile */}
+        <div className="md:hidden text-center max-w-2xl mx-auto">
+          <span className="text-[10px] font-semibold uppercase tracking-[0.28em] text-[#f3c272]">
+            HỆ THỐNG GIÁO DỤC TOÀN DIỆN
+          </span>
+          <h2 className="mt-2 text-xl font-extrabold leading-tight text-[#f6eee5] uppercase tracking-wide">
+            CHƯƠNG TRÌNH <span className="bg-clip-text text-transparent bg-gradient-to-r from-[#f8c77d] via-[#f3a712] to-[#e17f3e]">ĐÀO TẠO MALI EDU</span>
+          </h2>
+          <p className="mt-3 text-[#e9dfd4] text-xs leading-relaxed max-w-[55ch] mx-auto">
+            Nhận thức nội tâm, chữa lành tài chính và tăng tốc hành động.
+          </p>
+        </div>
+
+        {/* Header - Desktop */}
+        <div className="hidden md:block text-center max-w-3xl mx-auto">
           <span className="text-[11px] font-semibold uppercase tracking-[0.32em] text-[#f3c272]">
             HỆ THỐNG GIÁO DỤC TOÀN DIỆN
           </span>
@@ -142,8 +156,56 @@ const ProgramsSection = () => {
           </p>
         </div>
 
-        <div className="mt-12 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-7">
-          {PROGRAMS.map(({ title, summary, bullets, ctaLine1, ctaLine2, link, icon: Icon, image, colorTheme }) => (
+        {/* Cards - Mobile */}
+        <div className="md:hidden mt-6 grid grid-cols-1 gap-5 px-2">
+          {PROGRAMS.map(({ title, summary, bullets, link, icon: Icon, image, colorTheme }) => (
+            <article
+              key={title}
+              className={`pillars__card md:hidden group relative overflow-hidden rounded-[18px] p-4 flex flex-col gap-3 border ${colorTheme.border} ${colorTheme.cardBg}`}
+            >
+              <div className="pillars__media relative overflow-hidden rounded-[14px]">
+                <img
+                  src={image}
+                  alt={title}
+                  loading="lazy"
+                  className="h-32 w-full object-cover"
+                />
+              </div>
+
+              <div className="flex items-center gap-2.5">
+                <span className={`flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br ${colorTheme.iconGradient} ${colorTheme.iconColor} shadow-[0_12px_30px_rgba(0,0,0,0.25)] border border-white/10`}>
+                  <Icon className="h-4 w-4" />
+                </span>
+                <h3 className={`text-base font-bold ${colorTheme.title}`}>{title}</h3>
+              </div>
+
+              <p className="text-xs text-[#e7ddcf] leading-relaxed line-clamp-2">{summary}</p>
+
+              <ul className="space-y-1.5 text-xs text-[#d9cfc3]">
+                {bullets.slice(0, 3).map((item) => (
+                  <li key={item} className="flex gap-1.5">
+                    <span className={`${colorTheme.bullet} mt-[1px]`}>✦</span>
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+
+              <div className="pt-1">
+                <Link
+                  to={link}
+                  className="w-full py-2.5 px-4 bg-white text-slate-900 font-bold rounded-full text-xs uppercase tracking-wide flex items-center justify-center gap-1.5"
+                >
+                  TÌM HIỂU THÊM
+                  <ArrowRight className="w-3 h-3" />
+                </Link>
+              </div>
+            </article>
+          ))}
+        </div>
+
+        {/* Cards - Desktop */}
+        <div className="hidden md:grid mt-12 grid-cols-2 xl:grid-cols-3 gap-7">
+          {PROGRAMS.map(({ title, summary, bullets, link, icon: Icon, image, colorTheme }) => (
             <article
               key={title}
               className={`pillars__card group relative overflow-hidden rounded-[22px] p-6 flex flex-col gap-4 transition duration-300 ease-out motion-reduce:transition-none hover:-translate-y-1.5 border ${colorTheme.border} ${colorTheme.cardBg}`}
@@ -178,13 +240,10 @@ const ProgramsSection = () => {
               <div className="pt-2">
                 <Link
                   to={link}
-                  className={`pillars__btn inline-flex items-center gap-2 rounded-full px-6 py-3 text-center transition duration-200 ease-out border ${colorTheme.button}`}
+                  className="group w-full py-3 px-6 bg-white text-slate-900 font-bold rounded-full shadow-lg hover:shadow-xl hover:scale-[1.02] hover:brightness-105 transition-all duration-300 flex items-center justify-center gap-2"
                 >
-                  <div className="flex flex-col items-start text-left">
-                    <span className="text-[10px] font-light uppercase tracking-widest opacity-90">{ctaLine1}</span>
-                    <span className="text-xs font-bold uppercase tracking-[0.14em]">{ctaLine2}</span>
-                  </div>
-                  <ArrowRight size={16} className="ml-2 transition duration-200 ease-out group-hover:translate-x-0.5" />
+                  <span className="text-xs font-bold uppercase tracking-wide">TÌM HIỂU THÊM</span>
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                 </Link>
               </div>
             </article>

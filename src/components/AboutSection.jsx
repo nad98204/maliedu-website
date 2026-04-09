@@ -21,120 +21,168 @@ const AboutSection = () => {
     ];
 
     return (
-        <section className="py-10 lg:py-24 bg-[#FAF7F2] overflow-hidden">
+        <section className="py-12 lg:py-24 bg-[#FAF7F2] overflow-hidden">
             <div className="max-w-6xl mx-auto px-4 lg:px-8">
 
-                {/* Main Content - Mobile: Row Layout (Magazine), Desktop: Row (Card) */}
-                <div className="flex flex-row-reverse items-center lg:items-start lg:flex-row gap-4 lg:gap-14 mb-8 lg:mb-10">
-
-                    {/* Image Column */}
-                    <div className="w-[40%] lg:w-[320px] flex-shrink-0 relative">
-                        {/* Card Style (Unified for Desktop and Mobile) */}
-                        <div className="relative mt-3 ml-2 lg:mt-0 lg:ml-0">
-                            <div className="absolute -left-2 -top-2 lg:-left-3 lg:-top-3 h-full w-full rounded-2xl border border-[#8B2E2E]/20" />
-                            <div className="relative z-10 overflow-hidden rounded-2xl shadow-xl bg-white">
-                                <img
-                                    src="https://s3-hn1-api.longvan.vn/video-khoa-hoc/videos/1773736929295-661078967--o-Tr-ng-C--i-Gh-p-Banner.png"
-                                    alt="Coach Mong"
-                                    className="w-full h-auto object-contain"
-                                />
-                            </div>
-                            <div className="absolute -bottom-2 -right-2 lg:-bottom-3 lg:-right-3 z-20 bg-white rounded-lg lg:rounded-xl shadow-lg px-2 lg:px-4 py-1.5 lg:py-2.5 border border-[#8B2E2E]/10 flex flex-col items-center">
-                                <p className="text-[8px] lg:text-[11px] text-gray-500 font-medium">Người sáng lập</p>
-                                <p className="text-[11px] lg:text-sm font-bold text-[#8B2E2E] whitespace-nowrap">Coach Mong</p>
-                            </div>
+                {/* Main Content Grid - Mobile */}
+                <div className="lg:hidden space-y-4">
+                    {/* Founder Image Mobile */}
+                    <div className="relative mx-auto w-full max-w-[280px]">
+                        <img
+                            src="https://s3-hn1-api.longvan.vn/video-khoa-hoc/videos/1773736929295-661078967--o-Tr-ng-C--i-Gh-p-Banner.png"
+                            alt="Coach Mong"
+                            className="w-full h-auto rounded-[32px] shadow-xl object-contain max-h-[350px]"
+                        />
+                        {/* Badge */}
+                        <div className="absolute -bottom-2 -right-1 bg-white rounded-lg shadow-md px-2.5 py-1 border border-secret-wax/10">
+                            <p className="text-[9px] text-slate-500">Người sáng lập</p>
+                            <p className="text-[11px] font-bold text-secret-wax">Coach Mong</p>
                         </div>
                     </div>
 
-                    {/* Right Column - Content */}
-                    <div className="flex-1 flex flex-col lg:block min-h-0 text-center lg:text-left">
-                        {/* Mobile Badge & Title */}
-                        <div className="lg:hidden mb-2">
-                            <div className="inline-block px-3 py-1 rounded-full bg-[#8B2E2E]/10 border border-[#8B2E2E]/20 mb-2">
-                                <p className="text-[10px] sm:text-xs font-bold text-[#8B2E2E] uppercase tracking-wider">Người sáng lập</p>
-                            </div>
-                            <h2 className="text-2xl sm:text-3xl font-extrabold text-[#8B2E2E] leading-tight">
-                                Về Mali EDU
-                            </h2>
-                        </div>
-
-                        {/* Desktop Header */}
-                        <div className="hidden lg:block mb-5">
-                            <h2 className="text-[2.5rem] text-[#1a1a1a] font-bold leading-tight mb-2">
-                                Về Mali EDU
-                            </h2>
-                            <p className="text-[#5a5a5a] text-base leading-relaxed">
-                                Hệ sinh thái đào tạo & coaching phát triển bản thân
+                    {/* Content Stack Mobile */}
+                    <div className="space-y-4 mt-6">
+                        {/* Header */}
+                        <div className="text-center">
+                            <h2 className="text-3xl font-black text-[#1a1a1a]">Về Mali EDU</h2>
+                            <p className="text-base text-slate-500 font-medium mt-1">
+                                Hệ sinh thái đào tạo & coaching
                             </p>
                         </div>
 
-                        {/* Content Body - Floating Card on Desktop, Plain on Mobile */}
-                        <div className="relative group lg:overflow-hidden lg:bg-gradient-to-br lg:from-white lg:to-[#fffcf8] lg:rounded-[2rem] lg:p-10 lg:border lg:border-[#E8E4DC] lg:shadow-[0_20px_50px_-12px_rgba(139,46,46,0.15)] transition-all duration-300">
-                            {/* Desktop Decor */}
-                            <div className="hidden lg:block absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#8B2E2E] via-[#C8A96A] to-[#8B2E2E]" />
-                            <div className="hidden lg:block absolute -right-6 -top-6 w-24 h-24 bg-[#C8A96A]/5 rounded-full blur-2xl/10" />
-
-                            <div className="relative z-10 space-y-4 lg:space-y-8">
-                                <div>
-                                    {/* Mobile/Desktop distinct styling for intro text */}
-                                    <p className="text-[#2a2a2a] text-sm lg:text-xl font-medium leading-[1.6]">
-                                        <span className="font-bold text-[#8B2E2E] lg:text-transparent lg:bg-clip-text lg:bg-gradient-to-r lg:from-[#8B2E2E] lg:to-[#C8A96A] uppercase tracking-wide">Mali Edu</span> đồng hành cùng bạn trên hành trình khai mở Luật Hấp Dẫn,
-                                        chữa lành nội tâm và xây dựng tư duy thịnh vượng bền vững.
-                                    </p>
-
-                                    <div className="mt-4 flex gap-3 hidden lg:flex">
-                                        <div className="w-1 h-auto bg-[#E8E4DC] rounded-full" />
-                                        <p className="text-[#5a5a5a] text-[15px] leading-relaxed italic">
-                                            "Chúng tôi kết hợp đào tạo thực chiến với coaching sâu để bạn làm chủ cảm xúc,
-                                            hành động rõ ràng và sống một đời sống tự do, an lạc."
-                                        </p>
-                                    </div>
-                                </div>
-
-                                {/* Signature Block */}
-                                <div className="pt-4 lg:pt-6 border-t border-[#8B2E2E]/10 lg:border-[#E8E4DC]/60 relative">
-                                    <div className="flex items-start gap-3">
-                                        <div>
-                                            <h3 className="text-[#8B2E2E] text-base lg:text-lg font-bold mb-1 font-heading uppercase tracking-wider">
-                                                Mong Coaching
-                                            </h3>
-                                            <p className="text-[#6b6b6b] text-xs lg:text-[15px] leading-relaxed">
-                                                Nhà huấn luyện và dẫn dắt về tiềm thức – nội tâm – tài chính.
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
+                        {/* MALI EDU Box */}
+                        <div className="bg-gradient-to-br from-secret-wax/10 to-transparent rounded-2xl p-4 border border-secret-wax/20">
+                            <p className="text-[#2a2a2a] text-base leading-relaxed">
+                                <span className="font-bold text-secret-wax">MALI EDU</span> đồng hành cùng bạn trên hành trình khai mở Luật Hấp Dẫn, chữa lành nội tâm và xây dựng tư duy thịnh vượng.
+                            </p>
+                            {/* Quote */}
+                            <div className="mt-3 flex gap-2">
+                                <div className="w-0.5 bg-secret-wax/30 rounded-full" />
+                                <p className="text-xs text-slate-600 leading-relaxed italic">
+                                    "Kết hợp đào tạo thực chiến với coaching sâu..."
+                                </p>
                             </div>
+                        </div>
+
+                        {/* MONG COACHING Box */}
+                        <div className="bg-white rounded-2xl p-4 shadow-md border-l-4 border-secret-wax">
+                            <h3 className="text-lg font-bold text-secret-wax">MONG COACHING</h3>
+                            <p className="text-sm text-slate-600 leading-relaxed">
+                                Nhà huấn luyện và dẫn dắt về tiềm thức – nội tâm – tài chính.
+                            </p>
                         </div>
                     </div>
                 </div>
 
-                {/* Value Cards - 3 Columns */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 lg:gap-6 pb-12">
+                {/* Main Content Grid - Desktop */}
+                <div className="hidden lg:grid lg:grid-cols-2 gap-8 lg:gap-12 items-center py-8 lg:py-0 mb-6 lg:mb-8">
+                    {/* Left: Founder Image */}
+                    <div className="relative mx-auto w-full max-w-[400px]">
+                        <div className="relative">
+                            <img
+                                src="https://s3-hn1-api.longvan.vn/video-khoa-hoc/videos/1773736929295-661078967--o-Tr-ng-C--i-Gh-p-Banner.png"
+                                alt="Coach Mong"
+                                className="w-full h-auto rounded-[40px] shadow-2xl object-contain max-h-[500px]"
+                            />
+                            {/* Badge */}
+                            <div className="absolute bottom-4 -right-3 bg-white rounded-xl shadow-lg px-3 py-1.5 border border-secret-wax/10">
+                                <p className="text-[10px] text-slate-500 font-medium">Người sáng lập</p>
+                                <p className="text-xs font-bold text-secret-wax">Coach Mong</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Right: Content Stack */}
+                    <div className="space-y-6">
+                        {/* Header */}
+                        <div>
+                            <h2 className="text-4xl lg:text-5xl font-black text-[#1a1a1a] leading-tight">
+                                Về Mali EDU
+                            </h2>
+                            <p className="text-lg text-slate-500 font-medium mt-2">
+                                Hệ sinh thái đào tạo & coaching phát triển bản thân
+                            </p>
+                        </div>
+
+                        {/* MALI EDU Box */}
+                        <div className="bg-gradient-to-br from-secret-wax/10 to-transparent rounded-3xl p-6 border border-secret-wax/20">
+                            <p className="text-[#2a2a2a] text-lg leading-relaxed">
+                                <span className="font-bold text-secret-wax uppercase tracking-wide">MALI EDU</span> đồng hành cùng bạn trên hành trình khai mở Luật Hấp Dẫn,
+                                chữa lành nội tâm và xây dựng tư duy thịnh vượng bền vững.
+                            </p>
+
+                            {/* Quote */}
+                            <div className="mt-4 flex gap-3">
+                                <div className="w-1 bg-secret-wax/30 rounded-full" />
+                                <p className="text-sm text-slate-600 leading-relaxed italic">
+                                    "Chúng tôi kết hợp đào tạo thực chiến với coaching sâu để bạn làm chủ cảm xúc,
+                                    hành động rõ ràng và sống một đời sống tự do, an lạc."
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* MONG COACHING Box */}
+                        <div className="bg-white rounded-3xl p-6 shadow-lg shadow-slate-200/50 border-l-4 border-secret-wax">
+                            <h3 className="text-xl font-bold text-secret-wax mb-1">
+                                MONG COACHING
+                            </h3>
+                            <p className="text-slate-600 leading-relaxed">
+                                Nhà huấn luyện và dẫn dắt về tiềm thức – nội tâm – tài chính.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* 3 Pillars Section - Mobile */}
+                <div className="lg:hidden grid grid-cols-1 gap-3 mt-6">
                     {values.map((item, index) => {
                         const IconComponent = item.icon;
                         return (
                             <div
                                 key={index}
-                                className="group bg-white rounded-xl p-4 lg:p-6 border border-[#E8E4DC] border-l-4 border-l-[#8B2E2E] shadow-sm hover:border-[#8B2E2E]/30 hover:shadow-lg transition-all duration-300 h-auto flex flex-row lg:block items-start gap-4 lg:gap-0"
+                                className="flex items-center gap-4 p-4 rounded-2xl bg-white border border-slate-100"
                             >
                                 {/* Icon */}
-                                <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-xl bg-[#8B2E2E]/5 flex items-center justify-center shrink-0 mb-0 lg:mb-4 group-hover:bg-[#8B2E2E]/10 transition-colors duration-300">
-                                    <IconComponent className="w-5 h-5 lg:w-6 lg:h-6 text-[#8B2E2E]" strokeWidth={1.5} />
+                                <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center flex-shrink-0">
+                                    <IconComponent className="w-5 h-5 text-secret-wax" strokeWidth={1.5} />
                                 </div>
-
-                                {/* Content Wrapper */}
+                                {/* Text */}
                                 <div>
-                                    {/* Title */}
-                                    <h3 className="text-base lg:text-lg font-bold text-[#1a1a1a] mb-1 lg:mb-2 uppercase tracking-wide">
+                                    <h3 className="text-sm font-bold text-[#1a1a1a] uppercase tracking-wide">
                                         {item.title}
                                     </h3>
-
-                                    {/* Description */}
-                                    <p className="text-[#5a5a5a] leading-relaxed text-sm lg:text-[15px]">
+                                    <p className="text-xs text-slate-600 leading-relaxed mt-0.5">
                                         {item.description}
                                     </p>
                                 </div>
+                            </div>
+                        );
+                    })}
+                </div>
+
+                {/* 3 Pillars Section - Desktop */}
+                <div className="hidden lg:grid lg:grid-cols-3 gap-4 lg:gap-6">
+                    {values.map((item, index) => {
+                        const IconComponent = item.icon;
+                        return (
+                            <div
+                                key={index}
+                                className="p-6 lg:p-8 rounded-[32px] bg-white border border-slate-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
+                            >
+                                {/* Icon Container */}
+                                <div className="w-14 h-14 rounded-2xl bg-slate-50 flex items-center justify-center">
+                                    <IconComponent className="w-6 h-6 text-secret-wax" strokeWidth={1.5} />
+                                </div>
+
+                                {/* Title */}
+                                <h3 className="text-lg font-black mt-4 text-[#1a1a1a] uppercase tracking-wide">
+                                    {item.title}
+                                </h3>
+
+                                {/* Description */}
+                                <p className="text-sm text-slate-600 mt-2 leading-relaxed">
+                                    {item.description}
+                                </p>
                             </div>
                         );
                     })}

@@ -385,7 +385,7 @@ const SuccessStories = () => {
   const carouselItems = getCarouselItems();
 
   return (
-    <section className="section bg-[#f5f0e8] py-10 lg:py-24">
+    <section className="section bg-[#f5f0e8] py-20 lg:py-24">
       <div className="container mx-auto px-4">
         {/* Header Text - Dynamic */}
         <div className="text-center mb-8 max-w-3xl mx-auto">

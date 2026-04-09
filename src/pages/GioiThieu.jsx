@@ -61,7 +61,7 @@ const trainingFields = [
   },
   {
     title: "Chuyển hóa niềm tin – cảm xúc – nội tâm",
-    description: "Quan sát, giải tỏa và tái lập những niềm tin và cảm xúc đang kìm hãm.", // Mượn mô tả cũ cho khớp layout hoặc để trống nếu muốn thuần text
+    description: "Quan sát, giải tỏa và tái lập những niềm tin và cảm xúc đang kìm hãm.",
     icon: Layers,
   },
   {
@@ -73,6 +73,29 @@ const trainingFields = [
     title: "Phát triển bản thân cho cá nhân, người kinh doanh và chủ doanh nghiệp",
     description: "Xây dựng nội lực vững vàng cho người làm kinh doanh và lãnh đạo.",
     icon: Compass,
+  },
+];
+
+const fourPillars = [
+  {
+    title: "Khám phá Tiềm Thức",
+    description: "Đánh thức sức mạnh ngu quần để phục vụ mục tiêu của bạn.",
+    Icon: Sparkles,
+  },
+  {
+    title: "Luật Hấp Dẫn Ứng dụng",
+    description: "Biến các quy luật vô hình thành kết quả hữ hình (tiền bạc, nhà cửa, sự nghiệp).",
+    Icon: Target,
+  },
+  {
+    title: "Phát triển Thịnh vượng",
+    description: "Xây dựng tâm thế của người giàu có từ bên trong để thu hút vật chất bên ngoài.",
+    Icon: Star,
+  },
+  {
+    title: "Sống Cuộc Đời Tự Do Trọn Vẹn",
+    description: "Kết hợp sự giàu có về vật chất với sự bình an trong tâm hồn để tận hưởng hạnh phúc trong từng khoảnh khắc.",
+    Icon: HeartHandshake,
   },
 ];
 
@@ -146,7 +169,7 @@ const GioiThieu = () => {
       />
 
       {/* 1. HERO SECTION - Refined Artistic Style */}
-      <section id="ve-mali-edu" className="relative pt-24 pb-6 lg:pt-32 lg:pb-16 overflow-hidden bg-secret-paper bg-paper-texture text-secret-ink">
+      <section id="ve-mali-edu" className="relative pt-16 pb-8 lg:pt-32 lg:pb-16 overflow-hidden bg-secret-paper bg-paper-texture text-secret-ink">
         {/* Subtle decorative blurs */}
         <div className="absolute top-0 right-0 -mr-20 -mt-20 w-96 h-96 bg-secret-gold/5 rounded-full blur-3xl -z-0" />
         <div className="absolute bottom-0 left-0 -ml-20 w-72 h-72 bg-secret-wax/5 rounded-full blur-3xl -z-0" />
@@ -156,12 +179,26 @@ const GioiThieu = () => {
 
             {/* Left Content */}
             <div className="lg:col-span-7 space-y-8">
-              <div className="inline-flex items-center gap-3 text-secret-wax font-bold tracking-widest text-sm uppercase">
+              {/* Mobile Eyebrow */}
+              <div className="lg:hidden inline-flex items-center gap-2 text-secret-wax font-bold tracking-widest text-xs uppercase mb-4">
+                <span className="w-6 h-0.5 bg-secret-gold"></span>
+                Giới thiệu Mali Edu
+              </div>
+
+              {/* Desktop Eyebrow */}
+              <div className="hidden lg:inline-flex items-center gap-3 text-secret-wax font-bold tracking-widest text-sm uppercase">
                 <span className="w-10 h-0.5 bg-secret-gold"></span>
                 Giới thiệu Mali Edu
               </div>
 
-              <h1 className="font-playfair font-bold text-secret-ink leading-snug">
+              {/* Mobile Title Stack */}
+              <h1 className="lg:hidden font-playfair font-bold text-secret-ink leading-tight mb-4">
+                <span className="block text-3xl">Đào tạo chuyển hóa nội tâm</span>
+                <span className="block text-4xl text-secret-wax mt-2">Vận hành tiềm thức</span>
+              </h1>
+
+              {/* Desktop Title */}
+              <h1 className="hidden lg:block font-playfair font-bold text-secret-ink leading-snug">
                 <span className="block whitespace-nowrap text-4xl sm:text-5xl lg:text-5xl">
                   Đào tạo chuyển hóa nội tâm
                 </span>
@@ -170,17 +207,46 @@ const GioiThieu = () => {
                 </span>
               </h1>
 
-              <p className="text-lg text-secret-ink/80 leading-relaxed max-w-2xl">
+              {/* Mobile Description */}
+              <p className="lg:hidden text-base text-secret-ink/80 leading-relaxed mb-4">
+                Mali Edu là đơn vị đào tạo và huấn luyện phát triển bản thân...
+              </p>
+
+              {/* Desktop Description */}
+              <p className="hidden lg:block text-lg text-secret-ink/80 leading-relaxed max-w-2xl">
                 Mali Edu là đơn vị đào tạo và huấn luyện phát triển bản thân, tập trung vào tiềm thức – nội tâm – năng lượng – tài chính, với định hướng giúp con người hiểu đúng – vận hành đúng – thay đổi bền vững từ gốc rễ.
               </p>
 
-              <div className="border-l-2 border-secret-gold/50 pl-6 italic text-secret-ink/70">
+              {/* Mobile Quote */}
+              <div className="lg:hidden border-l-2 border-secret-gold/50 pl-4 italic text-sm text-secret-ink/70 mb-6">
+                "Chúng tôi không dạy lý thuyết suông..."
+              </div>
+
+              {/* Desktop Quote */}
+              <div className="hidden lg:block border-l-2 border-secret-gold/50 pl-6 italic text-secret-ink/70">
                 "Chúng tôi không dạy lý thuyết suông, không cổ vũ niềm tin mơ hồ, mà tập trung vào nhận thức đúng, thực hành đúng và tạo ra kết quả thật trong cuộc sống, công việc và tài chính."
               </div>
             </div>
 
-            {/* Right Content / Note Card */}
-            <div className="lg:col-span-5 relative">
+            {/* Mobile Triết Lý Card */}
+            <div className="lg:hidden bg-white/80 backdrop-blur-sm rounded-xl p-5 shadow-lg border border-secret-dark/10">
+              <h3 className="font-playfair text-lg font-bold text-secret-wax mb-3">Triết Lý Cốt Lõi</h3>
+              <p className="text-sm text-secret-ink/80 mb-4 italic">"Khi thế giới bên trong..."</p>
+
+              <div className="space-y-3">
+                {['Hướng vào bên trong', 'Hành động tỉnh thức', 'Kết quả bền vững'].map((item, i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <div className="w-7 h-7 rounded-full bg-secret-gold/10 flex items-center justify-center text-secret-gold font-bold text-sm">
+                      {i + 1}
+                    </div>
+                    <p className="text-sm font-medium text-secret-ink">{item}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Right Content / Note Card - Desktop Only */}
+            <div className="hidden lg:block lg:col-span-5 relative">
               <div className="relative z-10 bg-white/60 backdrop-blur-sm rounded-2xl p-8 shadow-xl shadow-secret-wax/10 border border-secret-dark/10">
 
                 {/* Wax Seal */}
@@ -218,65 +284,102 @@ const GioiThieu = () => {
                   </div>
                 </div>
               </div>
-              {/* Decorative dots removed for a cleaner, more artistic look */}
             </div>
 
           </div>
         </div>
       </section>
 
-      {/* 2. SỨ MỆNH & TẦM NHÌN */}
-      <section className="pt-6 pb-10 lg:pb-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid lg:grid-cols-2 gap-16">
+      {/* 2. SỨ MỆNH MALI EDU - The Secret Manuscript Style */}
+      <section className="relative py-16 lg:py-24 overflow-hidden">
+        {/* Parchment gradient background */}
+        <div className="absolute inset-0 bg-gradient-to-b from-[#FAF7F0] via-[#F5EDE0] to-[#FAF7F0]" />
+        {/* Subtle paper texture overlay */}
+        <div 
+          className="absolute inset-0 opacity-[0.03]"
+          style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%238B4513' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
+          }}
+        />
 
-            {/* Sứ mệnh */}
-            <div className="relative">
-              <SectionHeading sub="Sứ mệnh" title="Sứ Mệnh Của Mali Edu" align="left" />
-              <div className="space-y-6">
-                {missionPoints.map((point, index) => (
-                  <div key={index} className="flex gap-4 group">
-                    <div className="mt-1 w-8 h-8 rounded-full bg-[#F2EFE5] flex items-center justify-center group-hover:bg-[#8B2E2E] transition-colors duration-300 flex-shrink-0">
-                      <Star className="w-4 h-4 text-[#8B2E2E] group-hover:text-white transition-colors" />
-                    </div>
-                    <p className="flex-1 text-gray-600 leading-relaxed group-hover:text-gray-900 transition-colors">
-                      {point}
-                    </p>
-                  </div>
-                ))}
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          
+          {/* Header with Title & Quote */}
+          <div className="text-center mb-12 lg:mb-16">
+            {/* Wax Seal Badge */}
+            <div className="inline-flex items-center justify-center mb-6">
+              <div className="w-16 h-16 rounded-full bg-secret-wax flex items-center justify-center shadow-lg shadow-secret-wax/30 ring-4 ring-white/50">
+                <Sparkles className="w-8 h-8 text-white" />
               </div>
             </div>
 
-            {/* Tầm nhìn */}
-            <div className="relative bg-[#2C1810] rounded-3xl p-10 text-white overflow-hidden">
-              {/* Pattern overlay */}
-              <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#D4AF37_1px,transparent_1px)] [background-size:16px_16px]"></div>
+            {/* Main Title */}
+            <h2 className="text-5xl lg:text-6xl font-black text-[#5D4037] tracking-wide mb-2">
+              SỨ MỆNH
+              <span className="text-secret-wax"> MALI</span>
+              <span className="text-[#D4AF37]"> EDU</span>
+            </h2>
 
-              <div className="relative z-10">
-                <div className="flex items-center gap-3 mb-6">
-                  <span className="p-2 bg-[#D4AF37] rounded-lg text-white">
-                    <Target className="w-6 h-6" />
-                  </span>
-                  <span className="text-sm font-bold tracking-widest uppercase text-[#D4AF37]">Tầm nhìn</span>
-                </div>
-
-                <h3 className="text-2xl font-playfair font-bold mb-6 text-[#F1D7A6]">
-                  Hệ sinh thái đào tạo phát triển nội tâm và tiềm thức uy tín tại Việt Nam
-                </h3>
-
-                <p className="text-white/80 mb-6 leading-relaxed">
-                  Chúng tôi lựa chọn phát triển <span className="text-[#D4AF37] font-semibold">chậm mà chắc</span>, lấy giá trị thật và kết quả thật của học viên làm nền tảng cho thương hiệu.
+            {/* Quote Box */}
+            <div className="relative max-w-3xl mx-auto mt-8">
+              <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-xl border border-[#D4AF37]/30">
+                {/* Decorative quotes */}
+                <div className="absolute -top-4 left-6 text-5xl text-[#D4AF37] font-serif">"</div>
+                <div className="absolute -bottom-8 right-6 text-5xl text-[#D4AF37] font-serif">"</div>
+                
+                <p className="text-xl md:text-2xl italic text-[#5D4037] font-serif text-center leading-relaxed px-8">
+                  Cái gì có trong đầu, sẽ có trên tay.
                 </p>
-
-                <div className="grid gap-3">
-                  {visionHighlights.map((item, idx) => (
-                    <div key={idx} className="bg-white/10 backdrop-blur-md border border-white/10 p-3 rounded-xl flex items-center gap-3">
-                      <div className="w-2 h-2 bg-[#D4AF37] rounded-full"></div>
-                      <p className="text-sm font-medium text-white/90">{item}</p>
-                    </div>
-                  ))}
-                </div>
               </div>
+            </div>
+          </div>
+
+          {/* Two Column Layout */}
+          <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-start">
+            
+            {/* Left: Mission Story */}
+            <div className="space-y-6">
+              <div className="space-y-6 text-[#6D4C41] leading-[1.8] text-lg max-w-xl">
+                <p>
+                  Sứ mệnh của Mali Edu là hiện thực hóa câu nói đó cho hàng triệu người Việt Nam thông qua việc làm chủ Luật Hấp Dẫn.
+                </p>
+                <p>
+                  Chúng tôi tin rằng Luật Hấp Dẫn không phải là sự chờ đợi phép màu, mà là khoa học cứu sự tập trung và niềm tin. Mali Edu tập trung trang bị cho bạn tư duy đúng, công cụ đúng để Manifest (Kiến tạo) chính xác những gì bạn khao khát: Tự do tài chính, mối quan hệ hoàn hảo và sự bình an nội tại.
+                </p>
+              </div>
+              
+              {/* CTA */}
+              <div className="pt-4">
+                <a href="#" className="inline-flex items-center gap-2 text-secret-wax font-bold text-lg underline decoration-2 underline-offset-4 hover:text-[#D4AF37] transition-colors">
+                  Mali Edu – Cùng bạn kiến tạo cuộc đời thịnh vượng từ sức mạnh tâm thức.
+                  <ArrowRight className="w-5 h-5" />
+                </a>
+              </div>
+            </div>
+
+            {/* Right: 4 Pillars Grid */}
+            <div className="grid sm:grid-cols-2 gap-4 lg:gap-5">
+              {fourPillars.map((pillar, idx) => (
+                <div
+                  key={idx}
+                  className="group bg-white rounded-3xl p-5 lg:p-6 shadow-lg hover:shadow-2xl transition-all duration-300 border-t-4 border-[#D4AF37] hover:-translate-y-1 hover:scale-[1.02]"
+                >
+                  {/* Icon */}
+                  <div className="w-12 h-12 rounded-2xl bg-[#F5EDE0] flex items-center justify-center mb-4 group-hover:bg-secret-wax transition-colors duration-300">
+                    <pillar.Icon className="w-6 h-6 text-[#8B4513] group-hover:text-white transition-colors" />
+                  </div>
+                  
+                  {/* Title */}
+                  <h3 className="font-bold text-lg text-[#5D4037] mb-2 leading-tight">
+                    {pillar.title}
+                  </h3>
+                  
+                  {/* Description */}
+                  <p className="text-sm text-[#8D6E63] leading-relaxed">
+                    {pillar.description}
+                  </p>
+                </div>
+              ))}
             </div>
 
           </div>

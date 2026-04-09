@@ -82,23 +82,23 @@ export default function FeaturedCourses() {
 
     if (loading) {
         return (
-            <div className="py-10 lg:py-24 bg-[#FAF7F2]">
+            <section className="py-20 lg:py-24 bg-[#FAF7F2]">
                 <div className="max-w-7xl mx-auto px-4 text-center">
                     <p>Đang tải khóa học...</p>
                 </div>
-            </div>
+            </section>
         );
     }
 
     return (
-        <div className="py-10 lg:py-24 bg-[#FAF7F2]">
+        <section className="py-20 lg:py-24 bg-[#FAF7F2]">
             <div className="max-w-7xl mx-auto px-4">
-                {/* Header */}
-                <div className="text-center mb-10">
-                    <div className="relative inline-block px-6 py-2 rounded-full border-2 border-[#8B2E2E] animate-pulse shadow-[0_0_15px_rgba(139,46,46,0.3)]">
-                        <h2 className="inline-flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2 text-lg md:text-2xl font-bold text-[#8B2E2E] uppercase tracking-wide m-0 text-center">
-                            <span className="flex items-center gap-2">
-                                <TrendingUp className="w-5 h-5 md:w-6 md:h-6" />
+                {/* Header - Mobile */}
+                <div className="md:hidden text-center mb-6">
+                    <div className="relative inline-block px-4 py-1.5 rounded-full border-2 border-[#8B2E2E] shadow-[0_0_10px_rgba(139,46,46,0.2)]">
+                        <h2 className="flex flex-col items-center text-sm font-bold text-[#8B2E2E] uppercase tracking-wide m-0">
+                            <span className="flex items-center gap-1">
+                                <TrendingUp className="w-4 h-4" />
                                 KHÓA HỌC ONLINE
                             </span>
                             <span>ĐƯỢC YÊU THÍCH NHẤT</span>
@@ -106,43 +106,45 @@ export default function FeaturedCourses() {
                     </div>
                 </div>
 
-                {/* Category Filter - Horizontal Scroll on Mobile */}
-                {/* Filter Links - Mobile Marquee */}
-                <div className="mb-8 md:hidden">
+                {/* Header - Desktop */}
+                <div className="hidden md:block text-center mb-10">
+                    <div className="relative inline-block px-6 py-2 rounded-full border-2 border-[#8B2E2E] animate-pulse shadow-[0_0_15px_rgba(139,46,46,0.3)]">
+                        <h2 className="inline-flex items-center justify-center gap-2 text-2xl font-bold text-[#8B2E2E] uppercase tracking-wide m-0 text-center">
+                            <span className="flex items-center gap-2">
+                                <TrendingUp className="w-6 h-6" />
+                                KHÓA HỌC ONLINE
+                            </span>
+                            <span>ĐƯỢC YÊU THÍCH NHẤT</span>
+                        </h2>
+                    </div>
+                </div>
+
+                {/* Category Filter - Mobile Manual Scroll */}
+                <div className="md:hidden mb-6">
                     <style>{`
-                        .wrapper-marquee .swiper-wrapper {
-                            transition-timing-function: linear !important;
+                        .scrollbar-hide::-webkit-scrollbar {
+                            display: none;
+                        }
+                        .scrollbar-hide {
+                            -ms-overflow-style: none;
+                            scrollbar-width: none;
                         }
                     `}</style>
-                    <Swiper
-                        modules={[Autoplay, FreeMode]}
-                        spaceBetween={12}
-                        slidesPerView={'auto'}
-                        loop={true}
-                        freeMode={true}
-                        grabCursor={true}
-                        speed={4000}
-                        autoplay={{
-                            delay: 0,
-                            disableOnInteraction: false,
-                        }}
-                        className="wrapper-marquee !pb-4 px-1"
-                    >
-                        {[...categories, ...categories, ...categories, ...categories].map((category, idx) => (
-                            <SwiperSlide key={`${category.id}-${idx}`} className="!w-auto">
-                                <button
-                                    onClick={() => setSelectedCategory(category.id)}
-                                    className={`whitespace-nowrap px-5 py-2.5 rounded-full font-medium text-sm transition-all duration-300 block
-                                        ${selectedCategory === category.id
-                                            ? 'bg-[#8B2E2E] text-white shadow-md'
-                                            : 'bg-white text-gray-500 hover:bg-gray-50 hover:text-[#8B2E2E] border border-gray-100 shadow-sm'
-                                        }`}
-                                >
-                                    {category.name}
-                                </button>
-                            </SwiperSlide>
+                    <div className="flex gap-2 overflow-x-auto pb-2 px-1 scrollbar-hide snap-x snap-mandatory">
+                        {categories.map((category) => (
+                            <button
+                                key={category.id}
+                                onClick={() => setSelectedCategory(category.id)}
+                                className={`snap-start flex-shrink-0 whitespace-nowrap px-4 py-2 rounded-full font-medium text-xs transition-all duration-300
+                                    ${selectedCategory === category.id
+                                        ? 'bg-[#8B2E2E] text-white shadow-md'
+                                        : 'bg-white text-gray-500 border border-gray-200'
+                                    }`}
+                            >
+                                {category.name}
+                            </button>
                         ))}
-                    </Swiper>
+                    </div>
                 </div>
 
                 {/* Filter Links - Desktop Static */}
@@ -163,7 +165,7 @@ export default function FeaturedCourses() {
                 </div>
 
                 {/* Courses Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8 mb-12 md:mb-16">
                     {filteredCourses.length > 0 ? (
                         filteredCourses.map(course => (
                             <div key={course.id} className="h-full">
@@ -177,8 +179,19 @@ export default function FeaturedCourses() {
                     )}
                 </div>
 
-                {/* CTA Button */}
-                <div className="text-center">
+                {/* CTA Button - Mobile */}
+                <div className="md:hidden text-center pb-4">
+                    <button
+                        onClick={() => navigate('/khoa-hoc')}
+                        className="group relative inline-flex items-center gap-2 px-6 py-3 bg-[#8B2E2E] text-white rounded-full font-bold text-base shadow-lg transition-all hover:-translate-y-0.5 overflow-hidden"
+                    >
+                        <span className="relative z-10">Xem tất cả khóa học</span>
+                        <Award className="w-4 h-4 relative z-10 group-hover:rotate-12 transition-transform" />
+                    </button>
+                </div>
+
+                {/* CTA Button - Desktop */}
+                <div className="hidden md:block text-center">
                     <button
                         onClick={() => navigate('/khoa-hoc')}
                         className="group relative inline-flex items-center gap-3 px-8 py-4 bg-[#8B2E2E] text-white rounded-full font-bold text-lg shadow-xl hover:shadow-2xl transition-all hover:-translate-y-1 overflow-hidden"
@@ -189,6 +202,6 @@ export default function FeaturedCourses() {
                     </button>
                 </div>
             </div>
-        </div>
+        </section>
     );
 }

@@ -1,7 +1,7 @@
 .section {
   background-color: #F9F1D8;
   /* secret-paper */
-  padding: 2.5rem 0;
+  padding: 5rem 0;
 }
 
 @media (min-width: 1024px) {
