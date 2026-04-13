@@ -1,5 +1,5 @@
 export const SITE_NAME = "Mali Edu";
-export const SITE_URL = "https://luathapdan.edu.vn";
+export const SITE_URL = "https://luathapdan.vn";
 export const DEFAULT_IMAGE =
   "https://res.cloudinary.com/dstukyjzd/image/upload/v1768455801/Logo_Mali_Ngang_M%C3%80U_CAM_u5lrng.png";
 

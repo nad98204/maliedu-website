@@ -39,7 +39,7 @@ try {
   process.exit(1);
 }
 
-const SITE_URL = (process.env.SITE_URL || "https://luathapdan.edu.vn").replace(/\/$/, "");
+const SITE_URL = (process.env.SITE_URL || "https://luathapdan.vn").replace(/\/$/, "");
 const PROJECT_ID = process.env.FIREBASE_PROJECT_ID;
 const CLIENT_EMAIL = process.env.FIREBASE_CLIENT_EMAIL;
 const RAW_PRIVATE_KEY = process.env.FIREBASE_PRIVATE_KEY;

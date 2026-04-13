@@ -2,4 +2,4 @@ User-agent: *
 Allow: /
 Disallow: /admin/
 
-Sitemap: https://luathapdan.edu.vn/sitemap.xml
+Sitemap: https://luathapdan.vn/sitemap.xml

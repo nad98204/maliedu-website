@@ -62,7 +62,7 @@ const Footer = () => {
       ),
     },
     {
-      href: "https://luathapdan.edu.vn/",
+      href: "https://luathapdan.vn/",
       label: "Website",
       Icon: () => (
         <svg viewBox="0 0 24 24" className="w-5 h-5 fill-[#f3a712]">
