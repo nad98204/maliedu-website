@@ -8,7 +8,7 @@
  *   FIREBASE_PROJECT_ID       – Project ID của Firebase
  *   FIREBASE_CLIENT_EMAIL     – Service account email
  *   FIREBASE_PRIVATE_KEY      – Private key (có thể có \n literal)
- *   SITE_URL (tuỳ chọn)       – Base URL của trang, mặc định: https://luathapdan.edu.vn
+ *   SITE_URL (tuỳ chọn)       – Base URL của trang, mặc định: https://luathapdan.vn
  *
  * Ngoài ra, nếu có file serviceAccountKey.json (không commit lên git),
  * script cũng có thể đọc từ biến GOOGLE_APPLICATION_CREDENTIALS.
