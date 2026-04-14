@@ -158,6 +158,10 @@ const AdminCourses = () => {
         }));
       });
 
+      if (!videoUrl) {
+        throw new Error("Không nhận được đường dẫn sau khi tải lên thành công.");
+      }
+
       if (isNew) {
         const input = document.getElementById(`lesson-video-${sIdx}`);
         if (input) {
@@ -180,6 +184,7 @@ const AdminCourses = () => {
       });
       showToast(`Tải lên "${file.name}" thành công!`, "success");
     } catch (err) {
+      console.error("Lỗi chi tiết khi tải video:", err);
       setUploadTasks(prev => ({
         ...prev,
         [taskKey]: { ...prev[taskKey], status: 'error', error: err.message }
@@ -1519,9 +1524,13 @@ const AdminCourses = () => {
                           <div className="flex items-center gap-4">
                             <div className="relative h-16 w-16 flex-shrink-0 group-hover:scale-105 transition-transform duration-300">
                               <img
-                                src={course.thumbnailUrl || "https://via.placeholder.com/150"}
+                                src={course.thumbnailUrl || "https://via.placeholder.com/150?text=No+Image"}
                                 alt={course.name}
                                 className="h-full w-full rounded-2xl object-cover shadow-sm ring-1 ring-slate-100"
+                                onError={(e) => {
+                                  e.target.onerror = null;
+                                  e.target.src = "https://via.placeholder.com/150?text=No+Image";
+                                }}
                               />
                               {course.isForSale === false && (
                                 <div className="absolute -top-1 -right-1 bg-sky-500 text-white p-1 rounded-full shadow-lg border-2 border-white">
@@ -1955,6 +1964,10 @@ const AdminCourses = () => {
                                 src={formData.thumbnailUrl}
                                 alt="Preview"
                                 className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
+                                onError={(e) => {
+                                  e.target.onerror = null;
+                                  e.target.src = "https://via.placeholder.com/150?text=No+Image";
+                                }}
                               />
                               <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3 backdrop-blur-sm">
                                 <button
@@ -2090,7 +2103,15 @@ const AdminCourses = () => {
                           <div className="flex items-center gap-4">
                             {formData.instructorImageUrl ? (
                               <div className="relative h-16 w-16 rounded-2xl overflow-hidden ring-2 ring-slate-100">
-                                <img src={formData.instructorImageUrl} alt="Instructor" className="w-full h-full object-cover" />
+                                <img 
+                                  src={formData.instructorImageUrl} 
+                                  alt="Instructor" 
+                                  className="w-full h-full object-cover" 
+                                  onError={(e) => {
+                                    e.target.onerror = null;
+                                    e.target.src = "https://via.placeholder.com/150?text=No+Instructor";
+                                  }}
+                                />
                                 <button type="button" onClick={handleRemoveInstructorImage} className="absolute inset-0 bg-black/40 flex items-center justify-center text-white opacity-0 hover:opacity-100 transition-opacity">
                                   <X className="w-4 h-4" />
                                 </button>

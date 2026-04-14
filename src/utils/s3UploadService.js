@@ -127,7 +127,7 @@ const uploadObjectToS3 = async (
                 partNumber,
             });
 
-            if (import.meta.env.DEV && url.includes('s3-hn1-api.longvan.vn')) {
+            if (url.includes('s3-hn1-api.longvan.vn')) {
                 const urlObj = new URL(url);
                 url = '/s3-proxy' + urlObj.pathname + urlObj.search;
             }
