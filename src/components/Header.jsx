@@ -35,6 +35,7 @@ import {
   isAdminUser,
   isSuperAdminEmail,
 } from "../utils/adminAccess";
+import { MALI_LOGO_URL } from "../constants/brandAssets.js";
 
 const SOCIAL_LINKS = [
   { name: "Facebook", href: SOCIALS.facebook, Icon: Facebook },
@@ -286,9 +287,9 @@ const Header = () => {
           <div className="flex items-center justify-between h-16">
             <a href="/" className="flex items-center">
               <img
-                src="https://res.cloudinary.com/dstukyjzd/image/upload/v1768455801/Logo_Mali_Ngang_M%C3%80U_CAM_u5lrng.png"
+                src={MALI_LOGO_URL}
                 alt="Mali Edu"
-                className="h-7 sm:h-9 w-auto object-contain"
+                className="h-8 sm:h-9 lg:h-11 w-auto object-contain"
               />
             </a>
 
@@ -382,9 +383,9 @@ const Header = () => {
           <div className="absolute inset-y-0 right-0 w-full max-w-sm bg-secret-paper text-secret-ink shadow-2xl shadow-secret-ink/20 flex flex-col">
             <div className="flex items-center justify-between px-4 py-4 border-b border-secret-ink/10">
               <img
-                src="https://res.cloudinary.com/dstukyjzd/image/upload/v1768455801/Logo_Mali_Ngang_M%C3%80U_CAM_u5lrng.png"
+                src={MALI_LOGO_URL}
                 alt="Mali Edu"
-                className="h-7 sm:h-9 w-auto object-contain"
+                className="h-8 w-auto object-contain"
               />
               <button
                 type="button"

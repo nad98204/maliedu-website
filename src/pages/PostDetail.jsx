@@ -8,6 +8,7 @@ import { db } from '../firebase';
 import PostSidebar from '../components/PostSidebar';
 
 import { getYouTubeEmbedUrl } from '../utils/videoUtils';
+import { MALI_LOGO_URL } from '../constants/brandAssets.js';
 
 const PostDetail = () => {
     const [notFound, setNotFound] = useState(false);
@@ -117,7 +118,7 @@ const PostDetail = () => {
                             "name": "Mali Edu",
                             "logo": {
                                 "@type": "ImageObject",
-                                "url": "https://maliedu.vn/logo.png"
+                                "url": MALI_LOGO_URL
                             }
                         },
                         "mainEntityOfPage": {

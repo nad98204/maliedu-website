@@ -10,11 +10,10 @@ import {
 import Footer from "../../components/Footer";
 import FloatingContact from "../../components/FloatingContact";
 import ScrollToTop from "../../components/ScrollToTop";
+import { MALI_LOGO_URL } from "../../constants/brandAssets.js";
 
 const HERO_IMAGE =
   "https://s3-hn1-api.longvan.vn/video-khoa-hoc/videos/1773736929295-661078967--o-Tr-ng-C--i-Gh-p-Banner.png";
-const MALI_LOGO =
-  "https://res.cloudinary.com/dstukyjzd/image/upload/v1768455801/Logo_Mali_Ngang_M%C3%80U_CAM_u5lrng.png";
 const BANNER_IMAGE = 
   "https://s3-hn1-api.longvan.vn/video-khoa-hoc/videos/1773736864490-976832550-D-ng-Ti-n-Th-nh-V--ng-T--B-n-Th-.png";
 const ZALO_GROUP_LINK = "https://zalo.me/g/vrop9wmdy45az0zzzquk";
@@ -212,11 +211,11 @@ const DongTienThinhVuongTuBanThe = () => {
             transition={{ duration: 0.8 }}
             className="flex items-center justify-center"
           >
-            <img
-              src={MALI_LOGO}
-              alt="Mali Magic To Life"
-              className="h-8 w-auto opacity-90 brightness-110 sm:h-10"
-            />
+              <img
+                src={MALI_LOGO_URL}
+                alt="Mali Magic To Life"
+                className="h-10 w-auto opacity-90 brightness-110 sm:h-12"
+              />
           </motion.div>
 
           <div className="mt-6 flex flex-1 flex-col justify-center lg:justify-center lg:mt-5 px-0 sm:px-6 lg:px-8 gap-8 lg:gap-0">

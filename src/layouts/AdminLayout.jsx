@@ -30,6 +30,7 @@ import {
 
 import { auth, db } from "../firebase";
 import { hasModuleAccess, isSuperAdminEmail } from "../utils/adminAccess";
+import { MALI_LOGO_URL } from "../constants/brandAssets.js";
 
 const AdminLayout = () => {
   const navigate = useNavigate();
@@ -100,9 +101,9 @@ const AdminLayout = () => {
       <div className="lg:hidden w-full bg-white border-b border-slate-200 px-5 py-2 flex flex-row items-center justify-between shadow-sm relative z-40">
         <div className="flex items-center gap-3">
           <img
-            src="https://s3-hn1-api.longvan.vn/video-khoa-hoc/videos/1774334049231-96315918-Logo-Mali-11.png"
+            src={MALI_LOGO_URL}
             alt="Mali Edu Logo"
-            className="h-9 w-auto origin-left"
+            className="h-12 w-auto origin-left"
           />
         </div>
         <button
@@ -130,9 +131,9 @@ const AdminLayout = () => {
         <div className={`px-6 py-6 border-b border-slate-100 flex lg:hidden items-center justify-between bg-slate-50/30 ${isCollapsed ? 'justify-center' : ''}`}>
           <div className={`flex items-center gap-3 ${isCollapsed ? 'hidden' : 'flex'}`}>
             <img
-              src="https://s3-hn1-api.longvan.vn/video-khoa-hoc/videos/1774334049231-96315918-Logo-Mali-11.png"
+              src={MALI_LOGO_URL}
               alt="Mali Edu Logo"
-              className="h-9 w-auto origin-left"
+              className="h-12 w-auto origin-left"
             />
           </div>
           <button

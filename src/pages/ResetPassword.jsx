@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { confirmPasswordReset, verifyPasswordResetCode } from "firebase/auth";
 import { auth } from "../firebase";
 import { Lock, Eye, EyeOff, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
+import { MALI_LOGO_URL } from "../constants/brandAssets.js";
 
 const ResetPassword = () => {
     const [searchParams] = useSearchParams();
@@ -81,9 +82,9 @@ const ResetPassword = () => {
                 {/* Header */}
                 <div className="bg-secret-wax p-6 text-center">
                     <img
-                        src="https://res.cloudinary.com/dstukyjzd/image/upload/v1768455801/Logo_Mali_Ngang_M%C3%80U_CAM_u5lrng.png"
+                        src={MALI_LOGO_URL}
                         alt="Mali Edu"
-                        className="h-12 w-auto mx-auto mb-4 object-contain brightness-0 invert"
+                        className="h-16 w-auto mx-auto mb-5 object-contain brightness-0 invert"
                     />
                     <h1 className="text-2xl font-bold text-white">Đặt lại mật khẩu</h1>
                     <p className="text-white/80 text-sm mt-1">Nhập mật khẩu mới cho tài khoản của bạn</p>

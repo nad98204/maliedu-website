@@ -1,4 +1,5 @@
 import React from "react";
+import { MALI_LOGO_URL } from "../constants/brandAssets.js";
 
 const Footer = () => {
   const contactItems = [
@@ -79,9 +80,9 @@ const Footer = () => {
           <div className="space-y-6">
             <div className="flex items-center gap-3 flex-wrap">
               <img
-                src="https://res.cloudinary.com/dstukyjzd/image/upload/v1767861713/FULL_SIZE_ls1mmd.png"
+                src={MALI_LOGO_URL}
                 alt="Mali Edu Logo"
-                className="h-10 w-auto object-contain drop-shadow-[0_10px_25px_rgba(0,0,0,0.35)]"
+                className="h-14 sm:h-16 w-auto object-contain drop-shadow-[0_10px_25px_rgba(0,0,0,0.35)]"
               />
             </div>
 

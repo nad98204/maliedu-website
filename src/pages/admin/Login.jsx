@@ -13,6 +13,7 @@ import { getFirebaseAuthMessage } from "../../utils/firebaseAuthErrors";
 import { registerSession } from "../../utils/sessionService";
 import { isInAppBrowser } from "../../utils/browserDetection";
 import InAppBrowserModal from "../../components/InAppBrowserModal";
+import { MALI_LOGO_URL } from "../../constants/brandAssets.js";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -99,9 +100,9 @@ const Login = () => {
       <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-xl border border-slate-100">
         <div className="text-center space-y-2">
           <img
-            src="https://res.cloudinary.com/dstukyjzd/image/upload/v1768455801/Logo_Mali_Ngang_M%C3%80U_CAM_u5lrng.png"
+            src={MALI_LOGO_URL}
             alt="Logo"
-            className="h-10 mx-auto mb-4 object-contain"
+            className="h-14 mx-auto mb-5 object-contain"
           />
           <h1 className="text-2xl font-bold text-slate-900">
             Đăng nhập hệ thống

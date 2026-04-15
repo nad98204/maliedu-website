@@ -7,6 +7,7 @@ import { collection, query, where, getDocs, limit, orderBy } from 'firebase/fire
 import { db } from '../firebase';
 import { getYouTubeEmbedUrl } from '../utils/videoUtils';
 import BlockContentRenderer from '../components/BlockContentRenderer';
+import { MALI_LOGO_URL } from '../constants/brandAssets.js';
 
 const NewsDetail = () => {
     const [notFound, setNotFound] = useState(false);
@@ -137,7 +138,7 @@ const NewsDetail = () => {
                             "name": "Mali Edu",
                             "logo": {
                                 "@type": "ImageObject",
-                                "url": "https://maliedu.vn/logo.png"
+                                "url": MALI_LOGO_URL
                             }
                         },
                         "mainEntityOfPage": {
