@@ -1,6 +1,72 @@
 const MULTIPART_API_BASE = "/api/s3-multipart";
 
-const requestJson = async (path, payload) => {
+const isPlainObject = (value) =>
+  value != null && typeof value === "object" && !Array.isArray(value);
+
+const looksLikeHtmlDocument = (contentType = "", bodyText = "") => {
+  const normalizedContentType = contentType.toLowerCase();
+  const normalizedBody = bodyText.trim().toLowerCase();
+
+  return (
+    normalizedContentType.includes("text/html") ||
+    normalizedBody.startsWith("<!doctype html") ||
+    normalizedBody.startsWith("<html")
+  );
+};
+
+const parseJsonBody = (bodyText) => {
+  if (!bodyText.trim()) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(bodyText);
+  } catch {
+    return null;
+  }
+};
+
+const getErrorMessage = (payload, fallbackMessage) => {
+  if (typeof payload?.error === "string" && payload.error.trim()) {
+    return payload.error.trim();
+  }
+
+  return fallbackMessage;
+};
+
+const ensureRequiredFields = (payload, requiredFields, path) => {
+  const missingFields = requiredFields.filter((field) => {
+    const value = payload?.[field];
+
+    return (
+      value == null ||
+      (typeof value === "string" && !value.trim())
+    );
+  });
+
+  if (missingFields.length > 0) {
+    throw new Error(
+      `Upload API response for ${path} is missing: ${missingFields.join(", ")}`,
+    );
+  }
+};
+
+const isValidHttpUrl = (value) => {
+  if (typeof value !== "string" || !value.trim()) {
+    return false;
+  }
+
+  try {
+    const parsedUrl = new URL(value);
+    return (
+      parsedUrl.protocol === "http:" || parsedUrl.protocol === "https:"
+    );
+  } catch {
+    return false;
+  }
+};
+
+const requestJson = async (path, payload, { requiredFields = [] } = {}) => {
   const response = await fetch(`${MULTIPART_API_BASE}${path}`, {
     method: "POST",
     headers: {
@@ -8,11 +74,30 @@ const requestJson = async (path, payload) => {
     },
     body: JSON.stringify(payload),
   });
-  const data = await response.json().catch(() => ({}));
+  const contentType = response.headers.get("content-type") || "";
+  const bodyText = await response.text();
+
+  if (looksLikeHtmlDocument(contentType, bodyText)) {
+    throw new Error(
+      "Upload API returned HTML instead of JSON. Check Firebase Hosting rewrite for /api/**.",
+    );
+  }
+
+  const data = parseJsonBody(bodyText);
 
   if (!response.ok) {
-    throw new Error(data.error || `Upload request failed: ${response.status}`);
+    throw new Error(
+      getErrorMessage(data, `Upload request failed: ${response.status}`),
+    );
   }
+
+  if (!isPlainObject(data)) {
+    throw new Error(
+      `Upload API returned an invalid JSON payload for ${path}.`,
+    );
+  }
+
+  ensureRequiredFields(data, requiredFields, path);
 
   return data;
 };
@@ -80,14 +165,31 @@ const uploadObjectToS3 = async (
       onProgress(0);
     }
 
-    uploadSession = await requestJson("/init", {
-      fileName: file.name,
-      fileSize: file.size,
-      contentType: file.type || fallbackContentType,
-      folder,
-    });
+    uploadSession = await requestJson(
+      "/init",
+      {
+        fileName: file.name,
+        fileSize: file.size,
+        contentType: file.type || fallbackContentType,
+        folder,
+      },
+      {
+        requiredFields: ["uploadId", "key", "partSize"],
+      },
+    );
+
+    if (!Number.isInteger(uploadSession.partSize) || uploadSession.partSize <= 0) {
+      throw new Error("Upload API returned an invalid partSize.");
+    }
+
+    const fallbackPublicUrl = isValidHttpUrl(uploadSession.publicUrl)
+      ? uploadSession.publicUrl
+      : "";
 
     const totalParts = Math.ceil(file.size / uploadSession.partSize);
+    if (!Number.isInteger(totalParts) || totalParts <= 0) {
+      throw new Error("Khong the chia file thanh cac phan hop le de upload.");
+    }
     const partProgress = new Map();
     const completedParts = [];
 
@@ -121,11 +223,22 @@ const uploadObjectToS3 = async (
             const end = Math.min(file.size, start + uploadSession.partSize);
             const blob = file.slice(start, end);
             
-            let { url } = await requestJson("/sign-part", {
+            const signPartResponse = await requestJson(
+              "/sign-part",
+              {
                 key: uploadSession.key,
                 uploadId: uploadSession.uploadId,
                 partNumber,
-            });
+              },
+              {
+                requiredFields: ["url"],
+              },
+            );
+
+            let { url } = signPartResponse;
+            if (!isValidHttpUrl(url)) {
+                throw new Error("Upload API returned an invalid signed upload URL.");
+            }
 
             if (url.includes('s3-hn1-api.longvan.vn')) {
                 const urlObj = new URL(url);
@@ -162,7 +275,17 @@ const uploadObjectToS3 = async (
       onProgress(100);
     }
 
-    return completedUpload.publicUrl || uploadSession.publicUrl;
+    const resolvedPublicUrl = isValidHttpUrl(completedUpload.publicUrl)
+      ? completedUpload.publicUrl
+      : fallbackPublicUrl;
+
+    if (!resolvedPublicUrl) {
+      throw new Error(
+        "Upload completed but the API did not return a valid publicUrl.",
+      );
+    }
+
+    return resolvedPublicUrl;
   } catch (error) {
     if (uploadSession?.key && uploadSession?.uploadId) {
       requestJson("/abort", {
@@ -184,8 +307,9 @@ export const uploadVideoToS3 = async (file, onProgress) =>
     fallbackContentType: "video/mp4",
   });
 
-export const uploadFileToS3 = async (file, onProgress) =>
+export const uploadFileToS3 = async (file, onProgress, options = {}) =>
   uploadObjectToS3(file, onProgress, {
     folder: "files",
     fallbackContentType: "application/octet-stream",
+    ...options,
   });
