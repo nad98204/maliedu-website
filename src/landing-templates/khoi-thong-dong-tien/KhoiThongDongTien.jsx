@@ -37,7 +37,7 @@ const KhoiThongDongTien = ({ targetFunnel, source_key }) => {
       />
 
       <BannerChinh />
-      <div className="max-w-4xl lg:max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10 lg:space-y-16 pt-10 pb-12">
+      <div className="max-w-4xl lg:max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10 lg:space-y-16 pt-5 sm:pt-7 pb-12">
         <PhanNoiDau />
         <DoiTuongPhuHop />
         <LichTrinhHoc />

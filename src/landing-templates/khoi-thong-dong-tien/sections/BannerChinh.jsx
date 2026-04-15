@@ -11,6 +11,7 @@ const VIDEO_POSTER_URL =
 /* ─── VideoPlayer ────────────────────────────────────────────── */
 const VideoPlayer = () => {
   const videoRef = useRef(null);
+  const containerRef = useRef(null);
   const [playing, setPlaying] = useState(true);
   const [muted, setMuted] = useState(true);
   const [volume, setVolume] = useState(0.7);
@@ -19,17 +20,23 @@ const VideoPlayer = () => {
   const [showPause, setShowPause] = useState(false);
   let hideTimer = useRef(null);
 
+  /** Thử autoplay có tiếng trước; trình duyệt chặn thì fallback muted (policy chuẩn). */
   const attemptAutoplay = useCallback(() => {
     const v = videoRef.current;
     if (!v) return;
 
-    const playPromise = v.play();
-    if (playPromise?.catch) {
-      playPromise.catch(() => {
+    v.volume = 0.7;
+    v.muted = false;
+    setMuted(false);
+
+    const p = v.play();
+    if (p?.catch) {
+      p.catch(() => {
         v.muted = true;
-        const retryPromise = v.play();
-        if (retryPromise?.catch) {
-          retryPromise.catch(() => setPlaying(false));
+        setMuted(true);
+        const p2 = v.play();
+        if (p2?.catch) {
+          p2.catch(() => setPlaying(false));
         }
       });
     }
@@ -38,9 +45,26 @@ const VideoPlayer = () => {
   const togglePlay = () => {
     const v = videoRef.current;
     if (!v) return;
-    if (v.paused) { v.play(); setPlaying(true); }
-    else { v.pause(); setPlaying(false); }
-    // Show play/pause feedback icon briefly
+    if (v.muted) {
+      v.muted = false;
+      const vol = volume > 0 ? volume : 0.7;
+      v.volume = vol;
+      setMuted(false);
+      setVolume(vol);
+      v.play();
+      setPlaying(true);
+      setShowPause(true);
+      clearTimeout(hideTimer.current);
+      hideTimer.current = setTimeout(() => setShowPause(false), 800);
+      return;
+    }
+    if (v.paused) {
+      v.play();
+      setPlaying(true);
+    } else {
+      v.pause();
+      setPlaying(false);
+    }
     setShowPause(true);
     clearTimeout(hideTimer.current);
     hideTimer.current = setTimeout(() => setShowPause(false), 800);
@@ -78,17 +102,41 @@ const VideoPlayer = () => {
   useEffect(() => {
     const v = videoRef.current;
     if (v) {
-      v.defaultMuted = true;
-      v.muted = true;
       v.volume = 0.7;
       attemptAutoplay();
     }
   }, [attemptAutoplay]);
 
+  /** Click lần đầu ở chỗ khác vùng video → bật tiếng (user gesture), không xung đột với click vào video. */
+  useEffect(() => {
+    const unlockAudio = (e) => {
+      if (containerRef.current?.contains(e.target)) return;
+      const v = videoRef.current;
+      if (!v?.muted) return;
+      v.muted = false;
+      v.volume = 0.7;
+      setMuted(false);
+      setVolume(0.7);
+      v.play().catch(() => {});
+      document.removeEventListener("pointerdown", unlockAudio, true);
+    };
+    document.addEventListener("pointerdown", unlockAudio, { capture: true });
+    return () => document.removeEventListener("pointerdown", unlockAudio, true);
+  }, []);
+
   useEffect(() => () => clearTimeout(hideTimer.current), []);
+
+  /** Dự phòng: nếu sự kiện không bắn (hiếm), ẩn overlay sau vài giây để không kẹt mãi. */
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setIsVideoReady((prev) => prev || true);
+    }, 3000);
+    return () => clearTimeout(t);
+  }, []);
 
   return (
     <div
+      ref={containerRef}
       className="relative rounded-2xl overflow-hidden cursor-pointer select-none"
       style={{ boxShadow: "0 20px 50px rgba(0,0,0,0.18), 0 0 0 3px #C9961A, 0 0 0 5px #F8E08A" }}
       onClick={togglePlay}
@@ -98,18 +146,24 @@ const VideoPlayer = () => {
           ref={videoRef}
           className="w-full h-full object-cover"
           autoPlay
-          muted
-          defaultMuted
+          muted={muted}
           loop
           playsInline
           preload="auto"
           poster={VIDEO_POSTER_URL}
+          onLoadedMetadata={() => {
+            setIsVideoReady(true);
+            setHasVideoError(false);
+          }}
           onLoadedData={() => {
             setIsVideoReady(true);
             setHasVideoError(false);
             attemptAutoplay();
           }}
-          onCanPlay={attemptAutoplay}
+          onCanPlay={() => {
+            setIsVideoReady(true);
+            attemptAutoplay();
+          }}
           onPlaying={() => {
             setPlaying(true);
             setIsVideoReady(true);
@@ -125,9 +179,9 @@ const VideoPlayer = () => {
         </video>
 
         {!isVideoReady && !hasVideoError && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/10 backdrop-blur-[1px] pointer-events-none">
-            <div className="rounded-full px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-[#FFE566] bg-black/55 border border-[#C9961A]/70">
-              Dang tai video...
+          <div className="absolute inset-0 flex items-center justify-center bg-black/5 pointer-events-none">
+            <div className="rounded-full px-4 py-2 text-xs font-semibold tracking-wide text-[#FFE566] bg-black/50 border border-[#C9961A]/60">
+              Đang tải video…
             </div>
           </div>
         )}
@@ -145,77 +199,51 @@ const VideoPlayer = () => {
           </div>
         </div>
 
-        {/* ── Overlay bật tiếng ── */}
-        {muted && (
+        {/* ── Âm lượng: thanh dưới video, cách mép an toàn, không chèn góc ── */}
+        <div className="absolute bottom-0 left-0 right-0 z-30 pointer-events-none">
           <div
-            className="absolute inset-0 flex items-end justify-center pb-4 z-20"
-            style={{ pointerEvents: 'none' }}
+            className="pointer-events-auto px-3 sm:px-5 pt-7 sm:pt-10 pb-3 sm:pb-5 bg-gradient-to-t from-black/85 via-black/55 to-transparent"
+            onClick={(e) => e.stopPropagation()}
           >
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                const v = videoRef.current;
-                if (v) {
-                  v.muted = false;
-                  v.volume = 0.7;
-                  setMuted(false);
-                  setVolume(0.7);
-                }
-              }}
-              className="flex items-center gap-2 px-4 py-2 rounded-full font-bold text-sm animate-bounce"
-              style={{
-                background: 'rgba(0,0,0,0.7)',
-                border: '1.5px solid #C9961A',
-                color: '#FFE566',
-                backdropFilter: 'blur(8px)',
-                pointerEvents: 'all',
-              }}
-            >
-              <span className="text-lg">🔊</span>
-              Bấm để bật tiếng
-            </button>
+            <div className="flex items-center gap-2 sm:gap-4 max-w-2xl ml-auto mr-auto">
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                <span className="text-[#F8E08A] text-[10px] sm:text-xs font-bold uppercase tracking-[0.1em] sm:tracking-[0.14em] shrink-0 w-auto sm:w-24">
+                  Âm lượng
+                </span>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  value={muted ? 0 : volume}
+                  onChange={handleVolumeChange}
+                  title="Kéo để chỉnh âm lượng"
+                  aria-label="Âm lượng video"
+                  className="block flex-1 min-w-[4.25rem] h-2.5 sm:h-3.5 cursor-pointer accent-[#F8E08A]"
+                  style={{ padding: 0 }}
+                />
+              </div>
+              <div className="flex justify-end shrink-0">
+                <button
+                  type="button"
+                  onClick={toggleMute}
+                  className="inline-flex items-center justify-center gap-1.5 sm:gap-2 rounded-lg sm:rounded-xl min-h-[36px] sm:min-h-[44px] min-w-[36px] sm:min-w-[44px] px-2.5 sm:px-5 font-bold text-[11px] sm:text-sm transition-all duration-200 active:scale-95 shadow-md whitespace-nowrap"
+                  style={{
+                    background: (muted || volume === 0)
+                      ? "rgba(55,55,55,0.95)"
+                      : "linear-gradient(135deg, #C9961A, #F8E08A)",
+                    color: (muted || volume === 0) ? "#fff" : "#3A1A00",
+                    border: "1px solid rgba(248,224,138,0.45)",
+                    boxShadow: "0 4px 14px rgba(0,0,0,0.35)",
+                  }}
+                  aria-label={muted ? "Bật tiếng" : "Tắt tiếng"}
+                >
+                  <span className="text-lg leading-none">{(muted || volume === 0) ? "🔇" : "🔊"}</span>
+                  <span>{(muted || volume === 0) ? "Bật tiếng" : "Tắt tiếng"}</span>
+                </button>
+              </div>
+            </div>
           </div>
-        )}
-
-        {/* ── Mute/Volume Controls ── */}
-        <div
-          className="absolute top-3 right-3 z-30 flex items-center gap-2 p-1.5 rounded-full transition-all duration-300"
-          style={{
-            background: "rgba(30,30,30,0.6)",
-            backdropFilter: "blur(8px)",
-            border: "1px solid rgba(255,255,255,0.1)"
-          }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Volume Slider - Chỉ hiển thị trên desktop */}
-          <div className="hidden md:flex items-center pl-2 group/vol">
-            <input
-              type="range"
-              min="0"
-              max="1"
-              step="0.05"
-              value={muted ? 0 : volume}
-              onChange={handleVolumeChange}
-              className="w-0 group-hover/vol:w-20 h-1.5 transition-all duration-300 accent-[#C9961A] cursor-pointer"
-              style={{ padding: 0 }}
-            />
-          </div>
-
-          <button
-            onClick={toggleMute}
-            className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-white font-bold text-xs sm:text-sm transition-all duration-200 active:scale-95"
-            style={{
-              background: (muted || volume === 0)
-                ? "rgba(50,50,50,0.8)"
-                : "linear-gradient(135deg, #C9961A, #F8E08A)",
-              color: (muted || volume === 0) ? "#fff" : "#3A1A00",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
-            }}
-            aria-label={muted ? "Bật tiếng" : "Tắt tiếng"}
-          >
-            <span className="text-base leading-none">{(muted || volume === 0) ? "🔇" : "🔊"}</span>
-            <span className="tracking-wide hidden sm:inline">{(muted || volume === 0) ? "Bật tiếng" : "Tắt tiếng"}</span>
-          </button>
         </div>
 
 
@@ -268,8 +296,26 @@ const Countdown = () => {
   );
 };
 
+/** Một nguồn thật cho breakpoint `lg` (1024px): tránh mount 2 <VideoPlayer> (ẩn bằng CSS vẫn có thể cùng phát → tiếng vang). */
+function useViewportMinLg() {
+  const [matches, setMatches] = useState(() =>
+    typeof window !== "undefined"
+      ? window.matchMedia("(min-width: 1024px)").matches
+      : false
+  );
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const fn = () => setMatches(mq.matches);
+    mq.addEventListener("change", fn);
+    return () => mq.removeEventListener("change", fn);
+  }, []);
+  return matches;
+}
+
 /* ─── BannerChinh ────────────────────────────────────────────── */
-const BannerChinh = () => (
+const BannerChinh = () => {
+  const isDesktop = useViewportMinLg();
+  return (
   <section
     className="relative w-full overflow-hidden font-sans"
     style={{ background: "transparent" }}
@@ -311,24 +357,12 @@ const BannerChinh = () => (
           />
         </div>
 
-        {/* Video (Mobile Only) */}
-        <div className="w-full lg:hidden">
-          <VideoPlayer />
-        </div>
-
-        {/* Quote */}
-        <div className="relative text-center px-4 sm:px-10 py-5 lg:px-10 lg:py-5 max-w-[500px] mx-auto z-10 bg-white/40 backdrop-blur-sm rounded-xl border border-white/50 shadow-sm">
-          {/* Dấu ngoặc kép trang trí */}
-          <div className="absolute top-1 left-1.5 sm:left-3 text-[#C9961A] opacity-40 text-4xl font-serif leading-none">“</div>
-          <div className="absolute bottom-[-12px] right-1.5 sm:right-3 text-[#C9961A] opacity-40 text-4xl font-serif leading-none">”</div>
-
-          <p className="text-[0.8rem] sm:text-[0.85rem] lg:text-[0.9rem] leading-[1.6] text-[#5A3A1A] italic font-medium px-2">
-            <span className="hidden sm:inline">Giúp bạn </span>
-            giải phóng tắc nghẽn tài chính, nâng cao tần số nội tâm
-            <br className="sm:hidden" />
-            và xây dựng lộ trình đạt mục tiêu tài chính
-          </p>
-        </div>
+        {/* Video: chỉ mobile — desktop render ở cột phải (một instance duy nhất) */}
+        {!isDesktop && (
+          <div className="w-full">
+            <VideoPlayer />
+          </div>
+        )}
 
         {/* CTA Section */}
         <div className="flex flex-col items-center gap-4 lg:gap-5 w-full">
@@ -345,7 +379,7 @@ const BannerChinh = () => (
               }}
             >
               <span className="absolute inset-0 translate-x-[-100%] skew-x-[-20deg] bg-white/20 group-hover:translate-x-[200%] transition-transform duration-700" />
-              <span className="text-[#FFE566] font-black text-[1.05rem] sm:text-[1.2rem] lg:text-[1.25rem] uppercase tracking-[0.08em] drop-shadow">
+              <span className="text-[#FFE566] font-black text-[1.05rem] sm:text-[1.2rem] lg:text-[1.25rem] uppercase tracking-[0.08em] drop-shadow whitespace-nowrap">
                 BẤM ĐỂ NHẬN VÉ THAM DỰ
               </span>
               <span className="flex items-center gap-1.5 mt-0.5">
@@ -373,7 +407,8 @@ const BannerChinh = () => (
       </div>
 
       {/* ── Right Column (Desktop Only Video) ── */}
-      <div className="hidden lg:flex w-full lg:w-1/2 justify-center lg:justify-end items-center relative">
+      {isDesktop && (
+      <div className="flex w-full lg:w-1/2 justify-center lg:justify-end items-center relative">
         <div className="w-full max-w-[580px] xl:max-w-[620px] relative z-20 flex flex-col gap-6 lg:gap-8">
 
           <div className="w-full transition-transform duration-500 hover:scale-[1.02]">
@@ -418,6 +453,7 @@ const BannerChinh = () => (
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-[#C9961A]/10 blur-[100px] rounded-full pointer-events-none -z-10" />
         </div>
       </div>
+      )}
 
     </div>
 
@@ -426,6 +462,7 @@ const BannerChinh = () => (
       @keyframes shine { 0%{transform:translateX(-150%) skewX(-20deg)}100%{transform:translateX(250%) skewX(-20deg)} }
     `}</style>
   </section>
-);
+  );
+};
 
 export default BannerChinh;

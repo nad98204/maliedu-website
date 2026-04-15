@@ -162,7 +162,7 @@ const TargetCard = ({ title, Icon, desc, painPoints, highlight, number, delay })
 
           {/* Title */}
           <h3
-            className="text-base sm:text-lg font-extrabold uppercase tracking-wider mb-2 leading-snug"
+            className="text-[0.9rem] sm:text-base font-extrabold uppercase tracking-[0.02em] mb-2 leading-snug whitespace-nowrap"
             style={{ color: highlight ? "#7A2113" : "#5C3A1A" }}
           >
             {title}
@@ -271,12 +271,12 @@ const DoiTuongPhuHop = () => {
           </span>
 
           {/* Title group */}
-          <div className="space-y-3">
+          <div className="space-y-1.5 sm:space-y-2">
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold uppercase tracking-[0.04em] text-[#3A2208] leading-tight">
               KHÓA HỌC NÀY
             </h2>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold uppercase tracking-[0.06em] leading-tight">
-              <span className="relative inline-block text-[#7A2113]">
+            <h2 className="text-[1.55rem] sm:text-4xl lg:text-5xl font-extrabold uppercase tracking-[0.03em] leading-tight">
+              <span className="relative inline-block text-[#7A2113] whitespace-nowrap">
                 PHÙ HỢP VỚI BẠN
                 <span
                   className="absolute bottom-0 left-0 w-full h-1.5 -mb-1 rounded-full opacity-30"
@@ -287,8 +287,10 @@ const DoiTuongPhuHop = () => {
           </div>
 
           <p className="text-base sm:text-lg text-[#5C3A1A]/80 max-w-xl mx-auto leading-relaxed">
-            Nếu bạn thấy mình trong những mô tả dưới đây, thì chương trình này được thiết kế{" "}
-            <strong className="text-[#7A2113]">chính xác dành cho bạn</strong>.
+            <span className="block">Nếu bạn thấy mình trong mô tả này,</span>
+            <span className="block">
+              chương trình này <strong className="text-[#7A2113]">dành cho bạn</strong>.
+            </span>
           </p>
         </div>
 
@@ -307,12 +309,6 @@ const DoiTuongPhuHop = () => {
 
         {/* ── Bottom CTA ── */}
         <div className="flex flex-col items-center gap-4">
-          {/* Quote / Empathy statement */}
-          <p className="text-center text-sm sm:text-base italic text-[#5C3A1A]/70 max-w-md mb-2">
-            "Bạn không cần phải cố gắng một mình <br />
-            hãy để chúng tôi đồng hành cùng bạn."
-          </p>
-
           {/* CTA Button */}
           <div className="relative w-full max-w-[380px]">
             <div
@@ -329,7 +325,7 @@ const DoiTuongPhuHop = () => {
             >
               {/* Shine sweep */}
               <span className="absolute inset-0 translate-x-[-100%] skew-x-[-20deg] bg-white/20 group-hover:translate-x-[200%] transition-transform duration-700" />
-              <span className="text-[#FFE566] font-black text-[1rem] sm:text-[1.1rem] uppercase tracking-[0.08em] drop-shadow">
+              <span className="text-[#FFE566] font-black text-[1rem] sm:text-[1.1rem] uppercase tracking-[0.08em] drop-shadow whitespace-nowrap">
                 BẤM ĐỂ NHẬN VÉ THAM DỰ
               </span>
               <ArrowRight className="w-5 h-5 text-[#FFE566]" />

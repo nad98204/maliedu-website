@@ -1,15 +1,15 @@
 import { ArrowRight, CheckCircle2 } from "lucide-react";
 
-const IMG_PORTRAIT = "https://res.cloudinary.com/dstukyjzd/image/upload/v1768108333/H%C3%8CNH_%E1%BA%A2NH_C%C3%81_NH%C3%82N_g2q2ot.png";
-const IMG_GIEO_GAT = "https://res.cloudinary.com/dstukyjzd/image/upload/v1768108333/2_d4b64h.png";
-const IMG_TANSO = "https://res.cloudinary.com/dstukyjzd/image/upload/v1768108334/3_nrgxop.png";
-const IMG_AM_THI = "https://res.cloudinary.com/dstukyjzd/image/upload/v1768108334/4_oh13fm.png";
-const IMG_DAY_HOC = "https://res.cloudinary.com/dstukyjzd/image/upload/v1768108353/5_gcx5pn.jpg";
+const IMG_PORTRAIT = "https://s3-hn1-api.longvan.vn/video-khoa-hoc/videos/1776240399719-228639746--nh-ch-p-m-n-h-nh-2025-08-05-012412.png";
+const IMG_GIEO_GAT = "https://s3-hn1-api.longvan.vn/video-khoa-hoc/videos/1776240400431-603850834--nh-ch-p-m-n-h-nh-2025-08-05-012419.png";
+const IMG_TANSO = "https://s3-hn1-api.longvan.vn/video-khoa-hoc/videos/1776240400986-989787980--nh-ch-p-m-n-h-nh-2025-08-05-012428.png";
+const IMG_AM_THI = "https://s3-hn1-api.longvan.vn/video-khoa-hoc/videos/1776240401492-670719242--nh-ch-p-m-n-h-nh-2025-08-08-184821.png";
+const IMG_DAY_HOC = "https://s3-hn1-api.longvan.vn/video-khoa-hoc/videos/1776240401958-32058998-z6886842711187-31023eaf83911f099dc0b88f706ca97d.jpg";
 
 const CTA = ({ className = "" }) => (
   <a
     href="#dang-ky"
-    className={`inline-flex items-center gap-2 rounded-full px-10 py-3.5 font-bold uppercase tracking-[0.1em] text-[#FFE566] text-sm sm:text-base transition hover:-translate-y-[2px] ${className}`}
+    className={`inline-flex items-center gap-2 rounded-full px-7 py-3 font-bold uppercase tracking-[0.08em] text-[#FFE566] text-sm whitespace-nowrap transition hover:-translate-y-[2px] ${className}`}
     style={{
       background: "linear-gradient(180deg, #E8393F 0%, #9C0C12 100%)",
       boxShadow: "0 10px 28px rgba(156,12,18,0.4)",
@@ -51,7 +51,7 @@ const CauChuyenNguoiSangLap = () => (
           <div className="space-y-4">
             <div className="space-y-1">
               <p className="text-[11px] tracking-[0.3em] uppercase text-[#7A2113] font-bold">Người truyền cảm hứng</p>
-              <h2 className="text-3xl sm:text-4xl font-extrabold text-[#3A2208] tracking-tight">MONG COACHING</h2>
+              <h2 className="text-2xl sm:text-4xl font-extrabold text-[#3A2208] tracking-tight whitespace-nowrap">MONG COACHING</h2>
             </div>
             
             <div className="h-1 w-12 bg-[#C9961A]/40 rounded-full" />
@@ -105,8 +105,8 @@ const CauChuyenNguoiSangLap = () => (
           <span className="inline-block py-1 px-4 rounded-full text-[10px] font-bold tracking-[0.2em] uppercase bg-[#C9961A]/10 text-[#7A2113] border border-[#C9961A]/20">
             Bước ngoặt thay đổi cuộc đời
           </span>
-          <h3 className="text-3xl sm:text-4xl font-extrabold text-[#7A2113] uppercase leading-[1.1] tracking-tight">
-            Rồi mọi thứ bắt đầu <br className="sm:hidden" /> thay đổi
+          <h3 className="text-2xl sm:text-3xl font-extrabold text-[#7A2113] uppercase leading-[1.35] tracking-tight">
+            Rồi mọi thứ bắt đầu <br /> thay đổi
           </h3>
           <div className="max-w-md mx-auto h-[1px] bg-gradient-to-r from-transparent via-[#C9961A]/30 to-transparent my-4" />
           <p className="text-base sm:text-lg text-[#5C3A1A] leading-relaxed">
@@ -128,7 +128,7 @@ const CauChuyenNguoiSangLap = () => (
 
 
       {/* 3 Lessons Section */}
-      <div className="space-y-8 pt-6">
+      <div className="space-y-8 pt-1">
         <div className="relative inline-block group">
           <div className="absolute -inset-1 bg-gradient-to-r from-[#7A2113] to-[#C9961A] rounded-xl blur opacity-25 group-hover:opacity-40 transition duration-1000 group-hover:duration-200" />
           <div className="relative flex items-center gap-3 bg-white border border-[#D4B572]/50 rounded-xl px-6 py-4 shadow-sm">
@@ -187,41 +187,38 @@ const CauChuyenNguoiSangLap = () => (
       </div>
 
       {/* Final Message - Premium Finishing */}
-      <div className="relative pt-6">
+      <div className="relative pt-1">
         <div className="absolute inset-0 flex items-center justify-center opacity-[0.03] pointer-events-none">
           <span className="text-[12rem] font-serif text-[#7A2113]">“</span>
         </div>
         
-        <div className="relative z-10 max-w-[640px] mx-auto text-center space-y-6">
+        <div className="relative z-10 max-w-[640px] mx-auto text-center space-y-3">
           
-          <p className="text-[13px] sm:text-[15px] leading-[1.7] text-[#5C3A1A] font-medium px-4 sm:px-2 sm:tracking-tight">
+          <p className="text-[11.5px] sm:text-[13px] leading-[1.65] text-[#5C3A1A] font-medium px-4 sm:px-2 sm:tracking-tight">
             Từ một người <span className="text-[#7A2113] font-bold">trắng tay</span>, hôm nay tôi đã có một cuộc sống mới: tài chính vững vàng, năng lượng tích cực và một sứ mệnh trọn vẹn. 
             Tôi khao khát được chia sẻ lại cho bạn chính:
           </p>
           
           {/* Highlight Card */}
-          <div className="bg-white/50 border border-[#D4B572]/50 rounded-[2rem] p-5 sm:p-8 backdrop-blur-sm shadow-sm space-y-3 mx-4">
-            <h4 className="text-[22px] sm:text-[32px] font-black text-[#7A2113] leading-[1.25] tracking-tight">
+          <div className="bg-white/50 border border-[#D4B572]/50 rounded-2xl p-4 sm:p-6 backdrop-blur-sm shadow-sm space-y-2 mx-2">
+            <h4 className="text-[19px] sm:text-[26px] font-black text-[#7A2113] leading-[1.2] tracking-tight">
               LỘ TRÌNH 3 BƯỚC <br />
-              <span className="text-[#C9961A]">KHƠI THÔNG DÒNG TIỀN</span>
+              <span className="text-[#C9961A] whitespace-nowrap">KHƠI THÔNG DÒNG TIỀN</span>
             </h4>
-            <div className="w-12 h-1 bg-[#C9961A]/40 mx-auto rounded-full my-2" />
-            <p className="text-[14.5px] sm:text-base text-[#5C3A1A] leading-relaxed max-w-[480px] mx-auto">
+            <div className="w-10 h-0.5 bg-[#C9961A]/40 mx-auto rounded-full" />
+            <p className="text-[11.5px] sm:text-[13px] text-[#5C3A1A] leading-relaxed max-w-[480px] mx-auto">
               Để bạn sớm tìm thấy sự thịnh vượng mà không cần phải mất cả chục năm bế tắc như tôi đã từng.
             </p>
           </div>
 
-          <p className="relative text-[14.5px] sm:text-[17px] text-[#7A2113] italic font-bold tracking-tight leading-snug px-6 pt-2 sm:whitespace-nowrap">
-            "Bạn hoàn toàn có thể thay đổi – <br className="sm:hidden" /> ngay khi bạn chọn bắt đầu hôm nay."
+          <p className="relative text-[12px] sm:text-[13.5px] text-[#7A2113] italic font-bold tracking-tight leading-snug px-6 py-1">
+            "Bạn hoàn toàn có thể thay đổi – <br /> ngay khi bạn chọn bắt đầu hôm nay."
           </p>
         </div>
       </div>
 
-      <div className="flex flex-col items-center gap-4 pt-4">
-        <CTA className="scale-110" />
-        <p className="text-[11px] text-[#7A2113] font-bold uppercase tracking-[0.2em] opacity-60">
-          Chỉ còn vài suất đăng ký cuối cùng
-        </p>
+      <div className="flex flex-col items-center gap-3 pt-2">
+        <CTA />
       </div>
     </div>
   </section>

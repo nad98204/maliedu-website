@@ -15,8 +15,8 @@ const Footer = () => {
     },
     {
       label: "Email",
-      value: "mongcoaching@gmail.com",
-      href: "mailto:mongcoaching@gmail.com",
+      value: "Noreplymaliedu@gmail.com",
+      href: "mailto:Noreplymaliedu@gmail.com",
       Icon: () => (
         <svg viewBox="0 0 24 24" className="w-5 h-5 fill-[#f3a712]">
           <path d="M3.2 5.8C3.7 4.8 4.7 4 5.8 4h12.4c1.1 0 2.1.8 2.6 1.8L12 11.6 3.2 5.8zM3 7.7V16c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V7.7l-8.5 5.7c-.3.2-.7.2-1 0L3 7.7z" />

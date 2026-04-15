@@ -62,8 +62,8 @@ const LichTrinhHoc = () => (
       background: "linear-gradient(160deg, #EDF6E2 0%, #FDF5E4 45%, #F7EBCC 100%)",
       border: "1px solid #D4B572",
       boxShadow: "0 20px 50px rgba(122,33,19,0.06)",
-      marginTop: "3rem",
-      paddingTop: "7rem",
+      marginTop: "1.5rem",
+      paddingTop: "4rem",
       paddingBottom: "4rem",
     }}
   >

@@ -15,7 +15,7 @@ import {
 } from "../../../utils/metaPixel";
 
 const BANNER_URL =
-  "https://res.cloudinary.com/dstukyjzd/image/upload/v1767682614/Kh%C6%A1i_Th%C3%B4ng_D%C3%B2ng_Ti%E1%BB%81n_M%C3%A0u_Xanh_sjajsx.jpg";
+  "https://s3-hn1-api.longvan.vn/video-khoa-hoc/videos/1776245418122-943458166-Kh-i-Th-ng-D-ng-Ti-n-Mobile.jpg";
 
 const DEFAULT_REMOTE_CONFIG = {
   fbPixel: "1526874981588150",
@@ -439,7 +439,7 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
 
   return (
     <section
-      className="relative rounded-3xl overflow-hidden py-14 sm:py-20"
+      className="relative rounded-3xl overflow-hidden py-8 sm:py-12"
       style={{
         background: "linear-gradient(145deg, #1A0A02 0%, #2D1005 40%, #3A1A06 70%, #1E0C03 100%)",
         border: "1px solid #8B6010",
@@ -602,7 +602,7 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="w-full rounded-2xl py-4 sm:py-5 font-black uppercase tracking-[0.1em] text-base sm:text-lg transition-all duration-300 hover:-translate-y-[2px] active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed group"
+                    className="w-full rounded-2xl py-3.5 sm:py-4 font-black uppercase tracking-[0.08em] text-sm sm:text-base transition-all duration-300 hover:-translate-y-[2px] active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed group whitespace-nowrap"
                     style={{
                       background: isSubmitting
                         ? "rgba(122,33,19,0.5)"
@@ -624,7 +624,6 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
                       )}
                     </span>
                   </button>
-                  <p className="text-center text-white/30 text-[10px] sm:text-xs">Thông tin của bạn được bảo mật tuyệt đối. Chúng tôi không bao giờ chia sẻ dữ liệu của bạn.</p>
                 </form>
               )}
             </div>
@@ -640,11 +639,6 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
 
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
 
-                  <div className="absolute top-4 left-4">
-                    <div className="inline-block py-1.5 px-3.5 rounded-lg text-[10px] font-black tracking-widest uppercase border border-[#C9961A]/30 bg-black/60 text-[#FFE566] backdrop-blur-md">
-                      Khóa học đặc biệt
-                    </div>
-                  </div>
                 </div>
               </div>
             )}
