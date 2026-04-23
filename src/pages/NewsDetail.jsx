@@ -3,7 +3,7 @@ import { useParams, Link, Navigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Calendar, User, Clock, ArrowRight, Facebook, Twitter, Link as LinkIcon } from 'lucide-react';
 import SEO from '../components/SEO';
-import { collection, query, where, getDocs, limit, orderBy } from 'firebase/firestore';
+import { addDoc, collection, query, where, getDocs, limit, orderBy, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { getYouTubeEmbedUrl } from '../utils/videoUtils';
 import BlockContentRenderer from '../components/BlockContentRenderer';
@@ -15,6 +15,13 @@ const NewsDetail = () => {
     const [post, setPost] = useState(null);
     const [loading, setLoading] = useState(true);
     const [recentPosts, setRecentPosts] = useState([]);
+    const [feedbackName, setFeedbackName] = useState('');
+    const [feedbackMessage, setFeedbackMessage] = useState('');
+    const [feedbackState, setFeedbackState] = useState({ type: '', message: '' });
+    const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
+    const [newsletterEmail, setNewsletterEmail] = useState('');
+    const [newsletterState, setNewsletterState] = useState({ type: '', message: '' });
+    const [isSubmittingNewsletter, setIsSubmittingNewsletter] = useState(false);
 
     // Fetch post by slug and recent posts
     useEffect(() => {
@@ -110,20 +117,83 @@ const NewsDetail = () => {
         return <Navigate to="/tin-tuc" replace />;
     }
 
+    const seoTitle = post.seoTitle?.trim() || post.title;
+    const seoDescription = post.seoDescription?.trim() || post.excerpt || '';
+    const seoKeywords = post.seoKeywords?.trim() || '';
+    const relatedPosts = recentPosts.slice(0, 3);
+
+    const handleFeedbackSubmit = async (event) => {
+        event.preventDefault();
+        if (!feedbackMessage.trim() || feedbackMessage.trim().length < 20) {
+            setFeedbackState({ type: 'error', message: 'Nội dung chia sẻ cần ít nhất 20 ký tự.' });
+            return;
+        }
+
+        setIsSubmittingFeedback(true);
+        try {
+            await addDoc(collection(db, 'post_feedback'), {
+                postId: post.id,
+                postSlug: slug,
+                postTitle: post.title,
+                name: feedbackName.trim() || 'Ẩn danh',
+                message: feedbackMessage.trim(),
+                source: 'news_detail',
+                createdAt: serverTimestamp(),
+            });
+            setFeedbackState({ type: 'success', message: 'Cảm ơn bạn đã chia sẻ. Đội ngũ sẽ đọc và phản hồi sớm.' });
+            setFeedbackName('');
+            setFeedbackMessage('');
+        } catch (error) {
+            console.error('Error saving feedback:', error);
+            setFeedbackState({ type: 'error', message: 'Gửi chia sẻ thất bại, vui lòng thử lại.' });
+        } finally {
+            setIsSubmittingFeedback(false);
+        }
+    };
+
+    const handleNewsletterSubmit = async (event) => {
+        event.preventDefault();
+        const email = newsletterEmail.trim().toLowerCase();
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            setNewsletterState({ type: 'error', message: 'Vui lòng nhập email hợp lệ.' });
+            return;
+        }
+
+        setIsSubmittingNewsletter(true);
+        try {
+            await addDoc(collection(db, 'newsletter_subscribers'), {
+                email,
+                source: 'news_detail',
+                sourceSlug: slug,
+                createdAt: serverTimestamp(),
+            });
+            setNewsletterState({ type: 'success', message: 'Đăng ký nhận bản tin thành công.' });
+            setNewsletterEmail('');
+        } catch (error) {
+            console.error('Error saving newsletter subscriber:', error);
+            setNewsletterState({ type: 'error', message: 'Không thể đăng ký lúc này, vui lòng thử lại.' });
+        } finally {
+            setIsSubmittingNewsletter(false);
+        }
+    };
+
     return (
         <div className="bg-white font-sans text-gray-900">
             <SEO
-                title={post.title}
-                description={post.excerpt}
+                title={seoTitle}
+                description={seoDescription}
                 image={post.thumbnailUrl}
                 url={`/tin-tuc/${slug}`}
                 type="article"
+                keywords={seoKeywords}
                 jsonLd={[
                     {
                         "@context": "https://schema.org",
                         "@type": "NewsArticle",
-                        "headline": post.title,
-                        "description": post.excerpt || '',
+                        "headline": seoTitle,
+                        "description": seoDescription,
+                        ...(seoKeywords ? { "keywords": seoKeywords } : {}),
                         "image": post.thumbnailUrl
                             ? [post.thumbnailUrl]
                             : ["https://maliedu.vn/og-default.jpg"],
@@ -253,7 +323,7 @@ const NewsDetail = () => {
                                             e.target.onerror = null;
                                             e.target.src = "https://placehold.co/800x500?text=Mali+Edu";
                                         }}
-                                        alt={post.title}
+                                        alt={post.thumbnailAlt || post.title}
                                         loading="eager"
                                         width="800"
                                         height="500"
@@ -299,6 +369,50 @@ const NewsDetail = () => {
                                     />
                                 )}
                             </div>
+
+                            <section className="mt-10 rounded-2xl border border-gray-200 bg-gray-50 p-6">
+                                <h2 className="text-2xl font-bold text-gray-900">Chia sẻ trải nghiệm của bạn</h2>
+                                <p className="mt-2 text-sm text-gray-600">
+                                    Bạn đã áp dụng nội dung trong bài này chưa? Để lại trải nghiệm để đội ngũ và cộng đồng cùng tham khảo.
+                                </p>
+                                <form onSubmit={handleFeedbackSubmit} className="mt-4 space-y-3">
+                                    <input
+                                        type="text"
+                                        value={feedbackName}
+                                        onChange={(event) => setFeedbackName(event.target.value)}
+                                        className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-secret-wax focus:outline-none focus:ring-2 focus:ring-secret-wax/20"
+                                        placeholder="Tên của bạn (không bắt buộc)"
+                                    />
+                                    <textarea
+                                        value={feedbackMessage}
+                                        onChange={(event) => setFeedbackMessage(event.target.value)}
+                                        rows={4}
+                                        className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-secret-wax focus:outline-none focus:ring-2 focus:ring-secret-wax/20"
+                                        placeholder="Viết cảm nhận của bạn tại đây..."
+                                        required
+                                    />
+                                    <div className="flex flex-wrap items-center gap-3">
+                                        <button
+                                            type="submit"
+                                            disabled={isSubmittingFeedback}
+                                            className="rounded-lg bg-secret-wax px-5 py-2 text-sm font-semibold text-white transition hover:bg-secret-ink disabled:cursor-not-allowed disabled:opacity-60"
+                                        >
+                                            {isSubmittingFeedback ? 'Đang gửi...' : 'Gửi chia sẻ'}
+                                        </button>
+                                        <Link
+                                            to="/lien-he"
+                                            className="text-sm font-medium text-secret-wax hover:text-secret-ink"
+                                        >
+                                            Cần tư vấn riêng? Liên hệ đội ngũ
+                                        </Link>
+                                    </div>
+                                    {feedbackState.message && (
+                                        <p className={`text-sm ${feedbackState.type === 'success' ? 'text-green-600' : 'text-red-600'}`} aria-live="polite">
+                                            {feedbackState.message}
+                                        </p>
+                                    )}
+                                </form>
+                            </section>
 
                             {/* Post Footer */}
                             <div className="mt-12 pt-8 border-t border-gray-100 flex justify-between items-center">
@@ -356,6 +470,65 @@ const NewsDetail = () => {
                                     </button>
                                 </div>
                             </div>
+
+                            <section className="mt-10 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+                                <h2 className="text-2xl font-bold text-gray-900">Nhận bản tin mới nhất</h2>
+                                <p className="mt-2 text-sm text-gray-600">
+                                    Đăng ký để nhận bài viết mới, tài liệu thực hành và thông báo sự kiện mỗi tuần.
+                                </p>
+                                <form onSubmit={handleNewsletterSubmit} className="mt-4 flex flex-col gap-3 sm:flex-row">
+                                    <input
+                                        type="email"
+                                        value={newsletterEmail}
+                                        onChange={(event) => setNewsletterEmail(event.target.value)}
+                                        className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-secret-wax focus:outline-none focus:ring-2 focus:ring-secret-wax/20"
+                                        placeholder="email@cuaban.com"
+                                        required
+                                    />
+                                    <button
+                                        type="submit"
+                                        disabled={isSubmittingNewsletter}
+                                        className="rounded-lg bg-gray-900 px-5 py-2 text-sm font-semibold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-60"
+                                    >
+                                        {isSubmittingNewsletter ? 'Đang đăng ký...' : 'Đăng ký'}
+                                    </button>
+                                </form>
+                                {newsletterState.message && (
+                                    <p className={`mt-3 text-sm ${newsletterState.type === 'success' ? 'text-green-600' : 'text-red-600'}`} aria-live="polite">
+                                        {newsletterState.message}
+                                    </p>
+                                )}
+                            </section>
+
+                            {relatedPosts.length > 0 && (
+                                <section className="mt-10">
+                                    <h2 className="mb-5 text-2xl font-bold text-gray-900">Đọc tiếp bài liên quan</h2>
+                                    <div className="grid gap-4 md:grid-cols-3">
+                                        {relatedPosts.map((relatedPost) => (
+                                            <Link
+                                                key={relatedPost.id}
+                                                to={`/tin-tuc/${relatedPost.slug}`}
+                                                className="group overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                                            >
+                                                <img
+                                                    src={relatedPost.thumbnailUrl || 'https://placehold.co/600x400?text=Mali+Edu'}
+                                                    alt={relatedPost.thumbnailAlt || relatedPost.title}
+                                                    className="h-40 w-full object-cover transition duration-500 group-hover:scale-105"
+                                                    loading="lazy"
+                                                />
+                                                <div className="p-4">
+                                                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                                        {relatedPost.category || 'Tin tức'}
+                                                    </p>
+                                                    <h3 className="line-clamp-2 text-sm font-semibold text-gray-900 group-hover:text-secret-wax">
+                                                        {relatedPost.title}
+                                                    </h3>
+                                                </div>
+                                            </Link>
+                                        ))}
+                                    </div>
+                                </section>
+                            )}
                         </article>
                     </div>
 

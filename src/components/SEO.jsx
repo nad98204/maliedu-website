@@ -11,12 +11,13 @@ import { getResolvedSeo, SITE_NAME } from "../seo/routeSeo";
  *  - url        : Canonical URL của trang (path hoặc URL đầy đủ)
  *  - type       : OG type — 'website' | 'article' | 'product' (mặc định: 'website')
  *                 'product' và 'article' đều map sang og:type="article" (phù hợp Facebook/Zalo)
+ *  - keywords   : Từ khóa SEO (string, phân tách bởi dấu phẩy)
  *  - jsonLd     : Một object hoặc mảng các object JSON-LD Schema.org để inject Rich Snippets
  *
  * Nếu prop bị rỗng (null/undefined), giá trị mặc định từ routeSeo.js sẽ được dùng,
  * liên quan đến thông điệp: "Mali Edu - Đánh thức tiềm năng, làm chủ luật hấp dẫn".
  */
-const SEO = ({ title, description, image, url, type = "website", jsonLd }) => {
+const SEO = ({ title, description, image, url, type = "website", keywords, jsonLd }) => {
   // Chuẩn hoá og:type — Facebook/Zalo chỉ nhận 'article' cho nội dung cụ thể
   const ogType = type === "product" || type === "article" ? "article" : "website";
 
@@ -32,6 +33,7 @@ const SEO = ({ title, description, image, url, type = "website", jsonLd }) => {
       {/* ===== Primary Tags ===== */}
       <title>{seo.title}</title>
       <meta name="description" content={seo.description} />
+      {keywords ? <meta name="keywords" content={keywords} /> : null}
       <link rel="canonical" href={seo.url} />
 
       {/* ===== Open Graph (Facebook / Zalo) ===== */}

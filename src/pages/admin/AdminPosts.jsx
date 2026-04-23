@@ -1,77 +1,71 @@
-import { useEffect, useState } from 'react';
-import {
-    addDoc,
-    collection,
-    deleteDoc,
-    doc,
-    getDocs,
-    orderBy,
-    query,
-    updateDoc,
-} from 'firebase/firestore';
-import { Edit, Trash2, Plus, X, FileText, Image as ImageIcon, Upload } from 'lucide-react';
-
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { addDoc, collection, deleteDoc, doc, getDocs, limit, orderBy, query, updateDoc, where } from 'firebase/firestore';
+import { Edit, Trash2, Plus, X, Image as ImageIcon, Upload, Eye, Search, Filter, ChevronDown, Globe, FileText, Video, Star } from 'lucide-react';
 import { db } from '../../firebase';
 import RichTextEditor from '../../components/RichTextEditor';
-import ArticleEditor from '../../components/admin/editor/ArticleEditor';
-import BlockContentRenderer from '../../components/BlockContentRenderer'; // Import Renderer
-import { uploadToCloudinary } from "../../utils/uploadService";
-import { useMemo, useRef } from 'react'; // Add useRef
-import { Eye } from 'lucide-react'; // Add Eye icon
+import { uploadFileToS3 } from '../../utils/s3UploadService';
+
+const defaultFormData = {
+    title: '',
+    slug: '',
+    type: 'article',
+    category: 'Tin tức chung',
+    author: 'Mong Coaching',
+    thumbnailUrl: '',
+    thumbnailAlt: '',
+    videoUrl: '',
+    excerpt: '',
+    content: '',
+    seoTitle: '',
+    seoDescription: '',
+    seoKeywords: '',
+    isPublished: true,
+};
+
+const CATEGORY_OPTIONS = [
+    'Tin tức chung',
+    'Sự kiện & Hoạt động',
+    'Thông báo Lịch học',
+    'Góc Báo chí',
+];
 
 const AdminPosts = () => {
     const [posts, setPosts] = useState([]);
     const [isFormOpen, setIsFormOpen] = useState(false);
-    const [isPreviewOpen, setIsPreviewOpen] = useState(false); // Preview state
+    const [isPreviewOpen, setIsPreviewOpen] = useState(false);
     const [editingPost, setEditingPost] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isUploadingImage, setIsUploadingImage] = useState(false);
     const [toast, setToast] = useState(null);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [statusFilter, setStatusFilter] = useState('all');
+    const [formData, setFormData] = useState(defaultFormData);
+    const [seoKeywordDraft, setSeoKeywordDraft] = useState('');
+    const [formErrors, setFormErrors] = useState({});
+    const [initialFormSnapshot, setInitialFormSnapshot] = useState(JSON.stringify(defaultFormData));
+    const fieldRefs = useRef({});
 
-    const editorRef = useRef(null); // Ref for E-Magazine Editor
+    const headingId = editingPost ? 'edit-post-heading' : 'add-post-heading';
 
-    // Form state
-    const [formData, setFormData] = useState({
-        title: '',
-        slug: '',
-        type: 'article',
-        category: '',
-        author: 'Mong Coaching',
-        thumbnailUrl: '',
-        videoUrl: '',
-        excerpt: '',
-        content: '',
-        seoTitle: '',
-        seoDescription: '',
-        seoKeywords: '',
-        isPublished: true,
-        isBlockMode: false,
-    });
-
-    // Fetch posts from Firebase
     const fetchPosts = async () => {
         try {
             const postsQuery = query(collection(db, 'posts'), orderBy('createdAt', 'desc'));
             const snapshot = await getDocs(postsQuery);
             const postsData = snapshot.docs
-                .map((docItem) => ({
-                    id: docItem.id,
-                    ...docItem.data(),
-                }))
-                .filter(post => {
+                .map((docItem) => ({ id: docItem.id, ...docItem.data() }))
+                .filter((post) => {
                     const knowledgeCategories = [
-                        "Luật Nhân Quả & Luật Hấp Dẫn",
-                        "Tiềm Thức & Tái Lập Trình Niềm Tin",
-                        "Chữa Lành Nội Tâm & Đứa Trẻ Bên Trong",
-                        "Thiền Dẫn & Thực Hành Năng Lượng",
-                        "Năng Lượng Tiền & Thịnh Vượng",
-                        "Mục Tiêu – Kỷ Luật – Hiệu Suất",
-                        "Kinh Doanh Bằng Bản Thể & Giá Trị",
-                        "Video Podcast Đồng Hành"
+                        'Luật Nhân Quả & Luật Hấp Dẫn',
+                        'Tiềm Thức & Tái Lập Trình Niềm Tin',
+                        'Chữa Lành Nội Tâm & Đứa Trẻ Bên Trong',
+                        'Thiền Dẫn & Thực Hành Năng Lượng',
+                        'Năng Lượng Tiền & Thịnh Vượng',
+                        'Mục Tiêu – Kỷ Luật – Hiệu Suất',
+                        'Kinh Doanh Bằng Bản Thể & Giá Trị',
+                        'Video Podcast Đồng Hành',
                     ];
-                    // Filter OUT Knowledge posts AND Testimonials
-                    return (!post.category || !knowledgeCategories.includes(post.category)) &&
-                        (!post.category || !post.category.includes('Cảm nhận'));
+                    return (!post.category || !knowledgeCategories.includes(post.category)) && (!post.category || !post.category.includes('Cảm nhận'));
                 });
             setPosts(postsData);
         } catch (error) {
@@ -84,9 +78,8 @@ const AdminPosts = () => {
         fetchPosts();
     }, []);
 
-    // Auto-generate slug from title
-    const generateSlug = (title) => {
-        return title
+    const generateSlug = (title) =>
+        title
             .toLowerCase()
             .normalize('NFD')
             .replace(/[\u0300-\u036f]/g, '')
@@ -95,26 +88,57 @@ const AdminPosts = () => {
             .trim()
             .replace(/\s+/g, '-')
             .replace(/-+/g, '-');
-    };
 
-    // Show toast notification
     const showToast = (message, type = 'success') => {
         setToast({ message, type });
         setTimeout(() => setToast(null), 3000);
     };
 
-    // Handle form input changes
-    const handleInputChange = (e) => {
-        const { name, value } = e.target;
+    const stripHtmlContent = (html = '') =>
+        html
+            .replace(/<[^>]*>/g, ' ')
+            .replace(/&nbsp;/gi, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+    const isFormDirty = useMemo(() => JSON.stringify(formData) !== initialFormSnapshot, [formData, initialFormSnapshot]);
+    const seoKeywordList = useMemo(
+        () =>
+            (formData.seoKeywords || '')
+                .split(',')
+                .map((keyword) => keyword.trim())
+                .filter(Boolean),
+        [formData.seoKeywords]
+    );
+
+    useEffect(() => {
+        if (!isFormOpen || !isFormDirty) return undefined;
+        const beforeUnloadHandler = (event) => {
+            event.preventDefault();
+            event.returnValue = '';
+        };
+        window.addEventListener('beforeunload', beforeUnloadHandler);
+        return () => window.removeEventListener('beforeunload', beforeUnloadHandler);
+    }, [isFormOpen, isFormDirty]);
+
+    const handleInputChange = (event) => {
+        const { name, value } = event.target;
         setFormData((prev) => ({
             ...prev,
             [name]: value,
-            // Auto-generate slug when title changes
             ...(name === 'title' && { slug: generateSlug(value) }),
+            ...(name === 'title' && !prev.seoTitle.trim() && { seoTitle: value }),
+            ...(name === 'excerpt' && !prev.seoDescription.trim() && { seoDescription: value }),
+            ...(name === 'title' && !prev.thumbnailAlt.trim() && { thumbnailAlt: value }),
         }));
+        setFormErrors((prev) => {
+            if (!prev[name]) return prev;
+            const next = { ...prev };
+            delete next[name];
+            return next;
+        });
     };
 
-    // Handle Rich Text Editor change
     const handleContentChange = (value) => {
         setFormData((prev) => ({ ...prev, content: value }));
     };
@@ -122,62 +146,49 @@ const AdminPosts = () => {
     const handleImageUpload = async (event) => {
         const selectedFile = event.target.files?.[0];
         if (!selectedFile) return;
-
-        if (!selectedFile.type.startsWith("image/")) {
-            showToast("Vui lòng chọn file ảnh hợp lệ", "error");
+        if (!selectedFile.type.startsWith('image/')) {
+            showToast('Vui lòng chọn file ảnh hợp lệ', 'error');
             return;
         }
 
         setIsUploadingImage(true);
         try {
-            const uploadResult = await uploadToCloudinary(selectedFile);
-            setFormData(prev => ({ ...prev, thumbnailUrl: uploadResult.secureUrl }));
-            showToast("Tải ảnh bìa thành công!");
+            const uploadedUrl = await uploadFileToS3(selectedFile, null, { folder: 'posts' });
+            setFormData((prev) => ({ ...prev, thumbnailUrl: uploadedUrl }));
+            showToast('Tải ảnh bìa thành công!');
         } catch (error) {
-            console.error("Lỗi upload:", error);
-            showToast("Lỗi khi tải ảnh lên", "error");
+            console.error('Lỗi upload:', error);
+            showToast('Lỗi khi tải ảnh lên', 'error');
         } finally {
             setIsUploadingImage(false);
         }
     };
 
     const handleRemoveImage = () => {
-        setFormData(prev => ({ ...prev, thumbnailUrl: '' }));
+        setFormData((prev) => ({ ...prev, thumbnailUrl: '' }));
     };
 
-    // Open form for new post
     const handleAddNew = () => {
         setEditingPost(null);
-        setFormData({
-            title: '',
-            slug: '',
-            type: 'article',
-            category: 'Tin tức',
-            author: 'Mong Coaching',
-            thumbnailUrl: '',
-            videoUrl: '',
-            excerpt: '',
-            content: '',
-            seoTitle: '',
-            seoDescription: '',
-            seoKeywords: '',
-            isPublished: true,
-            isBlockMode: false,
-        });
+        const freshForm = { ...defaultFormData };
+        setFormData(freshForm);
+        setSeoKeywordDraft('');
+        setFormErrors({});
+        setInitialFormSnapshot(JSON.stringify(freshForm));
         setIsUploadingImage(false);
         setIsFormOpen(true);
     };
 
-    // Open form for editing post
     const handleEdit = (post) => {
         setEditingPost(post);
-        setFormData({
+        const preparedForm = {
             title: post.title || '',
             slug: post.slug || '',
             type: post.type || 'article',
-            category: post.category || 'Tin tức',
+            category: post.category || 'Tin tức chung',
             author: post.author || 'Mong Coaching',
             thumbnailUrl: post.thumbnailUrl || '',
+            thumbnailAlt: post.thumbnailAlt || '',
             videoUrl: post.videoUrl || '',
             excerpt: post.excerpt || '',
             content: post.content || '',
@@ -185,31 +196,137 @@ const AdminPosts = () => {
             seoDescription: post.seoDescription || '',
             seoKeywords: post.seoKeywords || '',
             isPublished: post.isPublished !== undefined ? post.isPublished : true,
-            isBlockMode: typeof post.content === 'string' && post.content.trim().startsWith('{'),
-        });
+        };
+        setFormData(preparedForm);
+        setSeoKeywordDraft('');
+        setFormErrors({});
+        setInitialFormSnapshot(JSON.stringify(preparedForm));
         setIsUploadingImage(false);
         setIsFormOpen(true);
     };
 
-    // Submit form (add or update)
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setIsSubmitting(true);
-        try {
-            let finalContent = formData.content;
+    const addSeoKeywordsFromInput = (rawValue) => {
+        const candidates = (rawValue || '')
+            .split(',')
+            .map((item) => item.trim())
+            .filter(Boolean);
+        if (candidates.length === 0) return;
 
-            // AUTO-SAVE: If in Block Mode, get data from Editor.js
-            if (formData.isBlockMode && editorRef.current) {
-                const savedData = await editorRef.current.save();
-                finalContent = JSON.stringify(savedData);
-                // Also update local state to stay in sync
-                setFormData(prev => ({ ...prev, content: finalContent }));
+        const normalizedCurrent = seoKeywordList.map((item) => item.toLowerCase());
+        const merged = [...seoKeywordList];
+        candidates.forEach((candidate) => {
+            if (!normalizedCurrent.includes(candidate.toLowerCase())) {
+                merged.push(candidate);
+                normalizedCurrent.push(candidate.toLowerCase());
+            }
+        });
+
+        setFormData((prev) => ({ ...prev, seoKeywords: merged.join(', ') }));
+        setSeoKeywordDraft('');
+    };
+
+    const removeSeoKeyword = (keywordToRemove) => {
+        const nextKeywords = seoKeywordList.filter((keyword) => keyword !== keywordToRemove);
+        setFormData((prev) => ({ ...prev, seoKeywords: nextKeywords.join(', ') }));
+    };
+
+    const handleCloseForm = () => {
+        if (isFormDirty && !window.confirm('Bạn có thay đổi chưa lưu. Bạn có chắc muốn đóng biểu mẫu?')) return;
+        setIsFormOpen(false);
+    };
+
+    const validateAndPrepareContent = async () => {
+        if (!stripHtmlContent(formData.content)) return { error: 'Vui lòng nhập nội dung chi tiết trước khi lưu.', field: 'content' };
+        return { content: formData.content };
+    };
+
+    const focusFirstErrorField = (errors) => {
+        const orderedKeys = ['title', 'slug', 'excerpt', 'content', 'thumbnailUrl', 'videoUrl', 'category'];
+        const firstKey = orderedKeys.find((key) => errors[key]) || Object.keys(errors)[0];
+        const targetField = fieldRefs.current[firstKey];
+        if (targetField?.focus) {
+            targetField.focus();
+            if (firstKey !== 'content' && targetField.scrollIntoView) {
+                targetField.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            }
+        }
+    };
+
+    const checkSlugExists = async (slug) => {
+        const normalizedSlug = (slug || '').trim();
+        const slugQuery = query(collection(db, 'posts'), where('slug', '==', normalizedSlug), limit(5));
+        const slugSnapshot = await getDocs(slugQuery);
+        return slugSnapshot.docs.some((slugDoc) => slugDoc.id !== editingPost?.id);
+    };
+
+    const handlePreview = async () => {
+        const prepared = await validateAndPrepareContent();
+        if (prepared.error) {
+            showToast(prepared.error, 'error');
+            return;
+        }
+        if (prepared.content !== formData.content) {
+            setFormData((prev) => ({ ...prev, content: prepared.content }));
+        }
+        setIsPreviewOpen(true);
+    };
+
+    const handleSubmit = async (event) => {
+        event.preventDefault();
+        try {
+            const nextErrors = {};
+            if (!formData.title.trim()) nextErrors.title = 'Vui lòng nhập tiêu đề.';
+            if (!(formData.slug || generateSlug(formData.title)).trim()) nextErrors.slug = 'Vui lòng nhập slug hợp lệ.';
+            if (!formData.excerpt.trim()) nextErrors.excerpt = 'Vui lòng nhập mô tả ngắn.';
+            if (!formData.thumbnailUrl.trim()) nextErrors.thumbnailUrl = 'Vui lòng thêm ảnh bìa.';
+            if (!formData.category.trim()) nextErrors.category = 'Vui lòng chọn danh mục.';
+            if (formData.type === 'video' && !formData.videoUrl.trim()) nextErrors.videoUrl = 'Vui lòng nhập URL video.';
+
+            if (Object.keys(nextErrors).length > 0) {
+                setFormErrors(nextErrors);
+                focusFirstErrorField(nextErrors);
+                showToast('Vui lòng kiểm tra các trường bắt buộc.', 'error');
+                return;
+            }
+
+            const generatedSlug = (formData.slug || generateSlug(formData.title)).trim();
+            if (!generatedSlug) {
+                const slugError = { slug: 'Vui lòng nhập tiêu đề hoặc slug hợp lệ.' };
+                setFormErrors((prev) => ({ ...prev, ...slugError }));
+                focusFirstErrorField(slugError);
+                showToast('Vui lòng nhập tiêu đề hoặc slug hợp lệ.', 'error');
+                return;
+            }
+
+            const prepared = await validateAndPrepareContent();
+            if (prepared.error) {
+                if (prepared.field) {
+                    const contentError = { [prepared.field]: prepared.error };
+                    setFormErrors((prev) => ({ ...prev, ...contentError }));
+                    focusFirstErrorField(contentError);
+                }
+                showToast(prepared.error, 'error');
+                return;
+            }
+
+            const slugTaken = await checkSlugExists(generatedSlug);
+            if (slugTaken) {
+                const slugTakenError = { slug: 'Slug đã tồn tại. Vui lòng chọn slug khác.' };
+                setFormErrors((prev) => ({ ...prev, ...slugTakenError }));
+                focusFirstErrorField(slugTakenError);
+                showToast('Slug đã tồn tại. Vui lòng chọn slug khác.', 'error');
+                return;
+            }
+            setIsSubmitting(true);
+            const finalContent = prepared.content;
+            if (finalContent !== formData.content) {
+                setFormData((prev) => ({ ...prev, content: finalContent }));
             }
 
             const postData = {
                 ...formData,
-                slug: formData.slug || generateSlug(formData.title),
-                content: finalContent, // Use the fresh content
+                slug: generatedSlug,
+                content: finalContent,
                 updatedAt: Date.now(),
             };
 
@@ -217,29 +334,24 @@ const AdminPosts = () => {
                 await updateDoc(doc(db, 'posts', editingPost.id), postData);
                 showToast('Cập nhật bài viết thành công!');
             } else {
-                await addDoc(collection(db, 'posts'), {
-                    ...postData,
-                    createdAt: Date.now(),
-                });
+                await addDoc(collection(db, 'posts'), { ...postData, createdAt: Date.now() });
                 showToast('Đăng bài viết thành công!');
             }
+
+            setFormErrors({});
             setIsFormOpen(false);
+            setInitialFormSnapshot(JSON.stringify({ ...postData }));
             fetchPosts();
         } catch (error) {
             console.error('Error saving post:', error);
             showToast('Lỗi khi lưu bài viết', 'error');
         } finally {
             setIsSubmitting(false);
-            // Don't auto-close if error, but here we assume close on success or handle error above
         }
     };
 
-    // Delete post
     const handleDelete = async (postId) => {
-        if (!window.confirm('Bạn có chắc chắn muốn xóa bài viết này?')) {
-            return;
-        }
-
+        if (!window.confirm('Bạn có chắc chắn muốn xóa bài viết này?')) return;
         try {
             await deleteDoc(doc(db, 'posts', postId));
             setPosts((prev) => prev.filter((post) => post.id !== postId));
@@ -250,7 +362,6 @@ const AdminPosts = () => {
         }
     };
 
-    // Get type badge styling
     const getTypeBadge = (type) => {
         const badges = {
             video: { bg: 'bg-red-100', text: 'text-red-700', label: 'Video' },
@@ -260,107 +371,164 @@ const AdminPosts = () => {
         return badges[type] || badges.article;
     };
 
-    // Get status badge styling
-    const getStatusBadge = (isPublished) => {
-        return isPublished
+    const getStatusBadge = (isPublished) =>
+        isPublished
             ? { bg: 'bg-green-100', text: 'text-green-700', label: 'Đã xuất bản' }
             : { bg: 'bg-gray-100', text: 'text-gray-600', label: 'Bản nháp' };
-    };
 
+    const filteredPosts = useMemo(() => {
+        const keyword = searchTerm.trim().toLowerCase();
+        return posts.filter((post) => {
+            const matchKeyword =
+                !keyword ||
+                post.title?.toLowerCase().includes(keyword) ||
+                post.slug?.toLowerCase().includes(keyword) ||
+                post.category?.toLowerCase().includes(keyword);
+            const matchStatus =
+                statusFilter === 'all' ||
+                (statusFilter === 'published' && post.isPublished) ||
+                (statusFilter === 'draft' && !post.isPublished);
+            return matchKeyword && matchStatus;
+        });
+    }, [posts, searchTerm, statusFilter]);
 
+    const stats = useMemo(() => {
+        const total = posts.length;
+        const published = posts.filter((post) => post.isPublished).length;
+        return { total, published, drafts: total - published };
+    }, [posts]);
+
+    const seoMetrics = useMemo(() => {
+        const titleLength = (formData.seoTitle || '').trim().length;
+        const descriptionLength = (formData.seoDescription || '').trim().length;
+
+        const titleStatus = titleLength === 0 ? 'neutral' : titleLength < 50 || titleLength > 60 ? 'warning' : 'good';
+        const descriptionStatus =
+            descriptionLength === 0 ? 'neutral' : descriptionLength < 140 || descriptionLength > 160 ? 'warning' : 'good';
+
+        return { titleLength, descriptionLength, titleStatus, descriptionStatus };
+    }, [formData.seoTitle, formData.seoDescription]);
 
     return (
-        <div className="space-y-6">
-            {/* Toast Notification */}
+        <div className="space-y-6 px-4 pb-6 pt-5 sm:px-6 sm:pt-6 lg:px-8">
             {toast && (
                 <div
-                    className={`fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg text-white ${toast.type === 'error' ? 'bg-red-500' : 'bg-green-500'
-                        }`}
+                    className={`fixed right-4 top-4 z-50 rounded-lg px-6 py-3 text-white shadow-lg ${toast.type === 'error' ? 'bg-red-500' : 'bg-green-500'}`}
+                    aria-live="polite"
                 >
                     {toast.message}
                 </div>
             )}
 
-            {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900">Quản lý Tin Tức & Sự Kiện</h1>
-                    <p className="mt-1 text-sm text-slate-500">
-                        Tạo, chỉnh sửa và quản lý nội dung blog
-                    </p>
+                    <p className="mt-1 text-sm text-slate-500">Tạo, chỉnh sửa và quản lý nội dung blog</p>
                 </div>
                 <button
                     onClick={handleAddNew}
-                    className="inline-flex items-center gap-2 rounded-lg bg-secret-wax px-4 py-2 text-sm font-semibold text-white transition hover:bg-secret-ink"
+                    className="inline-flex items-center gap-2 self-start rounded-lg bg-secret-wax px-4 py-2 text-sm font-semibold text-white transition hover:bg-secret-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secret-wax/60"
                 >
-                    <Plus className="h-4 w-4" />
+                    <Plus className="h-4 w-4" aria-hidden="true" />
                     Thêm bài viết mới
                 </button>
             </div>
 
-            {/* Posts Table */}
+            <div className="grid gap-3 sm:grid-cols-3">
+                <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Tổng bài viết</p>
+                    <p className="mt-2 text-2xl font-bold text-slate-900">{stats.total}</p>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Đã xuất bản</p>
+                    <p className="mt-2 text-2xl font-bold text-green-700">{stats.published}</p>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Bản nháp</p>
+                    <p className="mt-2 text-2xl font-bold text-slate-700">{stats.drafts}</p>
+                </div>
+            </div>
+
             <div className="rounded-2xl bg-white p-6 shadow-sm">
+                <div className="mb-5 flex flex-col gap-3 border-b border-slate-100 pb-4 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="relative w-full lg:max-w-md">
+                        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+                        <input
+                            type="text"
+                            name="post-search"
+                            value={searchTerm}
+                            onChange={(event) => setSearchTerm(event.target.value)}
+                            placeholder="Tìm theo tiêu đề, slug hoặc danh mục…"
+                            className="w-full rounded-lg border border-slate-200 py-2 pl-10 pr-4 text-sm text-slate-700 placeholder:text-slate-400 focus:border-secret-wax focus:outline-none focus:ring-2 focus:ring-secret-wax/20"
+                            aria-label="Tìm kiếm bài viết"
+                            autoComplete="off"
+                        />
+                    </div>
+                    <div className="inline-flex items-center gap-2">
+                        <Filter className="h-4 w-4 text-slate-500" aria-hidden="true" />
+                        <label htmlFor="post-status-filter" className="text-sm font-medium text-slate-600">
+                            Trạng thái
+                        </label>
+                        <select
+                            id="post-status-filter"
+                            name="statusFilter"
+                            value={statusFilter}
+                            onChange={(event) => setStatusFilter(event.target.value)}
+                            className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-secret-wax focus:outline-none focus:ring-2 focus:ring-secret-wax/20"
+                        >
+                            <option value="all">Tất cả</option>
+                            <option value="published">Đã xuất bản</option>
+                            <option value="draft">Bản nháp</option>
+                        </select>
+                    </div>
+                </div>
+
                 <div className="overflow-x-auto">
                     <table className="w-full">
                         <thead className="border-b border-slate-200">
                             <tr>
-                                <th className="pb-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
-                                    Ảnh
-                                </th>
-                                <th className="pb-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
-                                    Tiêu đề
-                                </th>
-                                <th className="pb-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
-                                    Phân loại
-                                </th>
-                                <th className="pb-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
-                                    Trạng thái
-                                </th>
-                                <th className="pb-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
-                                    Danh mục
-                                </th>
-                                <th className="pb-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-600">
-                                    Hành động
-                                </th>
+                                <th className="pb-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">Ảnh</th>
+                                <th className="pb-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">Tiêu đề</th>
+                                <th className="pb-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">Phân loại</th>
+                                <th className="pb-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">Trạng thái</th>
+                                <th className="pb-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">Danh mục</th>
+                                <th className="pb-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-600">Hành động</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                            {posts.map((post) => {
+                            {filteredPosts.map((post) => {
                                 const typeBadge = getTypeBadge(post.type);
                                 const statusBadge = getStatusBadge(post.isPublished);
-
                                 return (
                                     <tr key={post.id} className="hover:bg-slate-50">
                                         <td className="py-4">
                                             <img
-                                                src={post.thumbnailUrl || "https://placehold.co/600x400?text=Mali+Edu"}
-                                                onError={(e) => {
-                                                    e.target.onerror = null;
-                                                    e.target.src = "https://placehold.co/600x400?text=Mali+Edu";
-                                                }}
-                                                alt={post.title}
+                                                src={post.thumbnailUrl || 'https://placehold.co/600x400?text=Mali+Edu'}
+                                                alt={post.thumbnailAlt || post.title}
                                                 className="h-12 w-16 rounded-lg object-cover"
+                                                loading="lazy"
+                                                onError={(event) => {
+                                                    event.target.onerror = null;
+                                                    event.target.src = 'https://placehold.co/600x400?text=Mali+Edu';
+                                                }}
                                             />
                                         </td>
                                         <td className="py-4">
                                             <button
                                                 onClick={() => handleEdit(post)}
-                                                className="text-sm font-medium text-slate-900 hover:text-secret-wax"
+                                                className="max-w-[280px] truncate text-left text-sm font-medium text-slate-900 hover:text-secret-wax"
+                                                title={post.title}
                                             >
                                                 {post.title}
                                             </button>
                                         </td>
                                         <td className="py-4">
-                                            <span
-                                                className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${typeBadge.bg} ${typeBadge.text}`}
-                                            >
+                                            <span className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${typeBadge.bg} ${typeBadge.text}`}>
                                                 {typeBadge.label}
                                             </span>
                                         </td>
                                         <td className="py-4">
-                                            <span
-                                                className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${statusBadge.bg} ${statusBadge.text}`}
-                                            >
+                                            <span className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${statusBadge.bg} ${statusBadge.text}`}>
                                                 {statusBadge.label}
                                             </span>
                                         </td>
@@ -371,25 +539,29 @@ const AdminPosts = () => {
                                                     onClick={() => handleEdit(post)}
                                                     className="rounded-lg p-2 text-blue-600 hover:bg-blue-50"
                                                     title="Sửa"
+                                                    aria-label={`Sửa bài viết ${post.title}`}
                                                 >
-                                                    <Edit className="h-4 w-4" />
+                                                    <Edit className="h-4 w-4" aria-hidden="true" />
                                                 </button>
                                                 <button
                                                     onClick={() => handleDelete(post.id)}
                                                     className="rounded-lg p-2 text-red-600 hover:bg-red-50"
                                                     title="Xóa"
+                                                    aria-label={`Xóa bài viết ${post.title}`}
                                                 >
-                                                    <Trash2 className="h-4 w-4" />
+                                                    <Trash2 className="h-4 w-4" aria-hidden="true" />
                                                 </button>
                                             </div>
                                         </td>
                                     </tr>
                                 );
                             })}
-                            {posts.length === 0 && (
+                            {filteredPosts.length === 0 && (
                                 <tr>
                                     <td colSpan="6" className="py-12 text-center text-sm text-slate-500">
-                                        Chưa có bài viết nào. Hãy tạo bài viết đầu tiên!
+                                        {posts.length === 0
+                                            ? 'Chưa có bài viết nào. Hãy tạo bài viết đầu tiên!'
+                                            : 'Không tìm thấy bài viết phù hợp với bộ lọc hiện tại.'}
                                     </td>
                                 </tr>
                             )}
@@ -398,455 +570,456 @@ const AdminPosts = () => {
                 </div>
             </div>
 
-            {/* Add/Edit Form Modal */}
-            {isFormOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                    <div className="w-full max-w-6xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl">
-                        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-6 py-4">
-                            <h2 className="text-xl font-bold text-slate-900">
-                                {editingPost ? 'Chỉnh sửa bài viết' : 'Thêm bài viết mới'}
-                            </h2>
+            {isFormOpen && createPortal(
+                <div
+                    className="fixed inset-0 z-[9998] flex flex-col bg-slate-100"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby={headingId}
+                >
+                    {/* ── Header bar ─────────────────────────────────── */}
+                    <header className="flex h-14 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-5 shadow-sm">
+                        <div className="flex items-center gap-3">
                             <button
-                                onClick={() => setIsFormOpen(false)}
-                                className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                                type="button"
+                                onClick={handleCloseForm}
+                                aria-label="Đóng và quay lại"
+                                className="rounded-lg p-1.5 text-slate-500 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/50"
                             >
-                                <X className="h-5 w-5" />
+                                <X className="h-5 w-5" aria-hidden="true" />
+                            </button>
+                            <div className="h-5 w-px bg-slate-200" aria-hidden="true" />
+                            <h2 id={headingId} className="text-sm font-semibold text-slate-800">
+                                {editingPost ? 'Chỉnh sửa bài viết' : 'Bài viết mới'}
+                            </h2>
+                            {isFormDirty && (
+                                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                                    Chưa lưu
+                                </span>
+                            )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={handlePreview}
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/50"
+                            >
+                                <Eye className="h-4 w-4" aria-hidden="true" />
+                                Xem trước
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setFormData((prev) => ({ ...prev, isPublished: !prev.isPublished }))}
+                                aria-label={formData.isPublished ? 'Đang xuất bản – nhấn để chuyển nháp' : 'Đang là nháp – nhấn để xuất bản'}
+                                className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 ${
+                                    formData.isPublished
+                                        ? 'border-green-200 bg-green-50 text-green-700 hover:bg-green-100 focus-visible:ring-green-400/50'
+                                        : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 focus-visible:ring-slate-400/50'
+                                }`}
+                            >
+                                <span className={`h-2 w-2 rounded-full ${formData.isPublished ? 'bg-green-500' : 'bg-slate-400'}`} aria-hidden="true" />
+                                {formData.isPublished ? 'Xuất bản' : 'Bản nháp'}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleSubmit}
+                                disabled={isSubmitting}
+                                className="rounded-lg bg-secret-wax px-5 py-2 text-sm font-semibold text-white transition hover:bg-secret-ink disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secret-wax/60"
+                            >
+                                {isSubmitting ? 'Đang lưu…' : editingPost ? 'Cập nhật' : 'Đăng bài'}
                             </button>
                         </div>
+                    </header>
 
-                        <div className="p-6">
-                            <div className={`grid gap-6 ${formData.isBlockMode ? 'grid-cols-1' : 'lg:grid-cols-2'}`}>
-                                {/* Left Column - Content */}
-                                <div className="space-y-6">
-                                    <h3 className="text-lg font-semibold text-slate-900">Nội dung bài viết</h3>
+                    {/* ── Body ───────────────────────────────────────── */}
+                    <form
+                        onSubmit={handleSubmit}
+                        className="flex min-h-0 flex-1 overflow-hidden"
+                    >
+                        {/* ── LEFT: Content area ─────────────────────── */}
+                        <main className="flex-1 overflow-y-auto overscroll-contain px-6 py-8 lg:px-12">
+                            <div className="mx-auto max-w-3xl space-y-7">
 
-                                    {/* Title */}
-                                    <div className="space-y-2">
-                                        <label className="text-sm font-medium text-slate-700">
-                                            Tiêu đề <span className="text-red-500">*</span>
-                                        </label>
-                                        <input
-                                            type="text"
-                                            name="title"
-                                            value={formData.title}
-                                            onChange={handleInputChange}
-                                            className="w-full rounded-lg border border-slate-200 px-4 py-3 text-lg font-semibold focus:border-secret-wax focus:outline-none focus:ring-2 focus:ring-secret-wax/20"
-                                            placeholder="Nhập tiêu đề bài viết"
-                                            required
-                                        />
-                                    </div>
-
-                                    {/* Slug */}
-                                    <div className="space-y-2">
-                                        <label className="text-sm font-medium text-slate-700">
-                                            Slug (URL) <span className="text-red-500">*</span>
-                                        </label>
-                                        <input
-                                            type="text"
-                                            name="slug"
-                                            value={formData.slug}
-                                            onChange={handleInputChange}
-                                            className="w-full rounded-lg border border-slate-200 px-4 py-2 text-sm font-mono focus:border-secret-wax focus:outline-none focus:ring-2 focus:ring-secret-wax/20"
-                                            placeholder="slug-bai-viet"
-                                            required
-                                        />
-                                        <p className="text-xs text-slate-500">
-                                            URL: /tin-tuc/{formData.slug || 'slug-bai-viet'}
-                                        </p>
-                                    </div>
-
-                                    {/* Excerpt */}
-                                    <div className="space-y-2">
-                                        <label className="text-sm font-medium text-slate-700">
-                                            Mô tả ngắn <span className="text-red-500">*</span>
-                                        </label>
-                                        <textarea
-                                            name="excerpt"
-                                            value={formData.excerpt}
-                                            onChange={handleInputChange}
-                                            rows="3"
-                                            className="w-full rounded-lg border border-slate-200 px-4 py-2 text-sm focus:border-secret-wax focus:outline-none focus:ring-2 focus:ring-secret-wax/20"
-                                            placeholder="Tóm tắt ngắn gọn về nội dung bài viết..."
-                                            required
-                                        />
-                                    </div>
-
-                                    {/* Rich Text Content */}
-                                    <div className="space-y-2">
-                                        <label className="text-sm font-medium text-slate-700">
-                                            Nội dung chi tiết <span className="text-red-500">*</span>
-                                        </label>
-                                        <div className="rounded-lg border border-slate-200">
-                                            <div className="flex items-center justify-end p-2 border-b border-slate-100 bg-slate-50 gap-2">
-                                                <span className="text-xs text-slate-500 font-medium mr-2">Chế độ soạn thảo:</span>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setFormData(prev => ({ ...prev, isBlockMode: false }))}
-                                                    className={`px-3 py-1 text-xs font-bold rounded ${!formData.isBlockMode ? 'bg-white text-blue-600 shadow-sm border' : 'text-slate-500 hover:bg-slate-200'}`}
-                                                >
-                                                    Cổ điển (HTML)
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setFormData(prev => ({ ...prev, isBlockMode: true }))}
-                                                    className={`px-3 py-1 text-xs font-bold rounded ${formData.isBlockMode ? 'bg-white text-purple-600 shadow-sm border' : 'text-slate-500 hover:bg-slate-200'}`}
-                                                >
-                                                    E-Magazine (Blocks)
-                                                </button>
-                                            </div>
-
-                                            {formData.isBlockMode ? (
-                                                <div className="p-4">
-                                                    <div className="mb-4 bg-purple-50 text-purple-700 p-3 rounded-lg text-sm flex items-center justify-between">
-                                                        <div className="flex items-start gap-2">
-                                                            <span>✨</span>
-                                                            <div>
-                                                                <strong>Chế độ E-Magazine:</strong> Tự động lưu khi bấm "Đăng bài".
-                                                            </div>
-                                                        </div>
-                                                        <button
-                                                            type="button"
-                                                            onClick={async () => {
-                                                                if (editorRef.current) {
-                                                                    const data = await editorRef.current.save();
-                                                                    setFormData(prev => ({ ...prev, content: JSON.stringify(data) }));
-                                                                    setIsPreviewOpen(true);
-                                                                }
-                                                            }}
-                                                            className="flex items-center gap-1 bg-white border border-purple-200 text-purple-700 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-purple-100 transition-colors shadow-sm"
-                                                        >
-                                                            <Eye className="w-3 h-3" /> Xem trước
-                                                        </button>
-                                                    </div>
-                                                    <ArticleEditor
-                                                        ref={editorRef}
-                                                        initialData={(() => {
-                                                            try {
-                                                                return formData.content ? JSON.parse(formData.content) : {}
-                                                            } catch (e) {
-                                                                return {}
-                                                            }
-                                                        })()}
-                                                    />
-                                                </div>
-                                            ) : (
-                                                <RichTextEditor
-                                                    value={formData.content}
-                                                    onChange={handleContentChange}
-                                                    placeholder="Viết nội dung bài viết tại đây..."
-                                                />
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    {/* SEO Section */}
-                                    <div className="pt-6 border-t border-slate-200 space-y-4">
-                                        <h3 className="text-lg font-semibold text-slate-900">Tối Ưu Hóa Tìm Kiếm (SEO)</h3>
-
-                                        <div className="space-y-2">
-                                            <label className="text-sm font-medium text-slate-700">SEO Title</label>
-                                            <input
-                                                type="text"
-                                                name="seoTitle"
-                                                value={formData.seoTitle}
-                                                onChange={handleInputChange}
-                                                className="w-full rounded-lg border border-slate-200 px-4 py-2 text-sm focus:border-secret-wax focus:outline-none focus:ring-2 focus:ring-secret-wax/20"
-                                                placeholder="Tiêu đề hiển thị trên Google (Nếu khác tiêu đề bài)..."
-                                            />
-                                        </div>
-
-                                        <div className="space-y-2">
-                                            <label className="text-sm font-medium text-slate-700">SEO Description</label>
-                                            <textarea
-                                                name="seoDescription"
-                                                value={formData.seoDescription}
-                                                onChange={handleInputChange}
-                                                rows="3"
-                                                className="w-full rounded-lg border border-slate-200 px-4 py-2 text-sm focus:border-secret-wax focus:outline-none focus:ring-2 focus:ring-secret-wax/20"
-                                                placeholder="Mô tả ngắn gọn nội dung bài viết (Khoảng 150 ký tự)..."
-                                            />
-                                        </div>
-
-                                        <div className="space-y-2">
-                                            <label className="text-sm font-medium text-slate-700">SEO Keywords</label>
-                                            <input
-                                                type="text"
-                                                name="seoKeywords"
-                                                value={formData.seoKeywords}
-                                                onChange={handleInputChange}
-                                                className="w-full rounded-lg border border-slate-200 px-4 py-2 text-sm focus:border-secret-wax focus:outline-none focus:ring-2 focus:ring-secret-wax/20"
-                                                placeholder="tư duy, luật hấp dẫn, mong coaching..."
-                                            />
-                                        </div>
-                                    </div>
+                                {/* Title */}
+                                <div>
+                                    <input
+                                        id="post-title"
+                                        type="text"
+                                        name="title"
+                                        ref={(el) => { fieldRefs.current.title = el; }}
+                                        value={formData.title}
+                                        onChange={handleInputChange}
+                                        aria-invalid={Boolean(formErrors.title)}
+                                        placeholder="Nhập tiêu đề bài viết…"
+                                        className={`w-full border-0 bg-transparent text-3xl font-bold text-slate-900 placeholder:text-slate-300 focus:outline-none ${formErrors.title ? 'ring-2 ring-red-400 ring-offset-2 rounded-lg px-2' : ''}`}
+                                    />
+                                    {formErrors.title && <p className="mt-1 text-xs text-red-600">{formErrors.title}</p>}
                                 </div>
 
-                                {/* Right Column - Configuration & Media */}
-                                <div className="space-y-6">
-                                    <h3 className="text-lg font-semibold text-slate-900">Cấu hình & Media</h3>
+                                {/* Slug */}
+                                <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
+                                    <Globe className="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
+                                    <span className="shrink-0 text-xs text-slate-400">/tin-tuc/</span>
+                                    <input
+                                        id="post-slug"
+                                        type="text"
+                                        name="slug"
+                                        ref={(el) => { fieldRefs.current.slug = el; }}
+                                        value={formData.slug}
+                                        onChange={handleInputChange}
+                                        aria-invalid={Boolean(formErrors.slug)}
+                                        placeholder="slug-bai-viet"
+                                        className="min-w-0 flex-1 bg-transparent font-mono text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none"
+                                        spellCheck={false}
+                                    />
+                                    {formErrors.slug && <p className="text-xs text-red-500">{formErrors.slug}</p>}
+                                </div>
 
-                                    {/* Type */}
-                                    <div className="space-y-2">
-                                        <label className="text-sm font-medium text-slate-700">
-                                            Loại bài viết <span className="text-red-500">*</span>
-                                        </label>
-                                        <select
-                                            name="type"
-                                            value={formData.type}
-                                            onChange={handleInputChange}
-                                            className="w-full rounded-lg border border-slate-200 px-4 py-2 text-sm focus:border-secret-wax focus:outline-none focus:ring-2 focus:ring-secret-wax/20"
-                                            required
-                                        >
-                                            <option value="article">Bài viết</option>
-                                            <option value="video">Video</option>
-                                            <option value="case-study">Kết quả học viên</option>
-                                        </select>
-                                    </div>
+                                {/* Excerpt */}
+                                <div className="space-y-1.5">
+                                    <label htmlFor="post-excerpt" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                        Mô tả ngắn <span className="text-red-500">*</span>
+                                    </label>
+                                    <textarea
+                                        id="post-excerpt"
+                                        name="excerpt"
+                                        ref={(el) => { fieldRefs.current.excerpt = el; }}
+                                        value={formData.excerpt}
+                                        onChange={handleInputChange}
+                                        rows={3}
+                                        aria-invalid={Boolean(formErrors.excerpt)}
+                                        placeholder="Tóm tắt hấp dẫn (hiển thị ngoài trang danh sách và SEO description)…"
+                                        className={`w-full resize-none rounded-xl border bg-white px-4 py-3 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 ${formErrors.excerpt ? 'border-red-400 focus:ring-red-200' : 'border-slate-200 focus:border-secret-wax focus:ring-secret-wax/20'}`}
+                                    />
+                                    {formErrors.excerpt && <p className="text-xs text-red-600">{formErrors.excerpt}</p>}
+                                </div>
 
-                                    {/* Author */}
-                                    <div className="space-y-2">
-                                        <label className="text-sm font-medium text-slate-700">
-                                            Người viết bài
-                                        </label>
-                                        <input
-                                            type="text"
-                                            name="author"
-                                            value={formData.author}
-                                            onChange={handleInputChange}
-                                            className="w-full rounded-lg border border-slate-200 px-4 py-2 text-sm focus:border-secret-wax focus:outline-none focus:ring-2 focus:ring-secret-wax/20"
-                                            placeholder="Mong Coaching"
+                                {/* Content editor */}
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                        Nội dung bài viết <span className="text-red-500">*</span>
+                                    </label>
+                                    <div
+                                        ref={(el) => { fieldRefs.current.content = el; }}
+                                        tabIndex={-1}
+                                        className={formErrors.content ? 'rounded-xl ring-2 ring-red-400 ring-offset-2' : ''}
+                                    >
+                                        <RichTextEditor
+                                            value={formData.content}
+                                            onChange={handleContentChange}
+                                            placeholder="Bắt đầu viết bài tại đây…"
                                         />
                                     </div>
+                                    {formErrors.content && <p className="text-xs text-red-600">{formErrors.content}</p>}
+                                </div>
 
-                                    {/* Thumbnail URL - Hybrid Upload */}
-                                    <div className="space-y-3">
-                                        <label className="text-sm font-medium text-slate-700">
-                                            Ảnh bìa bài viết <span className="text-red-500">*</span>
+                                {/* SEO section */}
+                                <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5">
+                                    <div className="flex items-center gap-2">
+                                        <Globe className="h-4 w-4 text-green-600" aria-hidden="true" />
+                                        <h3 className="text-sm font-semibold text-slate-800">Tối Ưu Hóa SEO</h3>
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <label htmlFor="post-seo-title" className="text-xs font-medium text-slate-600">
+                                            SEO Title
                                         </label>
-
-                                        {/* 1. Upload Area */}
-                                        <div className="flex justify-center px-6 pt-5 pb-6 border-2 border-slate-300 border-dashed rounded-lg hover:border-secret-wax transition-colors bg-slate-50 relative">
-                                            <div className="space-y-1 text-center">
-                                                {isUploadingImage ? (
-                                                    <div className="flex flex-col items-center">
-                                                        <div className="w-8 h-8 border-4 border-secret-wax border-t-transparent rounded-full animate-spin mb-2"></div>
-                                                        <p className="text-xs text-slate-500">Đang tải lên...</p>
-                                                    </div>
-                                                ) : (
-                                                    <>
-                                                        <div className="flex text-sm text-slate-600 justify-center">
-                                                            <label
-                                                                htmlFor="post-image-upload"
-                                                                className="relative cursor-pointer bg-white rounded-md font-medium text-secret-wax hover:text-secret-ink focus-within:outline-none"
-                                                            >
-                                                                <span className="flex items-center gap-2"><Upload className="w-4 h-4" /> Tải ảnh từ máy</span>
-                                                                <input id="post-image-upload" name="file-upload" type="file" className="sr-only" accept="image/*" onChange={handleImageUpload} />
-                                                            </label>
-                                                        </div>
-                                                        <p className="text-xs text-slate-500 mt-1">PNG, JPG, GIF up to 10MB</p>
-                                                    </>
-                                                )}
-                                            </div>
+                                        <input
+                                            id="post-seo-title"
+                                            type="text"
+                                            name="seoTitle"
+                                            value={formData.seoTitle}
+                                            onChange={handleInputChange}
+                                            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-secret-wax focus:outline-none focus:ring-2 focus:ring-secret-wax/20"
+                                            placeholder="Tiêu đề hiển thị trên Google…"
+                                        />
+                                        <div className="flex items-center gap-2">
+                                            <div className={`h-1 flex-1 rounded-full ${seoMetrics.titleStatus === 'good' ? 'bg-green-500' : seoMetrics.titleStatus === 'warning' ? 'bg-amber-400' : 'bg-slate-200'}`} />
+                                            <span className={`text-[11px] ${seoMetrics.titleStatus === 'good' ? 'text-green-600' : seoMetrics.titleStatus === 'warning' ? 'text-amber-600' : 'text-slate-400'}`}>
+                                                {seoMetrics.titleLength}/60 {seoMetrics.titleStatus === 'good' ? '✓' : seoMetrics.titleStatus === 'warning' ? '(khuyến nghị 50-60)' : ''}
+                                            </span>
                                         </div>
+                                    </div>
 
-                                        {/* 2. Manual URL Input */}
-                                        <div className="relative">
-                                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                                <ImageIcon className="h-4 w-4 text-slate-400" />
-                                            </div>
-                                            <input
-                                                type="url"
-                                                name="thumbnailUrl"
-                                                value={formData.thumbnailUrl}
-                                                onChange={handleInputChange}
-                                                className="w-full rounded-lg border border-slate-200 pl-10 pr-4 py-2 text-sm focus:outline-none focus:border-secret-wax focus:ring-2 focus:ring-secret-wax/20 placeholder:text-slate-400"
-                                                placeholder="Hoặc dán đường dẫn ảnh (Facebook, Cloudinary)..."
-                                                required
-                                            />
+                                    <div className="space-y-1.5">
+                                        <label htmlFor="post-seo-description" className="text-xs font-medium text-slate-600">
+                                            SEO Description
+                                        </label>
+                                        <textarea
+                                            id="post-seo-description"
+                                            name="seoDescription"
+                                            value={formData.seoDescription}
+                                            onChange={handleInputChange}
+                                            rows={3}
+                                            className="w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-secret-wax focus:outline-none focus:ring-2 focus:ring-secret-wax/20"
+                                            placeholder="Mô tả hiển thị dưới tiêu đề trên Google (khoảng 150 ký tự)…"
+                                        />
+                                        <div className="flex items-center gap-2">
+                                            <div className={`h-1 flex-1 rounded-full ${seoMetrics.descriptionStatus === 'good' ? 'bg-green-500' : seoMetrics.descriptionStatus === 'warning' ? 'bg-amber-400' : 'bg-slate-200'}`} />
+                                            <span className={`text-[11px] ${seoMetrics.descriptionStatus === 'good' ? 'text-green-600' : seoMetrics.descriptionStatus === 'warning' ? 'text-amber-600' : 'text-slate-400'}`}>
+                                                {seoMetrics.descriptionLength}/160 {seoMetrics.descriptionStatus === 'good' ? '✓' : seoMetrics.descriptionStatus === 'warning' ? '(khuyến nghị 140-160)' : ''}
+                                            </span>
                                         </div>
+                                    </div>
 
-                                        {/* 3. Preview Area */}
-                                        {formData.thumbnailUrl && (
-                                            <div className="relative rounded-lg overflow-hidden group border border-slate-200 bg-slate-100">
-                                                <img
-                                                    src={formData.thumbnailUrl}
-                                                    alt="Preview"
-                                                    className="h-48 w-full object-cover"
-                                                    onError={(e) => { e.target.onerror = null; e.target.src = 'https://via.placeholder.com/400x300?text=Invalid+Image+URL'; }}
+                                    <div className="space-y-1.5">
+                                        <label htmlFor="post-seo-keywords" className="text-xs font-medium text-slate-600">
+                                            SEO Keywords
+                                        </label>
+                                        <div className="min-h-[42px] rounded-lg border border-slate-200 px-2 py-1.5 focus-within:border-secret-wax focus-within:ring-2 focus-within:ring-secret-wax/20">
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {seoKeywordList.map((kw) => (
+                                                    <span key={kw} className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
+                                                        {kw}
+                                                        <button type="button" onClick={() => removeSeoKeyword(kw)} aria-label={`Xóa "${kw}"`} className="text-slate-400 hover:text-red-600 focus-visible:outline-none">
+                                                            <X className="h-3 w-3" />
+                                                        </button>
+                                                    </span>
+                                                ))}
+                                                <input
+                                                    id="post-seo-keywords"
+                                                    type="text"
+                                                    value={seoKeywordDraft}
+                                                    onChange={(event) => setSeoKeywordDraft(event.target.value)}
+                                                    onKeyDown={(event) => {
+                                                        if (event.key === 'Enter' || event.key === ',') {
+                                                            event.preventDefault();
+                                                            addSeoKeywordsFromInput(seoKeywordDraft);
+                                                        }
+                                                    }}
+                                                    onBlur={() => addSeoKeywordsFromInput(seoKeywordDraft)}
+                                                    placeholder={seoKeywordList.length === 0 ? 'Nhập keyword, Enter để thêm…' : ''}
+                                                    className="min-w-[140px] flex-1 bg-transparent px-1 py-0.5 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none"
                                                 />
-                                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                    <button
-                                                        type="button"
-                                                        onClick={handleRemoveImage}
-                                                        className="bg-white/90 text-red-600 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-red-50 transition-colors flex items-center gap-1 shadow-sm"
-                                                    >
-                                                        <Trash2 className="w-4 h-4" /> Xóa ảnh
-                                                    </button>
-                                                </div>
                                             </div>
-                                        )}
-                                    </div>
-
-                                    {/* Video URL - Only for videos */}
-                                    {formData.type === 'video' && (
-                                        <div className="space-y-2">
-                                            <label className="text-sm font-medium text-slate-700">
-                                                URL Video <span className="text-red-500">*</span>
-                                            </label>
-                                            <input
-                                                type="url"
-                                                name="videoUrl"
-                                                value={formData.videoUrl}
-                                                onChange={handleInputChange}
-                                                className="w-full rounded-lg border border-slate-200 px-4 py-2 text-sm focus:border-secret-wax focus:outline-none focus:ring-2 focus:ring-secret-wax/20"
-                                                placeholder="https://www.youtube.com/embed/..."
-                                                required={formData.type === 'video'}
-                                            />
-                                            <p className="text-xs text-slate-500">
-                                                YouTube embed URL hoặc Cloudinary video URL
-                                            </p>
                                         </div>
-                                    )}
+                                        <p className="text-[11px] text-slate-400">{seoKeywordList.length} keyword · Enter hoặc dấu phẩy để thêm</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </main>
 
-                                    {/* Category */}
-                                    <div className="space-y-2">
-                                        <label className="text-sm font-medium text-slate-700">
-                                            Danh mục <span className="text-red-500">*</span>
-                                        </label>
-                                        <select
-                                            name="category"
-                                            value={formData.category}
-                                            onChange={handleInputChange}
-                                            className="w-full rounded-lg border border-slate-200 px-4 py-2 text-sm focus:border-secret-wax focus:outline-none focus:ring-2 focus:ring-secret-wax/20"
-                                            required
+                        {/* ── RIGHT: Settings sidebar ─────────────────── */}
+                        <aside className="hidden w-72 shrink-0 overflow-y-auto overscroll-contain border-l border-slate-200 bg-white px-4 py-6 lg:flex lg:flex-col lg:gap-5 xl:w-80">
+
+                            {/* Type */}
+                            <div className="space-y-1.5">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Loại bài viết</p>
+                                <div className="grid grid-cols-3 gap-1 rounded-xl border border-slate-200 p-1">
+                                    {[
+                                        { value: 'article', label: 'Bài viết', icon: <FileText className="h-3.5 w-3.5" /> },
+                                        { value: 'video', label: 'Video', icon: <Video className="h-3.5 w-3.5" /> },
+                                        { value: 'case-study', label: 'Case', icon: <Star className="h-3.5 w-3.5" /> },
+                                    ].map((opt) => (
+                                        <button
+                                            key={opt.value}
+                                            type="button"
+                                            onClick={() => setFormData((prev) => ({ ...prev, type: opt.value }))}
+                                            className={`flex flex-col items-center gap-1 rounded-lg py-2 text-[10px] font-semibold transition ${
+                                                formData.type === opt.value
+                                                    ? 'bg-secret-wax text-white shadow-sm'
+                                                    : 'text-slate-600 hover:bg-slate-100'
+                                            }`}
                                         >
-                                            <option value="">-- Chọn danh mục --</option>
-                                            <option value="Tin tức chung">Tin tức chung</option>
-                                            <option value="Sự kiện & Hoạt động">Sự kiện & Hoạt động</option>
-                                            <option value="Thông báo Lịch học">Thông báo Lịch học</option>
-                                            <option value="Góc Báo chí">Góc Báo chí</option>
-                                        </select>
-                                    </div>
+                                            {opt.icon}
+                                            {opt.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
 
-                                    {/* Author */}
-                                    <div className="space-y-2">
-                                        <label className="text-sm font-medium text-slate-700">Tác giả</label>
-                                        <input
-                                            type="text"
-                                            name="author"
-                                            value={formData.author}
-                                            onChange={handleInputChange}
-                                            className="w-full rounded-lg border border-slate-200 px-4 py-2 text-sm focus:border-secret-wax focus:outline-none focus:ring-2 focus:ring-secret-wax/20"
+                            {/* Category */}
+                            <div className="space-y-1.5">
+                                <label htmlFor="post-category" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                    Danh mục <span className="text-red-500">*</span>
+                                </label>
+                                <div className="relative">
+                                    <select
+                                        id="post-category"
+                                        name="category"
+                                        ref={(el) => { fieldRefs.current.category = el; }}
+                                        value={formData.category}
+                                        onChange={handleInputChange}
+                                        aria-invalid={Boolean(formErrors.category)}
+                                        className={`w-full appearance-none rounded-lg border py-2 pl-3 pr-8 text-sm focus:outline-none focus:ring-2 ${formErrors.category ? 'border-red-400 focus:ring-red-200' : 'border-slate-200 focus:border-secret-wax focus:ring-secret-wax/20'}`}
+                                    >
+                                        <option value="">-- Chọn danh mục --</option>
+                                        {CATEGORY_OPTIONS.map((cat) => (
+                                            <option key={cat} value={cat}>{cat}</option>
+                                        ))}
+                                    </select>
+                                    <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+                                </div>
+                                {formErrors.category && <p className="text-xs text-red-600">{formErrors.category}</p>}
+                            </div>
+
+                            {/* Author */}
+                            <div className="space-y-1.5">
+                                <label htmlFor="post-author" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                    Tác giả
+                                </label>
+                                <input
+                                    id="post-author"
+                                    type="text"
+                                    name="author"
+                                    value={formData.author}
+                                    onChange={handleInputChange}
+                                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-secret-wax focus:outline-none focus:ring-2 focus:ring-secret-wax/20"
+                                    placeholder="Mong Coaching"
+                                />
+                            </div>
+
+                            <div className="border-t border-slate-100" />
+
+                            {/* Thumbnail */}
+                            <div className="space-y-2">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                    Ảnh bìa <span className="text-red-500">*</span>
+                                </p>
+
+                                {formData.thumbnailUrl ? (
+                                    <div className="group relative overflow-hidden rounded-xl border border-slate-200">
+                                        <img
+                                            src={formData.thumbnailUrl}
+                                            alt={formData.thumbnailAlt || 'Preview'}
+                                            className="h-36 w-full object-cover"
+                                            onError={(ev) => { ev.target.onerror = null; ev.target.src = 'https://via.placeholder.com/400x300?text=Error'; }}
                                         />
-                                    </div>
-
-                                    {/* Publish Toggle */}
-                                    <div className="rounded-lg border border-slate-200 p-4">
-                                        <div className="flex items-center justify-between">
-                                            <div>
-                                                <div className="text-sm font-medium text-slate-900">Hiển thị ngay</div>
-                                                <div className="mt-1 text-xs text-slate-500">
-                                                    {formData.isPublished
-                                                        ? 'Bài viết sẽ hiển thị công khai'
-                                                        : 'Lưu dưới dạng bản nháp'}
-                                                </div>
-                                            </div>
+                                        <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
                                             <button
                                                 type="button"
-                                                onClick={() =>
-                                                    setFormData((prev) => ({ ...prev, isPublished: !prev.isPublished }))
-                                                }
-                                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${formData.isPublished ? 'bg-secret-wax' : 'bg-gray-300'
-                                                    }`}
+                                                onClick={handleRemoveImage}
+                                                className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700"
                                             >
-                                                <span
-                                                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${formData.isPublished ? 'translate-x-6' : 'translate-x-1'
-                                                        }`}
-                                                />
+                                                <Trash2 className="inline h-3.5 w-3.5 mr-1" aria-hidden="true" />
+                                                Xóa ảnh
                                             </button>
                                         </div>
                                     </div>
+                                ) : (
+                                    <label
+                                        htmlFor="post-image-upload"
+                                        className={`flex h-28 w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed transition ${isUploadingImage ? 'border-secret-wax bg-secret-wax/5' : 'border-slate-300 bg-slate-50 hover:border-secret-wax hover:bg-secret-wax/5'}`}
+                                    >
+                                        {isUploadingImage ? (
+                                            <>
+                                                <div className="h-6 w-6 animate-spin rounded-full border-2 border-secret-wax border-t-transparent" />
+                                                <span className="text-xs text-slate-500">Đang tải lên…</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Upload className="h-5 w-5 text-slate-400" aria-hidden="true" />
+                                                <span className="text-xs font-medium text-slate-500">Nhấn để chọn ảnh</span>
+                                                <span className="text-[10px] text-slate-400">PNG, JPG tới 10MB</span>
+                                            </>
+                                        )}
+                                        <input
+                                            id="post-image-upload"
+                                            name="file-upload"
+                                            type="file"
+                                            className="sr-only"
+                                            accept="image/*"
+                                            onChange={handleImageUpload}
+                                        />
+                                    </label>
+                                )}
+
+                                <div className="relative">
+                                    <ImageIcon className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+                                    <input
+                                        id="post-thumbnail-url"
+                                        type="url"
+                                        name="thumbnailUrl"
+                                        ref={(el) => { fieldRefs.current.thumbnailUrl = el; }}
+                                        value={formData.thumbnailUrl}
+                                        onChange={handleInputChange}
+                                        aria-invalid={Boolean(formErrors.thumbnailUrl)}
+                                        className={`w-full rounded-lg border py-2 pl-9 pr-3 text-xs placeholder:text-slate-400 focus:outline-none focus:ring-2 ${formErrors.thumbnailUrl ? 'border-red-400 focus:ring-red-200' : 'border-slate-200 focus:border-secret-wax focus:ring-secret-wax/20'}`}
+                                        placeholder="Hoặc dán URL ảnh…"
+                                    />
                                 </div>
+                                {formErrors.thumbnailUrl && <p className="text-xs text-red-600">{formErrors.thumbnailUrl}</p>}
+
+                                <input
+                                    id="post-thumbnail-alt"
+                                    type="text"
+                                    name="thumbnailAlt"
+                                    value={formData.thumbnailAlt}
+                                    onChange={handleInputChange}
+                                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs placeholder:text-slate-400 focus:border-secret-wax focus:outline-none focus:ring-2 focus:ring-secret-wax/20"
+                                    placeholder="Alt ảnh (SEO ảnh)…"
+                                />
                             </div>
 
-                            {/* Form Actions */}
-                            <div className="mt-8 flex items-center justify-end gap-4 border-t border-slate-200 pt-6">
-                                <button
-                                    type="button"
-                                    onClick={() => setIsFormOpen(false)}
-                                    className="rounded-lg border border-slate-300 px-6 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                                >
-                                    Hủy
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={handleSubmit}
-                                    disabled={isSubmitting}
-                                    className="rounded-lg bg-secret-wax px-6 py-2 text-sm font-semibold text-white hover:bg-secret-ink disabled:cursor-not-allowed disabled:opacity-50"
-                                >
-                                    {isSubmitting ? 'Đang lưu...' : editingPost ? 'Cập nhật' : 'Đăng bài'}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                            {/* Video URL when type = video */}
+                            {formData.type === 'video' && (
+                                <div className="space-y-1.5">
+                                    <label htmlFor="post-video-url" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                        URL Video <span className="text-red-500">*</span>
+                                    </label>
+                                    <input
+                                        id="post-video-url"
+                                        type="url"
+                                        name="videoUrl"
+                                        ref={(el) => { fieldRefs.current.videoUrl = el; }}
+                                        value={formData.videoUrl}
+                                        onChange={handleInputChange}
+                                        aria-invalid={Boolean(formErrors.videoUrl)}
+                                        className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 ${formErrors.videoUrl ? 'border-red-400 focus:ring-red-200' : 'border-slate-200 focus:border-secret-wax focus:ring-secret-wax/20'}`}
+                                        placeholder="https://www.youtube.com/embed/..."
+                                    />
+                                    {formErrors.videoUrl && <p className="text-xs text-red-600">{formErrors.videoUrl}</p>}
+                                </div>
+                            )}
+                        </aside>
+                    </form>
+                </div>,
+                document.body
             )}
 
-            {/* Preview Modal */}
-            {isPreviewOpen && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4">
-                    <div className="w-full max-w-5xl h-[90vh] bg-white rounded-2xl overflow-hidden flex flex-col shadow-2xl animate-fade-in-up">
-                        {/* Modal Header */}
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-white">
-                            <h3 className="font-bold text-lg text-gray-800 flex items-center gap-2">
-                                <Eye className="w-5 h-5 text-secret-wax" /> Xem trước bài viết
+            {isPreviewOpen && createPortal(
+                <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/80 p-4">
+                    <div className="flex h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+                        <div className="flex shrink-0 items-center justify-between border-b border-gray-100 bg-white px-6 py-4">
+                            <h3 className="flex items-center gap-2 text-base font-bold text-gray-800">
+                                <Eye className="h-4 w-4 text-secret-wax" aria-hidden="true" />
+                                Xem trước bài viết
                             </h3>
                             <button
+                                type="button"
                                 onClick={() => setIsPreviewOpen(false)}
-                                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                                className="rounded-full p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/50"
+                                aria-label="Đóng xem trước"
                             >
-                                <X className="w-6 h-6 text-gray-500" />
+                                <X className="h-5 w-5" aria-hidden="true" />
                             </button>
                         </div>
-
-                        {/* Modal Content - Scrollable */}
-                        <div className="flex-1 overflow-y-auto bg-white p-6 md:p-10">
-                            <div className="max-w-4xl mx-auto">
-                                {/* Simulated Header */}
-                                <div className="text-center mb-10">
-                                    <span className="text-sm font-bold text-secret-wax uppercase tracking-widest border-b-2 border-secret-wax pb-1 mb-4 inline-block">
+                        <div className="flex-1 overflow-y-auto overscroll-contain bg-white p-6 md:p-10">
+                            <div className="mx-auto max-w-4xl">
+                                <div className="mb-10 text-center">
+                                    <span className="mb-4 inline-block border-b-2 border-secret-wax pb-1 text-sm font-bold uppercase tracking-widest text-secret-wax">
                                         {formData.category || 'Tin tức'}
                                     </span>
-                                    <h1 className="font-serif text-3xl md:text-5xl font-bold text-gray-900 mb-6 leading-tight">
+                                    <h1 className="mb-6 font-serif text-3xl font-bold leading-tight text-gray-900 md:text-5xl">
                                         {formData.title || 'Tiêu đề bài viết'}
                                     </h1>
-                                    <p className="text-gray-500 italic mb-6">{formData.excerpt}</p>
-
+                                    <p className="mb-6 italic text-gray-500">{formData.excerpt}</p>
                                     {formData.thumbnailUrl && (
-                                        <div className="rounded-xl overflow-hidden shadow-lg mb-8">
-                                            <img src={formData.thumbnailUrl} alt="" className="w-full h-auto" />
+                                        <div className="mb-8 overflow-hidden rounded-xl shadow-lg">
+                                            <img
+                                                src={formData.thumbnailUrl}
+                                                alt={formData.thumbnailAlt || formData.title || 'Ảnh bìa bài viết'}
+                                                className="h-auto w-full"
+                                            />
                                         </div>
                                     )}
                                 </div>
-
-                                {/* Render Content */}
-                                {formData.isBlockMode ? (
-                                    <BlockContentRenderer
-                                        data={(() => {
-                                            try {
-                                                return typeof formData.content === 'string' ? JSON.parse(formData.content) : formData.content;
-                                            } catch (e) {
-                                                return { blocks: [] };
-                                            }
-                                        })()}
-                                    />
-                                ) : (
-                                    <div className="prose prose-lg max-w-none" dangerouslySetInnerHTML={{ __html: formData.content }} />
-                                )}
+                                <div className="prose prose-lg max-w-none" dangerouslySetInnerHTML={{ __html: formData.content }} />
                             </div>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );
