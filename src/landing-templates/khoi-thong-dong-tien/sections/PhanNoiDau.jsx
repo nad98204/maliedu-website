@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight, Sparkles } from "lucide-react";
+import { trackCtaClick } from "../ctaTracking";
 
 /* ─── Design Tokens (cùng palette BannerChinh) ─────────────────
    Primary:   #7A2113  (đỏ nâu)
@@ -112,6 +113,7 @@ const TransformBlock = () => (
       <div className="relative flex justify-center">
         <a
           href="#dang-ky"
+          onClick={() => trackCtaClick("PhanNoiDau")}
           className="inline-flex items-center gap-2 rounded-full px-8 sm:px-10 py-3.5 font-bold uppercase tracking-[0.08em] sm:tracking-[0.1em] text-[#FFE566] text-xs sm:text-sm md:text-base whitespace-nowrap transition-all duration-300 hover:-translate-y-[3px] hover:shadow-[0_14px_36px_rgba(156,12,18,0.45)] active:translate-y-0"
           style={{
             background: "linear-gradient(180deg, #E8393F 0%, #9C0C12 100%)",

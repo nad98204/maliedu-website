@@ -1,11 +1,15 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { ArrowRight, CheckCircle2, Clock, ShieldAlert } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 import { KHOI_THONG_DONG_TIEN_CONFIG } from "./landingConfig";
+import { trackMetaEvent } from "../../utils/metaPixel";
 
 const DEFAULT_ZALO_LINK = KHOI_THONG_DONG_TIEN_CONFIG.zaloLink;
 
 const CamOnKhoiThong = () => {
   const [timeLeft, setTimeLeft] = useState(5 * 60);
+  const [searchParams] = useSearchParams();
+  const confirmedRef = useRef(false);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -14,6 +18,18 @@ const CamOnKhoiThong = () => {
 
     return () => window.clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    if (confirmedRef.current) return;
+    confirmedRef.current = true;
+
+    const eventId = searchParams.get("eventId") || undefined;
+    trackMetaEvent(
+      "CompleteRegistration",
+      { content_name: "Xác nhận - Khơi Thông Dòng Tiền", status: true },
+      eventId ? { eventID: eventId } : undefined,
+    );
+  }, [searchParams]);
 
   const minutes = Math.floor(timeLeft / 60);
   const seconds = timeLeft % 60;
@@ -100,6 +116,7 @@ const CamOnKhoiThong = () => {
             href={DEFAULT_ZALO_LINK}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={() => trackMetaEvent("Contact", { content_name: "Vào nhóm Zalo - Khơi Thông Dòng Tiền" })}
             className="relative w-full flex flex-col items-center justify-center gap-1 rounded-full py-3.5 px-6 text-white overflow-hidden transition-all duration-300 transform group-hover:scale-[1.02] shadow-[0_10px_25px_rgba(0,104,255,0.4)]"
             style={{ background: "linear-gradient(180deg, #1877F2 0%, #0056D2 100%)" }}
           >

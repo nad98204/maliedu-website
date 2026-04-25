@@ -40,10 +40,6 @@ export const normalizeMetaCurrency = (currency, fallback = DEFAULT_META_CURRENCY
 export const resolveMetaEventData = (config = {}) => {
   const value = normalizeMetaValue(config?.fbEventValue ?? config?.eventValue ?? 0);
 
-  if (value <= 0) {
-    return {};
-  }
-
   return {
     value,
     currency: normalizeMetaCurrency(config?.fbCurrency ?? config?.currency, DEFAULT_META_CURRENCY),
@@ -107,7 +103,7 @@ export const setMetaUserData = (userData) => {
   win.fbq("set", "user_data", userData);
 };
 
-export const initMetaPixel = (pixelId) => {
+export const initMetaPixel = (pixelId, userData) => {
   if (!pixelId) return null;
 
   const win = getWindow();
@@ -119,7 +115,11 @@ export const initMetaPixel = (pixelId) => {
   }
 
   if (!win.__maliMetaPixelInitialized.has(pixelId)) {
-    fbq("init", pixelId);
+    if (userData && Object.keys(userData).length > 0) {
+      fbq("init", pixelId, userData);
+    } else {
+      fbq("init", pixelId);
+    }
     win.__maliMetaPixelInitialized.add(pixelId);
   }
 

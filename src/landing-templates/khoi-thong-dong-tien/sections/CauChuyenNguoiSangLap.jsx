@@ -1,4 +1,5 @@
 import { ArrowRight, CheckCircle2 } from "lucide-react";
+import { trackCtaClick } from "../ctaTracking";
 
 const IMG_PORTRAIT = "https://s3-hn1-api.longvan.vn/video-khoa-hoc/videos/1776240399719-228639746--nh-ch-p-m-n-h-nh-2025-08-05-012412.png";
 const IMG_GIEO_GAT = "https://s3-hn1-api.longvan.vn/video-khoa-hoc/videos/1776240400431-603850834--nh-ch-p-m-n-h-nh-2025-08-05-012419.png";
@@ -9,6 +10,7 @@ const IMG_DAY_HOC = "https://s3-hn1-api.longvan.vn/video-khoa-hoc/videos/1776240
 const CTA = ({ className = "" }) => (
   <a
     href="#dang-ky"
+    onClick={() => trackCtaClick("CauChuyenNguoiSangLap")}
     className={`inline-flex items-center gap-2 rounded-full px-7 py-3 font-bold uppercase tracking-[0.08em] text-[#FFE566] text-sm whitespace-nowrap transition hover:-translate-y-[2px] ${className}`}
     style={{
       background: "linear-gradient(180deg, #E8393F 0%, #9C0C12 100%)",

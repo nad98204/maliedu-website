@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowRight, Eye, Play, X } from "lucide-react";
+import { trackCtaClick } from "../ctaTracking";
 
 const STUDENT_VIDEOS = [
   {
@@ -277,6 +278,7 @@ const VideoHocVien = () => {
           </p>
           <a
             href="#dang-ky"
+            onClick={() => trackCtaClick("VideoHocVien")}
             className="group relative inline-flex items-center gap-2.5 rounded-full px-8 py-3.5 font-black uppercase tracking-[0.08em] text-[#FFE566] text-sm transition-all duration-300 hover:-translate-y-0.5 active:scale-95"
             style={{
               background: "linear-gradient(180deg, #E8393F 0%, #9C0C12 100%)",

@@ -8,7 +8,9 @@ import { submitToCRM } from "../../../services/crmService";
 import {
   createMetaEventId,
   getMetaBrowserData,
+  hashData,
   initMetaPixel,
+  normalizeNameForHash,
   resolveMetaEventData,
   setMetaUserData,
   trackMetaEvent,
@@ -192,6 +194,31 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
       isCancelled = true;
     };
   }, []);
+
+  const handleAdvancedMatch = async (field, value) => {
+    try {
+      if (field === "phone") {
+        const normalized = value.replace(/\D/g, "").replace(/^0/, "84");
+        if (normalized.length < 9) return;
+        const hashed = await hashData(normalized);
+        if (hashed) setMetaUserData({ ph: [hashed] });
+      } else if (field === "name") {
+        const parts = value.trim().split(/\s+/).filter(Boolean);
+        if (parts.length === 0) return;
+        const fn = parts[parts.length - 1];
+        const ln = parts.length > 1 ? parts.slice(0, -1).join(" ") : "";
+        const hashedFn = fn ? await hashData(normalizeNameForHash(fn)) : "";
+        const hashedLn = ln ? await hashData(normalizeNameForHash(ln)) : "";
+        const userData = {
+          ...(hashedFn ? { fn: [hashedFn] } : {}),
+          ...(hashedLn ? { ln: [hashedLn] } : {}),
+        };
+        if (Object.keys(userData).length > 0) setMetaUserData(userData);
+      }
+    } catch {
+      // silent fail - không ảnh hưởng UX
+    }
+  };
 
   const handleChange = (field) => (event) => {
     let { value } = event.target;
@@ -545,6 +572,7 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
                         onBlur={(e) => {
                           e.target.style.border = errors.name ? "1.5px solid #E8393F" : "1px solid rgba(201,150,26,0.2)";
                           e.target.style.background = "rgba(255,255,255,0.06)";
+                          handleAdvancedMatch("name", formState.name);
                         }}
                       />
                     </div>
@@ -572,6 +600,7 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
                         onBlur={(e) => {
                           e.target.style.border = errors.phone ? "1.5px solid #E8393F" : "1px solid rgba(201,150,26,0.2)";
                           e.target.style.background = "rgba(255,255,255,0.06)";
+                          handleAdvancedMatch("phone", formState.phone);
                         }}
                       />
                     </div>

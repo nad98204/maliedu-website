@@ -3,7 +3,7 @@ import { collection, doc, getDoc, getDocs } from "firebase/firestore";
 import { useLocation } from "react-router-dom";
 
 import { crmFirestore } from "../firebase";
-import { ensureMetaPixel, initMetaPixel } from "../utils/metaPixel";
+import { ensureMetaPixel, getMetaBrowserData, initMetaPixel } from "../utils/metaPixel";
 
 const DEFAULT_PIXEL_ID = "1526874981588150";
 
@@ -120,7 +120,12 @@ const FacebookPixelTracker = () => {
       const pixelId = await resolvePixelIdForPath(location.pathname);
       if (isCancelled || !pixelId) return;
 
-      initMetaPixel(pixelId);
+      const { fbp, fbc } = getMetaBrowserData(location.search);
+      const browserUserData = {
+        ...(fbp ? { fbp } : {}),
+        ...(fbc ? { fbc } : {}),
+      };
+      initMetaPixel(pixelId, browserUserData);
 
       if (typeof window === "undefined" || typeof window.fbq !== "function") return;
       if (window.__maliLastTrackedPageView === locationSignature) return;
