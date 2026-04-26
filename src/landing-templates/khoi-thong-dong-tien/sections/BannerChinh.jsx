@@ -7,7 +7,7 @@ const VIDEO_URL =
 const TITLE_IMG_URL =
   "https://assets.cdn.filesafe.space/Ap9y6wdpftIPKJBsddZ2/media/6895aa923b96f708cbbf70c2.jpeg";
 const VIDEO_POSTER_URL =
-  "https://res.cloudinary.com/dstukyjzd/image/upload/v1767682614/Kh%C6%A1i_Th%C3%B4ng_D%C3%B2ng_Ti%E1%BB%81n_M%C3%A0u_Xanh_sjajsx.jpg";
+  "https://res.cloudinary.com/dstukyjzd/image/upload/f_auto,q_auto:good,w_640/v1767682614/Kh%C6%A1i_Th%C3%B4ng_D%C3%B2ng_Ti%E1%BB%81n_M%C3%A0u_Xanh_sjajsx.jpg";
 
 /* ─── VideoPlayer ────────────────────────────────────────────── */
 const VideoPlayer = () => {
@@ -21,25 +21,18 @@ const VideoPlayer = () => {
   const [showPause, setShowPause] = useState(false);
   let hideTimer = useRef(null);
 
-  /** Thử autoplay có tiếng trước; trình duyệt chặn thì fallback muted (policy chuẩn). */
+  /** Autoplay luôn tắt tiếng (muted) để tuân thủ chính sách trình duyệt. */
   const attemptAutoplay = useCallback(() => {
     const v = videoRef.current;
     if (!v) return;
 
     v.volume = 0.7;
-    v.muted = false;
-    setMuted(false);
+    v.muted = true;
+    setMuted(true);
 
     const p = v.play();
     if (p?.catch) {
-      p.catch(() => {
-        v.muted = true;
-        setMuted(true);
-        const p2 = v.play();
-        if (p2?.catch) {
-          p2.catch(() => setPlaying(false));
-        }
-      });
+      p.catch(() => setPlaying(false));
     }
   }, []);
 
@@ -108,22 +101,6 @@ const VideoPlayer = () => {
     }
   }, [attemptAutoplay]);
 
-  /** Click lần đầu ở chỗ khác vùng video → bật tiếng (user gesture), không xung đột với click vào video. */
-  useEffect(() => {
-    const unlockAudio = (e) => {
-      if (containerRef.current?.contains(e.target)) return;
-      const v = videoRef.current;
-      if (!v?.muted) return;
-      v.muted = false;
-      v.volume = 0.7;
-      setMuted(false);
-      setVolume(0.7);
-      v.play().catch(() => {});
-      document.removeEventListener("pointerdown", unlockAudio, true);
-    };
-    document.addEventListener("pointerdown", unlockAudio, { capture: true });
-    return () => document.removeEventListener("pointerdown", unlockAudio, true);
-  }, []);
 
   useEffect(() => () => clearTimeout(hideTimer.current), []);
 
@@ -151,6 +128,7 @@ const VideoPlayer = () => {
           loop
           playsInline
           preload="auto"
+          fetchPriority="high"
           poster={VIDEO_POSTER_URL}
           onLoadedMetadata={() => {
             setIsVideoReady(true);
@@ -354,6 +332,10 @@ const BannerChinh = () => {
             src={TITLE_IMG_URL}
             alt="Khơi Thông Dòng Tiền"
             className="w-full max-w-[680px] sm:max-w-[820px] lg:max-w-full h-auto object-contain drop-shadow-lg"
+            fetchPriority="high"
+            decoding="async"
+            width="820"
+            height="260"
             style={{ display: "block" }}
           />
         </div>

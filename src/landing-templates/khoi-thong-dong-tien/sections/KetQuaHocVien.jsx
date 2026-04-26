@@ -154,6 +154,8 @@ export default function KetQuaHocVien() {
                       src={item.img}
                       alt="Kết quả học viên"
                       className={`w-full h-full bg-[#F7EFD8] ${isCenter ? "object-contain" : "object-cover"}`}
+                      loading="lazy"
+                      decoding="async"
                       draggable={false}
                     />
                     {/* Gradient on center only */}
@@ -237,6 +239,8 @@ export default function KetQuaHocVien() {
                     src={item.img}
                     alt="Kết quả học viên"
                     className="w-full h-full object-contain bg-[#F7EFD8]"
+                    loading="lazy"
+                    decoding="async"
                     draggable={false}
                   />
                   <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-[rgba(58,34,8,0.65)] to-transparent pointer-events-none" />

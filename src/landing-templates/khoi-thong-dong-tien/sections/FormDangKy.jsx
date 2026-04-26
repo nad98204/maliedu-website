@@ -664,6 +664,8 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
                     src={BANNER_URL}
                     alt="Khơi Thông Dòng Tiền"
                     className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover/banner:scale-110"
+                    loading="lazy"
+                    decoding="async"
                   />
 
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />

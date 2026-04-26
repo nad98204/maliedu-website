@@ -105,6 +105,8 @@ const LichTrinhHoc = () => (
           <img
             src={TREE_IMG}
             alt="Cây tri thức"
+            loading="lazy"
+            decoding="async"
             style={{
               width: "55%",
               maxWidth: "650px",
@@ -207,6 +209,8 @@ const LichTrinhHoc = () => (
             src={TREE_IMG}
             alt="Cây tri thức"
             className="w-full object-contain"
+            loading="lazy"
+            decoding="async"
             style={{ mixBlendMode: "multiply", filter: "brightness(1.0) saturate(1.15)" }}
           />
         </div>

@@ -46,7 +46,7 @@ const CauChuyenNguoiSangLap = () => (
           <div className="relative group">
             <div className="absolute inset-0 bg-[#C9961A] blur-2xl opacity-20 group-hover:opacity-30 transition-opacity" />
             <div className="relative rounded-2xl overflow-hidden border-4 border-white shadow-2xl transition hover:scale-[1.02] duration-500">
-              <img src={IMG_PORTRAIT} alt="Mong Coaching" className="w-full aspect-[4/5] object-cover" />
+              <img src={IMG_PORTRAIT} alt="Mong Coaching" className="w-full aspect-[4/5] object-cover" loading="lazy" decoding="async" />
             </div>
           </div>
 
@@ -119,7 +119,7 @@ const CauChuyenNguoiSangLap = () => (
         <div className="relative group mx-auto max-w-[560px]">
           <div className="absolute -inset-4 bg-[#7A2113]/5 blur-3xl rounded-full opacity-60 pointer-events-none" />
           <div className="relative rounded-3xl overflow-hidden border-2 border-white shadow-2xl transition hover:rotate-1 hover:scale-[1.01] duration-500">
-            <img src={IMG_GIEO_GAT} alt="Nguyên tắc gieo gặt" className="w-full object-cover" />
+            <img src={IMG_GIEO_GAT} alt="Nguyên tắc gieo gặt" className="w-full object-cover" loading="lazy" decoding="async" />
             <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/50 to-transparent pointer-events-none" />
             <span className="absolute bottom-4 right-4 text-[10px] text-white/80 font-bold uppercase tracking-widest bg-black/20 backdrop-blur-sm px-3 py-1.5 rounded-full border border-white/10">
               Quy luật vận hành
@@ -181,7 +181,7 @@ const CauChuyenNguoiSangLap = () => (
                 </div>
               </div>
               <div className="mt-auto aspect-video overflow-hidden border-t border-[#D4B572]/20">
-                <img src={img} alt={title} className="w-full h-full object-cover transition duration-700 group-hover:scale-110" />
+                <img src={img} alt={title} className="w-full h-full object-cover transition duration-700 group-hover:scale-110" loading="lazy" decoding="async" />
               </div>
             </div>
           ))}

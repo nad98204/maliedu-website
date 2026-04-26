@@ -13,28 +13,28 @@
       href="https://s3-hn1-api.longvan.vn/video-khoa-hoc/videos/1776224218361-128806801-Logo-Mali.png"
     />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0, interactive-widget=resizes-content" />
+    <!-- Preconnect: video server & CDN assets (ưu tiên kết nối sớm) -->
+    <link rel="preconnect" href="https://s3-hn1-api.longvan.vn" crossorigin />
+    <link rel="dns-prefetch" href="https://s3-hn1-api.longvan.vn" />
+    <link rel="preconnect" href="https://res.cloudinary.com" crossorigin />
+    <link rel="dns-prefetch" href="https://res.cloudinary.com" />
+
+    <!-- Preconnect: Google Fonts (chỉ cần 1 lần) -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Load fonts async để không block render (FOUT acceptable cho landing) -->
     <link
-      href="https://fonts.googleapis.com/css2?family=PT+Serif:ital,wght@0,400;0,700;1,400;1,700&display=swap"
-      rel="stylesheet"
+      rel="preload"
+      as="style"
+      href="https://fonts.googleapis.com/css2?family=PT+Serif:ital,wght@0,400;0,700;1,400;1,700&family=Roboto:ital,wght@0,100..900;1,100..900&family=Cinzel:wght@400;500;600;700;800&family=Montserrat:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;0,700;0,800;1,400&family=Inter:wght@300;400;500;600;700&family=Story+Script&display=swap"
+      onload="this.rel='stylesheet'"
     />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap"
-      rel="stylesheet"
-    />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700;800&family=Montserrat:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;0,700;0,800;1,400&display=swap"
-      rel="stylesheet"
-    />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Story+Script&display=swap"
-      rel="stylesheet"
-    />
+    <noscript>
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=PT+Serif:ital,wght@0,400;0,700;1,400;1,700&family=Roboto:ital,wght@0,100..900;1,100..900&family=Cinzel:wght@400;500;600;700;800&family=Montserrat:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;0,700;0,800;1,400&family=Inter:wght@300;400;500;600;700&family=Story+Script&display=swap"
+      />
+    </noscript>
     <style>
       .story-script {
         font-family: "Story Script", sans-serif;
@@ -73,7 +73,7 @@
       property="twitter:image"
       content="https://s3-hn1-api.longvan.vn/video-khoa-hoc/videos/1776223771769-356869318-FULL-SIZE.png"
     />
-    <script src="/runtime-config.js"></script>
+    <script src="/runtime-config.js" defer></script>
   </head>
 
   <body>

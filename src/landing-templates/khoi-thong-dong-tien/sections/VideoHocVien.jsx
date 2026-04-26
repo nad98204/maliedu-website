@@ -28,8 +28,23 @@ const LOOP_VIDEOS = [...Array(6)].flatMap(() => STUDENT_VIDEOS);
 /* ─── shared card UI ─── */
 const VideoCard = ({ item, onOpen, width = 280 }) => {
   const thumbRef = useRef(null);
+  const wrapRef = useRef(null);
+  const [srcLoaded, setSrcLoaded] = useState(false);
+
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) { setSrcLoaded(true); obs.disconnect(); } },
+      { rootMargin: "200px" }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
   return (
   <div
+    ref={wrapRef}
     className="flex-shrink-0 cursor-pointer group"
     style={{ width }}
     onClick={() => onOpen(item)}
@@ -44,10 +59,10 @@ const VideoCard = ({ item, onOpen, width = 280 }) => {
           className="h-full w-full object-cover opacity-75"
           playsInline
           muted
-          preload="metadata"
+          preload={srcLoaded ? "metadata" : "none"}
           onLoadedMetadata={() => { if (thumbRef.current) thumbRef.current.currentTime = 1; }}
         >
-          <source src={item.videoUrl} type="video/mp4" />
+          {srcLoaded && <source src={item.videoUrl} type="video/mp4" />}
         </video>
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/15 to-transparent" />
         <div className="absolute inset-0 flex items-center justify-center">
