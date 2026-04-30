@@ -112,7 +112,7 @@ export const onCrmLeadCreated = onValueCreated(
       // Lấy cấu hình Pixel/Token từ Firestore
       if (landingPageId) {
         const lpDoc = await firestore.collection("landing_pages").doc(landingPageId).get();
-        if (lpDoc.exists()) {
+        if (lpDoc.exists) {
           const config = lpDoc.data();
           fbCapiToken = config.fbCapiToken;
           fbPixel = config.fbPixel || pixelId;
@@ -122,7 +122,7 @@ export const onCrmLeadCreated = onValueCreated(
       // Nếu landing page không có token riêng, lấy ở config chung
       if (!fbCapiToken) {
         const configDoc = await firestore.collection("public_settings").doc("landing_config").get();
-        if (configDoc.exists()) {
+        if (configDoc.exists) {
           fbCapiToken = configDoc.data().fbCapiToken;
         }
       }
@@ -165,17 +165,18 @@ export const onCrmLeadCreated = onValueCreated(
 
       // Gửi sự kiện Lead
       if (leadEventId) {
-        await sendMetaCapiEvent({
+        const result = await sendMetaCapiEvent({
           ...commonParams,
           eventName: "Lead",
           eventId: leadEventId,
           customData: { content_name: leadData.courseName || "Đăng ký Landing" },
         });
+        console.log(`[CAPI] Meta Response (Lead):`, JSON.stringify(result));
       }
 
       // Gửi sự kiện CompleteRegistration
       if (metaEventId) {
-        await sendMetaCapiEvent({
+        const result = await sendMetaCapiEvent({
           ...commonParams,
           eventName: "CompleteRegistration",
           eventId: metaEventId,
@@ -184,9 +185,10 @@ export const onCrmLeadCreated = onValueCreated(
             currency: leadData.fbCurrency || "VND",
           },
         });
+        console.log(`[CAPI] Meta Response (CompleteRegistration):`, JSON.stringify(result));
       }
 
-      console.log(`[CAPI] Successfully sent events for lead: ${event.params.leadId}`);
+      console.log(`[CAPI] Finished processing lead: ${event.params.leadId}`);
     } catch (error) {
       console.error("[CAPI] Critical Error:", error);
     }
