@@ -61,6 +61,12 @@ export const submitToCRM = async (formData) => {
             assignedName: formData.assigned_to || "", // CRM Live dùng trường này
             registered_loa: formData.registered_loa || "",
             staff_in_charge: formData.staff_in_charge || "",
+
+            // TRACKING IDs
+            meta_event_id: formData.meta_event_id || "",
+            lead_event_id: formData.lead_event_id || "",
+            test_event_code: formData.test_event_code || "",
+
             // MÃ NGUỒN VÀ KHÓA K ĐỘNG
             courseName: formData.courseName || "Khơi Thông Dòng Tiền - Phễu",
             course_k: formData.course_k || "",

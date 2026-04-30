@@ -349,7 +349,6 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
     if (!formState.name.trim()) newErrors.name = true;
     if (!formState.phone.trim()) newErrors.phone = true;
 
-    // Chỉ bắt buộc câu hỏi phụ cho Leader Funnel
     if (isLeader) {
       if (!formState.referrer) newErrors.referrer = true;
       if (!formState.hasLearnedLOA) newErrors.hasLearnedLOA = true;
@@ -364,25 +363,14 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
     setIsSubmitting(true);
 
     try {
-      console.log("[FormDangKy] 🔍 DEBUG:", {
-        isLeader,
-        initialSourceKey,
-        currentPath: window.location.pathname,
-        batch_id: remoteConfig.course_k,
-        active_source_key: remoteConfig.active_source_key,
-        isLoading_config: remoteConfig.isLoading,
-      });
-
-      // ===== SỬ DỤNG LUỒNG DỮ LIỆU ĐÃ CHUẨN HÓA (Strict Sync) =====
+      // --- PHẦN 1: PHÂN LUỒNG & CHUẨN BỊ DATA ---
       const baseKey = finalSourceKey;
       const currentFunnel = finalFunnel;
       
-      // Xác định người giới thiệu (Leader)
       const isReferrerLeader = formState.referrer && formState.referrer !== "Người khác giới thiệu tôi";
       const leaderUtmSlug = createLeaderUtmSlug(leaderUtmValue || formState.referrer);
       const selectedLeaderName = isReferrerLeader ? formState.referrer.trim() : "";
       
-      // Routing logic: Nếu là phễu Leader hoặc có referrer cụ thể → gửi vào nhóm Leader
       let finalTargetFunnel;
       let funnelChannel;
       let assignedTo = selectedLeaderName;
@@ -395,23 +383,16 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
         funnelChannel = "ads_funnel";
       }
 
-      // Lấy Khóa K hiện tại (mặc định K41 nếu không có trong config)
       const currentBatch = remoteConfig.course_k || "K41";
       const batchSuffix = `_k${currentBatch.toLowerCase().replace(/k/g, "")}`;
+      const submissionSourceKey = baseKey.toLowerCase().match(/_k\d+$/i) ? baseKey : `${baseKey}${batchSuffix}`;
 
-      // Đảm bảo mã nguồn luôn có hậu tố khóa (VD: _k41)
-      const submissionSourceKey = (() => {
-        if (baseKey.toLowerCase().match(/_k\d+$/i)) return baseKey;
-        return `${baseKey}${batchSuffix}`;
-      })();
+      // --- PHẦN 2: CHUẨN BỊ TRACKING IDs ---
+      const completeRegistrationEventId = createMetaEventId("complete_registration");
+      const leadEventId = createMetaEventId("lead");
+      const { fbp, fbc } = getMetaBrowserData(window.location.search);
 
-      console.log("[FormDangKy] 🚀 SUBMITTING PAYLOAD:", { 
-        funnel: finalTargetFunnel, 
-        channel: funnelChannel, 
-        source: submissionSourceKey,
-        assignedTo
-      });
-
+      // --- PHẦN 3: GỬI CRM ---
       const crmResponse = await submitToCRM({
         name: formState.name,
         phone: formState.phone.replace(/\s/g, ""),
@@ -423,7 +404,7 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
         utm_term: searchParams.get("utm_term") || "",
         courseName: "Khơi Thông Dòng Tiền - Phễu",
         targetFunnel: finalTargetFunnel,
-        funnel_type: finalTargetFunnel, // "ads" hoặc "leader"
+        funnel_type: finalTargetFunnel,
         source_type: finalTargetFunnel === "ads" ? "ads" : "leader_funnel", 
         funnel_channel: funnelChannel, 
         assigned_to: assignedTo,
@@ -442,35 +423,24 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
         sourceUrl: window.location.href,
         landingPageId: remoteConfig.landingPageId || "",
         landingPageSlug: currentPathNormalized,
+        // IDs cho Server-side CAPI matching
+        meta_event_id: completeRegistrationEventId,
+        lead_event_id: leadEventId,
+        fbp: fbp || "",
+        fbc: fbc || "",
+        test_event_code: searchParams.get("test_event_code") || "",
       });
 
-      const sha256 = async (input) => {
-        const utf8 = new TextEncoder().encode(input);
-        const hashBuffer = await crypto.subtle.digest("SHA-256", utf8);
-        const hashArray = Array.from(new Uint8Array(hashBuffer));
-        return hashArray.map((item) => item.toString(16).padStart(2, "0")).join("");
-      };
-
-      const normalizeForHash = (value) =>
-        value
-          .trim()
-          .toLowerCase()
-          .normalize("NFD")
-          .replace(/[\u0300-\u036f]/g, "")
-          .replace(/\s+/g, "");
-
+      // --- PHẦN 4: XỬ LÝ HASH DATA CHO FB ---
       const normalizedPhone = formState.phone.replace(/\D/g, "").replace(/^0/, "84");
-      const hashedPhone = normalizedPhone ? await sha256(normalizedPhone) : "";
-
+      const hashedPhone = normalizedPhone ? await hashData(normalizedPhone) : "";
       const nameParts = formState.name.trim().split(/\s+/).filter(Boolean);
       const firstName = nameParts.length > 0 ? nameParts[nameParts.length - 1] : "";
       const lastName = nameParts.length > 1 ? nameParts.slice(0, -1).join(" ") : "";
-      const hashedFn = firstName ? await sha256(normalizeForHash(firstName)) : "";
-      const hashedLn = lastName ? await sha256(normalizeForHash(lastName)) : "";
-      const hashedExternalId = crmResponse?.id ? await sha256(String(crmResponse.id)) : "";
+      const hashedFn = firstName ? await hashData(normalizeNameForHash(firstName)) : "";
+      const hashedLn = lastName ? await hashData(normalizeNameForHash(lastName)) : "";
+      const hashedExternalId = crmResponse?.id ? await hashData(String(crmResponse.id)) : "";
 
-      const completeRegistrationEventId = createMetaEventId("complete_registration");
-      const leadEventId = createMetaEventId("lead");
       const metaEventData = resolveMetaEventData(remoteConfig);
       const leadEventData = {
         content_name: "Đăng ký Khơi Thông Dòng Tiền",
@@ -484,28 +454,26 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
         ...(hashedExternalId ? { external_id: [hashedExternalId] } : {}),
       };
 
+      // --- PHẦN 5: TRACKING ---
+      
+      // 5.1 Browser Pixel
       if (remoteConfig.fbPixel) {
         initMetaPixel(remoteConfig.fbPixel);
         setMetaUserData(userDataCommon);
+        // Chú ý: Ở đây chỉ bắn Lead. CompleteRegistration bắn ở trang Cảm ơn.
         trackMetaEvent("Lead", leadEventData, { eventID: leadEventId });
-        trackMetaEvent("CompleteRegistration", metaEventData, {
-          eventID: completeRegistrationEventId,
-        });
       }
 
+      // 5.2 Client-side CAPI (Dự phòng)
       if (remoteConfig.fbPixel && remoteConfig.fbCapiToken) {
         try {
           let clientIp = "";
-
           try {
             const ipResponse = await fetch("https://api64.ipify.org?format=json");
             const ipData = await ipResponse.json();
             clientIp = ipData.ip || "";
-          } catch (ipError) {
-            console.error("IP Fetch Error:", ipError);
-          }
+          } catch {}
 
-          const { fbp, fbc } = getMetaBrowserData(window.location.search);
           const userDataCapi = {
             ...userDataCommon,
             ...(clientIp ? { client_ip_address: clientIp } : {}),
@@ -513,7 +481,10 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
             ...(fbp ? { fbp } : {}),
             ...(fbc ? { fbc } : {}),
           };
+
+          const testEventCode = searchParams.get("test_event_code") || "";
           const eventTime = Math.floor(Date.now() / 1000);
+          
           const payload = {
             data: [
               {
@@ -524,17 +495,9 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
                 event_source_url: window.location.href,
                 user_data: userDataCapi,
                 custom_data: leadEventData,
-              },
-              {
-                event_name: "CompleteRegistration",
-                event_time: eventTime,
-                action_source: "website",
-                event_id: completeRegistrationEventId,
-                event_source_url: window.location.href,
-                user_data: userDataCapi,
-                custom_data: metaEventData,
-              },
+              }
             ],
+            ...(testEventCode ? { test_event_code: testEventCode } : {}),
           };
 
           const fbCapiUrl = `https://graph.facebook.com/v19.0/${remoteConfig.fbPixel}/events?access_token=${remoteConfig.fbCapiToken}`;
@@ -545,7 +508,7 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
             body: JSON.stringify(payload),
           }).catch(console.error);
         } catch (capiError) {
-          console.error("CAPI Error:", capiError);
+          console.error("CAPI Client Error:", capiError);
         }
       }
 

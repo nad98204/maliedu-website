@@ -2,6 +2,13 @@ import { Buffer } from "node:buffer";
 import process from "node:process";
 
 import { onRequest } from "firebase-functions/v2/https";
+import { onValueCreated } from "firebase-functions/v2/database";
+import { initializeApp } from "firebase-admin/app";
+import { getFirestore } from "firebase-admin/firestore";
+import { hashData, normalizeNameForHash, sendMetaCapiEvent } from "./capi_helper.js";
+
+initializeApp();
+const firestore = getFirestore();
 
 import { onRequestPost as onAbort } from "./api/s3-multipart/abort.js";
 import { onRequestPost as onComplete } from "./api/s3-multipart/complete.js";
@@ -76,6 +83,115 @@ const sendWebResponse = async (response, expressResponse) => {
 
   expressResponse.send(await response.text());
 };
+
+// --- TRIGGER CAPI KHI CÓ LEAD MỚI VÀO CRM ---
+export const onCrmLeadCreated = onValueCreated(
+  {
+    ref: "funnels/{funnelType}/{leadId}",
+    region: "asia-southeast1",
+  },
+  async (event) => {
+    const leadData = event.data.val();
+    if (!leadData) return;
+
+    // Chỉ xử lý nếu có ID sự kiện tracking
+    const leadEventId = leadData.lead_event_id;
+    const metaEventId = leadData.meta_event_id;
+    if (!leadEventId && !metaEventId) {
+      console.log("[CAPI] No tracking IDs found for lead:", event.params.leadId);
+      return;
+    }
+
+    try {
+      const pixelId = leadData.fbPixel || "1526874981588150"; // Fallback to default
+      const landingPageId = leadData.landingPageId;
+      
+      let fbCapiToken = "";
+      let fbPixel = pixelId;
+
+      // Lấy cấu hình Pixel/Token từ Firestore
+      if (landingPageId) {
+        const lpDoc = await firestore.collection("landing_pages").doc(landingPageId).get();
+        if (lpDoc.exists()) {
+          const config = lpDoc.data();
+          fbCapiToken = config.fbCapiToken;
+          fbPixel = config.fbPixel || pixelId;
+        }
+      }
+
+      // Nếu landing page không có token riêng, lấy ở config chung
+      if (!fbCapiToken) {
+        const configDoc = await firestore.collection("public_settings").doc("landing_config").get();
+        if (configDoc.exists()) {
+          fbCapiToken = configDoc.data().fbCapiToken;
+        }
+      }
+
+      if (!fbCapiToken) {
+        console.error("[CAPI] No CAPI Token found for lead:", event.params.leadId);
+        return;
+      }
+
+      // Chuẩn bị User Data (Hashing server-side để đảm bảo an toàn)
+      const rawPhone = leadData.phone || "";
+      const normalizedPhone = rawPhone.replace(/\D/g, "").replace(/^0/, "84");
+      const hashedPhone = normalizedPhone ? hashData(normalizedPhone) : "";
+
+      const rawName = leadData.name || "";
+      const nameParts = rawName.trim().split(/\s+/).filter(Boolean);
+      const firstName = nameParts.length > 0 ? nameParts[nameParts.length - 1] : "";
+      const lastName = nameParts.length > 1 ? nameParts.slice(0, -1).join(" ") : "";
+      const hashedFn = firstName ? hashData(normalizeNameForHash(firstName)) : "";
+      const hashedLn = lastName ? hashData(normalizeNameForHash(lastName)) : "";
+      const hashedExternalId = hashData(event.params.leadId);
+
+      const userData = {
+        ...(hashedPhone ? { ph: [hashedPhone] } : {}),
+        ...(hashedFn ? { fn: [hashedFn] } : {}),
+        ...(hashedLn ? { ln: [hashedLn] } : {}),
+        ...(hashedExternalId ? { external_id: [hashedExternalId] } : {}),
+        ...(leadData.fbp ? { fbp: leadData.fbp } : {}),
+        ...(leadData.fbc ? { fbc: leadData.fbc } : {}),
+        client_user_agent: leadData.userAgent || "",
+      };
+
+      const commonParams = {
+        pixelId: fbPixel,
+        accessToken: fbCapiToken,
+        userData,
+        sourceUrl: leadData.sourceUrl || "",
+        testEventCode: leadData.test_event_code || "",
+      };
+
+      // Gửi sự kiện Lead
+      if (leadEventId) {
+        await sendMetaCapiEvent({
+          ...commonParams,
+          eventName: "Lead",
+          eventId: leadEventId,
+          customData: { content_name: leadData.courseName || "Đăng ký Landing" },
+        });
+      }
+
+      // Gửi sự kiện CompleteRegistration
+      if (metaEventId) {
+        await sendMetaCapiEvent({
+          ...commonParams,
+          eventName: "CompleteRegistration",
+          eventId: metaEventId,
+          customData: {
+            value: leadData.fbEventValue || 0,
+            currency: leadData.fbCurrency || "VND",
+          },
+        });
+      }
+
+      console.log(`[CAPI] Successfully sent events for lead: ${event.params.leadId}`);
+    } catch (error) {
+      console.error("[CAPI] Critical Error:", error);
+    }
+  }
+);
 
 export const uploadApi = onRequest(
   {
