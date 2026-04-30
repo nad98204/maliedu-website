@@ -3,7 +3,8 @@ import { useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { collection, doc, getDoc, getDocs } from "firebase/firestore";
-import { crmFirestore } from "../../../firebase";
+import { onValue, ref } from "firebase/database";
+import { crmFirestore, crmRealtimeDB } from "../../../firebase";
 import { submitToCRM } from "../../../services/crmService";
 import {
   createMetaEventId,
@@ -24,6 +25,9 @@ const DEFAULT_REMOTE_CONFIG = {
   fbCapiToken:
     "EAAOUx21ZARaYBQ6jZAiffdq7ZCsCj7Xko24I8De60ufxpJ0ZBNGE1dbbJBI8MDDeZB8n37IhzpUPZAahSZA69WFnDiTAB9wwfriQIoeKQUjVj6pzIumRzDCXHLGATDxJOAlZAiz3wIdYhwo0aTwoZAEFNTBZCRVKDZC7OvjtZBfQ1TUHXAdWFAii06GZBGRRe5I8ZBSsm51QZDZD",
   active_source_key: "",
+  targetFunnel: "ADS",
+  funnel_type: "ads",
+  landingPageId: "",
   is_maintenance: false,
   isLoading: true,
   fbCurrency: "VND",
@@ -52,6 +56,47 @@ const OPTIONS_REFERRER = [
 ];
 
 const OPTIONS_LOA = ["ĐÃ HỌC LUẬT HẤP DẪN", "CHƯA HỌC"];
+
+const normalizeLeaderIdentity = (value = "") =>
+  String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/đ/g, "d")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ");
+
+const compactLeaderIdentity = (value = "") =>
+  normalizeLeaderIdentity(value).replace(/[^a-z0-9]/g, "");
+
+const createLeaderUtmSlug = (value = "") => compactLeaderIdentity(value);
+
+const isLeaderOwnerUser = (user = {}) => {
+  const role = normalizeLeaderIdentity(user.role || "").toUpperCase();
+  const team = normalizeLeaderIdentity(user.team || "").toUpperCase();
+  const title = normalizeLeaderIdentity(user.title || user.position || "").toUpperCase();
+
+  if (role === "LEADER" || role === "MENTOR_VIP") return true;
+  if (role.includes("SALE_LEADER") || role.includes("TRUONG SALE")) return false;
+  if (role.includes("LEADER") && !role.includes("SALE")) return true;
+  if (team.includes("LEADER") && !team.includes("SALE")) return true;
+  if (title.includes("LEADER") && !title.includes("SALE")) return true;
+  return false;
+};
+
+const matchLeaderNameFromUtm = (leaderNames = [], value = "") => {
+  const compactValue = compactLeaderIdentity(value);
+  if (!compactValue) return "";
+
+  return (
+    leaderNames.find((name) => {
+      const compactName = compactLeaderIdentity(name);
+      return compactName === compactValue ||
+        compactName.includes(compactValue) ||
+        compactValue.includes(compactName);
+    }) || ""
+  );
+};
 
 const CustomRadio = ({ label, options, value, onChange, error, layout = "grid" }) => (
   <div className="space-y-1.5 sm:space-y-2">
@@ -104,26 +149,65 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [remoteConfig, setRemoteConfig] = useState(DEFAULT_REMOTE_CONFIG);
+  const [leaderOwners, setLeaderOwners] = useState([]);
 
   const currentPathNormalized = normalizePath(window.location.pathname);
+  const leaderUtmValue =
+    searchParams.get("leader") ||
+    searchParams.get("from") ||
+    searchParams.get("ref") ||
+    searchParams.get("utm_source") ||
+    searchParams.get("utm_campaign") ||
+    searchParams.get("utm_content") ||
+    "";
+  const dynamicReferrerOptions = leaderOwners.length > 0
+    ? [...leaderOwners.map((item) => item.name).filter(Boolean), "Người khác giới thiệu tôi"]
+    : OPTIONS_REFERRER;
+  const matchedUtmLeaderName = matchLeaderNameFromUtm(dynamicReferrerOptions, leaderUtmValue);
   
   // --- PHÂN LUỒNG NGHIÊM NGẶT (Strict Routing Protocol) ---
   // Ưu tiên Props (Hardcoded) > Cấu hình Admin (Remote) > Logic đường dẫn (URL)
   const isLeader =
     targetFunnel === "leader" ||
     targetFunnel === "leader_funnel" ||
+    String(remoteConfig.targetFunnel || "").toLowerCase().includes("leader") ||
     (remoteConfig.funnel_type && remoteConfig.funnel_type.toLowerCase().includes("leader")) ||
     (currentPathNormalized.includes("leader") && !targetFunnel);
 
   const finalFunnel = isLeader ? "leader" : "ads";
-  const finalSourceKey = (initialSourceKey && initialSourceKey !== "organic_web") 
-    ? initialSourceKey 
-    : remoteConfig.active_source_key || "organic_web";
+  const finalSourceKey = remoteConfig.active_source_key || initialSourceKey || "organic_web";
 
   // Debug để kiểm soát luồng
   useEffect(() => {
     console.log(`[FormSync] 🛰 Resolved Channel: ${finalFunnel} | Key: ${finalSourceKey}`);
   }, [finalFunnel, finalSourceKey]);
+
+  useEffect(() => {
+    const usersRef = ref(crmRealtimeDB, "system_settings/users");
+    const unsubscribe = onValue(
+      usersRef,
+      (snapshot) => {
+        const data = snapshot.val() || {};
+        const list = Object.values(data)
+          .filter(isLeaderOwnerUser)
+          .map((user) => ({
+            name: user.name || user.displayName || user.email || "",
+            email: user.email || "",
+          }))
+          .filter((user) => user.name)
+          .sort((a, b) => a.name.localeCompare(b.name, "vi"));
+        setLeaderOwners(list);
+      },
+      () => setLeaderOwners([])
+    );
+
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!isLeader || formState.referrer || !matchedUtmLeaderName) return;
+    setFormState((prev) => ({ ...prev, referrer: matchedUtmLeaderName }));
+  }, [isLeader, formState.referrer, matchedUtmLeaderName]);
 
   useEffect(() => {
     let isCancelled = false;
@@ -161,6 +245,7 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
           setRemoteConfig({
             ...DEFAULT_REMOTE_CONFIG,
             ...configData,
+            landingPageId: matchDoc.id,
             isLoading: false,
           });
           return;
@@ -294,11 +379,13 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
       
       // Xác định người giới thiệu (Leader)
       const isReferrerLeader = formState.referrer && formState.referrer !== "Người khác giới thiệu tôi";
+      const leaderUtmSlug = createLeaderUtmSlug(leaderUtmValue || formState.referrer);
+      const selectedLeaderName = isReferrerLeader ? formState.referrer.trim() : "";
       
       // Routing logic: Nếu là phễu Leader hoặc có referrer cụ thể → gửi vào nhóm Leader
       let finalTargetFunnel;
       let funnelChannel;
-      let assignedTo = (isReferrerLeader) ? formState.referrer.trim() : "";
+      let assignedTo = selectedLeaderName;
 
       if (currentFunnel === "leader" || isReferrerLeader) {
         finalTargetFunnel = "leader";
@@ -330,8 +417,8 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
         phone: formState.phone.replace(/\s/g, ""),
         email: "",
         utm_source: searchParams.get("utm_source") || "",
-        utm_medium: searchParams.get("utm_medium") || "",
-        utm_campaign: searchParams.get("utm_campaign") || "",
+        utm_medium: searchParams.get("utm_medium") || (leaderUtmSlug ? "leader" : ""),
+        utm_campaign: searchParams.get("utm_campaign") || (leaderUtmSlug ? `${submissionSourceKey}_${leaderUtmSlug}` : ""),
         utm_content: searchParams.get("utm_content") || "",
         utm_term: searchParams.get("utm_term") || "",
         courseName: "Khơi Thông Dòng Tiền - Phễu",
@@ -343,10 +430,18 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
         registered_loa: formState.hasLearnedLOA,
         is_learned_loa: formState.hasLearnedLOA,
         referrer: formState.referrer || "",
+        leaderName: selectedLeaderName,
+        leader_utm: leaderUtmSlug,
+        leaderUtm: leaderUtmSlug,
+        leaderSlug: leaderUtmSlug,
+        introducedBy: selectedLeaderName,
         staff_in_charge: assignedTo,
         course_k: currentBatch,
         batch_id: currentBatch,
         source_key: submissionSourceKey,
+        sourceUrl: window.location.href,
+        landingPageId: remoteConfig.landingPageId || "",
+        landingPageSlug: currentPathNormalized,
       });
 
       const sha256 = async (input) => {
@@ -608,9 +703,17 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
 
                   {isLeader && (
                     <div className="space-y-4 pt-1">
+                      {leaderUtmValue && (
+                        <div className="flex items-center gap-2 rounded-lg border border-[#C9961A]/30 bg-[#C9961A]/10 px-3 py-2 text-[10px] sm:text-xs font-bold uppercase tracking-wide text-[#FFE566]">
+                          <Sparkles className="h-3.5 w-3.5 flex-shrink-0" />
+                          <span className="truncate">
+                            Mã giới thiệu: {matchedUtmLeaderName || leaderUtmValue}
+                          </span>
+                        </div>
+                      )}
                       <CustomRadio
                         label="AI LÀ NGƯỜI GIỚI THIỆU BẠN ?"
-                        options={OPTIONS_REFERRER}
+                        options={dynamicReferrerOptions}
                         value={formState.referrer}
                         onChange={(val) => setRadioValue("referrer", val)}
                         error={errors.referrer}

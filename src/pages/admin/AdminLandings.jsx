@@ -42,8 +42,167 @@ const AdminLandings = () => {
     const [selectedK, setSelectedK] = useState("");
     const [isQuickEditing, setIsQuickEditing] = useState(false);
     const [quickEditK, setQuickEditK] = useState("");
+    const [utmBuilder, setUtmBuilder] = useState({ leaderEmail: "", customSlug: "" });
 
     const slugify = (text) => text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[đĐ]/g, "d").replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, '-');
+    const normalizeIdentity = (text = "") => String(text || "").trim().toLowerCase().replace(/đ/g, "d").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ");
+    const createUtmSlug = (text = "") => normalizeIdentity(text).replace(/[^a-z0-9]/g, "");
+    const isLeaderOwner = (user = {}) => {
+        const role = normalizeIdentity(user.role || "").toUpperCase();
+        const team = normalizeIdentity(user.team || "").toUpperCase();
+        const title = normalizeIdentity(user.title || user.position || "").toUpperCase();
+        if (role === "LEADER" || role === "MENTOR_VIP") return true;
+        if (role.includes("SALE_LEADER") || role.includes("TRUONG SALE")) return false;
+        if (role.includes("LEADER") && !role.includes("SALE")) return true;
+        if (team.includes("LEADER") && !team.includes("SALE")) return true;
+        if (title.includes("LEADER") && !title.includes("SALE")) return true;
+        return false;
+    };
+    const isSalesOwner = (user = {}) => {
+        const role = String(user.role || "").toUpperCase();
+        const team = String(user.team || "").toUpperCase();
+        return role === "SALE" || role === "SALE_MANAGER" || role === "SALE_LEADER" || team.includes("SALE");
+    };
+    const crmSaleUsers = crmUsers.filter(isSalesOwner);
+    const crmLeaderUsers = crmUsers.filter(isLeaderOwner);
+
+    const FUNNEL_OPTIONS = [
+        { value: "ads", target: "ADS", label: "Phễu ADS", tone: "bg-indigo-50 text-indigo-700 border-indigo-100" },
+        { value: "leader", target: "LEADER", label: "Phễu Leader", tone: "bg-emerald-50 text-emerald-700 border-emerald-100" },
+        { value: "brand", target: "BRAND", label: "Phễu Brand", tone: "bg-amber-50 text-amber-700 border-amber-100" },
+        { value: "organic", target: "ADS", label: "Web / Organic", tone: "bg-slate-50 text-slate-700 border-slate-100" },
+    ];
+
+    const normalizeFunnelType = (value = "ads") => {
+        const text = String(value || "ads").trim().toLowerCase();
+        if (text.includes("leader")) return "leader";
+        if (text.includes("brand") || text.includes("thuong_hieu") || text.includes("thương_hiệu")) return "brand";
+        if (text.includes("organic") || text.includes("web")) return "organic";
+        return "ads";
+    };
+
+    const getCrmTargetFunnel = (value = "ads") => {
+        const normalized = normalizeFunnelType(value);
+        return FUNNEL_OPTIONS.find((item) => item.value === normalized)?.target || "ADS";
+    };
+
+    const getFunnelOption = (value = "ads") =>
+        FUNNEL_OPTIONS.find((item) => item.value === normalizeFunnelType(value)) || FUNNEL_OPTIONS[0];
+
+    const getLandingFunnelType = (landing = {}) =>
+        normalizeFunnelType(landing.funnel_type || landing.targetFunnel || "ads");
+
+    const getSelectedUtmLeader = () =>
+        crmLeaderUsers.find((user) => user.email === utmBuilder.leaderEmail) || null;
+
+    const getLeaderUtmSlug = () => {
+        const selectedLeader = getSelectedUtmLeader();
+        return createUtmSlug(utmBuilder.customSlug || selectedLeader?.name || "");
+    };
+
+    const getLeaderUtmLink = () => {
+        const slug = getLeaderUtmSlug();
+        if (!slug || !form.slug) return "";
+
+        const url = new URL(form.slug.startsWith("/") ? form.slug : `/${form.slug}`, "https://maliedu.vn");
+        url.searchParams.set("utm_source", slug);
+        url.searchParams.set("utm_medium", "leader");
+        url.searchParams.set("utm_campaign", `${form.active_source_key || "leader"}_${slug}`);
+        url.searchParams.set("leader", slug);
+        url.hash = "dang-ky";
+        return url.toString();
+    };
+
+    const handleCopyLeaderUtmLink = async () => {
+        const link = getLeaderUtmLink();
+        if (!link) return toast.error("Chọn Leader và nhập slug landing trước.");
+        await navigator.clipboard.writeText(link);
+        toast.success("Đã copy link UTM Leader");
+    };
+
+    const splitSourceKeyBatch = (sourceKey = "") => {
+        const key = String(sourceKey || "").trim().replace(/\s+/g, "_").toLowerCase();
+        const match = key.match(/^(.*?)(_k\d+)$/i);
+        if (!match) return { base: key, suffix: "" };
+        return { base: match[1], suffix: match[2].toLowerCase() };
+    };
+
+    const buildSourceKeyWithFunnelSegment = (sourceKey, funnelType) => {
+        const { base, suffix } = splitSourceKeyBatch(sourceKey);
+        const cleanBase = base.replace(/_(ads|leader|brand|organic)(_\d+)?$/i, "");
+        const segment = getCrmTargetFunnel(funnelType).toLowerCase();
+        return `${cleanBase}_${segment}${suffix}`;
+    };
+
+    const hasDuplicateSourceKey = (sourceKey, currentId, reservedKeys = new Set()) => {
+        const normalized = String(sourceKey || "").trim().toLowerCase();
+        if (!normalized) return false;
+        if (reservedKeys.has(normalized)) return true;
+        return landings.some((landing) =>
+            landing.id !== currentId &&
+            String(landing.active_source_key || "").trim().toLowerCase() === normalized
+        );
+    };
+
+    const getUniqueSourceKey = (candidate, funnelType, currentId, reservedKeys = new Set()) => {
+        const normalizedCandidate = String(candidate || "organic_web").trim().replace(/\s+/g, "_").toLowerCase();
+        if (!hasDuplicateSourceKey(normalizedCandidate, currentId, reservedKeys)) {
+            return { sourceKey: normalizedCandidate, changed: false };
+        }
+
+        const { base, suffix } = splitSourceKeyBatch(buildSourceKeyWithFunnelSegment(normalizedCandidate, funnelType));
+        let nextKey = `${base}${suffix}`;
+        let index = 2;
+
+        while (hasDuplicateSourceKey(nextKey, currentId, reservedKeys)) {
+            const cleanBase = base.replace(/_\d+$/i, "");
+            nextKey = `${cleanBase}_${index}${suffix}`;
+            index += 1;
+        }
+
+        return { sourceKey: nextKey, changed: true };
+    };
+
+    const syncSourceConfig = async ({
+        sourceKey,
+        landing,
+        targetFunnel,
+        funnelType,
+        targetCourseId,
+        targetK,
+        assignedSale,
+        targetZalo,
+        previousSourceKey,
+    }) => {
+        const normalizedFunnelType = normalizeFunnelType(funnelType || targetFunnel);
+        const normalizedAssignedSale = normalizedFunnelType === "leader" ? "" : (assignedSale || "Round Robin");
+        await setDoc(doc(crmFirestore, "source_configs", sourceKey), {
+            id: sourceKey,
+            sourceKey,
+            source_name: landing.name,
+            name: landing.name,
+            landingPageId: landing.id,
+            landingSlug: landing.slug,
+            targetCourseId: targetCourseId || "",
+            targetK: targetK || landing.course_k || "K41",
+            targetFunnel,
+            funnel_type: normalizedFunnelType,
+            assignedSale: normalizedAssignedSale,
+            assignmentMode: normalizedFunnelType === "leader" ? "leader_referrer" : "sales",
+            targetZalo: targetZalo || landing.zaloLink || "",
+            updatedAt: serverTimestamp()
+        }, { merge: true });
+
+        if (previousSourceKey && previousSourceKey !== sourceKey) {
+            const oldKeyStillUsed = landings.some((item) =>
+                item.id !== landing.id &&
+                String(item.active_source_key || "").trim().toLowerCase() === String(previousSourceKey || "").trim().toLowerCase()
+            );
+            if (!oldKeyStillUsed) {
+                await deleteDoc(doc(crmFirestore, "source_configs", previousSourceKey)).catch(() => {});
+            }
+        }
+    };
 
     const refreshCrmData = async () => {
         setIsLoading(true);
@@ -72,7 +231,7 @@ const AdminLandings = () => {
         const unsubUsers = onValue(usersRef, (snapshot) => {
             const data = snapshot.val();
             if (data) {
-                const list = Object.values(data).filter(u => u.role === 'SALE' || u.role === 'ADMIN' || u.role === 'SALE_LEADER');
+                const list = Object.values(data).filter(u => u?.isActive !== false);
                 setCrmUsers(list);
             }
         });
@@ -100,7 +259,7 @@ const AdminLandings = () => {
 
     const filteredLandings = landings.filter(l => {
         // Tab logic: "ALL" hiện mọi LP, các tab khác lọc theo funnel_type
-        const landingFunnelType = l.funnel_type || (l.targetFunnel ? l.targetFunnel.toLowerCase() : "ads");
+        const landingFunnelType = getLandingFunnelType(l);
         const matchTab = activeTab === "ALL" || landingFunnelType === activeTab.toLowerCase();
         const matchSearch = l.name.toLowerCase().includes(searchQuery.toLowerCase()) || l.slug.toLowerCase().includes(searchQuery.toLowerCase());
         return matchTab && matchSearch;
@@ -117,7 +276,7 @@ const AdminLandings = () => {
         setForm({
             ...landing,
             targetFunnel: landing.targetFunnel || mappingData.targetFunnel || "ADS",
-            funnel_type: landing.funnel_type || (landing.targetFunnel ? landing.targetFunnel.toLowerCase() : "ads"),
+            funnel_type: normalizeFunnelType(landing.funnel_type || mappingData.funnel_type || landing.targetFunnel || "ads"),
             assignedSale: mappingData.assignedSale || "Round Robin",
             zaloLink: mappingData.targetZalo || landing.zaloLink || "",
             fbPixel: landing.fbPixel || "",
@@ -128,8 +287,9 @@ const AdminLandings = () => {
         });
 
         const parts = landing.active_source_key.split('_');
-        setSelectedCourseId(parts[0]);
-        if (parts[1]) setSelectedK(parts[1].toUpperCase());
+        setSelectedCourseId(mappingData.targetCourseId || landing.targetCourseId || parts[0]);
+        setSelectedK(mappingData.targetK || landing.course_k || "");
+        setUtmBuilder({ leaderEmail: "", customSlug: "" });
     };
 
     const handleAddNew = () => {
@@ -152,6 +312,7 @@ const AdminLandings = () => {
         });
         setSelectedCourseId("");
         setSelectedK("");
+        setUtmBuilder({ leaderEmail: "", customSlug: "" });
     };
 
     const handleCourseChange = (courseId) => {
@@ -187,6 +348,8 @@ const AdminLandings = () => {
         if (!form.name || !form.slug) return toast.error("Vui lòng nhập Tên và Link!");
 
         const id = activeEditId === "new" ? slugify(form.name) : activeEditId;
+        const funnelType = normalizeFunnelType(form.funnel_type || form.targetFunnel || "ads");
+        const targetFunnel = getCrmTargetFunnel(funnelType);
         
         // --- LOGIC ÉP HẬU TỐ SOURCE_KEY (Sửa tận gốc ở Firebase) ---
         let sourceKey = String(form.active_source_key || "organic_web").trim();
@@ -199,11 +362,18 @@ const AdminLandings = () => {
             console.log(`[AdminLandings] 🛠 Auto-fixing sourceKey: ${form.active_source_key} -> ${sourceKey}`);
         }
 
+        const uniqueResult = getUniqueSourceKey(sourceKey, funnelType, id);
+        sourceKey = uniqueResult.sourceKey;
+
         const fbCurrency = normalizeMetaCurrency(form.fbCurrency);
         const parsedEventValue = Number(String(form.fbEventValue ?? "").replace(",", "."));
         const fbEventValue = Number.isFinite(parsedEventValue) && parsedEventValue >= 0 ? parsedEventValue : 0;
-
+        const previousSourceKey = landings.find((landing) => landing.id === id)?.active_source_key || "";
+        const assignedSaleForConfig = funnelType === "leader" ? "" : form.assignedSale;
         try {
+            if (uniqueResult.changed) {
+                toast(`Mã nguồn bị trùng, đã tự đổi thành: ${sourceKey}`);
+            }
             // 1. Lưu vào Landing Pages config
             await setDoc(doc(crmFirestore, "landing_pages", id), {
                 name: form.name,
@@ -216,24 +386,41 @@ const AdminLandings = () => {
                 fbCurrency,
                 fbEventValue,
                 course_k: form.course_k || "K41",
-                targetFunnel: (form.funnel_type || "ads").toUpperCase(),
-                funnel_type: form.funnel_type || "ads",
+                targetFunnel,
+                funnel_type: funnelType,
+                assignmentMode: funnelType === "leader" ? "leader_referrer" : "sales",
                 updatedAt: serverTimestamp()
             }, { merge: true });
 
             // 2. Lưu vào Source Configs (Để CRM nhận diện được metadata)
             await setDoc(doc(crmFirestore, "source_configs", sourceKey), {
                 id: sourceKey,
+                sourceKey,
                 source_name: form.name,
+                name: form.name,
+                landingPageId: id,
+                landingSlug: form.slug,
                 targetCourseId: selectedCourseId,
                 targetK: selectedK || form.course_k || "K41",
-                targetFunnel: (form.funnel_type || "ads").toUpperCase(),
-                assignedSale: form.assignedSale,
+                targetFunnel,
+                funnel_type: funnelType,
+                assignedSale: assignedSaleForConfig,
+                assignmentMode: funnelType === "leader" ? "leader_referrer" : "sales",
                 targetZalo: form.zaloLink || "",
                 updatedAt: serverTimestamp()
             }, { merge: true });
 
             toast.success(`Đã lưu thành công! Mã nguồn: ${sourceKey}`);
+            if (previousSourceKey && previousSourceKey !== sourceKey) {
+                const oldKeyStillUsed = landings.some((landing) =>
+                    landing.id !== id &&
+                    String(landing.active_source_key || "").trim().toLowerCase() === previousSourceKey.toLowerCase()
+                );
+                if (!oldKeyStillUsed) {
+                    await deleteDoc(doc(crmFirestore, "source_configs", previousSourceKey)).catch(() => {});
+                }
+            }
+
             setShowCreateForm(false);
             setActiveEditId(null);
         } catch (e) {
@@ -252,12 +439,60 @@ const AdminLandings = () => {
         }
     };
 
+    const handleQuickFunnelChange = async (landingId, nextFunnelType) => {
+        const landing = landings.find((item) => item.id === landingId);
+        if (!landing) return;
+
+        const funnelType = normalizeFunnelType(nextFunnelType);
+        const targetFunnel = getCrmTargetFunnel(funnelType);
+        const uniqueResult = getUniqueSourceKey(landing.active_source_key || "organic_web", funnelType, landingId);
+        const sourceKey = uniqueResult.sourceKey;
+        const previousSourceKey = landing.active_source_key || "";
+
+        try {
+            const previousSnap = previousSourceKey
+                ? await getDoc(doc(crmFirestore, "source_configs", previousSourceKey))
+                : null;
+            const previousConfig = previousSnap?.exists() ? previousSnap.data() : {};
+
+            await setDoc(doc(crmFirestore, "landing_pages", landingId), {
+                targetFunnel,
+                funnel_type: funnelType,
+                active_source_key: sourceKey,
+                assignmentMode: funnelType === "leader" ? "leader_referrer" : "sales",
+                updatedAt: serverTimestamp()
+            }, { merge: true });
+
+            await syncSourceConfig({
+                sourceKey,
+                landing: {
+                    ...landing,
+                    active_source_key: sourceKey,
+                    targetFunnel,
+                    funnel_type: funnelType,
+                },
+                targetFunnel,
+                funnelType,
+                targetCourseId: previousConfig.targetCourseId || "",
+                targetK: previousConfig.targetK || landing.course_k || "K41",
+                assignedSale: funnelType === "leader" ? "" : (previousConfig.assignedSale || "Round Robin"),
+                targetZalo: previousConfig.targetZalo || landing.zaloLink || "",
+                previousSourceKey,
+            });
+
+            toast.success(uniqueResult.changed ? `Đã đổi phễu và tách mã: ${sourceKey}` : "Đã cập nhật phễu đích");
+        } catch (e) {
+            toast.error("Lỗi cập nhật phễu: " + e.message);
+        }
+    };
+
     if (isLoading) return <div className="flex items-center justify-center h-screen"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div></div>;
 
     const tabs = [
         { id: "ALL", label: "Tất cả", icon: Layout },
         { id: "ADS", label: "Phễu ADS", icon: TrendingUp, color: "indigo" },
         { id: "LEADER", label: "Phễu Leader", icon: Users, color: "emerald" },
+        { id: "BRAND", label: "Phễu Brand", icon: Globe, color: "amber" },
         { id: "ORGANIC", label: "Web/Organic", icon: Globe, color: "amber" }
     ];
 
@@ -268,14 +503,35 @@ const AdminLandings = () => {
         setIsLoading(true);
         const suffix = `_k${quickEditK.toLowerCase().replace('k', '')}`;
         try {
-            const promises = landings.map(l => {
+            const reservedKeys = new Set();
+            const promises = landings.map(async (l) => {
                 const base = String(l.active_source_key || "").split('_k')[0];
-                const newKey = `${base}${suffix}`;
-                return setDoc(doc(crmFirestore, "landing_pages", l.id), {
+                const funnelType = getLandingFunnelType(l);
+                const targetFunnel = getCrmTargetFunnel(funnelType);
+                const uniqueResult = getUniqueSourceKey(`${base}${suffix}`, funnelType, l.id, reservedKeys);
+                const newKey = uniqueResult.sourceKey;
+                reservedKeys.add(newKey);
+
+                await setDoc(doc(crmFirestore, "landing_pages", l.id), {
                     course_k: quickEditK,
                     active_source_key: newKey,
+                    targetFunnel,
+                    funnel_type: funnelType,
+                    assignmentMode: funnelType === "leader" ? "leader_referrer" : "sales",
                     updatedAt: serverTimestamp()
                 }, { merge: true });
+
+                return syncSourceConfig({
+                    sourceKey: newKey,
+                    landing: { ...l, course_k: quickEditK, active_source_key: newKey },
+                    targetFunnel,
+                    funnelType,
+                    targetCourseId: "",
+                    targetK: quickEditK,
+                    assignedSale: "Round Robin",
+                    targetZalo: l.zaloLink || "",
+                    previousSourceKey: l.active_source_key || "",
+                });
             });
             await Promise.all(promises);
             toast.success("Đã đồng bộ toàn bộ hệ thống!");
@@ -291,14 +547,30 @@ const AdminLandings = () => {
         const landing = landings.find(l => l.id === landingId);
         const base = String(landing?.active_source_key || "").split('_k')[0];
         const suffix = `_k${newK.toLowerCase().replace('k', '')}`;
-        const newKey = `${base}${suffix}`;
+        const funnelType = getLandingFunnelType(landing);
+        const targetFunnel = getCrmTargetFunnel(funnelType);
+        const newKey = getUniqueSourceKey(`${base}${suffix}`, funnelType, landingId).sourceKey;
 
         try {
             await setDoc(doc(crmFirestore, "landing_pages", landingId), {
                 course_k: newK,
                 active_source_key: newKey,
+                targetFunnel,
+                funnel_type: funnelType,
+                assignmentMode: funnelType === "leader" ? "leader_referrer" : "sales",
                 updatedAt: serverTimestamp()
             }, { merge: true });
+            await syncSourceConfig({
+                sourceKey: newKey,
+                landing: { ...landing, course_k: newK, active_source_key: newKey },
+                targetFunnel,
+                funnelType,
+                targetCourseId: "",
+                targetK: newK,
+                assignedSale: "Round Robin",
+                targetZalo: landing?.zaloLink || "",
+                previousSourceKey: landing?.active_source_key || "",
+            });
         } catch (e) {
             console.error(e);
         }
@@ -308,18 +580,42 @@ const AdminLandings = () => {
         if (!window.confirm("Khôi phục mã chuẩn (Ads: 03248, Leader: 83248)?")) return;
         setIsLoading(true);
         try {
-            const promises = landings.map(l => {
+            const reservedKeys = new Set();
+            const promises = landings.map(async (l) => {
                 let base = String(l.active_source_key || "").split('_k')[0];
                 const kSuffix = `_k${(l.course_k || "K41").toLowerCase().replace('k', '')}`;
                 
                 const name = l.name?.toLowerCase() || "";
-                if (name.includes("leader")) base = "1768973783248";
-                else if (name.includes("chính") || name.includes("ads")) base = "1768973703248";
+                const slug = String(l.slug || "").toLowerCase();
+                const funnelType = name.includes("leader") || slug.includes("leader")
+                    ? "leader"
+                    : getLandingFunnelType(l);
+                const targetFunnel = getCrmTargetFunnel(funnelType);
+                if (funnelType === "leader") base = "1768973783248";
+                else if (funnelType === "ads" || name.includes("chính") || name.includes("ads")) base = "1768973703248";
+                const uniqueResult = getUniqueSourceKey(`${base}${kSuffix}`, funnelType, l.id, reservedKeys);
+                const nextSourceKey = uniqueResult.sourceKey;
+                reservedKeys.add(nextSourceKey);
 
-                return setDoc(doc(crmFirestore, "landing_pages", l.id), {
-                    active_source_key: `${base}${kSuffix}`,
+                await setDoc(doc(crmFirestore, "landing_pages", l.id), {
+                    active_source_key: nextSourceKey,
+                    targetFunnel,
+                    funnel_type: funnelType,
+                    assignmentMode: funnelType === "leader" ? "leader_referrer" : "sales",
                     updatedAt: serverTimestamp()
                 }, { merge: true });
+
+                return syncSourceConfig({
+                    sourceKey: nextSourceKey,
+                    landing: { ...l, active_source_key: nextSourceKey, targetFunnel, funnel_type: funnelType },
+                    targetFunnel,
+                    funnelType,
+                    targetCourseId: "",
+                    targetK: l.course_k || "K41",
+                    assignedSale: "Round Robin",
+                    targetZalo: l.zaloLink || "",
+                    previousSourceKey: l.active_source_key || "",
+                });
             });
             await Promise.all(promises);
             toast.success("Đã khôi phục mã nguồn chuẩn cho các phễu!");
@@ -467,34 +763,93 @@ const AdminLandings = () => {
                                         : 'border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100'
                                     }`}
                                     value={form.funnel_type || (form.targetFunnel ? form.targetFunnel.toLowerCase() : "ads")}
-                                    onChange={e => setForm({ ...form, funnel_type: e.target.value, targetFunnel: e.target.value.toUpperCase() })}
+                                    onChange={e => setForm({ ...form, funnel_type: e.target.value, targetFunnel: getCrmTargetFunnel(e.target.value) })}
                                 >
                                     <option value="ads">⚡ Phễu ADS (Mặc định)</option>
                                     <option value="leader">⭐ Phễu LEADER (Cấu hình Riêng)</option>
+                                    <option value="brand">Phễu BRAND</option>
                                     <option value="organic">🌐 Web / Organic</option>
                                 </select>
                                 {form.funnel_type === 'leader' && (
-                                    <div className="mt-3 p-3 bg-emerald-50 border border-emerald-200 rounded-lg animate-pulse">
+                                    <div className="mt-3 p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
                                         <p className="text-[10px] text-emerald-700 leading-relaxed font-medium">
-                                            💡 <strong>Gợi ý từ CRM:</strong> Landing này sẽ được đẩy về nhánh Leader. Hãy đảm bảo mục "Sale phụ trách" bên dưới đã chọn đúng Leader hoặc để "Chia Vòng Tròn" để phân phối tự động.
+                                            <strong>CRM:</strong> Lead Leader được gán theo UTM/người giới thiệu trên form. Sale và chia vòng tròn chỉ áp dụng cho phễu ADS.
                                         </p>
                                     </div>
                                 )}
                             </div>
 
-                            <div>
-                                <label className="block text-xs font-semibold text-slate-600 mb-2">Sale phụ trách</label>
-                                <select
-                                    className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 outline-none transition-all text-sm font-medium cursor-pointer"
-                                    value={form.assignedSale}
-                                    onChange={e => setForm({ ...form, assignedSale: e.target.value })}
-                                >
-                                    <option value="Round Robin">Chia Vòng Tròn (Auto)</option>
-                                    {crmUsers.map(u => (
-                                        <option key={u.email} value={u.name}>{u.name} ({u.team})</option>
-                                    ))}
-                                </select>
-                            </div>
+                            {form.funnel_type === 'leader' ? (
+                                <div className="space-y-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+                                    <div className="flex items-center gap-2">
+                                        <Link size={16} className="text-emerald-600" />
+                                        <h4 className="text-sm font-bold text-emerald-800">Link UTM Leader</h4>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs font-semibold text-slate-600 mb-2">Người giới thiệu</label>
+                                        <select
+                                            className="w-full px-4 py-3 rounded-xl border-2 border-emerald-200 bg-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100 outline-none transition-all text-sm font-medium cursor-pointer"
+                                            value={utmBuilder.leaderEmail}
+                                            onChange={e => {
+                                                const leader = crmLeaderUsers.find((item) => item.email === e.target.value);
+                                                setUtmBuilder({
+                                                    leaderEmail: e.target.value,
+                                                    customSlug: leader ? createUtmSlug(leader.name) : "",
+                                                });
+                                            }}
+                                        >
+                                            <option value="">-- Chọn Leader --</option>
+                                            {crmLeaderUsers.map(u => (
+                                                <option key={u.email || u.name} value={u.email}>{u.name} ({u.team || u.role})</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs font-semibold text-slate-600 mb-2">Mã UTM tùy chỉnh</label>
+                                        <input
+                                            type="text"
+                                            className="w-full px-4 py-3 rounded-xl border-2 border-emerald-200 bg-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100 outline-none transition-all text-sm font-mono"
+                                            placeholder="thanhseven"
+                                            value={utmBuilder.customSlug}
+                                            onChange={e => setUtmBuilder({ ...utmBuilder, customSlug: createUtmSlug(e.target.value) })}
+                                        />
+                                    </div>
+
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="text"
+                                            readOnly
+                                            className="min-w-0 flex-1 px-3 py-2 rounded-lg border border-emerald-200 bg-white text-[11px] font-mono text-slate-600"
+                                            value={getLeaderUtmLink()}
+                                            placeholder="https://maliedu.vn/..."
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={handleCopyLeaderUtmLink}
+                                            className="shrink-0 inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-700 transition-colors"
+                                        >
+                                            <Copy size={14} />
+                                            Copy
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div>
+                                    <label className="block text-xs font-semibold text-slate-600 mb-2">Sale phụ trách</label>
+                                    <select
+                                        className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 outline-none transition-all text-sm font-medium cursor-pointer"
+                                        value={form.assignedSale}
+                                        onChange={e => setForm({ ...form, assignedSale: e.target.value })}
+                                    >
+                                        <option value="Round Robin">Chia Vòng Tròn (Auto)</option>
+                                        {crmSaleUsers.map(u => (
+                                            <option key={u.email} value={u.name}>{u.name} ({u.team})</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
 
                             <div>
                                 <label className="block text-xs font-semibold text-slate-600 mb-2">Link Zalo Group</label>
@@ -626,7 +981,7 @@ const AdminLandings = () => {
                                         activeTab === tab.id ? 'bg-indigo-50 text-indigo-400' : 'bg-slate-200 text-slate-400'
                                     }`}>
                                         {landings.filter(l => {
-                                            const lType = l.funnel_type || (l.targetFunnel ? l.targetFunnel.toLowerCase() : "ads");
+                                            const lType = getLandingFunnelType(l);
                                             return lType === tab.id.toLowerCase();
                                         }).length}
                                     </span>
@@ -704,6 +1059,7 @@ const AdminLandings = () => {
                                         <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-wider">Landing Page</th>
                                         <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-wider">Khóa K</th>
                                         <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-wider">Mã nguồn</th>
+                                        <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-wider">Đích đến (Phễu)</th>
                                         <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-wider text-right">Thao tác</th>
                                     </tr>
                                 </thead>
@@ -730,6 +1086,17 @@ const AdminLandings = () => {
                                                 <span className="text-[11px] font-mono font-medium text-slate-500 bg-slate-100 px-2 py-1 rounded">
                                                     {landing.active_source_key}
                                                 </span>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <select
+                                                    className={`min-w-[140px] rounded-lg border px-3 py-2 text-xs font-bold outline-none transition-colors ${getFunnelOption(getLandingFunnelType(landing)).tone}`}
+                                                    value={getLandingFunnelType(landing)}
+                                                    onChange={(e) => handleQuickFunnelChange(landing.id, e.target.value)}
+                                                >
+                                                    {FUNNEL_OPTIONS.map((option) => (
+                                                        <option key={option.value} value={option.value}>{option.label}</option>
+                                                    ))}
+                                                </select>
                                             </td>
                                             <td className="px-6 py-4 text-right">
                                                 <div className="flex gap-2 justify-end opacity-0 group-hover:opacity-100 transition-opacity">

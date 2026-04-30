@@ -14,7 +14,7 @@ export const submitToCRM = async (formData) => {
         
         // --- CHỐT PATH CHUẨN ĐỒNG BỘ CRM ---
         if (funnelType === "leader") {
-            funnelType = "leader_funnel";
+            funnelType = "leader";
         }
         
         // Đường dẫn kho: funnels/ads hoặc funnels/leader_funnel
@@ -43,7 +43,17 @@ export const submitToCRM = async (formData) => {
 
             // BỔ SUNG CÁC TRƯỜNG CHO PHỄU LEADER / PHÊU ADS (TÙY CHỈNH)
             funnel_type: formData.funnel_type || "",
+            targetFunnel: funnelType,
+            source_type: formData.source_type || (funnelType === "leader" ? "leader_funnel" : funnelType),
+            sourceUrl: formData.sourceUrl || "",
+            landingPageId: formData.landingPageId || "",
+            landingPageSlug: formData.landingPageSlug || "",
             referrer: formData.referrer || "",
+            leaderName: formData.leaderName || "",
+            leader_utm: formData.leader_utm || "",
+            leaderUtm: formData.leaderUtm || formData.leader_utm || "",
+            leaderSlug: formData.leaderSlug || "",
+            introducedBy: formData.introducedBy || formData.referrer || "",
             is_learned_loa: formData.is_learned_loa || "",
             hasRegisteredLHD: formData.is_learned_loa === "ĐÃ HỌC LUẬT HẤP DẪN", // CRM Live dùng trường này
             funnel_channel: formData.funnel_channel || "",
