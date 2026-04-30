@@ -429,6 +429,9 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
         fbp: fbp || "",
         fbc: fbc || "",
         test_event_code: searchParams.get("test_event_code") || "",
+        fbEventValue: remoteConfig.fbEventValue || 0,
+        fbCurrency: remoteConfig.fbCurrency || "VND",
+        userAgent: navigator.userAgent,
       });
 
       // --- PHẦN 4: XỬ LÝ HASH DATA CHO FB ---

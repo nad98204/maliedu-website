@@ -66,6 +66,9 @@ export const submitToCRM = async (formData) => {
             meta_event_id: formData.meta_event_id || "",
             lead_event_id: formData.lead_event_id || "",
             test_event_code: formData.test_event_code || "",
+            fbEventValue: formData.fbEventValue || 0,
+            fbCurrency: formData.fbCurrency || "VND",
+            userAgent: formData.userAgent || "",
 
             // MÃ NGUỒN VÀ KHÓA K ĐỘNG
             courseName: formData.courseName || "Khơi Thông Dòng Tiền - Phễu",
