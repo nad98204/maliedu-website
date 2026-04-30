@@ -129,7 +129,7 @@ export const onCrmLeadCreated = onValueCreated(
 
       if (!fbCapiToken) {
         console.log(`[CAPI] No Capi Token found in Firestore, using hardcoded fallback.`);
-        fbCapiToken = "EAAOUx21ZARaYBQ6jZAiffdq7ZCsCj7Xko24I8De60ufxpJ0ZBNGE1dbbJBI8MDDeZB8n37IhzpUPZAahSZA69WFnDiTAB9wwfriQIoeKQUjVj6pzIumRzDCXHLGATDxJOAlZAiz3wIdYhwo0aTwoZAEFNTBZCRVKDZC7OvjtZBfQ1TUHXAdWFAii06GZBGRRe5I8ZBSsm51QZDZD";
+        fbCapiToken = "EAAOUx21ZARaYBRfZAG6fz5Qu91I2BHi5rxB3oXZC2sj1B9bihBid363ZCPvoR3sWyMuUAgj9ECQrRDz4I6k1m5kyhG2DuDxTClDK3HXTOKQpvgbOdzZBy1u2Tj21MIokscDTlaZBTZB5ObZBwlXds62pg8tJF2ZC47uVLPCUXyU7OxZBBxRvfIkQCjQ39XqZCgxmL8YgwZDZD";
       }
 
       if (!fbCapiToken) {

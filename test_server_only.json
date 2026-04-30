@@ -1,0 +1,10 @@
+{
+  "name": "SERVER ONLY TEST",
+  "phone": "0987654321",
+  "lead_event_id": "server_only_unique_id_999",
+  "meta_event_id": "server_only_meta_id_999",
+  "test_event_code": "TEST20489",
+  "fbPixel": "1526874981588150",
+  "sourceUrl": "https://luathapdan.vn/server-test",
+  "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+}
