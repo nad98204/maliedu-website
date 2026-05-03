@@ -517,6 +517,7 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
 
       toast.success("Đăng ký thành công!");
       setFormState({ name: "", phone: "", referrer: "", hasLearnedLOA: "" });
+      sessionStorage.setItem("form_submitted", "true");
       navigate(`/cam-on-khoi-thong?eventId=${encodeURIComponent(completeRegistrationEventId)}`);
     } catch (error) {
       toast.error("Lỗi: " + (error.message || "Không xác định"));

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { ArrowRight, CheckCircle2, Clock, ShieldAlert } from "lucide-react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { KHOI_THONG_DONG_TIEN_CONFIG } from "./landingConfig";
 import { trackMetaEvent } from "../../utils/metaPixel";
 
@@ -8,6 +8,7 @@ const DEFAULT_ZALO_LINK = KHOI_THONG_DONG_TIEN_CONFIG.zaloLink;
 
 const CamOnKhoiThong = () => {
   const [timeLeft, setTimeLeft] = useState(5 * 60);
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const confirmedRef = useRef(false);
 
@@ -21,7 +22,15 @@ const CamOnKhoiThong = () => {
 
   useEffect(() => {
     if (confirmedRef.current) return;
+
+    const hasSubmitted = sessionStorage.getItem("form_submitted");
+    if (!hasSubmitted) {
+      navigate("/dao-tao/khoi-thong-dong-tien", { replace: true });
+      return;
+    }
+
     confirmedRef.current = true;
+    sessionStorage.removeItem("form_submitted");
 
     const eventId = searchParams.get("eventId") || undefined;
     trackMetaEvent(
@@ -29,7 +38,7 @@ const CamOnKhoiThong = () => {
       { content_name: "Xác nhận - Khơi Thông Dòng Tiền", status: true },
       eventId ? { eventID: eventId } : undefined,
     );
-  }, [searchParams]);
+  }, [navigate, searchParams]);
 
   const minutes = Math.floor(timeLeft / 60);
   const seconds = timeLeft % 60;
