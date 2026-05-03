@@ -186,7 +186,7 @@ export const onCrmLeadCreated = onValueCreated(
           eventName: "CompleteRegistration",
           eventId: metaEventId,
           customData: {
-            value: leadData.fbEventValue || 0,
+            value: leadData.fbEventValue || 110000,
             currency: leadData.fbCurrency || "VND",
           },
         });
