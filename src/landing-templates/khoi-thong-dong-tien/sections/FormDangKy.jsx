@@ -31,7 +31,7 @@ const DEFAULT_REMOTE_CONFIG = {
   is_maintenance: false,
   isLoading: true,
   fbCurrency: "VND",
-  fbEventValue: 0,
+  fbEventValue: 110000,
   course_k: "K41", // Giá trị mặc định
 };
 
