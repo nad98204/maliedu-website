@@ -104,7 +104,6 @@ const AppShell = () => {
   // GLOBAL PIXEL TRACKING
   useEffect(() => {
     initMetaPixel(GLOBAL_PIXEL_ID);
-    trackMetaEvent("PageView");
   }, [location.pathname]);
 
   return (

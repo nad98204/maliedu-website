@@ -467,54 +467,6 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
         trackMetaEvent("Lead", leadEventData, { eventID: leadEventId });
       }
 
-      // 5.2 Client-side CAPI (Dự phòng)
-      if (remoteConfig.fbPixel && remoteConfig.fbCapiToken) {
-        try {
-          let clientIp = "";
-          try {
-            const ipResponse = await fetch("https://api64.ipify.org?format=json");
-            const ipData = await ipResponse.json();
-            clientIp = ipData.ip || "";
-          } catch {}
-
-          const userDataCapi = {
-            ...userDataCommon,
-            ...(clientIp ? { client_ip_address: clientIp } : {}),
-            client_user_agent: navigator.userAgent,
-            ...(fbp ? { fbp } : {}),
-            ...(fbc ? { fbc } : {}),
-          };
-
-          const testEventCode = searchParams.get("test_event_code") || "";
-          const eventTime = Math.floor(Date.now() / 1000);
-          
-          const payload = {
-            data: [
-              {
-                event_name: "Lead",
-                event_time: eventTime,
-                action_source: "website",
-                event_id: leadEventId,
-                event_source_url: window.location.href,
-                user_data: userDataCapi,
-                custom_data: leadEventData,
-              }
-            ],
-            ...(testEventCode ? { test_event_code: testEventCode } : {}),
-          };
-
-          const fbCapiUrl = `https://graph.facebook.com/v19.0/${remoteConfig.fbPixel}/events?access_token=${remoteConfig.fbCapiToken}`;
-          fetch(fbCapiUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            keepalive: true,
-            body: JSON.stringify(payload),
-          }).catch(console.error);
-        } catch (capiError) {
-          console.error("CAPI Client Error:", capiError);
-        }
-      }
-
       toast.success("Đăng ký thành công!");
       setFormState({ name: "", phone: "", referrer: "", hasLearnedLOA: "" });
       sessionStorage.setItem("form_submitted", "true");

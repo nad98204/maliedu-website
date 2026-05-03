@@ -105,6 +105,10 @@ export const setMetaUserData = (userData) => {
 
 export const initMetaPixel = (pixelId, userData) => {
   if (!pixelId) return null;
+  if (!import.meta.env.PROD) {
+    console.log("[MetaPixel:dev] init", { pixelId, userData });
+    return null;
+  }
 
   const win = getWindow();
   const fbq = ensureMetaPixel();
@@ -127,6 +131,11 @@ export const initMetaPixel = (pixelId, userData) => {
 };
 
 export const trackMetaEvent = (eventName, params, options) => {
+  if (!import.meta.env.PROD) {
+    console.log("[MetaPixel:dev] track", eventName, params, options);
+    return true;
+  }
+
   const win = getWindow();
   if (!win?.fbq || !eventName) return false;
 

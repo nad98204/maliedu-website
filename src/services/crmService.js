@@ -66,6 +66,8 @@ export const submitToCRM = async (formData) => {
             meta_event_id: formData.meta_event_id || "",
             lead_event_id: formData.lead_event_id || "",
             test_event_code: formData.test_event_code || "",
+            fbp: formData.fbp || "",
+            fbc: formData.fbc || "",
             fbEventValue: formData.fbEventValue || 0,
             fbCurrency: formData.fbCurrency || "VND",
             userAgent: formData.userAgent || "",
