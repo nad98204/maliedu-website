@@ -33,11 +33,42 @@ const CamOnKhoiThong = () => {
     sessionStorage.removeItem("form_submitted");
 
     const eventId = searchParams.get("eventId") || undefined;
-    trackMetaEvent(
-      "CompleteRegistration",
-      { content_name: "Xác nhận - Khơi Thông Dòng Tiền", status: true },
-      eventId ? { eventID: eventId } : undefined,
-    );
+    let interval = null;
+
+    const fireCompleteRegistration = () => {
+      trackMetaEvent(
+        "CompleteRegistration",
+        { content_name: "Xác nhận - Khơi Thông Dòng Tiền", status: true },
+        eventId ? { eventID: eventId } : undefined,
+      );
+    };
+
+    const fireEvent = () => {
+      if (typeof window.fbq === "function") {
+        fireCompleteRegistration();
+        return;
+      }
+
+      let attempts = 0;
+      interval = window.setInterval(() => {
+        attempts += 1;
+
+        if (typeof window.fbq === "function") {
+          window.clearInterval(interval);
+          fireCompleteRegistration();
+        } else if (attempts >= 10) {
+          window.clearInterval(interval);
+        }
+      }, 300);
+    };
+
+    fireEvent();
+
+    return () => {
+      if (interval) {
+        window.clearInterval(interval);
+      }
+    };
   }, [navigate, searchParams]);
 
   const minutes = Math.floor(timeLeft / 60);
