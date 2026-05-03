@@ -38,7 +38,7 @@ const CamOnKhoiThong = () => {
     const fireCompleteRegistration = () => {
       trackMetaEvent(
         "CompleteRegistration",
-        { content_name: "Xác nhận - Khơi Thông Dòng Tiền", status: true },
+        { content_name: "Xác nhận - Khơi Thông Dòng Tiền", status: true, value: 110000, currency: "VND" },
         eventId ? { eventID: eventId } : undefined,
       );
     };
