@@ -22,6 +22,12 @@ export const submitToCRM = async (formData) => {
         // Đường dẫn kho: funnels/ads hoặc funnels/leader
         const nodePath = `funnels/${funnelType}`;
 
+        const resolvedNoteRaw = formData.note != null ? String(formData.note).trim() : "";
+        const resolvedNote =
+            resolvedNoteRaw ||
+            (formData.ghiChu != null ? String(formData.ghiChu).trim() : "") ||
+            "Đăng ký từ Landing Page";
+
         // 2. Đóng gói dữ liệu đúng chuẩn CRM yêu cầu (Theo tài liệu tích hợp)
         const payload = {
             name: formData.name || "Khách hàng mới",
@@ -34,7 +40,12 @@ export const submitToCRM = async (formData) => {
             createdVia: "landing", // Bắt buộc để CRM xử lý
             createdAt: new Date().toISOString(), // Mốc thời gian chuẩn ISO
 
-            note: formData.note || "Đăng ký từ Landing Page",
+            // Ghi chú: một số bản CRM đọc note, một số chỉ đọc ghiChu / customerNote
+            note: resolvedNote,
+            ghiChu: resolvedNote,
+            ghi_chu: resolvedNote,
+            customerNote: resolvedNote,
+            remarks: resolvedNote,
 
             // MAPPING UTM THEO TÀI LIỆU
             cpSource: formData.utm_source || "",

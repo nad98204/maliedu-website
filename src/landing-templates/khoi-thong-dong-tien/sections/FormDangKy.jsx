@@ -1,4 +1,4 @@
-import { ArrowRight, MessageSquare, Phone, Sparkles, User } from "lucide-react";
+import { ArrowRight, Phone, Sparkles, User, UserPlus, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -129,10 +129,24 @@ const resolveLeaderUtmValue = (searchParams, leaderNames = []) => {
   return candidates.find((value) => matchLeaderNameFromUtm(leaderNames, value)) || candidates[0] || "";
 };
 
-const CustomRadio = ({ label, options, value, onChange, error, layout = "grid" }) => (
+const CustomRadio = ({
+  label,
+  options,
+  value,
+  onChange,
+  error,
+  layout = "grid",
+  requiredMark = false,
+  errorMessage = "* Vui lòng chọn",
+}) => (
   <div className="space-y-1.5 sm:space-y-2">
-    <label className="block text-[10px] sm:text-xs font-black uppercase tracking-wider text-[#C9961A]/80">
-      {label}
+    <label className="flex flex-wrap items-center gap-x-1 text-[10px] sm:text-xs font-black uppercase tracking-wider text-[#C9961A]/80">
+      <span>{label}</span>
+      {requiredMark && (
+        <span className="text-[#E8393F]" aria-hidden>
+          *
+        </span>
+      )}
     </label>
     <div
       className={
@@ -167,7 +181,7 @@ const CustomRadio = ({ label, options, value, onChange, error, layout = "grid" }
     </div>
     {error && (
       <p className="text-[#E8393F] text-[9px] font-bold uppercase tracking-widest animate-pulse italic mt-1 ml-1">
-        * Vui lòng chọn
+        {errorMessage}
       </p>
     )}
   </div>
@@ -176,18 +190,13 @@ const CustomRadio = ({ label, options, value, onChange, error, layout = "grid" }
 const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [formState, setFormState] = useState({
-    name: "",
-    phone: "",
-    referrer: "",
-    otherReferrer: "",
-    hasLearnedLOA: "",
-    customerNote: "",
-  });
+  const [formState, setFormState] = useState({ name: "", phone: "", referrer: "", otherReferrer: "", hasLearnedLOA: "" });
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [remoteConfig, setRemoteConfig] = useState(DEFAULT_REMOTE_CONFIG);
   const [leaderOwners, setLeaderOwners] = useState([]);
+  /** Khi có mã UTM khóa Leader: ô tên người giới thiệu thật (học viên…) chỉ mở khi user chủ động bấm */
+  const [showAlternateReferrerInput, setShowAlternateReferrerInput] = useState(false);
 
   const currentPathNormalized = normalizePath(window.location.pathname);
   const dynamicReferrerOptions = leaderOwners.length > 0
@@ -239,6 +248,10 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
     if (!isLeader || !lockedLeaderName || formState.referrer === lockedLeaderName) return;
     setFormState((prev) => ({ ...prev, referrer: lockedLeaderName }));
   }, [isLeader, formState.referrer, lockedLeaderName]);
+
+  useEffect(() => {
+    setShowAlternateReferrerInput(false);
+  }, [lockedLeaderName]);
 
   useEffect(() => {
     let isCancelled = false;
@@ -382,20 +395,36 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
 
     // Validation
     const newErrors = {};
-    if (!formState.name.trim()) newErrors.name = true;
-    if (!formState.phone.trim()) newErrors.phone = true;
+    const nameTrim = formState.name.trim();
+    const phoneDigits = formState.phone.replace(/\D/g, "");
+
+    if (!nameTrim || nameTrim.length < 2) newErrors.name = true;
+    if (!formState.phone.trim() || phoneDigits.length < 9 || phoneDigits.length > 11) {
+      newErrors.phone = true;
+    }
 
     if (isLeader) {
       if (!lockedLeaderName && !formState.referrer) newErrors.referrer = true;
       if (!lockedLeaderName && formState.referrer === OTHER_REFERRER_OPTION && !formState.otherReferrer.trim()) {
         newErrors.otherReferrer = true;
       }
-      if (!formState.hasLearnedLOA) newErrors.hasLearnedLOA = true;
+      if (!formState.hasLearnedLOA || !OPTIONS_LOA.includes(formState.hasLearnedLOA)) {
+        newErrors.hasLearnedLOA = true;
+      }
     }
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
-      toast.error("Vui lòng điền đầy đủ thông tin!");
+      const msgs = [];
+      if (newErrors.name) msgs.push("họ và tên");
+      if (newErrors.phone) msgs.push("số điện thoại hợp lệ");
+      if (newErrors.hasLearnedLOA) msgs.push("câu hỏi Luật Hấp Dẫn");
+      if (newErrors.referrer || newErrors.otherReferrer) msgs.push("người giới thiệu");
+      toast.error(
+        msgs.length > 0
+          ? `Vui lòng điền: ${msgs.join(", ")}.`
+          : "Vui lòng điền đầy đủ thông tin!"
+      );
       return;
     }
 
@@ -435,14 +464,20 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
         ? `${submissionSourceKey}_${utmOwnerSlug}`
         : submissionSourceKey;
       const fallbackUtmContent = selectedLeaderName || formState.referrer || "";
-      const trimmedCustomerNote = formState.customerNote.trim();
-      const crmNote = [
-        formState.hasLearnedLOA ? `Tình trạng học Luật Hấp Dẫn: ${formState.hasLearnedLOA}` : "",
-        typedOtherReferrer ? `Người khác giới thiệu: ${typedOtherReferrer}` : "",
-        trimmedCustomerNote ? `Ghi chú: ${trimmedCustomerNote}` : "",
-      ]
-        .filter(Boolean)
-        .join(" | ");
+
+      /** Ghi chú CRM — phễu Leader: khớp hai khối form (Luật Hấp Dẫn + Người khác giới thiệu tôi) */
+      const crmNoteParts = [];
+      if (currentFunnel === "leader") {
+        if (formState.hasLearnedLOA) {
+          crmNoteParts.push(`Bạn đã học Luật Hấp Dẫn của thầy Mong chưa?: ${formState.hasLearnedLOA}`);
+        }
+        if (typedOtherReferrer) {
+          crmNoteParts.push(`Người khác giới thiệu tôi — ${typedOtherReferrer}`);
+        }
+      } else if (typedOtherReferrer) {
+        crmNoteParts.push(`Người khác giới thiệu: ${typedOtherReferrer}`);
+      }
+      const crmNote = crmNoteParts.filter(Boolean).join(" | ");
 
       // --- PHẦN 2: CHUẨN BỊ TRACKING IDs ---
       const completeRegistrationEventId = createMetaEventId("complete_registration");
@@ -451,7 +486,7 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
 
       // --- PHẦN 3: GỬI CRM ---
       const crmResponse = await submitToCRM({
-        name: formState.name,
+        name: nameTrim,
         phone: formState.phone.replace(/\s/g, ""),
         email: "",
         note: crmNote || "Đăng ký từ Landing Page",
@@ -530,14 +565,8 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
       }
 
       toast.success("Đăng ký thành công!");
-      setFormState({
-        name: "",
-        phone: "",
-        referrer: "",
-        otherReferrer: "",
-        hasLearnedLOA: "",
-        customerNote: "",
-      });
+      setFormState({ name: "", phone: "", referrer: "", otherReferrer: "", hasLearnedLOA: "" });
+      setShowAlternateReferrerInput(false);
       sessionStorage.setItem("form_submitted", "true");
       sessionStorage.setItem("khoi_thong_funnel", finalTargetFunnel);
       sessionStorage.setItem("khoi_thong_pixel_id", remoteConfig.fbPixel || "");
@@ -635,8 +664,13 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
 
                   <div className="grid grid-cols-1 gap-3 sm:gap-5">
                     <div className="space-y-1">
-                      <label className="flex items-center gap-1.5 text-[10px] sm:text-xs font-black uppercase tracking-wider text-[#C9961A]/90">
-                        <User className="w-3 h-3" /> Họ và tên
+                      <label className="flex flex-wrap items-center gap-x-1 text-[10px] sm:text-xs font-black uppercase tracking-wider text-[#C9961A]/90">
+                        <span className="flex items-center gap-1.5">
+                          <User className="w-3 h-3 shrink-0" /> Họ và tên
+                        </span>
+                        <span className="text-[#E8393F]" aria-hidden>
+                          *
+                        </span>
                       </label>
                       <input
                         type="text"
@@ -644,7 +678,10 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
                         onChange={handleChange("name")}
                         placeholder="Nhập họ và tên đầy đủ"
                         required
+                        minLength={2}
                         autoComplete="name"
+                        aria-invalid={errors.name ? true : undefined}
+                        aria-required
                         className="w-full rounded-lg px-4 py-2.5 sm:py-3.5 text-sm text-white placeholder:text-white/30 transition-all duration-200 focus:outline-none"
                         style={{
                           background: "rgba(255,255,255,0.06)",
@@ -660,11 +697,21 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
                           handleAdvancedMatch("name", formState.name);
                         }}
                       />
+                      {errors.name && (
+                        <p className="text-[#E8393F] text-[9px] font-bold uppercase tracking-widest italic mt-1 ml-1">
+                          * Nhập họ và tên (ít nhất 2 ký tự)
+                        </p>
+                      )}
                     </div>
 
                     <div className="space-y-1">
-                      <label className="flex items-center gap-1.5 text-[10px] sm:text-xs font-black uppercase tracking-wider text-[#C9961A]/90">
-                        <Phone className="w-3 h-3" /> Số điện thoại
+                      <label className="flex flex-wrap items-center gap-x-1 text-[10px] sm:text-xs font-black uppercase tracking-wider text-[#C9961A]/90">
+                        <span className="flex items-center gap-1.5">
+                          <Phone className="w-3 h-3 shrink-0" /> Số điện thoại
+                        </span>
+                        <span className="text-[#E8393F]" aria-hidden>
+                          *
+                        </span>
                       </label>
                       <input
                         type="tel"
@@ -673,6 +720,9 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
                         placeholder="Nhập số điện thoại"
                         required
                         autoComplete="tel"
+                        aria-invalid={errors.phone ? true : undefined}
+                        aria-required
+                        inputMode="numeric"
                         className="w-full rounded-lg px-4 py-2.5 sm:py-3.5 text-sm text-white placeholder:text-white/30 transition-all duration-200 focus:outline-none"
                         style={{
                           background: "rgba(255,255,255,0.06)",
@@ -688,33 +738,13 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
                           handleAdvancedMatch("phone", formState.phone);
                         }}
                       />
+                      {errors.phone && (
+                        <p className="text-[#E8393F] text-[9px] font-bold uppercase tracking-widest italic mt-1 ml-1">
+                          * Nhập số điện thoại (9–11 chữ số)
+                        </p>
+                      )}
                     </div>
 
-                    <div className="space-y-1">
-                      <label className="flex items-center gap-1.5 text-[10px] sm:text-xs font-black uppercase tracking-wider text-[#C9961A]/90">
-                        <MessageSquare className="w-3 h-3" /> Ghi chú (tuỳ chọn)
-                      </label>
-                      <textarea
-                        value={formState.customerNote}
-                        onChange={handleChange("customerNote")}
-                        placeholder="VD: khung giờ liên hệ, câu hỏi thêm..."
-                        rows={3}
-                        maxLength={2000}
-                        className="w-full rounded-lg px-4 py-2.5 sm:py-3 text-sm text-white placeholder:text-white/30 transition-all duration-200 focus:outline-none resize-y min-h-[5.5rem]"
-                        style={{
-                          background: "rgba(255,255,255,0.06)",
-                          border: "1px solid rgba(201,150,26,0.2)",
-                        }}
-                        onFocus={(e) => {
-                          e.target.style.border = "1px solid rgba(201,150,26,0.6)";
-                          e.target.style.background = "rgba(255,255,255,0.09)";
-                        }}
-                        onBlur={(e) => {
-                          e.target.style.border = "1px solid rgba(201,150,26,0.2)";
-                          e.target.style.background = "rgba(255,255,255,0.06)";
-                        }}
-                      />
-                    </div>
                   </div>
 
                   {isLeader && (
@@ -727,19 +757,101 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
                           </span>
                         </div>
                       )}
-                      <CustomRadio
-                        label={lockedLeaderName ? "LEADER PHỤ TRÁCH" : "AI LÀ NGƯỜI GIỚI THIỆU BẠN ?"}
-                        options={lockedLeaderName ? [lockedLeaderName] : dynamicReferrerOptions}
-                        value={formState.referrer}
-                        onChange={(val) => {
-                          if (!lockedLeaderName) setRadioValue("referrer", val);
-                        }}
-                        error={errors.referrer}
-                        layout="grid"
-                      />
+                      {lockedLeaderName ? (
+                        <div className="space-y-1.5 sm:space-y-2">
+                          <span className="block text-[10px] sm:text-xs font-black uppercase tracking-wider text-[#C9961A]/80">
+                            LEADER PHỤ TRÁCH
+                          </span>
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch sm:gap-2">
+                            <div className="min-w-0 flex-1 flex">
+                              <div
+                                role="group"
+                                aria-label="Leader phụ trách"
+                                className="flex min-h-[42px] w-full flex-1 items-center gap-1.5 rounded-lg border border-[#C9961A] bg-[#C9961A]/30 px-2.5 py-2 text-left text-[10px] sm:text-[12px] font-bold uppercase tracking-tight text-[#FFE566] shadow-[0_0_15px_rgba(201,150,26,0.2)] ring-1 ring-[#C9961A]/50 sm:py-2.5"
+                              >
+                                <span
+                                  className="flex h-3 w-3 flex-shrink-0 items-center justify-center rounded-full border border-[#FFE566] bg-[#C9961A]"
+                                  aria-hidden
+                                >
+                                  <span className="h-1 w-1 rounded-full bg-white" />
+                                </span>
+                                <span className="truncate">{lockedLeaderName.replace("LEADER ", "")}</span>
+                              </div>
+                            </div>
+                            <div className="flex w-full shrink-0 flex-col sm:w-[10.75rem] sm:self-stretch">
+                              {!showAlternateReferrerInput ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setShowAlternateReferrerInput(true)}
+                                  className="group flex min-h-[42px] flex-1 w-full items-center gap-2 rounded-lg border border-[#C9961A]/35 bg-gradient-to-br from-white/[0.08] to-white/[0.02] px-2.5 py-2 text-left shadow-[inset_0_1px_0_rgba(201,150,26,0.1)] transition-all hover:border-[#C9961A]/55 hover:from-[#C9961A]/12 hover:to-white/[0.04] hover:shadow-[0_0_20px_rgba(201,150,26,0.12)] active:scale-[0.99]"
+                                >
+                                  <span
+                                    className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md border border-[#C9961A]/30 bg-[#C9961A]/10 transition-colors group-hover:border-[#C9961A]/50 group-hover:bg-[#C9961A]/18"
+                                    aria-hidden
+                                  >
+                                    <UserPlus className="h-4 w-4 text-[#FFE566] opacity-90 group-hover:opacity-100" strokeWidth={2.25} />
+                                  </span>
+                                  <span className="min-w-0 flex-1 py-0.5">
+                                    <span className="block text-[9px] font-black uppercase leading-[1.15] tracking-wide text-[#FFE566]">
+                                      Người khác
+                                    </span>
+                                    <span className="mt-0.5 block text-[8px] font-bold uppercase leading-[1.15] tracking-wide text-[#FFE566]/55 group-hover:text-[#FFE566]/80">
+                                      giới thiệu tôi
+                                    </span>
+                                  </span>
+                                </button>
+                              ) : (
+                                <div className="flex min-h-[42px] flex-1 w-full items-center gap-1 rounded-lg border border-[#C9961A]/45 bg-white/[0.08] py-1 pl-2 pr-1 shadow-[inset_0_1px_0_rgba(201,150,26,0.12)]">
+                                  <input
+                                    type="text"
+                                    value={formState.otherReferrer}
+                                    onChange={handleChange("otherReferrer")}
+                                    placeholder="Tên người giới thiệu"
+                                    autoComplete="off"
+                                    className="min-w-0 flex-1 bg-transparent py-1 text-[11px] sm:text-xs text-white placeholder:text-white/35 focus:outline-none"
+                                    style={{
+                                      border: "none",
+                                    }}
+                                  />
+                                  <button
+                                    type="button"
+                                    aria-label="Thu gọn"
+                                    onClick={() => {
+                                      setShowAlternateReferrerInput(false);
+                                      setFormState((prev) => ({ ...prev, otherReferrer: "" }));
+                                      setErrors((prev) => {
+                                        const next = { ...prev };
+                                        delete next.otherReferrer;
+                                        return next;
+                                      });
+                                    }}
+                                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-white/45 transition-colors hover:bg-white/10 hover:text-white/80"
+                                  >
+                                    <X className="h-4 w-4" strokeWidth={2.25} />
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          {errors.referrer && (
+                            <p className="text-[#E8393F] text-[9px] font-bold uppercase tracking-widest animate-pulse italic mt-1 ml-1">
+                              * Vui lòng chọn
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <CustomRadio
+                          label="AI LÀ NGƯỜI GIỚI THIỆU BẠN ?"
+                          options={dynamicReferrerOptions}
+                          value={formState.referrer}
+                          onChange={(val) => setRadioValue("referrer", val)}
+                          error={errors.referrer}
+                          layout="grid"
+                        />
+                      )}
 
-                      {(formState.referrer === OTHER_REFERRER_OPTION || lockedLeaderName) && (
-                        <div className="space-y-1">
+                      {!lockedLeaderName && formState.referrer === OTHER_REFERRER_OPTION && (
+                        <div className="rounded-xl border border-[#C9961A]/35 bg-white/[0.04] px-3 py-2.5 space-y-1.5 shadow-[inset_0_1px_0_rgba(201,150,26,0.12),0_8px_24px_rgba(0,0,0,0.15)]">
                           <label className="flex items-center gap-1.5 text-[10px] sm:text-xs font-black uppercase tracking-wider text-[#C9961A]/90">
                             <User className="w-3 h-3" /> Tên người giới thiệu
                           </label>
@@ -748,18 +860,18 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
                             value={formState.otherReferrer}
                             onChange={handleChange("otherReferrer")}
                             placeholder="Nhập tên người đã giới thiệu bạn"
-                            required={!lockedLeaderName}
-                            className="w-full rounded-lg px-4 py-2.5 sm:py-3.5 text-sm text-white placeholder:text-white/30 transition-all duration-200 focus:outline-none"
+                            required
+                            className="w-full rounded-lg px-3 py-2 sm:py-2.5 text-sm text-white placeholder:text-white/30 transition-all duration-200 focus:outline-none"
                             style={{
                               background: "rgba(255,255,255,0.06)",
-                              border: errors.otherReferrer ? "1.5px solid #E8393F" : "1px solid rgba(201,150,26,0.2)",
+                              border: errors.otherReferrer ? "1.5px solid #E8393F" : "1px solid rgba(201,150,26,0.25)",
                             }}
                             onFocus={(e) => {
                               e.target.style.border = "1px solid rgba(201,150,26,0.6)";
                               e.target.style.background = "rgba(255,255,255,0.09)";
                             }}
                             onBlur={(e) => {
-                              e.target.style.border = errors.otherReferrer ? "1.5px solid #E8393F" : "1px solid rgba(201,150,26,0.2)";
+                              e.target.style.border = errors.otherReferrer ? "1.5px solid #E8393F" : "1px solid rgba(201,150,26,0.25)";
                               e.target.style.background = "rgba(255,255,255,0.06)";
                             }}
                           />
@@ -778,6 +890,8 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
                         onChange={(val) => setRadioValue("hasLearnedLOA", val)}
                         error={errors.hasLearnedLOA}
                         layout="row"
+                        requiredMark
+                        errorMessage="* Bắt buộc chọn: Đã học hoặc Chưa học"
                       />
                     </div>
                   )}
