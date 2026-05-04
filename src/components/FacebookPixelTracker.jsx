@@ -1,8 +1,7 @@
 import { useEffect } from "react";
-import { collection, doc, getDoc, getDocs } from "firebase/firestore";
 import { useLocation } from "react-router-dom";
 
-import { crmFirestore } from "../firebase";
+import { isFunnelLandingPath } from "../utils/funnelLandingPaths";
 import { ensureMetaPixel, getMetaBrowserData, initMetaPixel, trackMetaEventForPixel } from "../utils/metaPixel";
 
 const DEFAULT_PIXEL_ID = "1526874981588150";
@@ -19,12 +18,17 @@ const normalizePath = (path) => {
 
 const getLandingPages = async () => {
   if (!landingPagesPromise) {
-    landingPagesPromise = getDocs(collection(crmFirestore, "landing_pages")).then((snapshot) =>
-      snapshot.docs.map((item) => ({
+    landingPagesPromise = (async () => {
+      const [{ crmFirestore }, { collection, getDocs }] = await Promise.all([
+        import("../firebase"),
+        import("firebase/firestore"),
+      ]);
+      const snapshot = await getDocs(collection(crmFirestore, "landing_pages"));
+      return snapshot.docs.map((item) => ({
         id: item.id,
         ...item.data(),
-      })),
-    );
+      }));
+    })();
   }
 
   return landingPagesPromise;
@@ -32,9 +36,14 @@ const getLandingPages = async () => {
 
 const getPublicLandingConfig = async () => {
   if (!publicLandingConfigPromise) {
-    publicLandingConfigPromise = getDoc(
-      doc(crmFirestore, "public_settings", "landing_config"),
-    ).then((snapshot) => (snapshot.exists() ? snapshot.data() : {}));
+    publicLandingConfigPromise = (async () => {
+      const [{ crmFirestore }, { doc, getDoc }] = await Promise.all([
+        import("../firebase"),
+        import("firebase/firestore"),
+      ]);
+      const snapshot = await getDoc(doc(crmFirestore, "public_settings", "landing_config"));
+      return snapshot.exists() ? snapshot.data() : {};
+    })();
   }
 
   return publicLandingConfigPromise;
@@ -68,6 +77,10 @@ const pickPixelId = (value) => {
 
 const resolvePixelIdForPath = async (pathname, search = "") => {
   const normalizedPath = normalizePath(pathname);
+
+  if (isFunnelLandingPath(normalizedPath)) {
+    return DEFAULT_PIXEL_ID;
+  }
 
   try {
     const landingPages = await getLandingPages();

@@ -3,11 +3,12 @@ import { KHOI_THONG_DONG_TIEN_CONFIG } from "../landingConfig";
 import { trackCtaClick } from "../ctaTracking";
 
 const VIDEO_URL =
-  "https://s3-hn1-api.longvan.vn/video-khoa-hoc/videos/1774580108130-491093613-B-nh-Xe-Cu-c---i.mp4";
+  "https://s3-hn1-api.longvan.vn/video-khoa-hoc/videos/1777912962001-669107119-banh-xe-cuoc-doi.mp4";
 const TITLE_IMG_URL =
-  "https://assets.cdn.filesafe.space/Ap9y6wdpftIPKJBsddZ2/media/6895aa923b96f708cbbf70c2.jpeg";
+  "https://s3-hn1-api.longvan.vn/video-khoa-hoc/videos/1777910467237-372116712-banner-optimized.jpg";
+/** Poster nhẹ hơn (q_auto:eco); w_720 đủ cho ~620px khung @ 1–1.25x DPR — video MP4 trên S3 vẫn là phần nặng nhất */
 const VIDEO_POSTER_URL =
-  "https://res.cloudinary.com/dstukyjzd/image/upload/f_auto,q_auto:good,w_640/v1767682614/Kh%C6%A1i_Th%C3%B4ng_D%C3%B2ng_Ti%E1%BB%81n_M%C3%A0u_Xanh_sjajsx.jpg";
+  "https://res.cloudinary.com/dstukyjzd/image/upload/f_auto,q_auto:eco,w_720/v1767682614/Kh%C6%A1i_Th%C3%B4ng_D%C3%B2ng_Ti%E1%BB%81n_M%C3%A0u_Xanh_sjajsx.jpg";
 
 /* ─── VideoPlayer ────────────────────────────────────────────── */
 const VideoPlayer = () => {
@@ -127,8 +128,8 @@ const VideoPlayer = () => {
           muted={muted}
           loop
           playsInline
-          preload="auto"
-          fetchPriority="high"
+          preload="metadata"
+          fetchPriority="low"
           poster={VIDEO_POSTER_URL}
           onLoadedMetadata={() => {
             setIsVideoReady(true);
@@ -305,17 +306,41 @@ const BannerChinh = () => {
     <div className="absolute top-[10%] left-[20%] w-[500px] h-[500px] bg-[#FFE566]/40 blur-[130px] rounded-full pointer-events-none z-0" />
     <div className="absolute bottom-[10%] right-[10%] w-[600px] h-[600px] bg-white/70 blur-[150px] rounded-full pointer-events-none z-0" />
 
-    {/* ── Top bar ── */}
-    <div
-      className="relative w-full py-2.5 sm:py-3 text-center z-10 border-b border-[#F8E08A]/30 overflow-hidden"
-      style={{
-        backgroundImage: `linear-gradient(90deg, rgba(74, 31, 8, 0.85), rgba(124, 57, 16, 0.8), rgba(74, 31, 8, 0.85)), url("https://res.cloudinary.com/dstukyjzd/image/upload/v1772610554/mali-edu/uqs2zpqprj1xhrh3kubu.jpg")`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        boxShadow: "0 4px 20px rgba(0,0,0,0.1)"
-      }}
-    >
-      <span className="relative z-10 text-[#FFE566] text-xs sm:text-sm font-black tracking-[0.18em] uppercase drop-shadow-md">
+    {/* ── Top bar: ribbon burgundy + gold (không crop ảnh hero) ── */}
+    <div className="relative w-full py-2.5 sm:py-3 text-center z-10 overflow-hidden border-b border-[#F8E08A]/40 shadow-[0_4px_28px_rgba(26,10,6,0.45)]">
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            "linear-gradient(90deg, #140806 0%, #3a1410 22%, #6b2818 50%, #3a1410 78%, #140806 100%)",
+        }}
+      />
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            "linear-gradient(180deg, rgba(248,224,138,0.2) 0%, rgba(201,150,26,0.06) 35%, transparent 55%, rgba(0,0,0,0.42) 100%)",
+        }}
+      />
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.92]"
+        style={{
+          background:
+            "linear-gradient(100deg, transparent 5%, rgba(255,214,140,0.06) 42%, rgba(255,236,200,0.28) 50%, rgba(255,214,140,0.06) 58%, transparent 95%)",
+        }}
+      />
+      <div className="pointer-events-none absolute top-0 left-[8%] right-[8%] h-px max-w-4xl mx-auto bg-gradient-to-r from-transparent via-[#F8E08A]/75 to-transparent" />
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{ boxShadow: "inset 0 0 48px rgba(0,0,0,0.35)" }}
+      />
+      <span
+        className="relative z-10 inline-block text-[#FFEDB3] text-xs sm:text-sm font-black tracking-[0.2em] sm:tracking-[0.22em] uppercase"
+        style={{
+          textShadow:
+            "0 1px 2px rgba(0,0,0,0.9), 0 0 20px rgba(248,224,138,0.35), 0 0 1px rgba(255,255,255,0.4)",
+        }}
+      >
         4 BUỔI TỐI HỌC ONLINE MIỄN PHÍ
       </span>
     </div>

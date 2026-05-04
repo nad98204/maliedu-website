@@ -1,16 +1,18 @@
 import React, { lazy, Suspense } from "react";
-import Footer from "../../components/Footer";
 import SEO from "../../components/SEO";
 import { getRouteSeo } from "../../seo/routeSeo";
 import BannerChinh from "./sections/BannerChinh";
-import PhanNoiDau from "./sections/PhanNoiDau";
+import LazyWhenVisible from "./LazyWhenVisible";
+import { SectionFallback } from "./sectionFallback";
 
-const DoiTuongPhuHop   = lazy(() => import("./sections/DoiTuongPhuHop"));
-const LichTrinhHoc     = lazy(() => import("./sections/LichTrinhHoc"));
-const KetQuaHocVien    = lazy(() => import("./sections/KetQuaHocVien"));
+const PhanNoiDau = lazy(() => import("./sections/PhanNoiDau"));
+const DoiTuongPhuHop = lazy(() => import("./sections/DoiTuongPhuHop"));
+const LichTrinhHoc = lazy(() => import("./sections/LichTrinhHoc"));
+const KetQuaHocVien = lazy(() => import("./sections/KetQuaHocVien"));
 const CauChuyenNguoiSangLap = lazy(() => import("./sections/CauChuyenNguoiSangLap"));
-const VideoHocVien     = lazy(() => import("./sections/VideoHocVien"));
-const FormDangKy       = lazy(() => import("./sections/FormDangKy"));
+const VideoHocVien = lazy(() => import("./sections/VideoHocVien"));
+const FormDangKy = lazy(() => import("./sections/FormDangKy"));
+const Footer = lazy(() => import("../../components/Footer"));
 
 const KhoiThongDongTien = ({ targetFunnel, source_key }) => {
   const seo = getRouteSeo("/dao-tao/khoi-thong-dong-tien");
@@ -37,18 +39,56 @@ const KhoiThongDongTien = ({ targetFunnel, source_key }) => {
       />
 
       <BannerChinh />
+
       <div className="max-w-4xl lg:max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10 lg:space-y-16 pt-5 sm:pt-7 pb-12">
-        <PhanNoiDau />
-        <Suspense fallback={<div className="h-32" />}>
-          <DoiTuongPhuHop />
-          <LichTrinhHoc />
-          <KetQuaHocVien />
-          <CauChuyenNguoiSangLap />
-          <VideoHocVien />
-          <FormDangKy targetFunnel={targetFunnel} source_key={source_key} />
-        </Suspense>
+        <LazyWhenVisible minHeight="22rem">
+          <Suspense fallback={<SectionFallback className="h-56" />}>
+            <PhanNoiDau />
+          </Suspense>
+        </LazyWhenVisible>
+
+        <LazyWhenVisible minHeight="18rem">
+          <Suspense fallback={<SectionFallback className="h-48" />}>
+            <DoiTuongPhuHop />
+          </Suspense>
+        </LazyWhenVisible>
+
+        <LazyWhenVisible minHeight="20rem">
+          <Suspense fallback={<SectionFallback className="h-52" />}>
+            <LichTrinhHoc />
+          </Suspense>
+        </LazyWhenVisible>
+
+        <LazyWhenVisible minHeight="24rem">
+          <Suspense fallback={<SectionFallback className="min-h-[18rem]" />}>
+            <KetQuaHocVien />
+          </Suspense>
+        </LazyWhenVisible>
+
+        <LazyWhenVisible minHeight="28rem">
+          <Suspense fallback={<SectionFallback className="min-h-[20rem]" />}>
+            <CauChuyenNguoiSangLap />
+          </Suspense>
+        </LazyWhenVisible>
+
+        <LazyWhenVisible minHeight="16rem">
+          <Suspense fallback={<SectionFallback className="h-44" />}>
+            <VideoHocVien />
+          </Suspense>
+        </LazyWhenVisible>
+
+        <LazyWhenVisible minHeight="26rem">
+          <Suspense fallback={<SectionFallback className="min-h-[22rem]" />}>
+            <FormDangKy targetFunnel={targetFunnel} source_key={source_key} />
+          </Suspense>
+        </LazyWhenVisible>
       </div>
-      <Footer />
+
+      <LazyWhenVisible minHeight="14rem" className="mt-4">
+        <Suspense fallback={<SectionFallback className="h-40" />}>
+          <Footer />
+        </Suspense>
+      </LazyWhenVisible>
     </div>
   );
 };

@@ -2,6 +2,7 @@
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import fs from 'fs'
+import fsPromises from 'fs/promises'
 import path from 'path'
 import process from 'process'
 
@@ -75,9 +76,34 @@ const cloudflareApiPlugin = () => ({
   }
 });
 
+/**
+ * Entry CSS do Vite chèn: rel=stylesheet chặn first paint → preload as=style + onload.
+ */
+const nonBlockingEntryCssPlugin = () => ({
+  name: 'non-blocking-entry-css',
+  apply: 'build',
+  async closeBundle() {
+    const distDir = path.resolve(process.cwd(), 'dist')
+    const indexPath = path.join(distDir, 'index.html')
+    if (!fs.existsSync(indexPath)) return
+    let html = await fsPromises.readFile(indexPath, 'utf-8')
+    html = html.replace(
+      /<link rel="stylesheet"([^>]*href="\/assets\/[^"]+\.css"[^>]*)>/g,
+      (full, inner) => {
+        const hrefMatch = inner.match(/href="(\/assets\/[^"]+\.css)"/)
+        if (!hrefMatch) return full
+        const href = hrefMatch[1]
+        const attrs = inner.replace(/\s*href="[^"]+"/, '').replace(/\s*onload="[^"]*"/gi, '').trim()
+        return `<link rel="preload" as="style" ${attrs} href="${href}" onload="this.onload=null;this.rel='stylesheet'">\n    <noscript><link rel="stylesheet" ${attrs} href="${href}"></noscript>`
+      }
+    )
+    await fsPromises.writeFile(indexPath, html, 'utf-8')
+  },
+})
+
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), cloudflareApiPlugin()],
+  plugins: [react(), cloudflareApiPlugin(), nonBlockingEntryCssPlugin()],
   server: {
     proxy: {
       '/s3-proxy': {

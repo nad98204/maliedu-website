@@ -1,5 +1,5 @@
 import { createElement, useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { doc, onSnapshot } from "firebase/firestore";
 import {
@@ -289,6 +289,8 @@ const Header = () => {
               <img
                 src={MALI_LOGO_URL}
                 alt="Mali Edu"
+                width={208}
+                height={98}
                 className="h-8 sm:h-9 lg:h-11 w-auto object-contain"
               />
             </a>
@@ -385,6 +387,8 @@ const Header = () => {
               <img
                 src={MALI_LOGO_URL}
                 alt="Mali Edu"
+                width={208}
+                height={98}
                 className="h-8 w-auto object-contain"
               />
               <button

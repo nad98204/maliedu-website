@@ -609,17 +609,29 @@ const SuccessStories = () => {
             {/* Dots Navigation */}
             {totalItems > 1 && (
               <div className={`flex justify-center gap-2 ${styles.dots}`}>
-                {displayTestimonials.map((_, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setActiveIndex(idx)}
-                    className={`transition-all duration-300 rounded-full ${idx === activeIndex
-                      ? "bg-[#6b0f1a] w-3 h-3 shadow-md"
-                      : "bg-[#c9a227] w-2 h-2 opacity-50 hover:opacity-75"
-                      }`}
-                    aria-label={`Go to testimonial ${idx + 1}`}
-                  />
-                ))}
+                {displayTestimonials.map((_, idx) => {
+                  const isActive = idx === activeIndex;
+                  return (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setActiveIndex(idx)}
+                      className="group relative h-2 w-8 flex-shrink-0 overflow-hidden rounded-full bg-[#c9a227]/50"
+                      aria-label={`Go to testimonial ${idx + 1}`}
+                    >
+                      <span
+                        className={`pointer-events-none absolute inset-0 origin-left rounded-full bg-[#6b0f1a] shadow-md transition-[transform,opacity] duration-300 ease-out will-change-transform ${
+                          isActive
+                            ? "opacity-100"
+                            : "opacity-60 group-hover:opacity-90"
+                        }`}
+                        style={{
+                          transform: `scaleX(${isActive ? 1 : 0.25})`,
+                        }}
+                      />
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>

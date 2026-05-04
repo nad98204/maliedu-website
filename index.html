@@ -14,26 +14,26 @@
       href="https://s3-hn1-api.longvan.vn/video-khoa-hoc/videos/1776224218361-128806801-Logo-Mali.png"
     />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0, interactive-widget=resizes-content" />
-    <!-- Preconnect: video server & CDN assets (ưu tiên kết nối sớm) -->
-    <link rel="preconnect" href="https://s3-hn1-api.longvan.vn" crossorigin />
-    <link rel="dns-prefetch" href="https://s3-hn1-api.longvan.vn" />
-    <link rel="preconnect" href="https://res.cloudinary.com" crossorigin />
-    <link rel="dns-prefetch" href="https://res.cloudinary.com" />
-
-    <!-- Preconnect: Google Fonts (chỉ cần 1 lần) -->
+    <!-- Critical CSS: paint sớm trước khi bundle CSS đầy đủ tải (preload non-blocking) -->
+    <style>
+      html { line-height: 1.5; -webkit-text-size-adjust: 100%; }
+      body { margin: 0; min-height: 100vh; background: #fff; color: #1a1a1a; }
+      #root { min-height: 100vh; }
+    </style>
+    <!-- Preconnect: chỉ 2 domain ưu tiên (tránh quá tải khi mở quá nhiều kết nối sớm) -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <!-- Load fonts async để không block render (FOUT acceptable cho landing) -->
+    <link rel="preconnect" href="https://connect.facebook.net" />
+    <!-- Google Fonts: chỉ weight dùng thật + display=swap (tránh FOIT). Đã bỏ PT Serif/Cinzel/Montserrat (không dùng) và Roboto variable 100–900 (~rất nặng). -->
     <link
       rel="preload"
       as="style"
-      href="https://fonts.googleapis.com/css2?family=PT+Serif:ital,wght@0,400;0,700;1,400;1,700&family=Roboto:ital,wght@0,100..900;1,100..900&family=Cinzel:wght@400;500;600;700;800&family=Montserrat:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;0,700;0,800;1,400&family=Inter:wght@300;400;500;600;700&family=Story+Script&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,700;1,400&family=Playfair+Display:ital,wght@0,400;0,600;0,700;0,800;1,400;1,700&family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,300;1,400;1,600;1,900&family=Story+Script&display=swap"
       onload="this.rel='stylesheet'"
     />
     <noscript>
       <link
         rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=PT+Serif:ital,wght@0,400;0,700;1,400;1,700&family=Roboto:ital,wght@0,100..900;1,100..900&family=Cinzel:wght@400;500;600;700;800&family=Montserrat:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;0,700;0,800;1,400&family=Inter:wght@300;400;500;600;700&family=Story+Script&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,700;1,400&family=Playfair+Display:ital,wght@0,400;0,600;0,700;0,800;1,400;1,700&family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,300;1,400;1,600;1,900&family=Story+Script&display=swap"
       />
     </noscript>
     <style>

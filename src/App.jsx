@@ -48,8 +48,11 @@ const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const LandingPageViewer = lazy(() => import("./pages/LandingPageViewer"));
 
 // Landing Templates
-const KhoiThongDongTien = lazy(() => import("./landing-templates").then(m => ({ default: m.KhoiThongDongTien })));
-const KhoiThongDongTienLeader = lazy(() => import("./landing-templates").then(m => ({ default: m.KhoiThongDongTienLeader })));
+/** Import trực tiếp — tránh barrel landing-templates kéo cả registry vào chunk */
+const KhoiThongDongTien = lazy(() => import("./landing-templates/khoi-thong-dong-tien"));
+const KhoiThongDongTienLeader = lazy(() =>
+  import("./landing-templates/khoi-thong-dong-tien/KhoiThongDongTienLeader")
+);
 const CamOnKhoiThong = lazy(() => import("./landing-templates/khoi-thong-dong-tien/CamOnKhoiThong"));
 const LuatHapDan = lazy(() => import("./pages/landingpage/LuatHapDan"));
 const VutTocMucTieu = lazy(() => import("./pages/landingpage/VutTocMucTieu"));

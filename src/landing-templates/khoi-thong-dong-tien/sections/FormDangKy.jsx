@@ -1,10 +1,7 @@
 import { ArrowRight, Phone, Sparkles, User, UserPlus, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { collection, doc, getDoc, getDocs } from "firebase/firestore";
-import { onValue, ref } from "firebase/database";
-import { crmFirestore, crmRealtimeDB } from "../../../firebase";
 import { submitToCRM } from "../../../services/crmService";
 import {
   createMetaEventId,
@@ -29,7 +26,7 @@ const DEFAULT_REMOTE_CONFIG = {
   funnel_type: "ads",
   landingPageId: "",
   is_maintenance: false,
-  isLoading: true,
+  isLoading: false,
   fbCurrency: "VND",
   fbEventValue: 110000,
   course_k: "K41", // Giá trị mặc định
@@ -45,6 +42,53 @@ const normalizePath = (path) => {
   } catch {
     return path.split("?")[0].split("#")[0].toLowerCase().replace(/^\/+|\/+$/g, "") || "root";
   }
+};
+
+/** Firestore CRM — dynamic import, gọi sau khi user tương tác form hoặc submit. */
+const fetchLandingRemoteConfig = async () => {
+  const [{ crmFirestore }, { collection, doc, getDoc, getDocs }] = await Promise.all([
+    import("../../../firebase"),
+    import("firebase/firestore"),
+  ]);
+  const normalizedRequestPath = normalizePath(window.location.pathname);
+
+  const querySnap = await getDocs(collection(crmFirestore, "landing_pages"));
+
+  let matchDoc = querySnap.docs.find((item) => {
+    const configSlug = normalizePath(item.data().slug || "");
+    return configSlug !== "root" && configSlug === normalizedRequestPath;
+  });
+
+  if (!matchDoc) {
+    matchDoc = querySnap.docs.find((item) => {
+      const configSlug = normalizePath(item.data().slug || "");
+      return (
+        (item.id === "khoi-thong-dong-tien" || configSlug === "dao-tao/khoi-thong-dong-tien") &&
+        normalizedRequestPath.includes("khoi-thong-dong-tien") &&
+        !normalizedRequestPath.includes("leader")
+      );
+    });
+  }
+
+  if (matchDoc) {
+    const configData = matchDoc.data();
+    return {
+      ...DEFAULT_REMOTE_CONFIG,
+      ...configData,
+      landingPageId: matchDoc.id,
+      isLoading: false,
+    };
+  }
+
+  const docRef = doc(crmFirestore, "public_settings", "landing_config");
+  const docSnap = await getDoc(docRef);
+  return docSnap.exists()
+    ? {
+        ...DEFAULT_REMOTE_CONFIG,
+        ...docSnap.data(),
+        isLoading: false,
+      }
+    : { ...DEFAULT_REMOTE_CONFIG, isLoading: false };
 };
 
 const OPTIONS_REFERRER = [
@@ -195,8 +239,13 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [remoteConfig, setRemoteConfig] = useState(DEFAULT_REMOTE_CONFIG);
   const [leaderOwners, setLeaderOwners] = useState([]);
+  const [crmActivated, setCrmActivated] = useState(false);
   /** Khi có mã UTM khóa Leader: ô tên người giới thiệu thật (học viên…) chỉ mở khi user chủ động bấm */
   const [showAlternateReferrerInput, setShowAlternateReferrerInput] = useState(false);
+
+  const engageCrm = useCallback(() => {
+    setCrmActivated(true);
+  }, []);
 
   const currentPathNormalized = normalizePath(window.location.pathname);
   const dynamicReferrerOptions = leaderOwners.length > 0
@@ -223,26 +272,60 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
   }, [finalFunnel, finalSourceKey]);
 
   useEffect(() => {
-    const usersRef = ref(crmRealtimeDB, "system_settings/users");
-    const unsubscribe = onValue(
-      usersRef,
-      (snapshot) => {
-        const data = snapshot.val() || {};
-        const list = Object.values(data)
-          .filter(isLeaderOwnerUser)
-          .map((user) => ({
-            name: user.name || user.displayName || user.email || "",
-            email: user.email || "",
-          }))
-          .filter((user) => user.name)
-          .sort((a, b) => a.name.localeCompare(b.name, "vi"));
-        setLeaderOwners(list);
-      },
-      () => setLeaderOwners([])
-    );
+    if (!crmActivated) return;
 
-    return () => unsubscribe();
-  }, []);
+    let unsubscribe;
+    let cancelled = false;
+
+    (async () => {
+      const [{ crmRealtimeDB }, { ref, onValue }] = await Promise.all([
+        import("../../../firebase"),
+        import("firebase/database"),
+      ]);
+      if (cancelled) return;
+
+      const usersRef = ref(crmRealtimeDB, "system_settings/users");
+      unsubscribe = onValue(
+        usersRef,
+        (snapshot) => {
+          const data = snapshot.val() || {};
+          const list = Object.values(data)
+            .filter(isLeaderOwnerUser)
+            .map((user) => ({
+              name: user.name || user.displayName || user.email || "",
+              email: user.email || "",
+            }))
+            .filter((user) => user.name)
+            .sort((a, b) => a.name.localeCompare(b.name, "vi"));
+          setLeaderOwners(list);
+        },
+        () => setLeaderOwners([])
+      );
+    })();
+
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+    };
+  }, [crmActivated]);
+
+  useEffect(() => {
+    if (!crmActivated) return;
+
+    let isCancelled = false;
+    (async () => {
+      try {
+        const next = await fetchLandingRemoteConfig();
+        if (!isCancelled) setRemoteConfig(next);
+      } catch {
+        if (!isCancelled) setRemoteConfig((prev) => ({ ...prev, isLoading: false }));
+      }
+    })();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [crmActivated]);
 
   useEffect(() => {
     if (!isLeader || !lockedLeaderName || formState.referrer === lockedLeaderName) return;
@@ -252,77 +335,6 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
   useEffect(() => {
     setShowAlternateReferrerInput(false);
   }, [lockedLeaderName]);
-
-  useEffect(() => {
-    let isCancelled = false;
-
-    const fetchConfig = async () => {
-      try {
-        const normalizedRequestPath = normalizePath(window.location.pathname);
-        console.log("[FormDangKy] 🔍 Attempting to match slug:", normalizedRequestPath);
-
-        const querySnap = await getDocs(collection(crmFirestore, "landing_pages"));
-        
-        // 1. Ưu tiên tìm CHÍNH XÁC theo Slug (Đã chuẩn hóa)
-        let matchDoc = querySnap.docs.find((item) => {
-          const configSlug = normalizePath(item.data().slug || "");
-          return configSlug !== "root" && configSlug === normalizedRequestPath;
-        });
-
-        // 2. Nếu không thấy chính xác, mới tìm theo ID (Fallback cho các bản cũ hoặc trang chính)
-        if (!matchDoc) {
-          matchDoc = querySnap.docs.find((item) => {
-            const configSlug = normalizePath(item.data().slug || "");
-            return (
-              (item.id === "khoi-thong-dong-tien" || configSlug === "dao-tao/khoi-thong-dong-tien") &&
-              normalizedRequestPath.includes("khoi-thong-dong-tien") && 
-              !normalizedRequestPath.includes("leader")
-            );
-          });
-        }
-
-        if (isCancelled) return;
-
-        if (matchDoc) {
-          const configData = matchDoc.data();
-          console.log("[FormDangKy] ✅ Matched Firestore Config:", matchDoc.id, configData);
-          setRemoteConfig({
-            ...DEFAULT_REMOTE_CONFIG,
-            ...configData,
-            landingPageId: matchDoc.id,
-            isLoading: false,
-          });
-          return;
-        }
-
-        console.log("[FormDangKy] ⚠️ No specific slug match found in Firestore. Falling back to public_settings.");
-
-        const docRef = doc(crmFirestore, "public_settings", "landing_config");
-        const docSnap = await getDoc(docRef);
-        if (isCancelled) return;
-
-        setRemoteConfig(
-          docSnap.exists()
-            ? {
-                ...DEFAULT_REMOTE_CONFIG,
-                ...docSnap.data(),
-                isLoading: false,
-              }
-            : { ...DEFAULT_REMOTE_CONFIG, isLoading: false }
-        );
-      } catch {
-        if (!isCancelled) {
-          setRemoteConfig((prev) => ({ ...prev, isLoading: false }));
-        }
-      }
-    };
-
-    fetchConfig();
-
-    return () => {
-      isCancelled = true;
-    };
-  }, []);
 
   const handleAdvancedMatch = async (field, value) => {
     try {
@@ -431,9 +443,23 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
     setIsSubmitting(true);
 
     try {
+      engageCrm();
+      let cfg = remoteConfig;
+      try {
+        cfg = await fetchLandingRemoteConfig();
+        setRemoteConfig(cfg);
+      } catch {
+        /* dùng remoteConfig hiện tại */
+      }
+
+      const cfgRemoteFunnel = String(cfg.targetFunnel || cfg.funnel_type || "").toLowerCase();
+      const cfgIsLeader = targetFunnel
+        ? normalizedTargetFunnel === "leader" || normalizedTargetFunnel === "leader_funnel"
+        : cfgRemoteFunnel.includes("leader") || currentPathNormalized.includes("leader");
+
       // --- PHẦN 1: PHÂN LUỒNG & CHUẨN BỊ DATA ---
-      const baseKey = finalSourceKey;
-      const currentFunnel = finalFunnel;
+      const baseKey = initialSourceKey || cfg.active_source_key || "organic_web";
+      const currentFunnel = cfgIsLeader ? "leader" : "ads";
       
       const typedOtherReferrer = formState.otherReferrer.trim();
       const isOtherReferrer = !lockedLeaderName && formState.referrer === OTHER_REFERRER_OPTION;
@@ -455,7 +481,7 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
         funnelChannel = "ads_funnel";
       }
 
-      const currentBatch = remoteConfig.course_k || "K41";
+      const currentBatch = cfg.course_k || "K41";
       const batchSuffix = `_k${currentBatch.toLowerCase().replace(/k/g, "")}`;
       const submissionSourceKey = baseKey.toLowerCase().match(/_k\d+$/i) ? baseKey : `${baseKey}${batchSuffix}`;
       const fallbackUtmSource = utmOwnerSlug || finalTargetFunnel;
@@ -518,7 +544,7 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
         batch_id: currentBatch,
         source_key: submissionSourceKey,
         sourceUrl: window.location.href,
-        landingPageId: remoteConfig.landingPageId || "",
+        landingPageId: cfg.landingPageId || "",
         landingPageSlug: currentPathNormalized,
         // IDs cho Server-side CAPI matching
         meta_event_id: completeRegistrationEventId,
@@ -526,8 +552,8 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
         fbp: fbp || "",
         fbc: fbc || "",
         test_event_code: searchParams.get("test_event_code") || "",
-        fbEventValue: remoteConfig.fbEventValue || 0,
-        fbCurrency: remoteConfig.fbCurrency || "VND",
+        fbEventValue: cfg.fbEventValue || 0,
+        fbCurrency: cfg.fbCurrency || "VND",
         userAgent: navigator.userAgent,
       });
 
@@ -541,7 +567,7 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
       const hashedLn = lastName ? await hashData(normalizeNameForHash(lastName)) : "";
       const hashedExternalId = crmResponse?.id ? await hashData(String(crmResponse.id)) : "";
 
-      const metaEventData = resolveMetaEventData(remoteConfig);
+      const metaEventData = resolveMetaEventData(cfg);
       const leadEventData = {
         content_name: "Đăng ký Khơi Thông Dòng Tiền",
         ...metaEventData,
@@ -557,11 +583,11 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
       // --- PHẦN 5: TRACKING ---
       
       // 5.1 Browser Pixel
-      if (remoteConfig.fbPixel) {
-        initMetaPixel(remoteConfig.fbPixel);
+      if (cfg.fbPixel) {
+        initMetaPixel(cfg.fbPixel);
         setMetaUserData(userDataCommon);
         // Chú ý: Ở đây chỉ bắn Lead. CompleteRegistration bắn ở trang Cảm ơn.
-        trackMetaEventForPixel(remoteConfig.fbPixel, "Lead", leadEventData, { eventID: leadEventId });
+        trackMetaEventForPixel(cfg.fbPixel, "Lead", leadEventData, { eventID: leadEventId });
       }
 
       toast.success("Đăng ký thành công!");
@@ -569,7 +595,7 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
       setShowAlternateReferrerInput(false);
       sessionStorage.setItem("form_submitted", "true");
       sessionStorage.setItem("khoi_thong_funnel", finalTargetFunnel);
-      sessionStorage.setItem("khoi_thong_pixel_id", remoteConfig.fbPixel || "");
+      sessionStorage.setItem("khoi_thong_pixel_id", cfg.fbPixel || "");
       navigate(`/cam-on-khoi-thong?eventId=${encodeURIComponent(completeRegistrationEventId)}&funnel=${encodeURIComponent(finalTargetFunnel)}`);
     } catch (error) {
       toast.error("Lỗi: " + (error.message || "Không xác định"));
@@ -586,6 +612,8 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
         border: "1px solid #8B6010",
         boxShadow: "0 30px 80px rgba(0,0,0,0.4), inset 0 1px 0 rgba(201,150,26,0.2)",
       }}
+      onPointerDownCapture={engageCrm}
+      onFocusCapture={engageCrm}
     >
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <div className="absolute -top-24 -left-24 w-80 h-80 rounded-full bg-[#C9961A] opacity-[0.08] blur-[80px]" />

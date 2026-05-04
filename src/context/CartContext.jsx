@@ -1,14 +1,15 @@
-import { createContext, useContext, useEffect, useState, useCallback } from "react";
-import { collection, query, where, getDocs, onSnapshot } from "firebase/firestore";
-import { onAuthStateChanged } from "firebase/auth";
+import { createContext, useContext, useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import toast from "react-hot-toast";
-import { db, auth } from "../firebase";
+import { isFunnelLandingPath } from "../utils/funnelLandingPaths";
 
 const CartContext = createContext();
 
 export const useCart = () => useContext(CartContext);
 
 export const CartProvider = ({ children }) => {
+    const location = useLocation();
+
     const [cartItems, setCartItems] = useState(() => {
         try {
             const storedCart = localStorage.getItem("mali_cart");
@@ -24,34 +25,72 @@ export const CartProvider = ({ children }) => {
     const [pendingOrders, setPendingOrders] = useState([]);
     const [currentUserId, setCurrentUserId] = useState(null);
 
-    // Lắng nghe auth state
+    // Trên landing phễu: không import/không đăng ký Firebase (auth + orders)
     useEffect(() => {
-        const unsub = onAuthStateChanged(auth, (user) => {
-            setCurrentUserId(user ? user.uid : null);
-            if (!user) setPendingOrders([]);
-        });
-        return () => unsub();
-    }, []);
+        if (isFunnelLandingPath(location.pathname)) {
+            setCurrentUserId(null);
+            setPendingOrders([]);
+            return;
+        }
 
-    // Fetch đơn hàng pending của user — realtime
+        let unsubscribeAuth;
+        let cancelled = false;
+
+        (async () => {
+            const [{ auth }, { onAuthStateChanged }] = await Promise.all([
+                import("../firebase"),
+                import("firebase/auth"),
+            ]);
+            if (cancelled) return;
+            unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+                setCurrentUserId(user ? user.uid : null);
+                if (!user) setPendingOrders([]);
+            });
+        })();
+
+        return () => {
+            cancelled = true;
+            unsubscribeAuth?.();
+        };
+    }, [location.pathname]);
+
     useEffect(() => {
-        if (!currentUserId) return;
+        if (isFunnelLandingPath(location.pathname) || !currentUserId) {
+            if (isFunnelLandingPath(location.pathname)) setPendingOrders([]);
+            return;
+        }
 
-        const q = query(
-            collection(db, "orders"),
-            where("userId", "==", currentUserId),
-            where("status", "==", "pending")
-        );
+        let unsubscribeSnap;
+        let cancelled = false;
 
-        const unsub = onSnapshot(q, (snap) => {
-            const orders = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-            setPendingOrders(orders);
-        }, (err) => {
-            console.error("Error watching pending orders:", err);
-        });
+        (async () => {
+            const { db } = await import("../firebase");
+            const { collection, query, where, onSnapshot } = await import("firebase/firestore");
+            if (cancelled) return;
 
-        return () => unsub();
-    }, [currentUserId]);
+            const q = query(
+                collection(db, "orders"),
+                where("userId", "==", currentUserId),
+                where("status", "==", "pending")
+            );
+
+            unsubscribeSnap = onSnapshot(
+                q,
+                (snap) => {
+                    const orders = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+                    setPendingOrders(orders);
+                },
+                (err) => {
+                    console.error("Error watching pending orders:", err);
+                }
+            );
+        })();
+
+        return () => {
+            cancelled = true;
+            unsubscribeSnap?.();
+        };
+    }, [currentUserId, location.pathname]);
 
     // Sync cart to localStorage
     useEffect(() => {

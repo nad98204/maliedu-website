@@ -3,6 +3,7 @@ export default {
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
+    "./scripts/**/*.{js,mjs,cjs}",
   ],
   theme: {
     extend: {
@@ -11,7 +12,6 @@ export default {
         serif: ['"Playfair Display"', 'serif'],
         // Cấu hình để Inter ưu tiên cho các class sans
         sans: ['Inter', 'sans-serif'],
-        magical: ['"Cinzel"', 'serif'],
       },
       colors: {
         // Brand Colors

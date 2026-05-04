@@ -1,7 +1,15 @@
 import React from "react";
-import { MALI_LOGO_URL } from "../constants/brandAssets.js";
+import { useLocation } from "react-router-dom";
+import { MALI_LOGO_KHOI_THONG_ADS_URL, MALI_LOGO_URL } from "../constants/brandAssets.js";
 
 const Footer = () => {
+  const { pathname } = useLocation();
+  const path = pathname.replace(/\/$/, "").toLowerCase();
+  const footerLogoSrc =
+    path.includes("khoi-thong-dong-tien") || path.includes("cam-on-khoi-thong")
+      ? MALI_LOGO_KHOI_THONG_ADS_URL
+      : MALI_LOGO_URL;
+
   const contactItems = [
     {
       label: "Hotline",
@@ -80,8 +88,10 @@ const Footer = () => {
           <div className="space-y-6">
             <div className="flex items-center gap-3 flex-wrap">
               <img
-                src={MALI_LOGO_URL}
+                src={footerLogoSrc}
                 alt="Mali Edu Logo"
+                width={208}
+                height={98}
                 className="h-14 sm:h-16 w-auto object-contain drop-shadow-[0_10px_25px_rgba(0,0,0,0.35)]"
               />
             </div>

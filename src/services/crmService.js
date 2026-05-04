@@ -1,12 +1,13 @@
 // src/services/crmService.js
-import { crmRealtimeDB } from '../firebase'; // Lấy cái công cụ vừa tạo ở Bước 1
-import { ref, push, set } from 'firebase/database'; // Hàm của Realtime DB
-
 /**
  * Hàm bắn data sang Firebase CRM (Secondary App - Realtime Database)
  */
 export const submitToCRM = async (formData) => {
     try {
+        const [{ crmRealtimeDB }, { ref, push, set }] = await Promise.all([
+            import('../firebase'),
+            import('firebase/database'),
+        ]);
         console.log("Đang gửi dữ liệu về CRM (Realtime DB)...", formData);
 
         // 1. Xác định bắn vào phễu nào (Mặc định là ADS)

@@ -406,17 +406,26 @@ const HeroCarousel = () => {
 
           <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 sm:bottom-3.5 md:bottom-4">
             {filteredSlides.map((slide, index) => {
-              const isDot = index === safeIndex;
+              const isActive = index === safeIndex;
               return (
                 <button
                   key={`${slide.id}-dot`}
                   type="button"
                   onClick={() => goToSlide(index)}
-                  className={`h-2.5 rounded-full transition-all duration-300 ${
-                    isDot ? "w-8 bg-white" : "w-2.5 bg-white/40 hover:bg-white/70"
-                  }`}
+                  className="group relative h-2.5 w-8 flex-shrink-0 overflow-hidden rounded-full bg-white/40"
                   aria-label={`Den slide ${index + 1}`}
-                />
+                >
+                  <span
+                    className={`pointer-events-none absolute inset-0 origin-left rounded-full bg-white shadow-md transition-[transform,opacity] duration-300 ease-out will-change-transform ${
+                      isActive
+                        ? "opacity-100"
+                        : "opacity-75 group-hover:opacity-100"
+                    }`}
+                    style={{
+                      transform: `scaleX(${isActive ? 1 : 10 / 32})`,
+                    }}
+                  />
+                </button>
               );
             })}
           </div>
