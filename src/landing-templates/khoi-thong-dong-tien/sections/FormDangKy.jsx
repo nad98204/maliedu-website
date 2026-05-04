@@ -642,7 +642,7 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
       </div>
 
       <div className="relative max-w-5xl mx-auto px-4 sm:px-8">
-        <div id="dang-ky" className="text-center mb-4 sm:mb-12 space-y-2 sm:space-y-4 scroll-mt-2 sm:scroll-mt-4">
+        <div className="text-center mb-4 sm:mb-12 space-y-2 sm:space-y-4">
           <div className="inline-flex items-center gap-1.5 sm:gap-2 py-1.5 sm:py-2 px-3 sm:px-5 rounded-full text-[9px] sm:text-[11px] font-bold tracking-widest sm:tracking-[0.2em] uppercase border border-[#C9961A]/60 text-[#FFE566] bg-[#C9961A]/10 backdrop-blur-sm whitespace-nowrap">
             <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-[#FFE566] animate-pulse flex-shrink-0" />
             CÒN CÁC SUẤT VÉ CUỐI - ĐĂNG KÝ NGAY

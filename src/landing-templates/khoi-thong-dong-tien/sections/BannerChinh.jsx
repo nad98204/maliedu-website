@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { KHOI_THONG_DONG_TIEN_CONFIG, KHOI_THONG_HERO_BANNER_URL } from "../landingConfig";
 import { trackCtaClick } from "../ctaTracking";
+import { scrollToRegistrationForm } from "../scrollToRegistration";
 
 const VIDEO_URL =
   "https://s3-hn1-api.longvan.vn/video-khoa-hoc/videos/1777912962001-669107119-banh-xe-cuoc-doi.mp4";
@@ -385,7 +386,11 @@ const BannerChinh = () => {
               style={{ background: "#C8282E" }} />
             <a
               href="#dang-ky"
-              onClick={() => trackCtaClick("BannerChinh")}
+              onClick={(e) => {
+                e.preventDefault();
+                trackCtaClick("BannerChinh");
+                scrollToRegistrationForm();
+              }}
               className="group relative flex flex-col items-center justify-center w-full rounded-full py-4 lg:py-4.5 overflow-hidden transition-all duration-300 hover:scale-[1.03] active:scale-[0.98]"
               style={{
                 background: "linear-gradient(180deg, #E8393F 0%, #9C0C12 100%)",

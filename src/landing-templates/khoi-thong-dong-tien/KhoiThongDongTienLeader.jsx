@@ -32,7 +32,10 @@ const KhoiThongDongTienLeader = () => {
       />
       <BannerChinh />
 
-      <div className="max-w-4xl lg:max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10 lg:space-y-16 pt-5 sm:pt-7 pb-12">
+      <div
+        id="khoi-thong-main"
+        className="max-w-4xl lg:max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10 lg:space-y-16 pt-5 sm:pt-7 pb-12"
+      >
         <LazyWhenVisible minHeight="22rem">
           <Suspense fallback={<SectionFallback className="h-56" />}>
             <PhanNoiDau />
@@ -69,11 +72,13 @@ const KhoiThongDongTienLeader = () => {
           </Suspense>
         </LazyWhenVisible>
 
-        <LazyWhenVisible minHeight="26rem">
-          <Suspense fallback={<SectionFallback className="min-h-[22rem]" />}>
-            <FormDangKy targetFunnel="leader" source_key="1768973783248" />
-          </Suspense>
-        </LazyWhenVisible>
+        <div id="dang-ky" className="scroll-mt-2 sm:scroll-mt-4">
+          <LazyWhenVisible minHeight="26rem">
+            <Suspense fallback={<SectionFallback className="min-h-[22rem]" />}>
+              <FormDangKy targetFunnel="leader" source_key="1768973783248" />
+            </Suspense>
+          </LazyWhenVisible>
+        </div>
       </div>
 
       <LazyWhenVisible minHeight="14rem" className="mt-4">

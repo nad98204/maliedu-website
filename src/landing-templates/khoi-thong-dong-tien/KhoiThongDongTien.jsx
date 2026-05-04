@@ -28,7 +28,10 @@ const KhoiThongDongTien = ({ targetFunnel, source_key }) => {
       <SEO {...seo} preloadLcpImage={KHOI_THONG_HERO_BANNER_URL} />
       <BannerChinh />
 
-      <div className="max-w-4xl lg:max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10 lg:space-y-16 pt-5 sm:pt-7 pb-12">
+      <div
+        id="khoi-thong-main"
+        className="max-w-4xl lg:max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10 lg:space-y-16 pt-5 sm:pt-7 pb-12"
+      >
         <LazyWhenVisible minHeight="22rem">
           <Suspense fallback={<SectionFallback className="h-56" />}>
             <PhanNoiDau />
@@ -65,11 +68,14 @@ const KhoiThongDongTien = ({ targetFunnel, source_key }) => {
           </Suspense>
         </LazyWhenVisible>
 
-        <LazyWhenVisible minHeight="26rem">
-          <Suspense fallback={<SectionFallback className="min-h-[22rem]" />}>
-            <FormDangKy targetFunnel={targetFunnel} source_key={source_key} />
-          </Suspense>
-        </LazyWhenVisible>
+        {/* id phải luôn có trong DOM để #dang-ky từ hero CTA hoạt động trước khi form lazy-mount */}
+        <div id="dang-ky" className="scroll-mt-2 sm:scroll-mt-4">
+          <LazyWhenVisible minHeight="26rem">
+            <Suspense fallback={<SectionFallback className="min-h-[22rem]" />}>
+              <FormDangKy targetFunnel={targetFunnel} source_key={source_key} />
+            </Suspense>
+          </LazyWhenVisible>
+        </div>
       </div>
 
       <LazyWhenVisible minHeight="14rem" className="mt-4">

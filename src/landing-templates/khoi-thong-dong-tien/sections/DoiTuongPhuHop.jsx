@@ -9,6 +9,7 @@ import {
   Users,
 } from "lucide-react";
 import { trackCtaClick } from "../ctaTracking";
+import { scrollToRegistrationForm } from "../scrollToRegistration";
 
 /* ─── Floating Gold Particles ───────────────────────────── */
 const GoldParticles = () => {
@@ -318,7 +319,11 @@ const DoiTuongPhuHop = () => {
             />
             <a
               href="#dang-ky"
-              onClick={() => trackCtaClick("DoiTuongPhuHop")}
+              onClick={(e) => {
+                e.preventDefault();
+                trackCtaClick("DoiTuongPhuHop");
+                scrollToRegistrationForm();
+              }}
               className="group relative flex items-center justify-center gap-2.5 w-full rounded-full py-4 sm:py-[18px] overflow-hidden transition-all duration-300 hover:scale-[1.03] active:scale-[0.98]"
               style={{
                 background: "linear-gradient(180deg, #E8393F 0%, #9C0C12 100%)",
