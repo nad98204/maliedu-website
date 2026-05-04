@@ -413,6 +413,10 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
         ? `${submissionSourceKey}_${utmOwnerSlug}`
         : submissionSourceKey;
       const fallbackUtmContent = selectedLeaderName || formState.referrer || "";
+      const crmNote = [
+        formState.hasLearnedLOA ? `Tình trạng học Luật Hấp Dẫn: ${formState.hasLearnedLOA}` : "",
+        isOtherReferrer && directIntroducerName ? `Người khác giới thiệu: ${directIntroducerName}` : "",
+      ].filter(Boolean).join(" | ");
 
       // --- PHẦN 2: CHUẨN BỊ TRACKING IDs ---
       const completeRegistrationEventId = createMetaEventId("complete_registration");
@@ -424,6 +428,7 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
         name: formState.name,
         phone: formState.phone.replace(/\s/g, ""),
         email: "",
+        note: crmNote,
         utm_source: searchParams.get("utm_source") || fallbackUtmSource,
         utm_medium: searchParams.get("utm_medium") || fallbackUtmMedium,
         utm_campaign: searchParams.get("utm_campaign") || fallbackUtmCampaign,
