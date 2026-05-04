@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import '../styles/article-rich-text.css';
 import { useParams, Link, Navigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ChevronRight, Calendar, User, ArrowLeft, Play } from 'lucide-react';

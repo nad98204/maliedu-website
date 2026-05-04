@@ -121,6 +121,17 @@ const resolvePixelIdForPath = async (pathname, search = "") => {
   return DEFAULT_PIXEL_ID;
 };
 
+/** Trì hoãn inject fbevents.js (không đổi TTL cache của Meta nhưng giảm tranh chấp với LCP/FCP lần đầu). */
+const scheduleMetaPixelFlush = (fn) => {
+  if (typeof window === "undefined") return () => {};
+  if (typeof window.requestIdleCallback === "function") {
+    const id = window.requestIdleCallback(() => fn(), { timeout: 4000 });
+    return () => window.cancelIdleCallback?.(id);
+  }
+  const id = window.setTimeout(() => fn(), 200);
+  return () => window.clearTimeout(id);
+};
+
 const FacebookPixelTracker = () => {
   const location = useLocation();
 
@@ -129,9 +140,9 @@ const FacebookPixelTracker = () => {
     const locationSignature =
       location.key || `${location.pathname}${location.search}${location.hash}`;
 
-    const trackPageView = async () => {
-      ensureMetaPixel();
+    let cancelScheduled = () => {};
 
+    const trackPageView = async () => {
       const pixelId = await resolvePixelIdForPath(location.pathname, location.search);
       if (isCancelled || !pixelId) return;
 
@@ -140,20 +151,26 @@ const FacebookPixelTracker = () => {
         ...(fbp ? { fbp } : {}),
         ...(fbc ? { fbc } : {}),
       };
-      initMetaPixel(pixelId, browserUserData);
-      window.__maliCurrentPixelId = pixelId;
 
-      if (typeof window === "undefined" || typeof window.fbq !== "function") return;
-      if (window.__maliLastTrackedPageView === locationSignature) return;
+      cancelScheduled = scheduleMetaPixelFlush(() => {
+        if (isCancelled) return;
+        ensureMetaPixel();
+        initMetaPixel(pixelId, browserUserData);
+        window.__maliCurrentPixelId = pixelId;
 
-      window.__maliLastTrackedPageView = locationSignature;
-      trackMetaEventForPixel(pixelId, "PageView");
+        if (typeof window === "undefined" || typeof window.fbq !== "function") return;
+        if (window.__maliLastTrackedPageView === locationSignature) return;
+
+        window.__maliLastTrackedPageView = locationSignature;
+        trackMetaEventForPixel(pixelId, "PageView");
+      });
     };
 
     trackPageView();
 
     return () => {
       isCancelled = true;
+      cancelScheduled();
     };
   }, [location.hash, location.key, location.pathname, location.search]);
 

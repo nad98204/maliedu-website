@@ -444,6 +444,16 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
 
     try {
       engageCrm();
+      
+      let clientIp = "";
+      try {
+        const ipRes = await fetch("https://api64.ipify.org?format=json");
+        const ipData = await ipRes.json();
+        clientIp = ipData.ip || "";
+      } catch (ipErr) {
+        console.error("IP Fetch error", ipErr);
+      }
+
       let cfg = remoteConfig;
       try {
         cfg = await fetchLandingRemoteConfig();
@@ -555,6 +565,7 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
         fbEventValue: cfg.fbEventValue || 0,
         fbCurrency: cfg.fbCurrency || "VND",
         userAgent: navigator.userAgent,
+        clientIp: clientIp,
       });
 
       // --- PHẦN 4: XỬ LÝ HASH DATA CHO FB ---

@@ -20,8 +20,10 @@
       body { margin: 0; min-height: 100vh; background: #fff; color: #1a1a1a; }
       #root { min-height: 100vh; }
     </style>
-    <!-- Preconnect: chỉ 2 domain ưu tiên (tránh quá tải khi mở quá nhiều kết nối sớm) -->
+    <!-- Preconnect ≤4: CSS font, file woff2 trên gstatic, ảnh LCP/video S3, Meta Pixel -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://s3-hn1-api.longvan.vn" />
     <link rel="preconnect" href="https://connect.facebook.net" />
     <!-- Google Fonts: chỉ weight dùng thật + display=swap (tránh FOIT). Đã bỏ PT Serif/Cinzel/Montserrat (không dùng) và Roboto variable 100–900 (~rất nặng). -->
     <link

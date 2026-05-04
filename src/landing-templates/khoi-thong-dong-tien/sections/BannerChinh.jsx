@@ -1,14 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { KHOI_THONG_DONG_TIEN_CONFIG } from "../landingConfig";
+import { KHOI_THONG_DONG_TIEN_CONFIG, KHOI_THONG_HERO_BANNER_URL } from "../landingConfig";
 import { trackCtaClick } from "../ctaTracking";
 
 const VIDEO_URL =
   "https://s3-hn1-api.longvan.vn/video-khoa-hoc/videos/1777912962001-669107119-banh-xe-cuoc-doi.mp4";
-const TITLE_IMG_URL =
-  "https://s3-hn1-api.longvan.vn/video-khoa-hoc/videos/1777910467237-372116712-banner-optimized.jpg";
-/** Poster nhẹ hơn (q_auto:eco); w_720 đủ cho ~620px khung @ 1–1.25x DPR — video MP4 trên S3 vẫn là phần nặng nhất */
-const VIDEO_POSTER_URL =
-  "https://res.cloudinary.com/dstukyjzd/image/upload/f_auto,q_auto:eco,w_720/v1767682614/Kh%C6%A1i_Th%C3%B4ng_D%C3%B2ng_Ti%E1%BB%81n_M%C3%A0u_Xanh_sjajsx.jpg";
+const TITLE_IMG_URL = KHOI_THONG_HERO_BANNER_URL;
+/** Poster cùng nguồn S3 (không qua CDN khác); trình duyệt báo một frame trong khi tải video. */
+const VIDEO_POSTER_URL = TITLE_IMG_URL;
 
 /* ─── VideoPlayer ────────────────────────────────────────────── */
 const VideoPlayer = () => {
@@ -302,9 +300,15 @@ const BannerChinh = () => {
   >
     {/* (Đã loại bỏ ảnh chữ và nền dư thừa để dùng chung với global layout KhoiThongDongTien) */}
 
-    {/* ── Ánh sáng Gradient Ambient cho nền sáng ── */}
-    <div className="absolute top-[10%] left-[20%] w-[500px] h-[500px] bg-[#FFE566]/40 blur-[130px] rounded-full pointer-events-none z-0" />
-    <div className="absolute bottom-[10%] right-[10%] w-[600px] h-[600px] bg-white/70 blur-[150px] rounded-full pointer-events-none z-0" />
+    {/* ── Ánh sáng Gradient Ambient (translateZ cô lập layer, giảm CLS khi paint/blur) ── */}
+    <div
+      className="absolute top-[10%] left-[20%] w-[500px] h-[500px] bg-[#FFE566]/40 blur-[130px] rounded-full pointer-events-none z-0"
+      style={{ transform: "translateZ(0)", backfaceVisibility: "hidden" }}
+    />
+    <div
+      className="absolute bottom-[10%] right-[10%] w-[600px] h-[600px] bg-white/70 blur-[150px] rounded-full pointer-events-none z-0"
+      style={{ transform: "translateZ(0)", backfaceVisibility: "hidden" }}
+    />
 
     {/* ── Top bar: ribbon burgundy + gold (không crop ảnh hero) ── */}
     <div className="relative w-full py-2.5 sm:py-3 text-center z-10 overflow-hidden border-b border-[#F8E08A]/40 shadow-[0_4px_28px_rgba(26,10,6,0.45)]">
@@ -358,9 +362,10 @@ const BannerChinh = () => {
             alt="Khơi Thông Dòng Tiền"
             className="w-full max-w-[680px] sm:max-w-[820px] lg:max-w-full h-auto object-contain drop-shadow-lg"
             fetchPriority="high"
+            loading="eager"
             decoding="async"
-            width="820"
-            height="260"
+            width={820}
+            height={287}
             style={{ display: "block" }}
           />
         </div>

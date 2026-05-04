@@ -1,4 +1,5 @@
 import { MALI_LOGO_URL } from "../constants/brandAssets.js";
+import { KHOI_THONG_HERO_BANNER_URL } from "../landing-templates/khoi-thong-dong-tien/landingConfig.js";
 
 export const SITE_NAME = "Mali Edu";
 export const SITE_URL = "https://luathapdan.vn";
@@ -18,8 +19,7 @@ export const ROUTE_SEO = {
     title: "Khơi Thông Dòng Tiền",
     description:
       "Khám phá bí mật thu hút tài chính và giải phóng tắc nghẽn năng lượng tiền bạc cùng Mali Edu.",
-    image:
-      "https://res.cloudinary.com/dstukyjzd/image/upload/v1767682614/Kh%C6%A1i_Th%C3%B4ng_D%C3%B2ng_Ti%E1%BB%81n_M%C3%A0u_Xanh_sjajsx.jpg",
+    image: KHOI_THONG_HERO_BANNER_URL,
     url: "/dao-tao/khoi-thong-dong-tien",
   },
   "/dao-tao/luat-hap-dan": {

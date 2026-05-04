@@ -1,0 +1,126 @@
+/**
+ * Typography cho nội dung HTML/Rich editor — chỉ import ở trang chi tiết (lazy chunk),
+ * không nằm trong bundle CSS entry để funnel nhẹ hơn.
+ */
+
+/* Style cho nội dung từ Rich Editor */
+.content-display h1 {
+  font-size: 2em;
+  font-weight: bold;
+  margin: 1em 0 0.5em;
+}
+
+.content-display h2 {
+  font-size: 1.5em;
+  font-weight: bold;
+  margin: 1em 0 0.5em;
+}
+
+.content-display ul {
+  list-style-type: disc;
+  padding-left: 1.5em;
+  margin: 1em 0;
+}
+
+.content-display ol {
+  list-style-type: decimal;
+  padding-left: 1.5em;
+  margin: 1em 0;
+}
+
+.content-display p {
+  margin-bottom: 1em;
+}
+
+.content-display strong {
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* HARPER'S BAZAAR TYPOGRAPHY — NewsDetail article */
+.bazaar-typography {
+  font-family: 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-weight: 400;
+  line-height: 1.7;
+  font-size: 18px;
+  color: #2d2d2d;
+}
+
+.bazaar-typography h1,
+.bazaar-typography h2,
+.bazaar-typography h3,
+.bazaar-typography h4,
+.bazaar-typography h5,
+.bazaar-typography h6 {
+  font-family: 'Playfair Display', 'Didot', 'Bodoni MT', serif;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  color: #1a1a1a;
+  margin-top: 2em;
+  margin-bottom: 0.8em;
+  line-height: 1.2;
+}
+
+.bazaar-typography h2 {
+  font-size: 2em;
+}
+
+.bazaar-typography h3 {
+  font-size: 1.5em;
+}
+
+.bazaar-typography .dropcap::first-letter {
+  font-family: 'Playfair Display', serif;
+  font-size: 4.5em;
+  float: left;
+  line-height: 0.8;
+  margin: 0.1em 0.1em 0 0;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.bazaar-typography p {
+  margin-bottom: 1.5em;
+  font-size: 18px;
+  line-height: 1.7;
+}
+
+.bazaar-typography blockquote {
+  font-family: 'Playfair Display', serif;
+  font-style: italic;
+  font-size: 1.3em;
+  line-height: 1.6;
+  border-left: 3px solid #d4af37;
+  padding-left: 1.5em;
+  margin: 2em 0;
+  color: #333;
+}
+
+.bazaar-typography ul,
+.bazaar-typography ol {
+  font-family: 'Roboto', sans-serif;
+  margin-bottom: 1.5em;
+  padding-left: 1.5em;
+}
+
+.bazaar-typography li {
+  margin-bottom: 0.5em;
+}
+
+.bazaar-typography a {
+  color: #8b2e2e;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.bazaar-typography a:hover {
+  color: #d4af37;
+}
+
+.bazaar-typography strong {
+  font-weight: 700;
+}
+
+.bazaar-typography em {
+  font-style: italic;
+}

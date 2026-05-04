@@ -157,6 +157,7 @@ export const onCrmLeadCreated = onValueCreated(
         ...(hashedExternalId ? { external_id: [hashedExternalId] } : {}),
         ...(leadData.fbp ? { fbp: leadData.fbp } : {}),
         ...(leadData.fbc ? { fbc: leadData.fbc } : {}),
+        ...(leadData.clientIp ? { client_ip_address: leadData.clientIp } : {}),
         client_user_agent: leadData.userAgent || "",
       };
 
@@ -174,7 +175,11 @@ export const onCrmLeadCreated = onValueCreated(
           ...commonParams,
           eventName: "Lead",
           eventId: leadEventId,
-          customData: { content_name: leadData.courseName || "Đăng ký Landing" },
+          customData: { 
+            content_name: leadData.courseName || "Đăng ký Landing",
+            value: Number(leadData.fbEventValue) || 110000,
+            currency: leadData.fbCurrency || "VND"
+          },
         });
         console.log(`[CAPI] Meta Response (Lead):`, JSON.stringify(result));
       }
@@ -186,8 +191,10 @@ export const onCrmLeadCreated = onValueCreated(
           eventName: "CompleteRegistration",
           eventId: metaEventId,
           customData: {
-            value: leadData.fbEventValue || 110000,
+            content_name: leadData.courseName || "Xác nhận Đăng ký Landing",
+            value: Number(leadData.fbEventValue) || 110000,
             currency: leadData.fbCurrency || "VND",
+            status: true
           },
         });
         console.log(`[CAPI] Meta Response (CompleteRegistration):`, JSON.stringify(result));

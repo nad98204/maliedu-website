@@ -7,17 +7,19 @@ import {
   useLocation,
 } from "react-router-dom";
 import { Toaster } from 'react-hot-toast';
-import { HelmetProvider } from 'react-helmet-async';
-
-import AdminRoute from "./components/AdminRoute";
-import Footer from "./components/Footer";
-import Header from "./components/Header";
-import FloatingContact from "./components/FloatingContact";
-import FacebookPixelTracker from "./components/FacebookPixelTracker";
-import AdminLayout from "./layouts/AdminLayout";
 import ScrollToTop from "./components/ScrollToTop";
-import BottomNav from "./components/BottomNav";
 import { CartProvider } from "./context/CartContext";
+
+/** Chunk riêng: không cần trên funnel hideChrome hoặc tách Meta khỏi entry (giảm JS đầu tải / “unused”). */
+const Footer = lazy(() => import("./components/Footer"));
+const FloatingContact = lazy(() => import("./components/FloatingContact"));
+const FacebookPixelTracker = lazy(() => import("./components/FacebookPixelTracker"));
+
+/** Lazy: gói Firebase/layout admin — không tải trên funnel / khách không vào admin. */
+const Header = lazy(() => import("./components/Header"));
+const BottomNav = lazy(() => import("./components/BottomNav"));
+const AdminRoute = lazy(() => import("./components/AdminRoute"));
+const AdminLayout = lazy(() => import("./layouts/AdminLayout"));
 
 // Lazy Loaded Pages
 const Home = lazy(() => import("./pages/Home"));
@@ -104,13 +106,15 @@ const AppShell = () => {
   return (
     <div className={hideChrome ? "" : "min-h-screen flex flex-col bg-white"}>
       {!hideChrome && !isPlayerRoute && (
-        location.pathname.startsWith('/admin') ? (
-          <div className="hidden lg:block">
+        <Suspense fallback={null}>
+          {location.pathname.startsWith("/admin") ? (
+            <div className="hidden lg:block">
+              <Header />
+            </div>
+          ) : (
             <Header />
-          </div>
-        ) : (
-          <Header />
-        )
+          )}
+        </Suspense>
       )}
       <main className={hideChrome ? "" : "flex-1"}>
         <Suspense fallback={<PageLoader />}>
@@ -158,9 +162,13 @@ const AppShell = () => {
             <Route
               path="/admin/*"
               element={
-                <AdminRoute>
-                  <AdminLayout />
-                </AdminRoute>
+                <Suspense fallback={<PageLoader />}>
+                  <AdminRoute>
+                    <Suspense fallback={null}>
+                      <AdminLayout />
+                    </Suspense>
+                  </AdminRoute>
+                </Suspense>
               }
             >
               <Route index element={<Navigate to="dashboard" replace />} />
@@ -190,10 +198,20 @@ const AppShell = () => {
       {!hideChrome && (
         <>
           <div className={isPlayerRoute ? 'hidden md:block' : ''}>
-            <FloatingContact />
+            <Suspense fallback={null}>
+              <FloatingContact />
+            </Suspense>
           </div>
-          {!isPlayerRoute && <BottomNav />}
-          {!isPlayerRoute && !location.pathname.startsWith('/admin') && <Footer />}
+          {!isPlayerRoute && (
+            <Suspense fallback={null}>
+              <BottomNav />
+            </Suspense>
+          )}
+          {!isPlayerRoute && !location.pathname.startsWith('/admin') && (
+            <Suspense fallback={null}>
+              <Footer />
+            </Suspense>
+          )}
         </>
       )}
     </div>
@@ -204,12 +222,12 @@ function App() {
   return (
     <BrowserRouter>
       <CartProvider>
-        <HelmetProvider>
-          <FacebookPixelTracker />
+          <Suspense fallback={null}>
+            <FacebookPixelTracker />
+          </Suspense>
           <ScrollToTop />
           <AppShell />
           <Toaster position="top-center" />
-        </HelmetProvider>
       </CartProvider>
     </BrowserRouter>
   );

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import "../styles/article-rich-text.css";
 import { useParams, Link } from "react-router-dom";
 import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore";
 import { db } from "../firebase";
