@@ -5,6 +5,7 @@ import BannerChinh from "./sections/BannerChinh";
 import LazyWhenVisible from "./LazyWhenVisible";
 import { SectionFallback } from "./sectionFallback";
 import { KHOI_THONG_HERO_BANNER_URL } from "./landingConfig";
+import { RegistrationModalProvider } from "./RegistrationModalContext";
 
 const PhanNoiDau = lazy(() => import("./sections/PhanNoiDau"));
 const DoiTuongPhuHop = lazy(() => import("./sections/DoiTuongPhuHop"));
@@ -19,6 +20,7 @@ const KhoiThongDongTien = ({ targetFunnel, source_key }) => {
   const seo = getRouteSeo("/dao-tao/khoi-thong-dong-tien");
 
   return (
+    <RegistrationModalProvider targetFunnel={targetFunnel} source_key={source_key}>
     <div
       className="relative font-sans min-h-screen"
       style={{
@@ -84,6 +86,7 @@ const KhoiThongDongTien = ({ targetFunnel, source_key }) => {
         </Suspense>
       </LazyWhenVisible>
     </div>
+    </RegistrationModalProvider>
   );
 };
 

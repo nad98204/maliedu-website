@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowRight, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { trackCtaClick } from "../ctaTracking";
-import { scrollToRegistrationForm } from "../scrollToRegistration";
+import { useRegistrationModal } from "../RegistrationModalContext";
 
 const RESULTS = [
   { img: "https://s3-hn1-api.longvan.vn/video-khoa-hoc/videos/1776239109825-745089269-z6872970557588-ef9b4c68fb455ae97e0689a1e6b89b1a.jpg", badge: "Đã xác thực" },
@@ -21,6 +21,7 @@ const RESULTS = [
 const TOTAL = RESULTS.length;
 
 export default function KetQuaHocVien() {
+  const { openRegistrationModal } = useRegistrationModal();
   const [active, setActive] = useState(0);
   const [selectedImage, setSelectedImage] = useState(null);
   const autoRef = useRef(null);
@@ -258,7 +259,7 @@ export default function KetQuaHocVien() {
             onClick={(e) => {
               e.preventDefault();
               trackCtaClick("KetQuaHocVien");
-              scrollToRegistrationForm();
+              openRegistrationModal();
             }}
             className="inline-flex items-center gap-2 rounded-full font-extrabold uppercase tracking-[0.06em] text-[#FFE566] text-[0.78rem] sm:text-sm px-8 sm:px-10 py-3.5 sm:py-4 transition active:scale-95 hover:-translate-y-[2px] whitespace-nowrap"
             style={{
