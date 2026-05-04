@@ -86,9 +86,22 @@ const isLeaderOwnerUser = (user = {}) => {
   return false;
 };
 
+const LEADER_UTM_ALIASES = {
+  vantruong: OPTIONS_REFERRER[0],
+  ductue: OPTIONS_REFERRER[1],
+  thanhseven: OPTIONS_REFERRER[2],
+  thaymongthanh: OPTIONS_REFERRER[3],
+  mongthanh: OPTIONS_REFERRER[3],
+};
+
 const matchLeaderNameFromUtm = (leaderNames = [], value = "") => {
   const compactValue = compactLeaderIdentity(value);
   if (!compactValue) return "";
+
+  const aliasMatch = Object.entries(LEADER_UTM_ALIASES).find(([slug]) =>
+    compactValue === slug || compactValue.includes(slug)
+  );
+  if (aliasMatch) return aliasMatch[1];
 
   return (
     leaderNames.find((name) => {
@@ -101,7 +114,7 @@ const matchLeaderNameFromUtm = (leaderNames = [], value = "") => {
 };
 
 const resolveLeaderUtmValue = (searchParams, leaderNames = []) => {
-  const explicitKeys = ["leader", "from", "ref"];
+  const explicitKeys = ["l", "leader", "from", "ref"];
   const utmKeys = ["utm_source", "utm_campaign", "utm_content", "utm_medium", "utm_term"];
 
   const explicitValue = explicitKeys
@@ -175,6 +188,7 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
     : OPTIONS_REFERRER;
   const leaderUtmValue = resolveLeaderUtmValue(searchParams, dynamicReferrerOptions);
   const matchedUtmLeaderName = matchLeaderNameFromUtm(dynamicReferrerOptions, leaderUtmValue);
+  const lockedLeaderName = matchedUtmLeaderName;
   
   // --- PHÂN LUỒNG NGHIÊM NGẶT (Strict Routing Protocol) ---
   // Ưu tiên Props (Hardcoded) > Cấu hình Admin (Remote) > Logic đường dẫn (URL)
@@ -215,9 +229,9 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
   }, []);
 
   useEffect(() => {
-    if (!isLeader || formState.referrer || !matchedUtmLeaderName) return;
-    setFormState((prev) => ({ ...prev, referrer: matchedUtmLeaderName }));
-  }, [isLeader, formState.referrer, matchedUtmLeaderName]);
+    if (!isLeader || !lockedLeaderName || formState.referrer === lockedLeaderName) return;
+    setFormState((prev) => ({ ...prev, referrer: lockedLeaderName }));
+  }, [isLeader, formState.referrer, lockedLeaderName]);
 
   useEffect(() => {
     let isCancelled = false;
@@ -365,8 +379,8 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
     if (!formState.phone.trim()) newErrors.phone = true;
 
     if (isLeader) {
-      if (!formState.referrer) newErrors.referrer = true;
-      if (formState.referrer === OTHER_REFERRER_OPTION && !formState.otherReferrer.trim()) {
+      if (!lockedLeaderName && !formState.referrer) newErrors.referrer = true;
+      if (!lockedLeaderName && formState.referrer === OTHER_REFERRER_OPTION && !formState.otherReferrer.trim()) {
         newErrors.otherReferrer = true;
       }
       if (!formState.hasLearnedLOA) newErrors.hasLearnedLOA = true;
@@ -385,10 +399,11 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
       const baseKey = finalSourceKey;
       const currentFunnel = finalFunnel;
       
-      const isOtherReferrer = formState.referrer === OTHER_REFERRER_OPTION;
+      const typedOtherReferrer = formState.otherReferrer.trim();
+      const isOtherReferrer = !lockedLeaderName && formState.referrer === OTHER_REFERRER_OPTION;
       const isReferrerLeader = formState.referrer && !isOtherReferrer;
-      const selectedLeaderName = isReferrerLeader ? formState.referrer.trim() : matchedUtmLeaderName;
-      const directIntroducerName = isOtherReferrer ? formState.otherReferrer.trim() : selectedLeaderName;
+      const selectedLeaderName = lockedLeaderName || (isReferrerLeader ? formState.referrer.trim() : matchedUtmLeaderName);
+      const directIntroducerName = typedOtherReferrer || (isOtherReferrer ? typedOtherReferrer : selectedLeaderName);
       const leaderUtmSlug = createLeaderUtmSlug(selectedLeaderName || matchedUtmLeaderName || leaderUtmValue);
       const utmOwnerSlug = leaderUtmSlug || createLeaderUtmSlug(selectedLeaderName);
       
@@ -415,7 +430,7 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
       const fallbackUtmContent = selectedLeaderName || formState.referrer || "";
       const crmNote = [
         formState.hasLearnedLOA ? `Tình trạng học Luật Hấp Dẫn: ${formState.hasLearnedLOA}` : "",
-        isOtherReferrer && directIntroducerName ? `Người khác giới thiệu: ${directIntroducerName}` : "",
+        typedOtherReferrer ? `Người khác giới thiệu: ${typedOtherReferrer}` : "",
       ].filter(Boolean).join(" | ");
 
       // --- PHẦN 2: CHUẨN BỊ TRACKING IDs ---
@@ -445,8 +460,8 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
         registered_loa: formState.hasLearnedLOA,
         is_learned_loa: formState.hasLearnedLOA,
         referrer: directIntroducerName || formState.referrer || "",
-        referrer_type: isOtherReferrer ? "other" : "leader",
-        other_referrer_name: isOtherReferrer ? directIntroducerName : "",
+        referrer_type: typedOtherReferrer || isOtherReferrer ? "other" : "leader",
+        other_referrer_name: typedOtherReferrer || (isOtherReferrer ? directIntroducerName : ""),
         leaderName: selectedLeaderName,
         leader_utm: utmOwnerSlug,
         leaderUtm: utmOwnerSlug,
@@ -669,15 +684,17 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
                         </div>
                       )}
                       <CustomRadio
-                        label="AI LÀ NGƯỜI GIỚI THIỆU BẠN ?"
-                        options={dynamicReferrerOptions}
+                        label={lockedLeaderName ? "LEADER PHỤ TRÁCH" : "AI LÀ NGƯỜI GIỚI THIỆU BẠN ?"}
+                        options={lockedLeaderName ? [lockedLeaderName] : dynamicReferrerOptions}
                         value={formState.referrer}
-                        onChange={(val) => setRadioValue("referrer", val)}
+                        onChange={(val) => {
+                          if (!lockedLeaderName) setRadioValue("referrer", val);
+                        }}
                         error={errors.referrer}
                         layout="grid"
                       />
 
-                      {formState.referrer === OTHER_REFERRER_OPTION && (
+                      {(formState.referrer === OTHER_REFERRER_OPTION || lockedLeaderName) && (
                         <div className="space-y-1">
                           <label className="flex items-center gap-1.5 text-[10px] sm:text-xs font-black uppercase tracking-wider text-[#C9961A]/90">
                             <User className="w-3 h-3" /> Tên người giới thiệu
@@ -687,7 +704,7 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
                             value={formState.otherReferrer}
                             onChange={handleChange("otherReferrer")}
                             placeholder="Nhập tên người đã giới thiệu bạn"
-                            required
+                            required={!lockedLeaderName}
                             className="w-full rounded-lg px-4 py-2.5 sm:py-3.5 text-sm text-white placeholder:text-white/30 transition-all duration-200 focus:outline-none"
                             style={{
                               background: "rgba(255,255,255,0.06)",
