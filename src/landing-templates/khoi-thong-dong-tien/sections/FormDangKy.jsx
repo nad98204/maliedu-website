@@ -1,4 +1,4 @@
-import { ArrowRight, Phone, Sparkles, User } from "lucide-react";
+import { ArrowRight, MessageSquare, Phone, Sparkles, User } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -176,7 +176,14 @@ const CustomRadio = ({ label, options, value, onChange, error, layout = "grid" }
 const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [formState, setFormState] = useState({ name: "", phone: "", referrer: "", otherReferrer: "", hasLearnedLOA: "" });
+  const [formState, setFormState] = useState({
+    name: "",
+    phone: "",
+    referrer: "",
+    otherReferrer: "",
+    hasLearnedLOA: "",
+    customerNote: "",
+  });
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [remoteConfig, setRemoteConfig] = useState(DEFAULT_REMOTE_CONFIG);
@@ -428,10 +435,14 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
         ? `${submissionSourceKey}_${utmOwnerSlug}`
         : submissionSourceKey;
       const fallbackUtmContent = selectedLeaderName || formState.referrer || "";
+      const trimmedCustomerNote = formState.customerNote.trim();
       const crmNote = [
         formState.hasLearnedLOA ? `Tình trạng học Luật Hấp Dẫn: ${formState.hasLearnedLOA}` : "",
         typedOtherReferrer ? `Người khác giới thiệu: ${typedOtherReferrer}` : "",
-      ].filter(Boolean).join(" | ");
+        trimmedCustomerNote ? `Ghi chú: ${trimmedCustomerNote}` : "",
+      ]
+        .filter(Boolean)
+        .join(" | ");
 
       // --- PHẦN 2: CHUẨN BỊ TRACKING IDs ---
       const completeRegistrationEventId = createMetaEventId("complete_registration");
@@ -443,7 +454,7 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
         name: formState.name,
         phone: formState.phone.replace(/\s/g, ""),
         email: "",
-        note: crmNote,
+        note: crmNote || "Đăng ký từ Landing Page",
         utm_source: searchParams.get("utm_source") || fallbackUtmSource,
         utm_medium: searchParams.get("utm_medium") || fallbackUtmMedium,
         utm_campaign: searchParams.get("utm_campaign") || fallbackUtmCampaign,
@@ -519,7 +530,14 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
       }
 
       toast.success("Đăng ký thành công!");
-      setFormState({ name: "", phone: "", referrer: "", otherReferrer: "", hasLearnedLOA: "" });
+      setFormState({
+        name: "",
+        phone: "",
+        referrer: "",
+        otherReferrer: "",
+        hasLearnedLOA: "",
+        customerNote: "",
+      });
       sessionStorage.setItem("form_submitted", "true");
       sessionStorage.setItem("khoi_thong_funnel", finalTargetFunnel);
       sessionStorage.setItem("khoi_thong_pixel_id", remoteConfig.fbPixel || "");
@@ -668,6 +686,32 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
                           e.target.style.border = errors.phone ? "1.5px solid #E8393F" : "1px solid rgba(201,150,26,0.2)";
                           e.target.style.background = "rgba(255,255,255,0.06)";
                           handleAdvancedMatch("phone", formState.phone);
+                        }}
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="flex items-center gap-1.5 text-[10px] sm:text-xs font-black uppercase tracking-wider text-[#C9961A]/90">
+                        <MessageSquare className="w-3 h-3" /> Ghi chú (tuỳ chọn)
+                      </label>
+                      <textarea
+                        value={formState.customerNote}
+                        onChange={handleChange("customerNote")}
+                        placeholder="VD: khung giờ liên hệ, câu hỏi thêm..."
+                        rows={3}
+                        maxLength={2000}
+                        className="w-full rounded-lg px-4 py-2.5 sm:py-3 text-sm text-white placeholder:text-white/30 transition-all duration-200 focus:outline-none resize-y min-h-[5.5rem]"
+                        style={{
+                          background: "rgba(255,255,255,0.06)",
+                          border: "1px solid rgba(201,150,26,0.2)",
+                        }}
+                        onFocus={(e) => {
+                          e.target.style.border = "1px solid rgba(201,150,26,0.6)";
+                          e.target.style.background = "rgba(255,255,255,0.09)";
+                        }}
+                        onBlur={(e) => {
+                          e.target.style.border = "1px solid rgba(201,150,26,0.2)";
+                          e.target.style.background = "rgba(255,255,255,0.06)";
                         }}
                       />
                     </div>
