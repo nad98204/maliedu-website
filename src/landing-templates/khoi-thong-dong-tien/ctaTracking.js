@@ -1,7 +1,7 @@
-import { trackMetaEvent } from "../../utils/metaPixel";
+import { trackMetaEventForPixel } from "../../utils/metaPixel";
 
 export const trackCtaClick = (source = "unknown") => {
-  trackMetaEvent("InitiateCheckout", {
+  trackMetaEventForPixel(window.__maliCurrentPixelId, "InitiateCheckout", {
     content_name: "CTA Click - Khơi Thông Dòng Tiền",
     content_category: source,
   });

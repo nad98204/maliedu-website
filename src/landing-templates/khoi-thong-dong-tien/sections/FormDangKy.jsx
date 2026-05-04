@@ -14,7 +14,7 @@ import {
   normalizeNameForHash,
   resolveMetaEventData,
   setMetaUserData,
-  trackMetaEvent,
+  trackMetaEventForPixel,
 } from "../../../utils/metaPixel";
 
 const BANNER_URL =
@@ -54,6 +54,8 @@ const OPTIONS_REFERRER = [
   "Thầy Mong Thành",
   "Người khác giới thiệu tôi",
 ];
+
+const OTHER_REFERRER_OPTION = OPTIONS_REFERRER[OPTIONS_REFERRER.length - 1];
 
 const OPTIONS_LOA = ["ĐÃ HỌC LUẬT HẤP DẪN", "CHƯA HỌC"];
 
@@ -96,6 +98,22 @@ const matchLeaderNameFromUtm = (leaderNames = [], value = "") => {
         compactValue.includes(compactName);
     }) || ""
   );
+};
+
+const resolveLeaderUtmValue = (searchParams, leaderNames = []) => {
+  const explicitKeys = ["leader", "from", "ref"];
+  const utmKeys = ["utm_source", "utm_campaign", "utm_content", "utm_medium", "utm_term"];
+
+  const explicitValue = explicitKeys
+    .map((key) => searchParams.get(key)?.trim())
+    .find(Boolean);
+  if (explicitValue) return explicitValue;
+
+  const candidates = utmKeys
+    .map((key) => searchParams.get(key)?.trim())
+    .filter(Boolean);
+
+  return candidates.find((value) => matchLeaderNameFromUtm(leaderNames, value)) || candidates[0] || "";
 };
 
 const CustomRadio = ({ label, options, value, onChange, error, layout = "grid" }) => (
@@ -145,37 +163,29 @@ const CustomRadio = ({ label, options, value, onChange, error, layout = "grid" }
 const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [formState, setFormState] = useState({ name: "", phone: "", referrer: "", hasLearnedLOA: "" });
+  const [formState, setFormState] = useState({ name: "", phone: "", referrer: "", otherReferrer: "", hasLearnedLOA: "" });
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [remoteConfig, setRemoteConfig] = useState(DEFAULT_REMOTE_CONFIG);
   const [leaderOwners, setLeaderOwners] = useState([]);
 
   const currentPathNormalized = normalizePath(window.location.pathname);
-  const leaderUtmValue =
-    searchParams.get("leader") ||
-    searchParams.get("from") ||
-    searchParams.get("ref") ||
-    searchParams.get("utm_source") ||
-    searchParams.get("utm_campaign") ||
-    searchParams.get("utm_content") ||
-    "";
   const dynamicReferrerOptions = leaderOwners.length > 0
-    ? [...leaderOwners.map((item) => item.name).filter(Boolean), "Người khác giới thiệu tôi"]
+    ? [...leaderOwners.map((item) => item.name).filter(Boolean), OTHER_REFERRER_OPTION]
     : OPTIONS_REFERRER;
+  const leaderUtmValue = resolveLeaderUtmValue(searchParams, dynamicReferrerOptions);
   const matchedUtmLeaderName = matchLeaderNameFromUtm(dynamicReferrerOptions, leaderUtmValue);
   
   // --- PHÂN LUỒNG NGHIÊM NGẶT (Strict Routing Protocol) ---
   // Ưu tiên Props (Hardcoded) > Cấu hình Admin (Remote) > Logic đường dẫn (URL)
-  const isLeader =
-    targetFunnel === "leader" ||
-    targetFunnel === "leader_funnel" ||
-    String(remoteConfig.targetFunnel || "").toLowerCase().includes("leader") ||
-    (remoteConfig.funnel_type && remoteConfig.funnel_type.toLowerCase().includes("leader")) ||
-    (currentPathNormalized.includes("leader") && !targetFunnel);
+  const normalizedTargetFunnel = String(targetFunnel || "").toLowerCase();
+  const normalizedRemoteFunnel = String(remoteConfig.targetFunnel || remoteConfig.funnel_type || "").toLowerCase();
+  const isLeader = targetFunnel
+    ? normalizedTargetFunnel === "leader" || normalizedTargetFunnel === "leader_funnel"
+    : normalizedRemoteFunnel.includes("leader") || currentPathNormalized.includes("leader");
 
   const finalFunnel = isLeader ? "leader" : "ads";
-  const finalSourceKey = remoteConfig.active_source_key || initialSourceKey || "organic_web";
+  const finalSourceKey = initialSourceKey || remoteConfig.active_source_key || "organic_web";
 
   // Debug để kiểm soát luồng
   useEffect(() => {
@@ -320,7 +330,7 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
     }
 
     setFormState((prev) => ({ ...prev, [field]: value }));
-    if (errors[field]) {
+    if (errors[field] || (field === "referrer" && errors.otherReferrer)) {
       setErrors((prev) => {
         const next = { ...prev };
         delete next[field];
@@ -330,11 +340,16 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
   };
 
   const setRadioValue = (field, value) => {
-    setFormState((prev) => ({ ...prev, [field]: value }));
-    if (errors[field]) {
+    setFormState((prev) => ({
+      ...prev,
+      [field]: value,
+      ...(field === "referrer" && value !== OTHER_REFERRER_OPTION ? { otherReferrer: "" } : {}),
+    }));
+    if (errors[field] || (field === "referrer" && errors.otherReferrer)) {
       setErrors((prev) => {
         const next = { ...prev };
         delete next[field];
+        if (field === "referrer") delete next.otherReferrer;
         return next;
       });
     }
@@ -351,6 +366,9 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
 
     if (isLeader) {
       if (!formState.referrer) newErrors.referrer = true;
+      if (formState.referrer === OTHER_REFERRER_OPTION && !formState.otherReferrer.trim()) {
+        newErrors.otherReferrer = true;
+      }
       if (!formState.hasLearnedLOA) newErrors.hasLearnedLOA = true;
     }
 
@@ -367,15 +385,18 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
       const baseKey = finalSourceKey;
       const currentFunnel = finalFunnel;
       
-      const isReferrerLeader = formState.referrer && formState.referrer !== "Người khác giới thiệu tôi";
-      const leaderUtmSlug = createLeaderUtmSlug(leaderUtmValue || formState.referrer);
-      const selectedLeaderName = isReferrerLeader ? formState.referrer.trim() : "";
+      const isOtherReferrer = formState.referrer === OTHER_REFERRER_OPTION;
+      const isReferrerLeader = formState.referrer && !isOtherReferrer;
+      const selectedLeaderName = isReferrerLeader ? formState.referrer.trim() : matchedUtmLeaderName;
+      const directIntroducerName = isOtherReferrer ? formState.otherReferrer.trim() : selectedLeaderName;
+      const leaderUtmSlug = createLeaderUtmSlug(selectedLeaderName || matchedUtmLeaderName || leaderUtmValue);
+      const utmOwnerSlug = leaderUtmSlug || createLeaderUtmSlug(selectedLeaderName);
       
       let finalTargetFunnel;
       let funnelChannel;
       let assignedTo = selectedLeaderName;
 
-      if (currentFunnel === "leader" || isReferrerLeader) {
+      if (currentFunnel === "leader") {
         finalTargetFunnel = "leader";
         funnelChannel = "leader_funnel";
       } else {
@@ -386,6 +407,12 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
       const currentBatch = remoteConfig.course_k || "K41";
       const batchSuffix = `_k${currentBatch.toLowerCase().replace(/k/g, "")}`;
       const submissionSourceKey = baseKey.toLowerCase().match(/_k\d+$/i) ? baseKey : `${baseKey}${batchSuffix}`;
+      const fallbackUtmSource = utmOwnerSlug || finalTargetFunnel;
+      const fallbackUtmMedium = finalTargetFunnel === "leader" ? "leader" : "landing";
+      const fallbackUtmCampaign = utmOwnerSlug
+        ? `${submissionSourceKey}_${utmOwnerSlug}`
+        : submissionSourceKey;
+      const fallbackUtmContent = selectedLeaderName || formState.referrer || "";
 
       // --- PHẦN 2: CHUẨN BỊ TRACKING IDs ---
       const completeRegistrationEventId = createMetaEventId("complete_registration");
@@ -397,11 +424,13 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
         name: formState.name,
         phone: formState.phone.replace(/\s/g, ""),
         email: "",
-        utm_source: searchParams.get("utm_source") || "",
-        utm_medium: searchParams.get("utm_medium") || (leaderUtmSlug ? "leader" : ""),
-        utm_campaign: searchParams.get("utm_campaign") || (leaderUtmSlug ? `${submissionSourceKey}_${leaderUtmSlug}` : ""),
-        utm_content: searchParams.get("utm_content") || "",
+        utm_source: searchParams.get("utm_source") || fallbackUtmSource,
+        utm_medium: searchParams.get("utm_medium") || fallbackUtmMedium,
+        utm_campaign: searchParams.get("utm_campaign") || fallbackUtmCampaign,
+        utm_content: searchParams.get("utm_content") || fallbackUtmContent,
         utm_term: searchParams.get("utm_term") || "",
+        utm_owner: fallbackUtmContent,
+        utm_owner_slug: utmOwnerSlug,
         courseName: "Khơi Thông Dòng Tiền - Phễu",
         targetFunnel: finalTargetFunnel,
         funnel_type: finalTargetFunnel,
@@ -410,12 +439,14 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
         assigned_to: assignedTo,
         registered_loa: formState.hasLearnedLOA,
         is_learned_loa: formState.hasLearnedLOA,
-        referrer: formState.referrer || "",
+        referrer: directIntroducerName || formState.referrer || "",
+        referrer_type: isOtherReferrer ? "other" : "leader",
+        other_referrer_name: isOtherReferrer ? directIntroducerName : "",
         leaderName: selectedLeaderName,
-        leader_utm: leaderUtmSlug,
-        leaderUtm: leaderUtmSlug,
-        leaderSlug: leaderUtmSlug,
-        introducedBy: selectedLeaderName,
+        leader_utm: utmOwnerSlug,
+        leaderUtm: utmOwnerSlug,
+        leaderSlug: utmOwnerSlug,
+        introducedBy: directIntroducerName,
         staff_in_charge: assignedTo,
         course_k: currentBatch,
         batch_id: currentBatch,
@@ -464,13 +495,15 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
         initMetaPixel(remoteConfig.fbPixel);
         setMetaUserData(userDataCommon);
         // Chú ý: Ở đây chỉ bắn Lead. CompleteRegistration bắn ở trang Cảm ơn.
-        trackMetaEvent("Lead", leadEventData, { eventID: leadEventId });
+        trackMetaEventForPixel(remoteConfig.fbPixel, "Lead", leadEventData, { eventID: leadEventId });
       }
 
       toast.success("Đăng ký thành công!");
-      setFormState({ name: "", phone: "", referrer: "", hasLearnedLOA: "" });
+      setFormState({ name: "", phone: "", referrer: "", otherReferrer: "", hasLearnedLOA: "" });
       sessionStorage.setItem("form_submitted", "true");
-      navigate(`/cam-on-khoi-thong?eventId=${encodeURIComponent(completeRegistrationEventId)}`);
+      sessionStorage.setItem("khoi_thong_funnel", finalTargetFunnel);
+      sessionStorage.setItem("khoi_thong_pixel_id", remoteConfig.fbPixel || "");
+      navigate(`/cam-on-khoi-thong?eventId=${encodeURIComponent(completeRegistrationEventId)}&funnel=${encodeURIComponent(finalTargetFunnel)}`);
     } catch (error) {
       toast.error("Lỗi: " + (error.message || "Không xác định"));
     } finally {
@@ -638,6 +671,39 @@ const FormDangKy = ({ targetFunnel, source_key: initialSourceKey }) => {
                         error={errors.referrer}
                         layout="grid"
                       />
+
+                      {formState.referrer === OTHER_REFERRER_OPTION && (
+                        <div className="space-y-1">
+                          <label className="flex items-center gap-1.5 text-[10px] sm:text-xs font-black uppercase tracking-wider text-[#C9961A]/90">
+                            <User className="w-3 h-3" /> Tên người giới thiệu
+                          </label>
+                          <input
+                            type="text"
+                            value={formState.otherReferrer}
+                            onChange={handleChange("otherReferrer")}
+                            placeholder="Nhập tên người đã giới thiệu bạn"
+                            required
+                            className="w-full rounded-lg px-4 py-2.5 sm:py-3.5 text-sm text-white placeholder:text-white/30 transition-all duration-200 focus:outline-none"
+                            style={{
+                              background: "rgba(255,255,255,0.06)",
+                              border: errors.otherReferrer ? "1.5px solid #E8393F" : "1px solid rgba(201,150,26,0.2)",
+                            }}
+                            onFocus={(e) => {
+                              e.target.style.border = "1px solid rgba(201,150,26,0.6)";
+                              e.target.style.background = "rgba(255,255,255,0.09)";
+                            }}
+                            onBlur={(e) => {
+                              e.target.style.border = errors.otherReferrer ? "1.5px solid #E8393F" : "1px solid rgba(201,150,26,0.2)";
+                              e.target.style.background = "rgba(255,255,255,0.06)";
+                            }}
+                          />
+                          {errors.otherReferrer && (
+                            <p className="text-[#E8393F] text-[9px] font-bold uppercase tracking-widest animate-pulse italic mt-1 ml-1">
+                              * Vui lòng nhập tên người giới thiệu
+                            </p>
+                          )}
+                        </div>
+                      )}
 
                       <CustomRadio
                         label="BẠN ĐÃ HỌC LUẬT HẤP DẪN CỦA THẦY MONG CHƯA ?"

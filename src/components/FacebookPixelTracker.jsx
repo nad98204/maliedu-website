@@ -3,7 +3,7 @@ import { collection, doc, getDoc, getDocs } from "firebase/firestore";
 import { useLocation } from "react-router-dom";
 
 import { crmFirestore } from "../firebase";
-import { ensureMetaPixel, getMetaBrowserData, initMetaPixel } from "../utils/metaPixel";
+import { ensureMetaPixel, getMetaBrowserData, initMetaPixel, trackMetaEventForPixel } from "../utils/metaPixel";
 
 const DEFAULT_PIXEL_ID = "1526874981588150";
 
@@ -40,19 +40,21 @@ const getPublicLandingConfig = async () => {
   return publicLandingConfigPromise;
 };
 
-const getLandingIdHints = (pathname) => {
+const getLandingIdHints = (pathname, search = "") => {
   const normalizedPath = normalizePath(pathname);
   const hints = new Set();
   const segments = normalizedPath.split("/").filter(Boolean);
+  const requestedFunnel = new URLSearchParams(search).get("funnel")?.toLowerCase() || "";
 
   if (segments[0] === "landing" && segments[1]) {
     hints.add(segments[1]);
   }
 
-  if (
-    normalizedPath === "/cam-on-khoi-thong" ||
-    normalizedPath.includes("khoi-thong-dong-tien")
-  ) {
+  if (normalizedPath === "/cam-on-khoi-thong") {
+    hints.add(requestedFunnel === "leader" ? "khoi-thong-dong-tien-leader" : "khoi-thong-dong-tien");
+  } else if (normalizedPath.includes("khoi-thong-dong-tien-leader")) {
+    hints.add("khoi-thong-dong-tien-leader");
+  } else if (normalizedPath.includes("khoi-thong-dong-tien")) {
     hints.add("khoi-thong-dong-tien");
   }
 
@@ -64,7 +66,7 @@ const pickPixelId = (value) => {
   return value.trim();
 };
 
-const resolvePixelIdForPath = async (pathname) => {
+const resolvePixelIdForPath = async (pathname, search = "") => {
   const normalizedPath = normalizePath(pathname);
 
   try {
@@ -79,7 +81,7 @@ const resolvePixelIdForPath = async (pathname) => {
       return slugPixelId;
     }
 
-    const landingIdHints = getLandingIdHints(normalizedPath);
+    const landingIdHints = getLandingIdHints(normalizedPath, search);
     if (landingIdHints.size > 0) {
       const matchedById = landingPages.find((item) => landingIdHints.has(item.id));
       const idPixelId = pickPixelId(matchedById?.fbPixel);
@@ -117,7 +119,7 @@ const FacebookPixelTracker = () => {
     const trackPageView = async () => {
       ensureMetaPixel();
 
-      const pixelId = await resolvePixelIdForPath(location.pathname);
+      const pixelId = await resolvePixelIdForPath(location.pathname, location.search);
       if (isCancelled || !pixelId) return;
 
       const { fbp, fbc } = getMetaBrowserData(location.search);
@@ -126,12 +128,13 @@ const FacebookPixelTracker = () => {
         ...(fbc ? { fbc } : {}),
       };
       initMetaPixel(pixelId, browserUserData);
+      window.__maliCurrentPixelId = pixelId;
 
       if (typeof window === "undefined" || typeof window.fbq !== "function") return;
       if (window.__maliLastTrackedPageView === locationSignature) return;
 
       window.__maliLastTrackedPageView = locationSignature;
-      window.fbq("track", "PageView");
+      trackMetaEventForPixel(pixelId, "PageView");
     };
 
     trackPageView();

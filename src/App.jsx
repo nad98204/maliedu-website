@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useEffect } from "react";
+import React, { lazy, Suspense } from "react";
 import {
   BrowserRouter,
   Navigate,
@@ -18,9 +18,6 @@ import AdminLayout from "./layouts/AdminLayout";
 import ScrollToTop from "./components/ScrollToTop";
 import BottomNav from "./components/BottomNav";
 import { CartProvider } from "./context/CartContext";
-import { initMetaPixel, trackMetaEvent } from "./utils/metaPixel";
-
-const GLOBAL_PIXEL_ID = "1526874981588150";
 
 // Lazy Loaded Pages
 const Home = lazy(() => import("./pages/Home"));
@@ -100,11 +97,6 @@ const AppShell = () => {
   const hideChrome = hideChromePaths.some((path) =>
     location.pathname.startsWith(path)
   );
-
-  // GLOBAL PIXEL TRACKING
-  useEffect(() => {
-    initMetaPixel(GLOBAL_PIXEL_ID);
-  }, [location.pathname]);
 
   return (
     <div className={hideChrome ? "" : "min-h-screen flex flex-col bg-white"}>

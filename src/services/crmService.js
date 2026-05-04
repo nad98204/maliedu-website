@@ -13,11 +13,13 @@ export const submitToCRM = async (formData) => {
         let funnelType = (formData.targetFunnel || "ads").toLowerCase();
         
         // --- CHỐT PATH CHUẨN ĐỒNG BỘ CRM ---
-        if (funnelType === "leader") {
+        if (funnelType === "leader" || funnelType === "leader_funnel") {
             funnelType = "leader";
+        } else if (funnelType === "ads_funnel") {
+            funnelType = "ads";
         }
         
-        // Đường dẫn kho: funnels/ads hoặc funnels/leader_funnel
+        // Đường dẫn kho: funnels/ads hoặc funnels/leader
         const nodePath = `funnels/${funnelType}`;
 
         // 2. Đóng gói dữ liệu đúng chuẩn CRM yêu cầu (Theo tài liệu tích hợp)
@@ -40,6 +42,8 @@ export const submitToCRM = async (formData) => {
             cpCampaign: formData.utm_campaign || "",
             cpContent: formData.utm_content || "",
             cpTerm: formData.utm_term || "",
+            utm_owner: formData.utm_owner || formData.utm_content || "",
+            utm_owner_slug: formData.utm_owner_slug || formData.leader_utm || "",
 
             // BỔ SUNG CÁC TRƯỜNG CHO PHỄU LEADER / PHÊU ADS (TÙY CHỈNH)
             funnel_type: formData.funnel_type || "",
@@ -49,6 +53,8 @@ export const submitToCRM = async (formData) => {
             landingPageId: formData.landingPageId || "",
             landingPageSlug: formData.landingPageSlug || "",
             referrer: formData.referrer || "",
+            referrer_type: formData.referrer_type || "",
+            other_referrer_name: formData.other_referrer_name || "",
             leaderName: formData.leaderName || "",
             leader_utm: formData.leader_utm || "",
             leaderUtm: formData.leaderUtm || formData.leader_utm || "",

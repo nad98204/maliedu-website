@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { ArrowRight, CheckCircle2, Clock, ShieldAlert } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { KHOI_THONG_DONG_TIEN_CONFIG } from "./landingConfig";
-import { trackMetaEvent } from "../../utils/metaPixel";
+import { initMetaPixel, trackMetaEventForPixel } from "../../utils/metaPixel";
 
 const DEFAULT_ZALO_LINK = KHOI_THONG_DONG_TIEN_CONFIG.zaloLink;
 
@@ -11,6 +11,7 @@ const CamOnKhoiThong = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const confirmedRef = useRef(false);
+  const pixelIdRef = useRef("");
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -30,17 +31,25 @@ const CamOnKhoiThong = () => {
     }
 
     confirmedRef.current = true;
-    sessionStorage.removeItem("form_submitted");
-
     const eventId = searchParams.get("eventId") || undefined;
+    const pixelId = sessionStorage.getItem("khoi_thong_pixel_id") || "";
+    pixelIdRef.current = pixelId;
     let interval = null;
 
+    if (pixelId) {
+      initMetaPixel(pixelId);
+    }
+
     const fireCompleteRegistration = () => {
-      trackMetaEvent(
+      trackMetaEventForPixel(
+        pixelId,
         "CompleteRegistration",
         { content_name: "Xác nhận - Khơi Thông Dòng Tiền", status: true, value: 110000, currency: "VND" },
         eventId ? { eventID: eventId } : undefined,
       );
+      sessionStorage.removeItem("form_submitted");
+      sessionStorage.removeItem("khoi_thong_funnel");
+      sessionStorage.removeItem("khoi_thong_pixel_id");
     };
 
     const fireEvent = () => {
@@ -156,7 +165,7 @@ const CamOnKhoiThong = () => {
             href={DEFAULT_ZALO_LINK}
             target="_blank"
             rel="noopener noreferrer"
-            onClick={() => trackMetaEvent("Contact", { content_name: "Vào nhóm Zalo - Khơi Thông Dòng Tiền" })}
+            onClick={() => trackMetaEventForPixel(pixelIdRef.current, "Contact", { content_name: "Vào nhóm Zalo - Khơi Thông Dòng Tiền" })}
             className="relative w-full flex flex-col items-center justify-center gap-1 rounded-full py-3.5 px-6 text-white overflow-hidden transition-all duration-300 transform group-hover:scale-[1.02] shadow-[0_10px_25px_rgba(0,104,255,0.4)]"
             style={{ background: "linear-gradient(180deg, #1877F2 0%, #0056D2 100%)" }}
           >

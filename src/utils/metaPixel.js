@@ -153,6 +153,30 @@ export const trackMetaEvent = (eventName, params, options) => {
   return true;
 };
 
+export const trackMetaEventForPixel = (pixelId, eventName, params, options) => {
+  if (!pixelId) return trackMetaEvent(eventName, params, options);
+  if (!import.meta.env.PROD) {
+    console.log("[MetaPixel:dev] trackSingle", pixelId, eventName, params, options);
+    return true;
+  }
+
+  const win = getWindow();
+  if (!win?.fbq || !eventName) return false;
+
+  if (params && options) {
+    win.fbq("trackSingle", pixelId, eventName, params, options);
+    return true;
+  }
+
+  if (params) {
+    win.fbq("trackSingle", pixelId, eventName, params);
+    return true;
+  }
+
+  win.fbq("trackSingle", pixelId, eventName);
+  return true;
+};
+
 export const trackMetaEventOnce = ({ storageKey, eventName, params, options }) => {
   if (!storageKey) {
     return trackMetaEvent(eventName, params, options);
