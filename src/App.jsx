@@ -59,6 +59,7 @@ const CamOnKhoiThong = lazy(() => import("./landing-templates/khoi-thong-dong-ti
 const LuatHapDan = lazy(() => import("./pages/landingpage/LuatHapDan"));
 const VutTocMucTieu = lazy(() => import("./pages/landingpage/VutTocMucTieu"));
 const MongCoaching = lazy(() => import("./pages/about/MongCoaching"));
+const LinkBio = lazy(() => import("./pages/LinkBio"));
 
 // Admin Pages
 const AdminLogin = lazy(() => import("./pages/admin/Login"));
@@ -98,6 +99,7 @@ const AppShell = () => {
     "/dao-tao/vut-toc-muc-tieu",
     "/landing",
     "/cam-on-khoi-thong",
+    "/mongcoaching",
   ];
   const hideChrome = hideChromePaths.some((path) =>
     location.pathname.startsWith(path)
@@ -127,6 +129,7 @@ const AppShell = () => {
             <Route path="/dao-tao/vut-toc-muc-tieu" element={<VutTocMucTieu />} />
             <Route path="/landing/:templateId" element={<LandingPageViewer />} />
             <Route path="/thanh-toan/:courseId" element={<Checkout />} />
+            <Route path="/mongcoaching" element={<LinkBio />} />
             
             {/* Standard Routes */}
             <Route path="/" element={<Home />} />

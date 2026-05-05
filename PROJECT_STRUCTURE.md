@@ -55,12 +55,51 @@ MaliEdu-Website/
 
 ---
 
+## 🌐 Domain & Firebase Hosting
+
+- **Domain chính thức**: `https://luathapdan.vn` (Cấu hình trong `src/seo/routeSeo.js`).
+- **Firebase Project ID**: `maliedu-web`.
+- **Hosting Config (`firebase.json`)**:
+  - Thư mục build: `dist`.
+  - API Rewrites: `/api/**` -> Cloud Function `uploadApi` (vùng `asia-southeast1`).
+  - SPA Rewrites: Mọi path khác trỏ về `index.html`.
+
+---
+
+## 🛣️ Hệ thống Routing (`App.jsx`)
+
+Dự án sử dụng `react-router-dom` với cơ chế **Lazy Loading** cho tất cả các trang để tối ưu hiệu suất.
+
+### 1. Nhóm Landing Pages (Funnel)
+Các trang này thường được cấu hình ẩn Header/Footer (thông qua logic `hideChrome` trong `App.jsx`):
+- `/dao-tao/khoi-thong-dong-tien`: Landing chính (Ads).
+- `/dao-tao/luat-hap-dan`: Landing Luật Hấp Dẫn.
+- `/dao-tao/vut-toc-muc-tieu`: Landing Vút Tốc Mục Tiêu.
+- `/landing/:templateId`: Viewer động cho các template trong `src/landing-templates/`.
+- `/cam-on-khoi-thong`: Trang cảm ơn sau khi đăng ký.
+
+### 2. Nhóm Trang Chính (Standard)
+- `/`: Trang chủ.
+- `/khoa-hoc`: Danh sách khóa học.
+- `/khoa-hoc/:slug`: Chi tiết khóa học.
+- `/bai-giang/:courseId`: Trình phát video bài giảng (Player).
+- `/thanh-toan/:courseId`: Trang thanh toán (Checkout).
+
+### 3. Nhóm Quản Trị (Admin)
+Tất cả các route bắt đầu bằng `/admin/*` đều được bảo vệ bởi component `AdminRoute`:
+- `/admin/dashboard`: Tổng quan.
+- `/admin/orders`: Quản lý đơn hàng.
+- `/admin/landings`: Quản lý Landing Pages CRM.
+- `/admin/landing-builder`: Công cụ xây dựng Landing Page.
+
+---
+
 ## 🛠️ Công nghệ sử dụng
 
-- **Frontend**: React.js, Vite, Tailwind CSS, Framer Motion (Animation).
+- **Frontend**: React.js, Vite, Tailwind CSS, Framer Motion, React-hot-toast.
 - **Backend**: Node.js (Firebase Functions).
 - **Database**: Firebase Firestore.
-- **Tracking**: Meta Pixel (Browser) & Meta Conversion API (Server).
+- **Tracking**: Meta Pixel & Meta Conversion API (CAPI).
 - **Deployment**: Firebase Hosting.
 
 ---
