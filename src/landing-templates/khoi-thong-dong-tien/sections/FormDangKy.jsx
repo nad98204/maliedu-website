@@ -588,10 +588,10 @@ const FormDangKy = ({
       };
 
       const userDataCommon = {
-        ...(hashedPhone ? { ph: [hashedPhone] } : {}),
-        ...(hashedFn ? { fn: [hashedFn] } : {}),
-        ...(hashedLn ? { ln: [hashedLn] } : {}),
-        ...(hashedExternalId ? { external_id: [hashedExternalId] } : {}),
+        ...(hashedPhone ? { ph: hashedPhone } : {}),
+        ...(hashedFn ? { fn: hashedFn } : {}),
+        ...(hashedLn ? { ln: hashedLn } : {}),
+        ...(hashedExternalId ? { external_id: hashedExternalId } : {}),
       };
 
       // --- PHẦN 5: TRACKING ---

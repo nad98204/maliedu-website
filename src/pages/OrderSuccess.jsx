@@ -292,7 +292,7 @@ const OrderSuccess = () => {
 
                         // Browser Track with retry
                         const fireBrowserTrack = () => {
-                            setMetaUserData({ em: [hashedEmail], ph: [hashedPhone], fn: [hashedFn], ln: [hashedLn] });
+                            setMetaUserData({ em: hashedEmail, ph: hashedPhone, fn: hashedFn, ln: hashedLn });
                             trackMetaEvent("Purchase", customData, { eventID: orderData.orderCode });
                         };
 

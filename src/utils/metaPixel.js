@@ -100,7 +100,19 @@ export const ensureMetaPixel = () => {
 export const setMetaUserData = (userData) => {
   const win = getWindow();
   if (!win?.fbq || !userData) return;
-  win.fbq("set", "user_data", userData);
+
+  // Browser SDK expects strings, not arrays for user_data
+  const sanitizedData = {};
+  Object.keys(userData).forEach((key) => {
+    const val = userData[key];
+    if (Array.isArray(val)) {
+      if (val.length > 0) sanitizedData[key] = val[0];
+    } else {
+      sanitizedData[key] = val;
+    }
+  });
+
+  win.fbq("set", "user_data", sanitizedData);
 };
 
 export const initMetaPixel = (pixelId, userData) => {
