@@ -31,6 +31,15 @@ const CamOnKhoiThong = () => {
     }
 
     confirmedRef.current = true;
+    const funnel = searchParams.get("funnel") || sessionStorage.getItem("khoi_thong_funnel") || "";
+    if (String(funnel).toLowerCase() === "thuonghieu") {
+      pixelIdRef.current = "";
+      sessionStorage.removeItem("form_submitted");
+      sessionStorage.removeItem("khoi_thong_funnel");
+      sessionStorage.removeItem("khoi_thong_pixel_id");
+      return;
+    }
+
     const eventId = searchParams.get("eventId") || undefined;
     const pixelId = sessionStorage.getItem("khoi_thong_pixel_id") || "";
     pixelIdRef.current = pixelId;
@@ -165,7 +174,11 @@ const CamOnKhoiThong = () => {
             href={DEFAULT_ZALO_LINK}
             target="_blank"
             rel="noopener noreferrer"
-            onClick={() => trackMetaEventForPixel(pixelIdRef.current, "Contact", { content_name: "Vào nhóm Zalo - Khơi Thông Dòng Tiền" })}
+            onClick={() => {
+              if (pixelIdRef.current) {
+                trackMetaEventForPixel(pixelIdRef.current, "Contact", { content_name: "Vào nhóm Zalo - Khơi Thông Dòng Tiền" });
+              }
+            }}
             className="relative w-full flex flex-col items-center justify-center gap-1 rounded-full py-3.5 px-6 text-white overflow-hidden transition-all duration-300 transform group-hover:scale-[1.02] shadow-[0_10px_25px_rgba(0,104,255,0.4)]"
             style={{ background: "linear-gradient(180deg, #1877F2 0%, #0056D2 100%)" }}
           >

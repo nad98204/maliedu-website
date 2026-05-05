@@ -1,0 +1,9 @@
+{
+  "id": "khoi-thong-dong-tien-thuonghieu",
+  "name": "Khoi Thong Dong Tien - Thuong Hieu",
+  "description": "Ban thuong hieu cua landing page Khoi Thong Dong Tien. Data do ve funnel/thuonghieu.",
+  "category": "event",
+  "thumbnail": "../khoi-thong-dong-tien/preview.png",
+  "createdAt": "2026-05-05",
+  "features": ["Giao dien tuong thich (Responsive)", "Toi uu SEO", "Tich hop bieu mau dang ky", "Ho tro tham so l"]
+}

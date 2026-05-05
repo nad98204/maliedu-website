@@ -16,6 +16,8 @@ export const submitToCRM = async (formData) => {
         // --- CHỐT PATH CHUẨN ĐỒNG BỘ CRM ---
         if (funnelType === "leader" || funnelType === "leader_funnel") {
             funnelType = "leader";
+        } else if (funnelType === "thuonghieu" || funnelType === "thuonghieu_funnel" || funnelType === "brand" || funnelType === "brand_funnel") {
+            funnelType = "thuonghieu";
         } else if (funnelType === "ads_funnel") {
             funnelType = "ads";
         }
@@ -60,7 +62,7 @@ export const submitToCRM = async (formData) => {
             // BỔ SUNG CÁC TRƯỜNG CHO PHỄU LEADER / PHÊU ADS (TÙY CHỈNH)
             funnel_type: formData.funnel_type || "",
             targetFunnel: funnelType,
-            source_type: formData.source_type || (funnelType === "leader" ? "leader_funnel" : funnelType),
+            source_type: formData.source_type || (funnelType === "leader" ? "leader_funnel" : funnelType === "thuonghieu" ? "thuonghieu_funnel" : funnelType),
             sourceUrl: formData.sourceUrl || "",
             landingPageId: formData.landingPageId || "",
             landingPageSlug: formData.landingPageSlug || "",

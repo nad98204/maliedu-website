@@ -32,6 +32,33 @@ const DEFAULT_REMOTE_CONFIG = {
   course_k: "K41", // Giá trị mặc định
 };
 
+const normalizeFunnelType = (value = "") => {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (!normalized) return "";
+  if (normalized === "leader" || normalized === "leader_funnel" || normalized.includes("leader")) {
+    return "leader";
+  }
+  if (
+    normalized === "thuonghieu" ||
+    normalized === "thuonghieu_funnel" ||
+    normalized === "brand" ||
+    normalized === "brand_funnel" ||
+    normalized.includes("thuonghieu")
+  ) {
+    return "thuonghieu";
+  }
+  if (normalized === "ads" || normalized === "ads_funnel" || normalized.includes("ads")) {
+    return "ads";
+  }
+  return "";
+};
+
+const resolveRouteFunnel = (normalizedPath = "") => {
+  if (normalizedPath.includes("thuonghieu")) return "thuonghieu";
+  if (normalizedPath.includes("leader")) return "leader";
+  return "ads";
+};
+
 const normalizePath = (path) => {
   if (!path) return "/";
   try {
@@ -65,7 +92,8 @@ const fetchLandingRemoteConfig = async () => {
       return (
         (item.id === "khoi-thong-dong-tien" || configSlug === "dao-tao/khoi-thong-dong-tien") &&
         normalizedRequestPath.includes("khoi-thong-dong-tien") &&
-        !normalizedRequestPath.includes("leader")
+        !normalizedRequestPath.includes("leader") &&
+        !normalizedRequestPath.includes("thuonghieu")
       );
     });
   }
@@ -260,13 +288,11 @@ const FormDangKy = ({
   
   // --- PHÂN LUỒNG NGHIÊM NGẶT (Strict Routing Protocol) ---
   // Ưu tiên Props (Hardcoded) > Cấu hình Admin (Remote) > Logic đường dẫn (URL)
-  const normalizedTargetFunnel = String(targetFunnel || "").toLowerCase();
-  const normalizedRemoteFunnel = String(remoteConfig.targetFunnel || remoteConfig.funnel_type || "").toLowerCase();
-  const isLeader = targetFunnel
-    ? normalizedTargetFunnel === "leader" || normalizedTargetFunnel === "leader_funnel"
-    : normalizedRemoteFunnel.includes("leader") || currentPathNormalized.includes("leader");
-
-  const finalFunnel = isLeader ? "leader" : "ads";
+  const propFunnel = normalizeFunnelType(targetFunnel);
+  const remoteFunnel = normalizeFunnelType(remoteConfig.targetFunnel || remoteConfig.funnel_type);
+  const routeFunnel = resolveRouteFunnel(currentPathNormalized);
+  const finalFunnel = propFunnel || remoteFunnel || routeFunnel;
+  const isLeader = finalFunnel === "leader";
   const finalSourceKey = initialSourceKey || remoteConfig.active_source_key || "organic_web";
 
   // Debug để kiểm soát luồng
@@ -340,6 +366,8 @@ const FormDangKy = ({
   }, [lockedLeaderName]);
 
   const handleAdvancedMatch = async (field, value) => {
+    if (finalFunnel === "thuonghieu") return;
+
     try {
       if (field === "phone") {
         const normalized = value.replace(/\D/g, "").replace(/^0/, "84");
@@ -465,19 +493,20 @@ const FormDangKy = ({
         /* dùng remoteConfig hiện tại */
       }
 
-      const cfgRemoteFunnel = String(cfg.targetFunnel || cfg.funnel_type || "").toLowerCase();
-      const cfgIsLeader = targetFunnel
-        ? normalizedTargetFunnel === "leader" || normalizedTargetFunnel === "leader_funnel"
-        : cfgRemoteFunnel.includes("leader") || currentPathNormalized.includes("leader");
+      const cfgRemoteFunnel = normalizeFunnelType(cfg.targetFunnel || cfg.funnel_type);
 
       // --- PHẦN 1: PHÂN LUỒNG & CHUẨN BỊ DATA ---
+      const currentFunnel = propFunnel || cfgRemoteFunnel || routeFunnel;
       const baseKey = initialSourceKey || cfg.active_source_key || "organic_web";
-      const currentFunnel = cfgIsLeader ? "leader" : "ads";
+      const linkSenderName = String(searchParams.get("l") || "").trim();
       
       const typedOtherReferrer = formState.otherReferrer.trim();
       const isOtherReferrer = !lockedLeaderName && formState.referrer === OTHER_REFERRER_OPTION;
       const isReferrerLeader = formState.referrer && !isOtherReferrer;
-      const selectedLeaderName = lockedLeaderName || (isReferrerLeader ? formState.referrer.trim() : matchedUtmLeaderName);
+      const selectedLeaderName =
+        currentFunnel === "thuonghieu"
+          ? linkSenderName
+          : lockedLeaderName || (isReferrerLeader ? formState.referrer.trim() : matchedUtmLeaderName);
       const directIntroducerName = typedOtherReferrer || (isOtherReferrer ? typedOtherReferrer : selectedLeaderName);
       const leaderUtmSlug = createLeaderUtmSlug(selectedLeaderName || matchedUtmLeaderName || leaderUtmValue);
       const utmOwnerSlug = leaderUtmSlug || createLeaderUtmSlug(selectedLeaderName);
@@ -489,6 +518,9 @@ const FormDangKy = ({
       if (currentFunnel === "leader") {
         finalTargetFunnel = "leader";
         funnelChannel = "leader_funnel";
+      } else if (currentFunnel === "thuonghieu") {
+        finalTargetFunnel = "thuonghieu";
+        funnelChannel = "thuonghieu_funnel";
       } else {
         finalTargetFunnel = "ads";
         funnelChannel = "ads_funnel";
@@ -498,7 +530,12 @@ const FormDangKy = ({
       const batchSuffix = `_k${currentBatch.toLowerCase().replace(/k/g, "")}`;
       const submissionSourceKey = baseKey.toLowerCase().match(/_k\d+$/i) ? baseKey : `${baseKey}${batchSuffix}`;
       const fallbackUtmSource = utmOwnerSlug || finalTargetFunnel;
-      const fallbackUtmMedium = finalTargetFunnel === "leader" ? "leader" : "landing";
+      const fallbackUtmMedium =
+        finalTargetFunnel === "leader"
+          ? "leader"
+          : finalTargetFunnel === "thuonghieu"
+            ? "thuonghieu"
+            : "landing";
       const fallbackUtmCampaign = utmOwnerSlug
         ? `${submissionSourceKey}_${utmOwnerSlug}`
         : submissionSourceKey;
@@ -513,15 +550,18 @@ const FormDangKy = ({
         if (typedOtherReferrer) {
           crmNoteParts.push(`Người khác giới thiệu tôi — ${typedOtherReferrer}`);
         }
+      } else if (currentFunnel === "thuonghieu" && linkSenderName) {
+        crmNoteParts.push(`Nguoi gui link: ${linkSenderName}`);
       } else if (typedOtherReferrer) {
         crmNoteParts.push(`Người khác giới thiệu: ${typedOtherReferrer}`);
       }
       const crmNote = crmNoteParts.filter(Boolean).join(" | ");
+      const trackingEnabled = finalTargetFunnel !== "thuonghieu";
 
       // --- PHẦN 2: CHUẨN BỊ TRACKING IDs ---
-      const completeRegistrationEventId = createMetaEventId("complete_registration");
-      const leadEventId = createMetaEventId("lead");
-      const { fbp, fbc } = getMetaBrowserData(window.location.search);
+      const completeRegistrationEventId = trackingEnabled ? createMetaEventId("complete_registration") : "";
+      const leadEventId = trackingEnabled ? createMetaEventId("lead") : "";
+      const { fbp, fbc } = trackingEnabled ? getMetaBrowserData(window.location.search) : { fbp: "", fbc: "" };
 
       // --- PHẦN 3: GỬI CRM ---
       const crmResponse = await submitToCRM({
@@ -539,13 +579,23 @@ const FormDangKy = ({
         courseName: "Khơi Thông Dòng Tiền - Phễu",
         targetFunnel: finalTargetFunnel,
         funnel_type: finalTargetFunnel,
-        source_type: finalTargetFunnel === "ads" ? "ads" : "leader_funnel", 
+        source_type:
+          finalTargetFunnel === "ads"
+            ? "ads"
+            : finalTargetFunnel === "leader"
+              ? "leader_funnel"
+              : "thuonghieu_funnel",
         funnel_channel: funnelChannel, 
         assigned_to: assignedTo,
         registered_loa: formState.hasLearnedLOA,
         is_learned_loa: formState.hasLearnedLOA,
         referrer: directIntroducerName || formState.referrer || "",
-        referrer_type: typedOtherReferrer || isOtherReferrer ? "other" : "leader",
+        referrer_type:
+          finalTargetFunnel === "thuonghieu" && linkSenderName
+            ? "link_sender"
+            : typedOtherReferrer || isOtherReferrer
+              ? "other"
+              : "leader",
         other_referrer_name: typedOtherReferrer || (isOtherReferrer ? directIntroducerName : ""),
         leaderName: selectedLeaderName,
         leader_utm: utmOwnerSlug,
@@ -597,7 +647,7 @@ const FormDangKy = ({
       // --- PHẦN 5: TRACKING ---
       
       // 5.1 Browser Pixel
-      if (cfg.fbPixel) {
+      if (trackingEnabled && cfg.fbPixel) {
         initMetaPixel(cfg.fbPixel);
         setMetaUserData(userDataCommon);
         // Chú ý: Ở đây chỉ bắn Lead. CompleteRegistration bắn ở trang Cảm ơn.
@@ -609,8 +659,12 @@ const FormDangKy = ({
       setShowAlternateReferrerInput(false);
       sessionStorage.setItem("form_submitted", "true");
       sessionStorage.setItem("khoi_thong_funnel", finalTargetFunnel);
-      sessionStorage.setItem("khoi_thong_pixel_id", cfg.fbPixel || "");
-      navigate(`/cam-on-khoi-thong?eventId=${encodeURIComponent(completeRegistrationEventId)}&funnel=${encodeURIComponent(finalTargetFunnel)}`);
+      sessionStorage.setItem("khoi_thong_pixel_id", trackingEnabled ? cfg.fbPixel || "" : "");
+      const thankYouParams = new URLSearchParams({ funnel: finalTargetFunnel });
+      if (completeRegistrationEventId) {
+        thankYouParams.set("eventId", completeRegistrationEventId);
+      }
+      navigate(`/cam-on-khoi-thong?${thankYouParams.toString()}`);
     } catch (error) {
       toast.error("Lỗi: " + (error.message || "Không xác định"));
     } finally {

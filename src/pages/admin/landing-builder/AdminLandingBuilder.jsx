@@ -9,6 +9,7 @@ import dongTienThinhVuongTuBanTheConfig from "../../../landing-templates/dong-ti
 import exampleConfig from "../../../landing-templates/example-template/config.json";
 import thienGiaoThuaConfig from "../../../landing-templates/thien-giao-thua/config.json";
 import khoiThongConfig from "../../../landing-templates/khoi-thong-dong-tien/config.json";
+import khoiThongThuongHieuConfig from "../../../landing-templates/khoi-thong-dong-tien-thuonghieu/config.json";
 import khoiThongPreview from "../../../landing-templates/khoi-thong-dong-tien/preview.png";
 
 /**
@@ -55,6 +56,17 @@ const AdminLandingBuilder = () => {
                     description: 'Bản dành riêng cho Leader. Data đổ về funnel/leader thay vì funnel/ads.',
                     thumbnail: khoiThongPreview,
                     slug: '/dao-tao/khoi-thong-dong-tien-leader',
+                    status: 'active',
+                    folderId: null
+                }
+            },
+            {
+                id: 'khoi-thong-dong-tien-thuonghieu',
+                component: LandingTemplates.KhoiThongDongTienThuongHieu,
+                config: {
+                    ...khoiThongThuongHieuConfig,
+                    thumbnail: khoiThongPreview,
+                    slug: '/dao-tao/khoi-thong-dong-tien-thuonghieu',
                     status: 'active',
                     folderId: null
                 }

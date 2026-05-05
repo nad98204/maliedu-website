@@ -16,6 +16,16 @@ const normalizePath = (path) => {
   return cleanPath.replace(/\/+$/, "") || "/";
 };
 
+const isThuongHieuNoTrackingPath = (pathname, search = "") => {
+  const normalizedPath = normalizePath(pathname);
+  const requestedFunnel = new URLSearchParams(search).get("funnel")?.toLowerCase() || "";
+
+  return (
+    normalizedPath.includes("khoi-thong-dong-tien-thuonghieu") ||
+    (normalizedPath === "/cam-on-khoi-thong" && requestedFunnel === "thuonghieu")
+  );
+};
+
 const getLandingPages = async () => {
   if (!landingPagesPromise) {
     landingPagesPromise = (async () => {
@@ -77,6 +87,10 @@ const pickPixelId = (value) => {
 
 const resolvePixelIdForPath = async (pathname, search = "") => {
   const normalizedPath = normalizePath(pathname);
+
+  if (isThuongHieuNoTrackingPath(normalizedPath, search)) {
+    return "";
+  }
 
   if (isFunnelLandingPath(normalizedPath)) {
     return DEFAULT_PIXEL_ID;
