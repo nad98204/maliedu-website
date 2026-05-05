@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { trackCtaClick } from "../ctaTracking";
-import { useRegistrationModal } from "../RegistrationModalContext";
+import { scrollToRegistrationForm } from "../scrollToRegistration";
 
 /* ─── Design Tokens (cùng palette BannerChinh) ─────────────────
    Primary:   #7A2113  (đỏ nâu)
@@ -69,7 +69,7 @@ const PainPoints = () => {
   );
 };
 
-const TransformBlock = ({ onOpenForm }) => (
+const TransformBlock = () => (
   <div
     className="relative rounded-[1.35rem] p-[1px] overflow-hidden"
     style={{
@@ -117,7 +117,7 @@ const TransformBlock = ({ onOpenForm }) => (
           onClick={(e) => {
             e.preventDefault();
             trackCtaClick("PhanNoiDau");
-            onOpenForm();
+            scrollToRegistrationForm();
           }}
           className="inline-flex items-center gap-2 rounded-full px-8 sm:px-10 py-3.5 font-bold uppercase tracking-[0.08em] sm:tracking-[0.1em] text-[#FFE566] text-xs sm:text-sm md:text-base whitespace-nowrap transition-all duration-300 hover:-translate-y-[3px] hover:shadow-[0_14px_36px_rgba(156,12,18,0.45)] active:translate-y-0"
           style={{
@@ -134,7 +134,6 @@ const TransformBlock = ({ onOpenForm }) => (
 );
 
 const PhanNoiDau = () => {
-  const { openRegistrationModal } = useRegistrationModal();
   const revealRef = useRef(null);
   const [show, setShow] = useState(false);
 
@@ -244,7 +243,7 @@ const PhanNoiDau = () => {
             <PainPoints />
           </div>
           <div className="w-full lg:w-[42%] flex flex-col justify-center min-w-0 lg:min-w-[300px]">
-            <TransformBlock onOpenForm={openRegistrationModal} />
+            <TransformBlock />
           </div>
         </div>
       </div>

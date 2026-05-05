@@ -9,7 +9,7 @@ import {
   Users,
 } from "lucide-react";
 import { trackCtaClick } from "../ctaTracking";
-import { useRegistrationModal } from "../RegistrationModalContext";
+import { scrollToRegistrationForm } from "../scrollToRegistration";
 
 /* ─── Floating Gold Particles ───────────────────────────── */
 const GoldParticles = () => {
@@ -209,7 +209,6 @@ const TargetCard = ({ title, Icon, desc, painPoints, highlight, number, delay })
 
 /* ─── Main Section ──────────────────────────────────────── */
 const DoiTuongPhuHop = () => {
-  const { openRegistrationModal } = useRegistrationModal();
   const cards = [
     {
       title: "Người đang bế tắc tài chính",
@@ -323,7 +322,7 @@ const DoiTuongPhuHop = () => {
               onClick={(e) => {
                 e.preventDefault();
                 trackCtaClick("DoiTuongPhuHop");
-                openRegistrationModal();
+                scrollToRegistrationForm();
               }}
               className="group relative flex items-center justify-center gap-2.5 w-full rounded-full py-4 sm:py-[18px] overflow-hidden transition-all duration-300 hover:scale-[1.03] active:scale-[0.98]"
               style={{

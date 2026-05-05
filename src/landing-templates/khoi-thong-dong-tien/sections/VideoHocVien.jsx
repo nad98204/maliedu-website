@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowRight, Eye, Play, X } from "lucide-react";
 import { trackCtaClick } from "../ctaTracking";
-import { useRegistrationModal } from "../RegistrationModalContext";
+import { scrollToRegistrationForm } from "../scrollToRegistration";
 
 const STUDENT_VIDEOS = [
   {
@@ -107,7 +107,6 @@ const VideoCard = ({ item, onOpen, width = 280 }) => {
 
 /* ─── main component ─── */
 const VideoHocVien = () => {
-  const { openRegistrationModal } = useRegistrationModal();
   /* mobile snap carousel */
   const [active, setActive] = useState(0);
   const mobileRef = useRef(null);
@@ -298,7 +297,7 @@ const VideoHocVien = () => {
             onClick={(e) => {
               e.preventDefault();
               trackCtaClick("VideoHocVien");
-              openRegistrationModal();
+              scrollToRegistrationForm();
             }}
             className="group relative inline-flex items-center gap-2.5 rounded-full px-8 py-3.5 font-black uppercase tracking-[0.08em] text-[#FFE566] text-sm transition-all duration-300 hover:-translate-y-0.5 active:scale-95"
             style={{

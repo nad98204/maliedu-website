@@ -234,8 +234,6 @@ const CustomRadio = ({
 const FormDangKy = ({
   targetFunnel,
   source_key: initialSourceKey,
-  variant = "inline",
-  onDismiss,
 }) => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -622,9 +620,7 @@ const FormDangKy = ({
 
   return (
     <section
-      className={`relative rounded-3xl overflow-hidden ${
-        variant === "modal" ? "py-6 sm:py-8" : "py-8 sm:py-12"
-      }`}
+      className="relative rounded-3xl overflow-hidden py-8 sm:py-12"
       style={{
         background: "linear-gradient(145deg, #1A0A02 0%, #2D1005 40%, #3A1A06 70%, #1E0C03 100%)",
         border: "1px solid #8B6010",
@@ -633,16 +629,6 @@ const FormDangKy = ({
       onPointerDownCapture={engageCrm}
       onFocusCapture={engageCrm}
     >
-      {onDismiss ? (
-        <button
-          type="button"
-          onClick={onDismiss}
-          className="absolute top-3 right-3 z-[35] flex h-10 w-10 items-center justify-center rounded-full bg-black/45 text-white/95 ring-1 ring-white/20 hover:bg-black/60 transition"
-          aria-label="Đóng form đăng ký"
-        >
-          <X className="w-5 h-5" />
-        </button>
-      ) : null}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <div className="absolute -top-24 -left-24 w-80 h-80 rounded-full bg-[#C9961A] opacity-[0.08] blur-[80px]" />
         <div className="absolute -bottom-32 -right-20 w-96 h-96 rounded-full bg-[#7A2113] opacity-[0.12] blur-[100px]" />
@@ -665,10 +651,7 @@ const FormDangKy = ({
             CÒN CÁC SUẤT VÉ CUỐI - ĐĂNG KÝ NGAY
           </div>
 
-          <div
-            className="py-1 sm:py-0"
-            id={variant === "modal" ? "registration-modal-title" : undefined}
-          >
+          <div className="py-1 sm:py-0">
             <h2
               className="font-black text-white tracking-tight"
               style={{ fontSize: "clamp(1.8rem, 6vw, 4rem)", lineHeight: 1.3 }}
@@ -984,7 +967,7 @@ const FormDangKy = ({
               )}
             </div>
 
-            {!isLeader && variant !== "modal" && (
+            {!isLeader && (
               <div className="hidden md:flex w-full md:w-1/2 p-4 pb-0 md:p-10 flex-shrink-0 items-center">
                 <div className="relative w-full aspect-video md:aspect-[4/5] rounded-3xl overflow-hidden shadow-2xl border border-[#C9961A]/20 group/banner">
                   <img

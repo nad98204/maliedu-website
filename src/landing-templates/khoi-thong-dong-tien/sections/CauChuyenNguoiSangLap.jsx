@@ -1,6 +1,6 @@
 import { ArrowRight, CheckCircle2 } from "lucide-react";
 import { trackCtaClick } from "../ctaTracking";
-import { useRegistrationModal } from "../RegistrationModalContext";
+import { scrollToRegistrationForm } from "../scrollToRegistration";
 
 const IMG_PORTRAIT = "https://s3-hn1-api.longvan.vn/video-khoa-hoc/videos/1776240399719-228639746--nh-ch-p-m-n-h-nh-2025-08-05-012412.png";
 const IMG_GIEO_GAT = "https://s3-hn1-api.longvan.vn/video-khoa-hoc/videos/1776240400431-603850834--nh-ch-p-m-n-h-nh-2025-08-05-012419.png";
@@ -9,14 +9,13 @@ const IMG_AM_THI = "https://s3-hn1-api.longvan.vn/video-khoa-hoc/videos/17762404
 const IMG_DAY_HOC = "https://s3-hn1-api.longvan.vn/video-khoa-hoc/videos/1776240401958-32058998-z6886842711187-31023eaf83911f099dc0b88f706ca97d.jpg";
 
 function CTA({ className = "" }) {
-  const { openRegistrationModal } = useRegistrationModal();
   return (
   <a
     href="#dang-ky"
     onClick={(e) => {
       e.preventDefault();
       trackCtaClick("CauChuyenNguoiSangLap");
-      openRegistrationModal();
+      scrollToRegistrationForm();
     }}
     className={`inline-flex items-center gap-2 rounded-full px-7 py-3 font-bold uppercase tracking-[0.08em] text-[#FFE566] text-sm whitespace-nowrap transition hover:-translate-y-[2px] ${className}`}
     style={{
