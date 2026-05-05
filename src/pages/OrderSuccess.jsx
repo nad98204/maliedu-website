@@ -290,11 +290,28 @@ const OrderSuccess = () => {
                             num_items: (orderData.items || []).length || 1
                         };
 
-                        // Browser Track
-                        setMetaUserData({ em: [hashedEmail], ph: [hashedPhone], fn: [hashedFn], ln: [hashedLn] });
-                        trackMetaEvent("Purchase", customData, { eventID: orderData.orderCode });
+                        // Browser Track with retry
+                        const fireBrowserTrack = () => {
+                            setMetaUserData({ em: [hashedEmail], ph: [hashedPhone], fn: [hashedFn], ln: [hashedLn] });
+                            trackMetaEvent("Purchase", customData, { eventID: orderData.orderCode });
+                        };
 
-                        // CAPI Track
+                        if (typeof window.fbq === "function") {
+                            fireBrowserTrack();
+                        } else {
+                            let attempts = 0;
+                            const interval = setInterval(() => {
+                                attempts += 1;
+                                if (typeof window.fbq === "function") {
+                                    clearInterval(interval);
+                                    fireBrowserTrack();
+                                } else if (attempts >= 10) {
+                                    clearInterval(interval);
+                                }
+                            }, 300);
+                        }
+
+                        // CAPI Track (Always fire immediately as it's a fetch call)
                         await sendCapiEvent("Purchase", orderData.orderCode, userData, customData);
                         
                         sessionStorage.setItem(`mali_purchase_${orderData.orderCode}`, 'true');
