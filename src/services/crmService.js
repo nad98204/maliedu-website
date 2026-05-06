@@ -91,6 +91,7 @@ export const submitToCRM = async (formData) => {
             fbEventValue: formData.fbEventValue || 0,
             fbCurrency: formData.fbCurrency || "VND",
             userAgent: formData.userAgent || "",
+            clientIp: formData.clientIp || "",
 
             // MÃ NGUỒN VÀ KHÓA K ĐỘNG
             courseName: formData.courseName || "Khơi Thông Dòng Tiền - Phễu",
