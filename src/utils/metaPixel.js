@@ -3,6 +3,7 @@ const DEFAULT_META_CURRENCY = "VND";
 
 const getWindow = () => (typeof window !== "undefined" ? window : null);
 const getDocument = () => (typeof document !== "undefined" ? document : null);
+const META_COOKIE_MAX_AGE_SECONDS = 90 * 24 * 60 * 60;
 
 const normalizeMetaValue = (value, fallback = 0) => {
   if (typeof value === "number") {
@@ -221,16 +222,70 @@ export const getCookieValue = (name) => {
 
   const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const match = cookieSource.match(new RegExp(`(?:^|; )${escapedName}=([^;]*)`));
-  return match ? decodeURIComponent(match[1]) : "";
+  if (!match) return "";
+
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return match[1];
+  }
 };
 
+const decodeQueryValue = (value) => {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+};
+
+const getRawQueryParam = (search = "", name) => {
+  const query = String(search || getWindow()?.location?.search || "").replace(/^\?/, "");
+  if (!query) return "";
+
+  for (const pair of query.split("&")) {
+    const separatorIndex = pair.indexOf("=");
+    const rawKey = separatorIndex >= 0 ? pair.slice(0, separatorIndex) : pair;
+    if (decodeQueryValue(rawKey.replace(/\+/g, " ")) !== name) continue;
+
+    const rawValue = separatorIndex >= 0 ? pair.slice(separatorIndex + 1) : "";
+    return decodeQueryValue(rawValue);
+  }
+
+  return "";
+};
+
+const isValidFbc = (value = "") => /^fb\.\d+\.\d{10,13}\..+/.test(value);
+
+const getFbclidFromFbc = (fbc = "") => {
+  if (!isValidFbc(fbc)) return "";
+  const lastDotIndex = fbc.lastIndexOf(".");
+  return lastDotIndex >= 0 ? fbc.slice(lastDotIndex + 1) : "";
+};
+
+const setMetaCookie = (name, value) => {
+  const doc = getDocument();
+  if (!doc || !value) return;
+
+  doc.cookie = `${name}=${encodeURIComponent(value)}; Max-Age=${META_COOKIE_MAX_AGE_SECONDS}; Path=/; SameSite=Lax`;
+};
+
+export const formatFbcFromFbclid = (fbclid, creationTime = Date.now(), subdomainIndex = 1) =>
+  fbclid ? `fb.${subdomainIndex}.${creationTime}.${fbclid}` : "";
+
 export const getMetaBrowserData = (search = "") => {
-  const win = getWindow();
-  const searchParams = new URLSearchParams(search || win?.location?.search || "");
   const fbp = getCookieValue("_fbp");
-  const fbclid = searchParams.get("fbclid");
+  const fbclid = getRawQueryParam(search, "fbclid");
   const existingFbc = getCookieValue("_fbc");
-  const fbc = existingFbc || (fbclid ? `fb.1.${Date.now()}.${fbclid}` : "");
+  const existingFbclid = getFbclidFromFbc(existingFbc);
+
+  if (fbclid && fbclid !== existingFbclid) {
+    const fbc = formatFbcFromFbclid(fbclid);
+    setMetaCookie("_fbc", fbc);
+    return { fbp, fbc };
+  }
+
+  const fbc = isValidFbc(existingFbc) ? existingFbc : "";
 
   return { fbp, fbc };
 };
