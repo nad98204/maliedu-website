@@ -10,7 +10,8 @@ import {
     AlertTriangle, CheckCircle,
     Plus, Trash2, Globe, Zap, Edit2, LayoutList,
     UserCheck, Filter as FilterIcon, Link, Eye, Copy,
-    Users, TrendingUp, Search, Database, RefreshCw
+    Users, TrendingUp, Search, Database, RefreshCw,
+    Calendar, Laptop, Star, MoreVertical
 } from "lucide-react";
 
 const AdminLandings = () => {
@@ -29,6 +30,7 @@ const AdminLandings = () => {
         thankYouZaloLink: "",
     });
     const [isSavingSchedule, setIsSavingSchedule] = useState(false);
+    const [activeMenuId, setActiveMenuId] = useState(null);
 
     // Form State
     const [form, setForm] = useState({
@@ -76,10 +78,10 @@ const AdminLandings = () => {
     const crmLeaderUsers = crmUsers.filter(isLeaderOwner);
 
     const FUNNEL_OPTIONS = [
-        { value: "ads", target: "ADS", label: "Phễu ADS", tone: "bg-indigo-50 text-indigo-700 border-indigo-100" },
-        { value: "leader", target: "LEADER", label: "Phễu Leader", tone: "bg-emerald-50 text-emerald-700 border-emerald-100" },
-        { value: "brand", target: "BRAND", label: "Phễu Brand", tone: "bg-amber-50 text-amber-700 border-amber-100" },
-        { value: "organic", target: "ADS", label: "Web / Organic", tone: "bg-slate-50 text-slate-700 border-slate-100" },
+        { value: "ads", target: "ADS", label: "Phễu ADS", tone: "bg-[#EEF2FF] text-[#4F46E5] border-[#C7D2FE] focus:border-[#4F46E5]" },
+        { value: "leader", target: "LEADER", label: "Phễu Leader", tone: "bg-[#ECFDF5] text-[#047857] border-[#A7F3D0] focus:border-[#047857]" },
+        { value: "brand", target: "BRAND", label: "Phễu Brand", tone: "bg-[#FFFBEB] text-[#B45309] border-[#FDE68A] focus:border-[#B45309]" },
+        { value: "organic", target: "ADS", label: "Web / Organic", tone: "bg-[#F8FAFC] text-[#475569] border-[#E2E8F0] focus:border-[#475569]" },
     ];
 
     const normalizeFunnelType = (value = "ads") => {
@@ -689,9 +691,9 @@ const AdminLandings = () => {
     };
 
     return (
-        <div className="flex h-[calc(100vh-8rem)] gap-6">
+        <div className="flex flex-col lg:flex-row h-auto lg:h-[calc(100vh-8rem)] gap-6">
             {/* LEFT SIDEBAR - CREATE/EDIT FORM */}
-            <div className={`transition-all duration-300 ${showCreateForm ? 'w-[480px]' : 'w-0 overflow-hidden'}`}>
+            <div className={`transition-all duration-300 shrink-0 ${showCreateForm ? 'w-full lg:w-[480px] block' : 'w-0 overflow-hidden hidden lg:block'}`}>
                 <div className="bg-white rounded-2xl shadow-lg border border-slate-200 h-full overflow-y-auto">
                     <div className="sticky top-0 bg-gradient-to-br from-indigo-600 to-purple-600 text-white p-6 z-10">
                         <div className="flex items-center justify-between mb-2">
@@ -1019,214 +1021,303 @@ const AdminLandings = () => {
             </div>
 
             {/* RIGHT CONTENT - LIST */}
-            <div className="flex-1 overflow-y-auto pr-2">
+            <div className="flex-1 overflow-y-auto p-4 pt-6 md:p-6">
+                {/* Title header */}
                 <div className="mb-6 flex items-center justify-between">
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-800">Quản lý Landing Pages</h1>
-                        <p className="text-sm text-slate-500 mt-1">Đã cấu hình {landings.length} landing pages</p>
+                        <h1 className="text-xl md:text-2xl font-extrabold text-slate-800 tracking-tight">Quản lý Landing Pages</h1>
+                        <p className="text-xs md:text-sm text-slate-400 mt-1 font-medium">Đã cấu hình {landings.length} landing pages</p>
                     </div>
                     <button
                         onClick={handleAddNew}
-                        className="flex items-center gap-2 bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg hover:shadow-xl hover:bg-indigo-700 transition-all"
+                        className="flex items-center gap-1.5 bg-indigo-600 text-white px-4 py-2.5 md:px-5 md:py-3 rounded-xl text-xs md:text-sm font-bold shadow-lg shadow-indigo-100 hover:shadow-xl hover:bg-indigo-700 transition-all hover:scale-[1.02]"
                     >
-                        <Plus size={20} />
+                        <Plus size={18} />
                         Tạo mới
                     </button>
                 </div>
 
                 {/* Toolbar: Tabs & Search */}
-                <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 mb-6 flex flex-col md:flex-row gap-4 items-center justify-between">
-                    <div className="flex bg-slate-100 p-1 rounded-xl w-full md:w-fit overflow-x-auto no-scrollbar">
-                        {tabs.map(tab => (
-                            <button
-                                key={tab.id}
-                                onClick={() => setActiveTab(tab.id)}
-                                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${
-                                    activeTab === tab.id
-                                        ? 'bg-white text-indigo-600 shadow-sm'
-                                        : 'text-slate-500 hover:text-slate-700'
-                                }`}
-                            >
-                                <tab.icon size={16} />
-                                {tab.label}
-                                {tab.id !== "ALL" && (
-                                    <span className={`ml-1 text-[10px] px-1.5 py-0.5 rounded-full ${
-                                        activeTab === tab.id ? 'bg-indigo-50 text-indigo-400' : 'bg-slate-200 text-slate-400'
+                <div className="flex flex-col gap-4 mb-6">
+                    <div className="flex flex-wrap gap-2">
+                        {tabs.map(tab => {
+                            const isActive = activeTab === tab.id;
+                            const count = tab.id === "ALL" 
+                                ? landings.length 
+                                : landings.filter(l => getLandingFunnelType(l) === tab.id.toLowerCase()).length;
+                                
+                            return (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => setActiveTab(tab.id)}
+                                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs md:text-sm font-bold transition-all border ${
+                                        isActive
+                                            ? 'bg-indigo-50/40 text-indigo-600 border-indigo-200 shadow-sm'
+                                            : 'bg-white text-slate-500 border-slate-100 hover:border-slate-200 hover:text-slate-700'
+                                    }`}
+                                >
+                                    <tab.icon size={16} className={isActive ? "text-indigo-600" : "text-slate-400"} />
+                                    {tab.label}
+                                    <span className={`ml-1 text-[10px] px-2 py-0.5 rounded-full font-extrabold ${
+                                        isActive ? 'bg-indigo-100/80 text-indigo-600' : 'bg-slate-100 text-slate-500'
                                     }`}>
-                                        {landings.filter(l => {
-                                            const lType = getLandingFunnelType(l);
-                                            return lType === tab.id.toLowerCase();
-                                        }).length}
+                                        {count}
                                     </span>
-                                )}
-                            </button>
-                        ))}
+                                </button>
+                            );
+                        })}
                     </div>
 
-                    <div className="relative w-full md:w-64">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                    <div className="relative w-full">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                         <input 
                             type="text" 
                             placeholder="Tìm landing page..."
-                            className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border-2 border-transparent focus:border-indigo-100 focus:bg-white rounded-xl outline-none text-sm transition-all"
+                            className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 rounded-xl outline-none text-sm transition-all font-medium text-slate-700"
                             value={searchQuery}
                             onChange={e => setSearchQuery(e.target.value)}
                         />
                     </div>
                 </div>
 
-                <div className="bg-white rounded-2xl border border-indigo-100 shadow-sm mb-6 overflow-hidden">
-                    <div className="p-4 bg-indigo-50/70 border-b border-indigo-100 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+                {/* Lịch học chung 3 phễu */}
+                <div className="bg-white rounded-2xl border border-slate-100 p-4 md:p-5 shadow-sm mb-6">
+                    <div className="flex items-start justify-between pb-4 border-b border-slate-100 mb-5">
                         <div className="flex items-center gap-3">
-                            <div className="p-2 bg-white text-indigo-600 rounded-xl shadow-sm">
-                                <Settings size={18} />
+                            <div className="p-2.5 bg-indigo-50/50 text-indigo-600 rounded-xl border border-indigo-50">
+                                <Calendar size={20} />
                             </div>
                             <div>
-                                <h3 className="font-bold text-slate-800">Lịch học chung 3 phễu</h3>
-                                <p className="text-xs text-slate-500">Áp dụng cho Landing Page Chính, Leader và Thương hiệu.</p>
+                                <h3 className="font-bold text-slate-800 text-sm md:text-base">Lịch học chung 3 phễu</h3>
+                                <p className="text-xs text-slate-400 mt-0.5">Áp dụng cho Landing Page Chính, Leader và Thương hiệu.</p>
                             </div>
                         </div>
                         <button
                             onClick={handleSaveScheduleConfig}
                             disabled={isSavingSchedule}
-                            className="inline-flex items-center justify-center gap-2 bg-indigo-600 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                            className="inline-flex items-center justify-center gap-1.5 bg-indigo-600 text-white px-4 py-2.5 rounded-xl text-xs font-bold hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed transition-all shadow-md shadow-indigo-100 hover:shadow-lg"
                         >
-                            <Save size={16} />
+                            <Save size={14} />
                             {isSavingSchedule ? "Đang lưu..." : "Lưu lịch chung"}
                         </button>
                     </div>
-                    <div className="p-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
                         <div>
-                            <label className="block text-xs font-semibold text-slate-600 mb-2">Thời gian bắt đầu</label>
-                            <input
-                                type="datetime-local"
-                                className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 outline-none transition-all text-sm"
-                                value={scheduleConfig.eventStart || ""}
-                                onChange={e => setScheduleConfig({ ...scheduleConfig, eventStart: e.target.value })}
-                            />
+                            <label className="block text-xs font-semibold text-slate-500 mb-2">Thời gian bắt đầu</label>
+                            <div className="relative">
+                                <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                                <input
+                                    type="datetime-local"
+                                    className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 outline-none transition-all text-sm font-medium text-slate-700"
+                                    value={scheduleConfig.eventStart || ""}
+                                    onChange={e => setScheduleConfig({ ...scheduleConfig, eventStart: e.target.value })}
+                                />
+                            </div>
                         </div>
                         <div>
-                            <label className="block text-xs font-semibold text-slate-600 mb-2">Dòng thời gian trên nút CTA</label>
+                            <label className="block text-xs font-semibold text-slate-500 mb-2">Dòng thời gian trên nút CTA</label>
                             <input
                                 type="text"
-                                className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 outline-none transition-all text-sm"
+                                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 outline-none transition-all text-sm font-medium text-slate-700"
                                 placeholder="20h00, 21-22-23-24/05"
                                 value={scheduleConfig.ctaScheduleLabel || ""}
                                 onChange={e => setScheduleConfig({ ...scheduleConfig, ctaScheduleLabel: e.target.value })}
                             />
                         </div>
                         <div>
-                            <label className="block text-xs font-semibold text-slate-600 mb-2">Đếm ngược cảm ơn (giây)</label>
+                            <label className="block text-xs font-semibold text-slate-500 mb-2">Đếm ngược cảm ơn (giây)</label>
                             <input
                                 type="number"
                                 min="1"
-                                className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 outline-none transition-all text-sm"
+                                className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 outline-none transition-all text-sm font-medium text-slate-700"
                                 placeholder="300"
                                 value={scheduleConfig.thankYouCountdownSeconds || ""}
                                 onChange={e => setScheduleConfig({ ...scheduleConfig, thankYouCountdownSeconds: e.target.value })}
                             />
                         </div>
                         <div>
-                            <label className="block text-xs font-semibold text-slate-600 mb-2">Link Zalo trang cảm ơn</label>
-                            <input
-                                type="text"
-                                className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 outline-none transition-all text-sm"
-                                placeholder="https://zalo.me/g/..."
-                                value={scheduleConfig.thankYouZaloLink || ""}
-                                onChange={e => setScheduleConfig({ ...scheduleConfig, thankYouZaloLink: e.target.value })}
-                            />
+                            <label className="block text-xs font-semibold text-slate-500 mb-2">Link Zalo trang cảm ơn</label>
+                            <div className="relative">
+                                <Link className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                                <input
+                                    type="text"
+                                    className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 outline-none transition-all text-sm font-medium text-slate-700"
+                                    placeholder="https://zalo.me/g/..."
+                                    value={scheduleConfig.thankYouZaloLink || ""}
+                                    onChange={e => setScheduleConfig({ ...scheduleConfig, thankYouZaloLink: e.target.value })}
+                                />
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                {/* List View */}
-                {activeTab !== "BRAND" ? (
-                    <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-                        <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-                            <h3 className="font-bold text-slate-700 flex items-center gap-2">
-                                <LayoutList size={18} className="text-indigo-600" />
-                                Quản lý Nhanh & Đồng bộ Khóa K
-                            </h3>
-                            <div className="flex items-center gap-2">
-                                <button
-                                    onClick={handleRestoreStandardCodes}
-                                    className="px-3 py-1.5 text-[10px] font-bold text-amber-600 bg-amber-50 hover:bg-amber-100 rounded-lg flex items-center gap-1.5 transition-colors border border-amber-200"
-                                    title="Khôi phục mã 03248 (Ads) và 83248 (Leader) dựa theo tên trang"
+                {/* Quản lý Nhanh & Đồng bộ Khóa K (Card List Layout) */}
+                <div className="mb-6">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
+                        <h3 className="font-extrabold text-slate-800 text-base md:text-lg flex items-center gap-2">
+                            <LayoutList size={22} className="text-[#6366F1]" />
+                            Quản lý Nhanh & Đồng bộ Khóa K
+                        </h3>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 mb-5">
+                        <button
+                            onClick={handleRestoreStandardCodes}
+                            className="flex items-center justify-center gap-2 px-4 py-3 text-xs md:text-sm font-bold text-[#B45309] bg-[#FFFBEB] hover:bg-[#FEF3C7] border border-[#FDE68A] rounded-xl transition-all"
+                            title="Khôi phục mã 03248 (Ads) và 83248 (Leader) dựa theo tên trang"
+                        >
+                            <RefreshCw size={15} className={isLoading ? "animate-spin" : ""} />
+                            Sửa mã chuẩn
+                        </button>
+                        {isQuickEditing ? (
+                            <div className="flex items-center gap-2 bg-white p-1 rounded-xl border border-indigo-200 shadow-sm animate-in fade-in zoom-in duration-200">
+                                <input 
+                                    type="text" 
+                                    placeholder="Khóa K mới"
+                                    className="flex-1 px-3 py-1.5 text-xs font-bold uppercase rounded-lg border-none focus:ring-0 bg-slate-50"
+                                    value={quickEditK}
+                                    onChange={e => setQuickEditK(e.target.value.toUpperCase())}
+                                />
+                                <button 
+                                    onClick={handleQuickEditKAll}
+                                    className="bg-[#4F46E5] text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-indigo-700 transition-colors"
                                 >
-                                    <RefreshCw size={14} className={isLoading ? "animate-spin" : ""} />
-                                    Sửa mã chuẩn
+                                    Lưu
                                 </button>
-                                {isQuickEditing ? (
-                                    <div className="flex items-center gap-2 bg-white p-1 rounded-lg border border-indigo-200 shadow-sm animate-in fade-in zoom-in duration-200">
-                                        <input 
-                                            type="text" 
-                                            placeholder="Khóa K mới (VD: K42)"
-                                            className="px-3 py-1.5 text-xs font-bold uppercase rounded-md border-none focus:ring-0 w-32"
-                                            value={quickEditK}
-                                            onChange={e => setQuickEditK(e.target.value.toUpperCase())}
-                                        />
-                                        <button 
-                                            onClick={handleQuickEditKAll}
-                                            className="bg-indigo-600 text-white px-3 py-1.5 rounded-md text-xs font-bold hover:bg-indigo-700 transition-colors"
-                                        >
-                                            Cập nhật tất cả
-                                        </button>
-                                        <button 
-                                            onClick={() => setIsQuickEditing(false)}
-                                            className="p-1.5 text-slate-400 hover:text-slate-600"
-                                        >
-                                            ✕
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <button 
-                                        onClick={() => setIsQuickEditing(true)}
-                                        className="flex items-center gap-2 bg-emerald-50 text-emerald-600 px-3 py-2 rounded-lg text-xs font-bold hover:bg-emerald-100 transition-colors border border-emerald-100"
-                                    >
-                                        <Edit2 size={14} />
-                                        Sửa nhanh Khóa K
-                                    </button>
-                                )}
+                                <button 
+                                    onClick={() => setIsQuickEditing(false)}
+                                    className="p-1.5 text-slate-400 hover:text-slate-600"
+                                >
+                                    ✕
+                                </button>
                             </div>
-                        </div>
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left border-collapse">
-                                <thead>
-                                    <tr className="bg-slate-50/50">
-                                        <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-wider">Landing Page</th>
-                                        <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-wider">Khóa K</th>
-                                        <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-wider">Mã nguồn</th>
-                                        <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-wider">Đích đến (Phễu)</th>
-                                        <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-wider text-right">Thao tác</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100">
-                                    {filteredLandings.map(landing => (
-                                        <tr key={landing.id} className="hover:bg-slate-50/50 transition-colors group">
-                                            <td className="px-6 py-4">
-                                                <div>
-                                                    <p className="font-bold text-slate-800 text-sm">{landing.name}</p>
-                                                    <p className="text-[10px] font-mono text-slate-400 mt-0.5">maliedu.vn{landing.slug}</p>
+                        ) : (
+                            <button 
+                                onClick={() => setIsQuickEditing(true)}
+                                className="flex items-center justify-center gap-2 bg-[#ECFDF5] text-[#047857] px-4 py-3 rounded-xl text-xs md:text-sm font-bold transition-all border border-[#A7F3D0] hover:bg-emerald-100"
+                            >
+                                <Edit2 size={15} />
+                                Sửa nhanh Khóa K
+                            </button>
+                        )}
+                    </div>
+
+                    {filteredLandings.length > 0 ? (
+                        <div className="flex flex-col gap-4">
+                            {filteredLandings.map(landing => {
+                                const name = (landing.name || "").toLowerCase();
+                                const funnelType = getLandingFunnelType(landing);
+                                let iconConfig = {
+                                    icon: Globe,
+                                    bg: "bg-[#EEF2FF] text-[#6366F1]",
+                                };
+                                if (funnelType === "leader" || name.includes("leader")) {
+                                    iconConfig = {
+                                        icon: Laptop,
+                                        bg: "bg-[#EEF2FF] text-[#4F46E5]",
+                                    };
+                                } else if (funnelType === "brand" || name.includes("thương hiệu") || name.includes("brand")) {
+                                    iconConfig = {
+                                        icon: Star,
+                                        bg: "bg-[#FFFBEB] text-[#D97706]",
+                                    };
+                                }
+
+                                return (
+                                    <div 
+                                        key={landing.id} 
+                                        className="bg-white rounded-2xl border border-slate-100 p-4 md:p-5 shadow-sm hover:shadow-md transition-shadow relative"
+                                    >
+                                        <div className="flex items-start justify-between gap-4">
+                                            {/* Left side: Icon + Title/URL */}
+                                            <div className="flex items-start gap-3 flex-1 min-w-0">
+                                                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${iconConfig.bg}`}>
+                                                    <iconConfig.icon size={22} />
                                                 </div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center gap-2">
-                                                    <input 
-                                                        type="text"
-                                                        value={landing.course_k || ""}
-                                                        onChange={(e) => handleQuickEditSingleK(landing.id, e.target.value.toUpperCase())}
-                                                        className="w-16 px-2 py-1 text-xs font-bold text-indigo-600 bg-indigo-50 border-none rounded focus:ring-2 focus:ring-indigo-200 text-center"
-                                                    />
+                                                <div className="min-w-0 flex-1">
+                                                    <h4 className="font-extrabold text-slate-800 text-sm md:text-base truncate">{landing.name}</h4>
+                                                    <p className="text-xs text-slate-400 mt-1 truncate font-medium">
+                                                        maliedu.vn{landing.slug}
+                                                    </p>
                                                 </div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <span className="text-[11px] font-mono font-medium text-slate-500 bg-slate-100 px-2 py-1 rounded">
+                                            </div>
+
+                                            {/* Right side: 3-dots Menu Button */}
+                                            <div className="relative shrink-0">
+                                                <button
+                                                    onClick={() => setActiveMenuId(activeMenuId === landing.id ? null : landing.id)}
+                                                    className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-xl transition-colors"
+                                                >
+                                                    <MoreVertical size={18} />
+                                                </button>
+
+                                                {activeMenuId === landing.id && (
+                                                    <>
+                                                        <div className="fixed inset-0 z-20" onClick={() => setActiveMenuId(null)} />
+                                                        <div className="absolute right-0 top-10 bg-white rounded-xl shadow-xl border border-slate-100 py-1.5 w-36 z-30 animate-in fade-in slide-in-from-top-2 duration-150">
+                                                            <button
+                                                                onClick={() => {
+                                                                    handleEdit(landing);
+                                                                    setActiveMenuId(null);
+                                                                }}
+                                                                className="w-full px-4 py-2.5 text-left text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors"
+                                                            >
+                                                                <Edit2 size={14} className="text-slate-400" />
+                                                                Sửa chi tiết
+                                                            </button>
+                                                            <button
+                                                                onClick={() => {
+                                                                    navigator.clipboard.writeText(`https://maliedu.vn${landing.slug}`);
+                                                                    toast.success("Đã copy link!");
+                                                                    setActiveMenuId(null);
+                                                                }}
+                                                                className="w-full px-4 py-2.5 text-left text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors"
+                                                            >
+                                                                <Copy size={14} className="text-slate-400" />
+                                                                Copy Link
+                                                            </button>
+                                                            <button
+                                                                onClick={() => {
+                                                                    handleDelete(landing.id);
+                                                                    setActiveMenuId(null);
+                                                                }}
+                                                                className="w-full px-4 py-2.5 text-left text-xs font-bold text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors border-t border-slate-100"
+                                                            >
+                                                                <Trash2 size={14} className="text-red-400" />
+                                                                Xóa Landing
+                                                            </button>
+                                                        </div>
+                                                    </>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Bottom row: Khóa K, Mã nguồn, Đích đến (phễu) */}
+                                        <div className="grid grid-cols-3 gap-3 mt-4 pt-4 border-t border-slate-100">
+                                            {/* Khóa K */}
+                                            <div className="flex flex-col items-start w-full min-w-0">
+                                                <span className="block text-[11px] font-semibold text-slate-400 mb-1 tracking-tight truncate w-full">Khóa K</span>
+                                                <input 
+                                                    type="text"
+                                                    value={landing.course_k || ""}
+                                                    onChange={(e) => handleQuickEditSingleK(landing.id, e.target.value.toUpperCase())}
+                                                    className="w-full px-2 py-1.5 text-xs font-black text-[#4F46E5] bg-[#EEF2FF] border-none rounded-lg text-center focus:ring-2 focus:ring-indigo-100 outline-none uppercase"
+                                                />
+                                            </div>
+
+                                            {/* Mã nguồn */}
+                                            <div className="flex flex-col items-start w-full min-w-0">
+                                                <span className="block text-[11px] font-semibold text-slate-400 mb-1 tracking-tight truncate w-full">Mã nguồn</span>
+                                                <span className="block w-full text-center text-[11px] font-mono font-bold text-slate-500 bg-[#F1F5F9] px-2 py-1.5 rounded-lg truncate" title={landing.active_source_key}>
                                                     {landing.active_source_key}
                                                 </span>
-                                            </td>
-                                            <td className="px-6 py-4">
+                                            </div>
+
+                                            {/* Đích đến */}
+                                            <div className="flex flex-col items-start w-full min-w-0">
+                                                <span className="block text-[11px] font-semibold text-slate-400 mb-1 tracking-tight truncate w-full">Đích đến (phễu)</span>
                                                 <select
-                                                    className={`min-w-[140px] rounded-lg border px-3 py-2 text-xs font-bold outline-none transition-colors ${getFunnelOption(getLandingFunnelType(landing)).tone}`}
+                                                    className={`w-full rounded-xl border px-2 py-1.5 text-[11px] font-bold outline-none transition-all cursor-pointer shadow-sm ${getFunnelOption(getLandingFunnelType(landing)).tone}`}
                                                     value={getLandingFunnelType(landing)}
                                                     onChange={(e) => handleQuickFunnelChange(landing.id, e.target.value)}
                                                 >
@@ -1234,141 +1325,26 @@ const AdminLandings = () => {
                                                         <option key={option.value} value={option.value}>{option.label}</option>
                                                     ))}
                                                 </select>
-                                            </td>
-                                            <td className="px-6 py-4 text-right">
-                                                <div className="flex gap-2 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    <button 
-                                                        onClick={() => handleEdit(landing)}
-                                                        className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                                                        title="Sửa chi tiết"
-                                                    >
-                                                        <Edit2 size={16} />
-                                                    </button>
-                                                    <button 
-                                                        onClick={() => {
-                                                            navigator.clipboard.writeText(`https://maliedu.vn${landing.slug}`);
-                                                            toast.success("Đã copy link!");
-                                                        }}
-                                                        className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-                                                        title="Copy Link"
-                                                    >
-                                                        <Copy size={16} />
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
                         </div>
-                    </div>
-                ) : filteredLandings.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {filteredLandings.map(landing => (
-                            <div
-                                key={landing.id}
-                                className="bg-white rounded-2xl border-2 border-slate-100 hover:border-indigo-200 transition-all shadow-sm hover:shadow-lg group"
+                    ) : (
+                        <div className="text-center py-20 bg-white rounded-3xl border-2 border-dashed border-slate-100">
+                            <Globe size={64} className="mx-auto text-slate-200 mb-4" />
+                            <h3 className="text-xl font-bold text-slate-400 mb-2">Không tìm thấy Landing Page</h3>
+                            <p className="text-slate-400 mb-6">Thử đổi tab hoặc từ khóa tìm kiếm nhé</p>
+                            <button
+                                onClick={() => {setActiveTab("ALL"); setSearchQuery("");}}
+                                className="bg-indigo-600 text-white px-8 py-3 rounded-xl font-bold inline-flex items-center gap-2 hover:bg-indigo-700 transition-colors"
                             >
-                                <div className="p-6">
-                                    <div className="flex items-start justify-between mb-4">
-                                        <div className={`p-3 rounded-xl ${
-                                            landing.targetFunnel === "LEADER" ? 'bg-emerald-50 text-emerald-600' : 
-                                            landing.targetFunnel === "BRAND" ? 'bg-amber-50 text-amber-600' : 
-                                            'bg-indigo-50 text-indigo-600'
-                                        }`}>
-                                            <Globe size={24} />
-                                        </div>
-                                        <div className="flex flex-col items-end gap-2">
-                                            <div className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase ${landing.is_maintenance ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600'}`}>
-                                                {landing.is_maintenance ? '🔧 Bảo trì' : '✓ Hoạt động'}
-                                            </div>
-                                            <div className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-tighter ${
-                                                landing.targetFunnel === "LEADER" ? 'bg-emerald-600 text-white' : 
-                                                landing.targetFunnel === "BRAND" ? 'bg-amber-500 text-white' : 
-                                                'bg-indigo-600 text-white'
-                                            }`}>
-                                                {landing.targetFunnel || "ADS"}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <h3 className="font-bold text-slate-800 mb-1 line-clamp-2">{landing.name}</h3>
-
-                                    {/* URL Box - click to copy */}
-                                    <button
-                                        onClick={() => {
-                                            navigator.clipboard.writeText(`https://maliedu.vn${landing.slug}`);
-                                            toast.success("Đã copy link!");
-                                        }}
-                                        className="w-full text-left mb-4 group/link"
-                                        title="Click để copy link"
-                                    >
-                                        <div className="bg-slate-50 border border-slate-100 rounded-lg px-3 py-2 flex items-center gap-2 hover:bg-white hover:border-indigo-200 transition-colors">
-                                            <Link size={12} className="text-slate-400 flex-shrink-0" />
-                                            <p className="text-[11px] font-mono text-slate-600 truncate flex-1">maliedu.vn{landing.slug}</p>
-                                            <Copy size={11} className="text-slate-300 flex-shrink-0 opacity-0 group-hover/link:opacity-100 transition-opacity" />
-                                        </div>
-                                    </button>
-
-                                    <div className="bg-slate-50 rounded-lg p-3 mb-4 space-y-1">
-                                        <div className="flex items-center justify-between">
-                                            <p className="text-[9px] text-slate-400 uppercase font-black">Khóa K</p>
-                                            <p className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 rounded">
-                                                {(() => {
-                                                    if (landing.course_k && landing.course_k !== 'N/A') return landing.course_k;
-                                                    const match = String(landing.active_source_key || '').match(/_k(\d+)$/i);
-                                                    return match ? `K${match[1]}` : 'N/A';
-                                                })()}
-                                            </p>
-                                        </div>
-                                        <div className="flex items-center justify-between">
-                                            <p className="text-[9px] text-slate-400 uppercase font-black">Mã nguồn</p>
-                                            <p className="text-[10px] font-mono text-slate-400 truncate max-w-[124px]">{landing.active_source_key || "Chưa cấu hình"}</p>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex gap-2">
-                                        <button
-                                            onClick={() => handleEdit(landing)}
-                                            className="flex-1 flex items-center justify-center gap-2 bg-indigo-50 text-indigo-600 py-2 rounded-lg font-bold text-sm hover:bg-indigo-100 transition-colors"
-                                        >
-                                            <Edit2 size={14} />
-                                            Sửa
-                                        </button>
-                                        <button
-                                            onClick={() => {
-                                                navigator.clipboard.writeText(`https://maliedu.vn${landing.slug}`);
-                                                toast.success("Đã copy link!");
-                                            }}
-                                            className="p-2 bg-slate-50 text-slate-600 rounded-lg hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
-                                            title="Copy link"
-                                        >
-                                            <Copy size={14} />
-                                        </button>
-                                        <button
-                                            onClick={() => handleDelete(landing.id)}
-                                            className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
-                                        >
-                                            <Trash2 size={14} />
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                ) : (
-                    <div className="text-center py-20 bg-white rounded-3xl border-2 border-dashed border-slate-100">
-                        <Globe size={64} className="mx-auto text-slate-200 mb-4" />
-                        <h3 className="text-xl font-bold text-slate-400 mb-2">Không tìm thấy Landing Page</h3>
-                        <p className="text-slate-400 mb-6">Thử đổi tab hoặc từ khóa tìm kiếm nhé</p>
-                        <button
-                            onClick={() => {setActiveTab("ALL"); setSearchQuery("");}}
-                            className="bg-indigo-600 text-white px-8 py-3 rounded-xl font-bold inline-flex items-center gap-2 hover:bg-indigo-700 transition-colors"
-                        >
-                            Quay lại Tất cả
-                        </button>
-                    </div>
-                )}
+                                Quay lại Tất cả
+                            </button>
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );

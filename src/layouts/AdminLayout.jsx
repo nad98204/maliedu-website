@@ -260,7 +260,7 @@ const AdminLayout = () => {
 
       {/* MAIN CONTENT AREA */}
       <div className="flex-1 bg-slate-50/50 relative h-[100dvh] lg:h-screen overflow-hidden flex flex-col min-w-0 w-full">
-        <div className="flex-1 overflow-y-auto custom-scrollbar relative pb-24 lg:pb-0">
+        <div className="flex-1 overflow-y-auto custom-scrollbar relative pb-6 lg:pb-0">
           <div className="min-h-full">
             <Outlet />
           </div>

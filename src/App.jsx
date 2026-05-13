@@ -209,7 +209,7 @@ const AppShell = () => {
               <FloatingContact />
             </Suspense>
           </div>
-          {!isPlayerRoute && (
+          {!isPlayerRoute && !location.pathname.startsWith('/admin') && (
             <Suspense fallback={null}>
               <BottomNav />
             </Suspense>
