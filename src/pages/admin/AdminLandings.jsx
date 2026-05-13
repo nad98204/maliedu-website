@@ -26,6 +26,7 @@ const AdminLandings = () => {
         eventStart: "2026-05-21T20:00",
         ctaScheduleLabel: "20h00, 21-22-23-24/05",
         thankYouCountdownSeconds: "300",
+        thankYouZaloLink: "",
     });
     const [isSavingSchedule, setIsSavingSchedule] = useState(false);
 
@@ -246,6 +247,7 @@ const AdminLandings = () => {
                 eventStart: normalizeDatetimeLocal(data.eventStart),
                 ctaScheduleLabel: data.ctaScheduleLabel || "20h00, 21-22-23-24/05",
                 thankYouCountdownSeconds: String(data.thankYouCountdownSeconds || 300),
+                thankYouZaloLink: data.thankYouZaloLink || data.zaloLink || "",
             });
         } catch (e) {
             console.error("Load schedule config error:", e);
@@ -262,6 +264,7 @@ const AdminLandings = () => {
                 eventStart: scheduleConfig.eventStart ? `${scheduleConfig.eventStart}:00+07:00` : "",
                 ctaScheduleLabel: scheduleConfig.ctaScheduleLabel || "",
                 thankYouCountdownSeconds,
+                thankYouZaloLink: scheduleConfig.thankYouZaloLink || "",
                 updatedAt: serverTimestamp(),
             }, { merge: true });
             setScheduleConfig((prev) => ({ ...prev, thankYouCountdownSeconds: String(thankYouCountdownSeconds) }));
@@ -1092,7 +1095,7 @@ const AdminLandings = () => {
                             {isSavingSchedule ? "Đang lưu..." : "Lưu lịch chung"}
                         </button>
                     </div>
-                    <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="p-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
                         <div>
                             <label className="block text-xs font-semibold text-slate-600 mb-2">Thời gian bắt đầu</label>
                             <input
@@ -1121,6 +1124,16 @@ const AdminLandings = () => {
                                 placeholder="300"
                                 value={scheduleConfig.thankYouCountdownSeconds || ""}
                                 onChange={e => setScheduleConfig({ ...scheduleConfig, thankYouCountdownSeconds: e.target.value })}
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-semibold text-slate-600 mb-2">Link Zalo trang cảm ơn</label>
+                            <input
+                                type="text"
+                                className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 outline-none transition-all text-sm"
+                                placeholder="https://zalo.me/g/..."
+                                value={scheduleConfig.thankYouZaloLink || ""}
+                                onChange={e => setScheduleConfig({ ...scheduleConfig, thankYouZaloLink: e.target.value })}
                             />
                         </div>
                     </div>

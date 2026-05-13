@@ -60,6 +60,7 @@ export const resolveKhoiThongLandingConfig = async ({ path, sourceKey, landingPa
   if (!match) {
     return {
       ...KHOI_THONG_DONG_TIEN_CONFIG,
+      zaloLink: sharedSchedule.thankYouZaloLink || KHOI_THONG_DONG_TIEN_CONFIG.zaloLink,
       eventStart: sharedSchedule.eventStart || KHOI_THONG_DONG_TIEN_CONFIG.eventStart,
       ctaScheduleLabel: sharedSchedule.ctaScheduleLabel || KHOI_THONG_DONG_TIEN_CONFIG.ctaScheduleLabel,
       thankYouCountdownSeconds: Number(sharedSchedule.thankYouCountdownSeconds) || KHOI_THONG_DONG_TIEN_CONFIG.thankYouCountdownSeconds,
@@ -69,7 +70,7 @@ export const resolveKhoiThongLandingConfig = async ({ path, sourceKey, landingPa
   return {
     ...KHOI_THONG_DONG_TIEN_CONFIG,
     ...match,
-    zaloLink: match.thankYouZaloLink || match.zaloLink || KHOI_THONG_DONG_TIEN_CONFIG.zaloLink,
+    zaloLink: sharedSchedule.thankYouZaloLink || match.thankYouZaloLink || match.zaloLink || KHOI_THONG_DONG_TIEN_CONFIG.zaloLink,
     eventStart: sharedSchedule.eventStart || match.eventStart || KHOI_THONG_DONG_TIEN_CONFIG.eventStart,
     ctaScheduleLabel: sharedSchedule.ctaScheduleLabel || match.ctaScheduleLabel || KHOI_THONG_DONG_TIEN_CONFIG.ctaScheduleLabel,
     thankYouCountdownSeconds: Number(sharedSchedule.thankYouCountdownSeconds) || Number(match.thankYouCountdownSeconds) || KHOI_THONG_DONG_TIEN_CONFIG.thankYouCountdownSeconds,
