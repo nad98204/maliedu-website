@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ArrowRight, CheckCircle2, Clock, ShieldAlert } from "lucide-react";
+import { ArrowRight, CheckCircle2, Clock, ShieldAlert, Loader2 } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { KHOI_THONG_DONG_TIEN_CONFIG, useKhoiThongLandingConfig } from "./landingConfig";
 import { initMetaPixel, trackMetaEventForPixel } from "../../utils/metaPixel";
@@ -14,6 +14,7 @@ const CamOnKhoiThong = () => {
     landingPageId: sessionStorage.getItem("khoi_thong_landing_page_id") || "",
   });
   const [timeLeft, setTimeLeft] = useState(() => landingConfig.thankYouCountdownSeconds);
+  const [isRedirecting, setIsRedirecting] = useState(false);
   const confirmedRef = useRef(false);
   const pixelIdRef = useRef("");
 
@@ -184,10 +185,28 @@ const CamOnKhoiThong = () => {
             href={landingConfig.zaloLink || DEFAULT_ZALO_LINK}
             target="_blank"
             rel="noopener noreferrer"
-            onClick={() => {
+            onClick={(e) => {
+              e.preventDefault();
+              if (isRedirecting) return;
+
+              setIsRedirecting(true);
+              const targetUrl = landingConfig.zaloLink || DEFAULT_ZALO_LINK;
+
+              // 1. Fire Pixel event trước (nếu có)
               if (pixelIdRef.current) {
-                trackMetaEventForPixel(pixelIdRef.current, "Contact", { content_name: "Vào nhóm Zalo - Khơi Thông Dòng Tiền" });
+                try {
+                  trackMetaEventForPixel(pixelIdRef.current, "Contact", { content_name: "Vào nhóm Zalo - Khơi Thông Dòng Tiền" });
+                } catch (err) {
+                  console.error("Pixel tracking error:", err);
+                }
               }
+
+              // 2. Sau đó mở link Zalo (với một khoảng delay ngắn để đảm bảo Pixel bắn thành công và hiển thị loader mượt mà)
+              // Các logic phụ khác có thể chạy song song hoặc sau.
+              setTimeout(() => {
+                window.open(targetUrl, "_blank", "noopener,noreferrer");
+                setIsRedirecting(false);
+              }, 800);
             }}
             className="relative w-full flex flex-col items-center justify-center gap-1 rounded-full py-3.5 px-6 text-white overflow-hidden transition-all duration-300 transform group-hover:scale-[1.02] shadow-[0_10px_25px_rgba(0,104,255,0.4)]"
             style={{ background: "linear-gradient(180deg, #1877F2 0%, #0056D2 100%)" }}
@@ -205,6 +224,16 @@ const CamOnKhoiThong = () => {
           (Vui lòng kiên nhẫn bấm lại vài lần nếu Zalo chưa mở)
         </p>
       </div>
+
+      {/* Premium Loading Overlay Modal "Đang xử lý..." */}
+      {isRedirecting && (
+        <div className="fixed inset-0 z-[999] flex items-center justify-center bg-slate-950/50 backdrop-blur-sm">
+          <div className="bg-white rounded-[2rem] p-7 shadow-[0_20px_50px_rgba(0,0,0,0.15)] flex items-center gap-4 border border-slate-100/50 max-w-[240px] w-full justify-center">
+            <Loader2 className="w-6 h-6 text-[#1877F2] animate-spin shrink-0" />
+            <span className="text-base font-bold text-slate-800 tracking-tight">Đang xử lý...</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

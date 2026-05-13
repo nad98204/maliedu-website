@@ -6,6 +6,7 @@
     },
     "funnels": {
       "$funnelType": {
+        ".indexOn": ["phone", "name", "createdAt"],
         ".read": "auth != null && root.child('security').child('allowed_uids').child(auth.uid).val() === true",
         "$leadId": {
           ".write": "($funnelType === 'ads' || $funnelType === 'leader' || $funnelType === 'thuonghieu') && !data.exists() && newData.exists() && newData.child('createdVia').val() === 'landing'",
