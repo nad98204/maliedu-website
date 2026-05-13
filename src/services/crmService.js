@@ -1,13 +1,57 @@
 // src/services/crmService.js
+const CRM_LEAD_API_PATH = "/api/crm-leads";
+
+const isLocalhost = () => {
+    if (typeof window === "undefined") return false;
+    return ["localhost", "127.0.0.1", ""].includes(window.location.hostname);
+};
+
+const shouldFallbackToDirectWrite = (error) =>
+    isLocalhost() || [404, 405, 501].includes(error?.status);
+
+const submitLeadViaApi = async ({ nodePath, payload }) => {
+    const response = await fetch(CRM_LEAD_API_PATH, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ nodePath, payload }),
+    });
+
+    let data = null;
+    try {
+        data = await response.json();
+    } catch {
+        /* response may be empty or non-json */
+    }
+
+    if (!response.ok || !data?.success) {
+        const error = new Error(data?.error || `CRM API error (${response.status})`);
+        error.status = response.status;
+        throw error;
+    }
+
+    return data;
+};
+
+const submitLeadDirectly = async ({ nodePath, payload }) => {
+    const [{ crmRealtimeDB }, { ref, push, set }] = await Promise.all([
+        import('../firebase'),
+        import('firebase/database'),
+    ]);
+
+    const funnelRef = ref(crmRealtimeDB, nodePath);
+    const newLeadRef = push(funnelRef);
+    await set(newLeadRef, payload);
+
+    return { success: true, id: newLeadRef.key };
+};
+
 /**
  * Hàm bắn data sang Firebase CRM (Secondary App - Realtime Database)
  */
 export const submitToCRM = async (formData) => {
     try {
-        const [{ crmRealtimeDB }, { ref, push, set }] = await Promise.all([
-            import('../firebase'),
-            import('firebase/database'),
-        ]);
         console.log("Đang gửi dữ liệu về CRM (Realtime DB)...", formData);
 
         // 1. Xác định bắn vào phễu nào (Mặc định là ADS)
@@ -106,15 +150,23 @@ export const submitToCRM = async (formData) => {
         console.log("PAYLOAD GỬI CRM:", payload);
         console.log("------------------------------------------");
 
-        const funnelRef = ref(crmRealtimeDB, nodePath);
-        const newLeadRef = push(funnelRef); // Tạo phiếu mới
-        await set(newLeadRef, payload);     // Điền thông tin vào
+        let result;
+        try {
+            result = await submitLeadViaApi({ nodePath, payload });
+        } catch (apiError) {
+            if (!shouldFallbackToDirectWrite(apiError)) {
+                throw apiError;
+            }
 
-        console.log("Đã gửi xong! ID:", newLeadRef.key);
-        return { success: true, id: newLeadRef.key };
+            console.warn("CRM API unavailable, falling back to direct RTDB write.", apiError);
+            result = await submitLeadDirectly({ nodePath, payload });
+        }
+
+        console.log("Đã gửi xong! ID:", result.id);
+        return result;
 
     } catch (error) {
         console.error("Lỗi gửi CRM:", error);
-        throw error;
+        throw new Error("Không thể gửi đăng ký về CRM. Vui lòng thử lại sau.");
     }
 };

@@ -1,0 +1,21 @@
+{
+  "rules": {
+    "security": {
+      ".read": false,
+      ".write": false
+    },
+    "funnels": {
+      "$funnelType": {
+        ".read": "auth != null && root.child('security').child('allowed_uids').child(auth.uid).val() === true",
+        "$leadId": {
+          ".write": "($funnelType === 'ads' || $funnelType === 'leader' || $funnelType === 'thuonghieu') && !data.exists() && newData.exists() && newData.child('createdVia').val() === 'landing'",
+          ".validate": "newData.hasChildren(['name', 'phone', 'source_key', 'createdVia', 'createdAt']) && newData.child('name').isString() && newData.child('phone').isString() && newData.child('phone').val().matches(/^[0-9+ ().-]{9,20}$/) && newData.child('source_key').isString() && newData.child('createdVia').val() === 'landing'"
+        }
+      }
+    },
+    "$path": {
+      ".read": "$path !== 'security' && auth != null && root.child('security').child('allowed_uids').child(auth.uid).val() === true",
+      ".write": "$path !== 'security' && auth != null && root.child('security').child('allowed_uids').child(auth.uid).val() === true"
+    }
+  }
+}

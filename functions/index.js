@@ -4,11 +4,17 @@ import process from "node:process";
 import { onRequest } from "firebase-functions/v2/https";
 import { onValueCreated } from "firebase-functions/v2/database";
 import { initializeApp } from "firebase-admin/app";
+import { getDatabase } from "firebase-admin/database";
 import { getFirestore } from "firebase-admin/firestore";
 import { hashData, normalizeNameForHash, sendMetaCapiEvent } from "./capi_helper.js";
 
 initializeApp();
 const firestore = getFirestore();
+const CRM_DATABASE_URL =
+  process.env.CRM_DATABASE_URL ||
+  "https://dangpkkzxy-default-rtdb.asia-southeast1.firebasedatabase.app";
+const crmAdminApp = initializeApp({ databaseURL: CRM_DATABASE_URL }, "crm-admin");
+const crmDatabase = getDatabase(crmAdminApp);
 
 import { onRequestPost as onAbort } from "./api/s3-multipart/abort.js";
 import { onRequestPost as onComplete } from "./api/s3-multipart/complete.js";
@@ -17,7 +23,58 @@ import { onRequestPost as onInit } from "./api/s3-multipart/init.js";
 import { onRequestPost as onSignPart } from "./api/s3-multipart/sign-part.js";
 import { createJsonResponse } from "./_lib/s3MultipartV3.js";
 
+const ALLOWED_CRM_FUNNEL_PATHS = new Set([
+  "funnels/ads",
+  "funnels/leader",
+  "funnels/thuonghieu",
+]);
+
+const normalizeCrmNodePath = (value) =>
+  String(value || "")
+    .trim()
+    .replace(/^\/+|\/+$/g, "")
+    .toLowerCase();
+
+const normalizeLeadPhone = (value) =>
+  String(value || "")
+    .trim()
+    .replace(/\s+/g, "");
+
+const onCreateCrmLead = async ({ request }) => {
+  const body = await request.json();
+  const nodePath = normalizeCrmNodePath(body?.nodePath);
+  const payload = body?.payload;
+
+  if (!ALLOWED_CRM_FUNNEL_PATHS.has(nodePath)) {
+    return createJsonResponse({ error: "Invalid CRM funnel path" }, 400);
+  }
+
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return createJsonResponse({ error: "Invalid CRM payload" }, 400);
+  }
+
+  const name = String(payload.name || "").trim();
+  const phone = normalizeLeadPhone(payload.phone);
+  const phoneDigits = phone.replace(/\D/g, "");
+
+  if (name.length < 2 || phoneDigits.length < 9 || phoneDigits.length > 15) {
+    return createJsonResponse({ error: "Invalid lead contact info" }, 400);
+  }
+
+  const leadRef = crmDatabase.ref(nodePath).push();
+  await leadRef.set({
+    ...payload,
+    name,
+    phone,
+    createdAt: payload.createdAt || new Date().toISOString(),
+    receivedAt: new Date().toISOString(),
+  });
+
+  return createJsonResponse({ success: true, id: leadRef.key });
+};
+
 const ROUTES = new Map([
+  ["POST /api/crm-leads", onCreateCrmLead],
   ["GET /api/s3-multipart/health", onHealth],
   ["POST /api/s3-multipart/abort", onAbort],
   ["POST /api/s3-multipart/complete", onComplete],
