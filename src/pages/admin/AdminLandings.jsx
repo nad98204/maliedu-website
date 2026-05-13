@@ -4,6 +4,7 @@ import { doc, getDoc, setDoc, serverTimestamp, collection, getDocs, onSnapshot, 
 import { ref, onValue } from "firebase/database";
 import { toast } from "react-hot-toast";
 import { normalizeMetaCurrency } from "../../utils/metaPixel";
+import { KHOI_THONG_SCHEDULE_CONFIG_DOC_ID } from "../../landing-templates/khoi-thong-dong-tien/landingConfig";
 import {
     Layout, Settings, Save,
     AlertTriangle, CheckCircle,
@@ -21,6 +22,12 @@ const AdminLandings = () => {
     const [showCreateForm, setShowCreateForm] = useState(false);
     const [activeTab, setActiveTab] = useState("ALL");
     const [searchQuery, setSearchQuery] = useState("");
+    const [scheduleConfig, setScheduleConfig] = useState({
+        eventStart: "2026-05-21T20:00",
+        ctaScheduleLabel: "20h00, 21-22-23-24/05",
+        thankYouCountdownSeconds: "300",
+    });
+    const [isSavingSchedule, setIsSavingSchedule] = useState(false);
 
     // Form State
     const [form, setForm] = useState({
@@ -33,9 +40,6 @@ const AdminLandings = () => {
         assignedSale: "Round Robin",
         zaloLink: "",
         thankYouZaloLink: "",
-        eventStart: "2026-05-21T20:00",
-        ctaScheduleLabel: "20h00, 21-22-23-24/05",
-        thankYouCountdownSeconds: "300",
         fbPixel: "",
         fbCapiToken: "",
         fbCurrency: "VND",
@@ -95,6 +99,8 @@ const AdminLandings = () => {
 
     const getLandingFunnelType = (landing = {}) =>
         normalizeFunnelType(landing.funnel_type || landing.targetFunnel || "ads");
+
+    const normalizeDatetimeLocal = (value = "2026-05-21T20:00") => String(value || "2026-05-21T20:00").slice(0, 16);
 
     const getSelectedUtmLeader = () =>
         crmLeaderUsers.find((user) => user.email === utmBuilder.leaderEmail) || null;
@@ -222,6 +228,51 @@ const AdminLandings = () => {
         }
     };
 
+    const loadScheduleConfig = async () => {
+        try {
+            const snap = await getDoc(doc(crmFirestore, "public_settings", KHOI_THONG_SCHEDULE_CONFIG_DOC_ID));
+            let data = snap.exists() ? snap.data() : null;
+
+            if (!data) {
+                const landingSnap = await getDocs(collection(crmFirestore, "landing_pages"));
+                data = landingSnap.docs
+                    .map((item) => item.data())
+                    .find((item) => item.eventStart || item.ctaScheduleLabel || item.thankYouCountdownSeconds);
+            }
+
+            if (!data) return;
+
+            setScheduleConfig({
+                eventStart: normalizeDatetimeLocal(data.eventStart),
+                ctaScheduleLabel: data.ctaScheduleLabel || "20h00, 21-22-23-24/05",
+                thankYouCountdownSeconds: String(data.thankYouCountdownSeconds || 300),
+            });
+        } catch (e) {
+            console.error("Load schedule config error:", e);
+        }
+    };
+
+    const handleSaveScheduleConfig = async () => {
+        const parsedThankYouSeconds = Number.parseInt(scheduleConfig.thankYouCountdownSeconds, 10);
+        const thankYouCountdownSeconds = Number.isFinite(parsedThankYouSeconds) && parsedThankYouSeconds > 0 ? parsedThankYouSeconds : 300;
+
+        setIsSavingSchedule(true);
+        try {
+            await setDoc(doc(crmFirestore, "public_settings", KHOI_THONG_SCHEDULE_CONFIG_DOC_ID), {
+                eventStart: scheduleConfig.eventStart ? `${scheduleConfig.eventStart}:00+07:00` : "",
+                ctaScheduleLabel: scheduleConfig.ctaScheduleLabel || "",
+                thankYouCountdownSeconds,
+                updatedAt: serverTimestamp(),
+            }, { merge: true });
+            setScheduleConfig((prev) => ({ ...prev, thankYouCountdownSeconds: String(thankYouCountdownSeconds) }));
+            toast.success("Đã lưu lịch học chung cho 3 phễu!");
+        } catch (e) {
+            toast.error("Lỗi lưu lịch học chung: " + e.message);
+        } finally {
+            setIsSavingSchedule(false);
+        }
+    };
+
     // Sync Data
     useEffect(() => {
         const unsubLandings = onSnapshot(collection(crmFirestore, "landing_pages"), (snap) => {
@@ -230,6 +281,7 @@ const AdminLandings = () => {
         });
 
         refreshCrmData();
+        loadScheduleConfig();
 
         const usersRef = ref(crmRealtimeDB, 'system_settings/users');
         const unsubUsers = onValue(usersRef, (snapshot) => {
@@ -284,9 +336,6 @@ const AdminLandings = () => {
             assignedSale: mappingData.assignedSale || "Round Robin",
             zaloLink: mappingData.targetZalo || landing.zaloLink || "",
             thankYouZaloLink: landing.thankYouZaloLink || landing.zaloLink || "",
-            eventStart: String(landing.eventStart || "2026-05-21T20:00:00+07:00").slice(0, 16),
-            ctaScheduleLabel: landing.ctaScheduleLabel || "20h00, 21-22-23-24/05",
-            thankYouCountdownSeconds: String(landing.thankYouCountdownSeconds || 300),
             fbPixel: landing.fbPixel || "",
             fbCapiToken: landing.fbCapiToken || "",
             fbCurrency: landing.fbCurrency || "VND",
@@ -313,9 +362,6 @@ const AdminLandings = () => {
             assignedSale: "Round Robin",
             zaloLink: "",
             thankYouZaloLink: "",
-            eventStart: "2026-05-21T20:00",
-            ctaScheduleLabel: "20h00, 21-22-23-24/05",
-            thankYouCountdownSeconds: "300",
             fbPixel: "",
             fbCapiToken: "",
             fbCurrency: "VND",
@@ -380,8 +426,6 @@ const AdminLandings = () => {
         const fbCurrency = normalizeMetaCurrency(form.fbCurrency);
         const parsedEventValue = Number(String(form.fbEventValue ?? "").replace(",", "."));
         const fbEventValue = Number.isFinite(parsedEventValue) && parsedEventValue >= 0 ? parsedEventValue : 0;
-        const parsedThankYouSeconds = Number.parseInt(form.thankYouCountdownSeconds, 10);
-        const thankYouCountdownSeconds = Number.isFinite(parsedThankYouSeconds) && parsedThankYouSeconds > 0 ? parsedThankYouSeconds : 300;
         const previousSourceKey = landings.find((landing) => landing.id === id)?.active_source_key || "";
         const assignedSaleForConfig = funnelType === "leader" ? "" : form.assignedSale;
         try {
@@ -396,9 +440,6 @@ const AdminLandings = () => {
                 is_maintenance: form.is_maintenance,
                 zaloLink: form.zaloLink || "",
                 thankYouZaloLink: form.thankYouZaloLink || form.zaloLink || "",
-                eventStart: form.eventStart ? `${form.eventStart}:00+07:00` : "",
-                ctaScheduleLabel: form.ctaScheduleLabel || "",
-                thankYouCountdownSeconds,
                 fbPixel: form.fbPixel || "",
                 fbCapiToken: form.fbCapiToken || "",
                 fbCurrency,
@@ -880,40 +921,6 @@ const AdminLandings = () => {
                                 />
                             </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-xs font-semibold text-slate-600 mb-2">Thời gian bắt đầu</label>
-                                    <input
-                                        type="datetime-local"
-                                        className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 outline-none transition-all text-sm"
-                                        value={form.eventStart || ""}
-                                        onChange={e => setForm({ ...form, eventStart: e.target.value })}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-semibold text-slate-600 mb-2">Đếm ngược cảm ơn (giây)</label>
-                                    <input
-                                        type="number"
-                                        min="1"
-                                        className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 outline-none transition-all text-sm"
-                                        placeholder="300"
-                                        value={form.thankYouCountdownSeconds || ""}
-                                        onChange={e => setForm({ ...form, thankYouCountdownSeconds: e.target.value })}
-                                    />
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-xs font-semibold text-slate-600 mb-2">Dòng thời gian trên nút CTA</label>
-                                <input
-                                    type="text"
-                                    className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 outline-none transition-all text-sm"
-                                    placeholder="20h00, 21-22-23-24/05"
-                                    value={form.ctaScheduleLabel || ""}
-                                    onChange={e => setForm({ ...form, ctaScheduleLabel: e.target.value })}
-                                />
-                            </div>
-
                             <div>
                                 <label className="block text-xs font-semibold text-slate-600 mb-2">Link Zalo trang cảm ơn</label>
                                 <input
@@ -1062,6 +1069,60 @@ const AdminLandings = () => {
                             value={searchQuery}
                             onChange={e => setSearchQuery(e.target.value)}
                         />
+                    </div>
+                </div>
+
+                <div className="bg-white rounded-2xl border border-indigo-100 shadow-sm mb-6 overflow-hidden">
+                    <div className="p-4 bg-indigo-50/70 border-b border-indigo-100 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-white text-indigo-600 rounded-xl shadow-sm">
+                                <Settings size={18} />
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-slate-800">Lịch học chung 3 phễu</h3>
+                                <p className="text-xs text-slate-500">Áp dụng cho Landing Page Chính, Leader và Thương hiệu.</p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={handleSaveScheduleConfig}
+                            disabled={isSavingSchedule}
+                            className="inline-flex items-center justify-center gap-2 bg-indigo-600 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                        >
+                            <Save size={16} />
+                            {isSavingSchedule ? "Đang lưu..." : "Lưu lịch chung"}
+                        </button>
+                    </div>
+                    <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label className="block text-xs font-semibold text-slate-600 mb-2">Thời gian bắt đầu</label>
+                            <input
+                                type="datetime-local"
+                                className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 outline-none transition-all text-sm"
+                                value={scheduleConfig.eventStart || ""}
+                                onChange={e => setScheduleConfig({ ...scheduleConfig, eventStart: e.target.value })}
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-semibold text-slate-600 mb-2">Dòng thời gian trên nút CTA</label>
+                            <input
+                                type="text"
+                                className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 outline-none transition-all text-sm"
+                                placeholder="20h00, 21-22-23-24/05"
+                                value={scheduleConfig.ctaScheduleLabel || ""}
+                                onChange={e => setScheduleConfig({ ...scheduleConfig, ctaScheduleLabel: e.target.value })}
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-semibold text-slate-600 mb-2">Đếm ngược cảm ơn (giây)</label>
+                            <input
+                                type="number"
+                                min="1"
+                                className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 outline-none transition-all text-sm"
+                                placeholder="300"
+                                value={scheduleConfig.thankYouCountdownSeconds || ""}
+                                onChange={e => setScheduleConfig({ ...scheduleConfig, thankYouCountdownSeconds: e.target.value })}
+                            />
+                        </div>
                     </div>
                 </div>
 

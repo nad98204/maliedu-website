@@ -11,6 +11,8 @@ export const KHOI_THONG_DONG_TIEN_CONFIG = {
   thankYouCountdownSeconds: 5 * 60,
 };
 
+export const KHOI_THONG_SCHEDULE_CONFIG_DOC_ID = "khoi_thong_dong_tien_schedule";
+
 const normalizePath = (path = "") => {
   try {
     return decodeURIComponent(String(path).split("?")[0].split("#")[0])
@@ -24,13 +26,17 @@ const normalizePath = (path = "") => {
 const normalizeSourceKey = (value = "") => String(value || "").trim().toLowerCase();
 
 export const resolveKhoiThongLandingConfig = async ({ path, sourceKey, landingPageId } = {}) => {
-  const [{ crmFirestore }, { collection, getDocs }] = await Promise.all([
+  const [{ crmFirestore }, { collection, doc, getDoc, getDocs }] = await Promise.all([
     import("../../firebase"),
     import("firebase/firestore"),
   ]);
 
-  const querySnap = await getDocs(collection(crmFirestore, "landing_pages"));
+  const [querySnap, scheduleSnap] = await Promise.all([
+    getDocs(collection(crmFirestore, "landing_pages")),
+    getDoc(doc(crmFirestore, "public_settings", KHOI_THONG_SCHEDULE_CONFIG_DOC_ID)),
+  ]);
   const docs = querySnap.docs.map((item) => ({ id: item.id, ...item.data() }));
+  const sharedSchedule = scheduleSnap.exists() ? scheduleSnap.data() : {};
   const requestPath = normalizePath(path || (typeof window !== "undefined" ? window.location.pathname : ""));
   const requestSourceKey = normalizeSourceKey(sourceKey);
 
@@ -51,15 +57,22 @@ export const resolveKhoiThongLandingConfig = async ({ path, sourceKey, landingPa
       );
     });
 
-  if (!match) return KHOI_THONG_DONG_TIEN_CONFIG;
+  if (!match) {
+    return {
+      ...KHOI_THONG_DONG_TIEN_CONFIG,
+      eventStart: sharedSchedule.eventStart || KHOI_THONG_DONG_TIEN_CONFIG.eventStart,
+      ctaScheduleLabel: sharedSchedule.ctaScheduleLabel || KHOI_THONG_DONG_TIEN_CONFIG.ctaScheduleLabel,
+      thankYouCountdownSeconds: Number(sharedSchedule.thankYouCountdownSeconds) || KHOI_THONG_DONG_TIEN_CONFIG.thankYouCountdownSeconds,
+    };
+  }
 
   return {
     ...KHOI_THONG_DONG_TIEN_CONFIG,
     ...match,
     zaloLink: match.thankYouZaloLink || match.zaloLink || KHOI_THONG_DONG_TIEN_CONFIG.zaloLink,
-    eventStart: match.eventStart || KHOI_THONG_DONG_TIEN_CONFIG.eventStart,
-    ctaScheduleLabel: match.ctaScheduleLabel || KHOI_THONG_DONG_TIEN_CONFIG.ctaScheduleLabel,
-    thankYouCountdownSeconds: Number(match.thankYouCountdownSeconds) || KHOI_THONG_DONG_TIEN_CONFIG.thankYouCountdownSeconds,
+    eventStart: sharedSchedule.eventStart || match.eventStart || KHOI_THONG_DONG_TIEN_CONFIG.eventStart,
+    ctaScheduleLabel: sharedSchedule.ctaScheduleLabel || match.ctaScheduleLabel || KHOI_THONG_DONG_TIEN_CONFIG.ctaScheduleLabel,
+    thankYouCountdownSeconds: Number(sharedSchedule.thankYouCountdownSeconds) || Number(match.thankYouCountdownSeconds) || KHOI_THONG_DONG_TIEN_CONFIG.thankYouCountdownSeconds,
     landingPageId: match.id,
   };
 };
