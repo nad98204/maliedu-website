@@ -1,17 +1,25 @@
 import React, { useEffect, useRef, useState } from "react";
 import { ArrowRight, CheckCircle2, Clock, ShieldAlert } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { KHOI_THONG_DONG_TIEN_CONFIG } from "./landingConfig";
+import { KHOI_THONG_DONG_TIEN_CONFIG, useKhoiThongLandingConfig } from "./landingConfig";
 import { initMetaPixel, trackMetaEventForPixel } from "../../utils/metaPixel";
 
 const DEFAULT_ZALO_LINK = KHOI_THONG_DONG_TIEN_CONFIG.zaloLink;
 
 const CamOnKhoiThong = () => {
-  const [timeLeft, setTimeLeft] = useState(5 * 60);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const landingConfig = useKhoiThongLandingConfig({
+    sourceKey: sessionStorage.getItem("khoi_thong_source_key") || "",
+    landingPageId: sessionStorage.getItem("khoi_thong_landing_page_id") || "",
+  });
+  const [timeLeft, setTimeLeft] = useState(() => landingConfig.thankYouCountdownSeconds);
   const confirmedRef = useRef(false);
   const pixelIdRef = useRef("");
+
+  useEffect(() => {
+    setTimeLeft(landingConfig.thankYouCountdownSeconds);
+  }, [landingConfig.thankYouCountdownSeconds]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -37,6 +45,8 @@ const CamOnKhoiThong = () => {
       sessionStorage.removeItem("form_submitted");
       sessionStorage.removeItem("khoi_thong_funnel");
       sessionStorage.removeItem("khoi_thong_pixel_id");
+      sessionStorage.removeItem("khoi_thong_source_key");
+      sessionStorage.removeItem("khoi_thong_landing_page_id");
       return;
     }
 
@@ -171,7 +181,7 @@ const CamOnKhoiThong = () => {
         <div className="w-full relative group">
           <div className="absolute -inset-1 bg-[#0068FF] rounded-full blur opacity-40 group-hover:opacity-70 transition duration-500 group-hover:duration-200" />
           <a
-            href={DEFAULT_ZALO_LINK}
+            href={landingConfig.zaloLink || DEFAULT_ZALO_LINK}
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => {

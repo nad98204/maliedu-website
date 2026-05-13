@@ -32,6 +32,10 @@ const AdminLandings = () => {
         funnel_type: "ads", // Mặc định là ads
         assignedSale: "Round Robin",
         zaloLink: "",
+        thankYouZaloLink: "",
+        eventStart: "2026-05-21T20:00",
+        ctaScheduleLabel: "20h00, 21-22-23-24/05",
+        thankYouCountdownSeconds: "300",
         fbPixel: "",
         fbCapiToken: "",
         fbCurrency: "VND",
@@ -279,6 +283,10 @@ const AdminLandings = () => {
             funnel_type: normalizeFunnelType(landing.funnel_type || mappingData.funnel_type || landing.targetFunnel || "ads"),
             assignedSale: mappingData.assignedSale || "Round Robin",
             zaloLink: mappingData.targetZalo || landing.zaloLink || "",
+            thankYouZaloLink: landing.thankYouZaloLink || landing.zaloLink || "",
+            eventStart: String(landing.eventStart || "2026-05-21T20:00:00+07:00").slice(0, 16),
+            ctaScheduleLabel: landing.ctaScheduleLabel || "20h00, 21-22-23-24/05",
+            thankYouCountdownSeconds: String(landing.thankYouCountdownSeconds || 300),
             fbPixel: landing.fbPixel || "",
             fbCapiToken: landing.fbCapiToken || "",
             fbCurrency: landing.fbCurrency || "VND",
@@ -304,6 +312,10 @@ const AdminLandings = () => {
             funnel_type: "ads",
             assignedSale: "Round Robin",
             zaloLink: "",
+            thankYouZaloLink: "",
+            eventStart: "2026-05-21T20:00",
+            ctaScheduleLabel: "20h00, 21-22-23-24/05",
+            thankYouCountdownSeconds: "300",
             fbPixel: "",
             fbCapiToken: "",
             fbCurrency: "VND",
@@ -368,6 +380,8 @@ const AdminLandings = () => {
         const fbCurrency = normalizeMetaCurrency(form.fbCurrency);
         const parsedEventValue = Number(String(form.fbEventValue ?? "").replace(",", "."));
         const fbEventValue = Number.isFinite(parsedEventValue) && parsedEventValue >= 0 ? parsedEventValue : 0;
+        const parsedThankYouSeconds = Number.parseInt(form.thankYouCountdownSeconds, 10);
+        const thankYouCountdownSeconds = Number.isFinite(parsedThankYouSeconds) && parsedThankYouSeconds > 0 ? parsedThankYouSeconds : 300;
         const previousSourceKey = landings.find((landing) => landing.id === id)?.active_source_key || "";
         const assignedSaleForConfig = funnelType === "leader" ? "" : form.assignedSale;
         try {
@@ -381,6 +395,10 @@ const AdminLandings = () => {
                 active_source_key: sourceKey, // Lưu mã đã có hậu tố
                 is_maintenance: form.is_maintenance,
                 zaloLink: form.zaloLink || "",
+                thankYouZaloLink: form.thankYouZaloLink || form.zaloLink || "",
+                eventStart: form.eventStart ? `${form.eventStart}:00+07:00` : "",
+                ctaScheduleLabel: form.ctaScheduleLabel || "",
+                thankYouCountdownSeconds,
                 fbPixel: form.fbPixel || "",
                 fbCapiToken: form.fbCapiToken || "",
                 fbCurrency,
@@ -859,6 +877,51 @@ const AdminLandings = () => {
                                     placeholder="https://zalo.me/g/..."
                                     value={form.zaloLink || ""}
                                     onChange={e => setForm({ ...form, zaloLink: e.target.value })}
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-semibold text-slate-600 mb-2">Thời gian bắt đầu</label>
+                                    <input
+                                        type="datetime-local"
+                                        className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 outline-none transition-all text-sm"
+                                        value={form.eventStart || ""}
+                                        onChange={e => setForm({ ...form, eventStart: e.target.value })}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-semibold text-slate-600 mb-2">Đếm ngược cảm ơn (giây)</label>
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 outline-none transition-all text-sm"
+                                        placeholder="300"
+                                        value={form.thankYouCountdownSeconds || ""}
+                                        onChange={e => setForm({ ...form, thankYouCountdownSeconds: e.target.value })}
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-semibold text-slate-600 mb-2">Dòng thời gian trên nút CTA</label>
+                                <input
+                                    type="text"
+                                    className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 outline-none transition-all text-sm"
+                                    placeholder="20h00, 21-22-23-24/05"
+                                    value={form.ctaScheduleLabel || ""}
+                                    onChange={e => setForm({ ...form, ctaScheduleLabel: e.target.value })}
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-semibold text-slate-600 mb-2">Link Zalo trang cảm ơn</label>
+                                <input
+                                    type="text"
+                                    className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 outline-none transition-all text-sm"
+                                    placeholder="Để trống sẽ dùng Link Zalo Group"
+                                    value={form.thankYouZaloLink || ""}
+                                    onChange={e => setForm({ ...form, thankYouZaloLink: e.target.value })}
                                 />
                             </div>
 

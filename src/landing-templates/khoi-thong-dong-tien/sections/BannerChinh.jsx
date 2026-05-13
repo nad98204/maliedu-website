@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { KHOI_THONG_DONG_TIEN_CONFIG, KHOI_THONG_HERO_BANNER_URL } from "../landingConfig";
+import { KHOI_THONG_HERO_BANNER_URL, useKhoiThongLandingConfig } from "../landingConfig";
 import { trackCtaClick } from "../ctaTracking";
 import { scrollToRegistrationForm } from "../scrollToRegistration";
 
@@ -235,14 +235,15 @@ const VideoPlayer = () => {
 
 
 /* ─── Countdown ─────────────────────────────────────────────── */
-const Countdown = () => {
-  const target = useMemo(
-    () => new Date(KHOI_THONG_DONG_TIEN_CONFIG.eventStart).getTime(),
-    []
-  );
+const Countdown = ({ eventStart }) => {
+  const target = useMemo(() => {
+    const value = new Date(eventStart).getTime();
+    return Number.isFinite(value) ? value : Date.now();
+  }, [eventStart]);
   const [left, setLeft] = useState(() => Math.max(0, target - Date.now()));
 
   useEffect(() => {
+    setLeft(Math.max(0, target - Date.now()));
     const id = setInterval(() => setLeft(Math.max(0, target - Date.now())), 1000);
     return () => clearInterval(id);
   }, [target]);
@@ -294,6 +295,7 @@ function useViewportMinLg() {
 /* ─── BannerChinh ────────────────────────────────────────────── */
 const BannerChinh = () => {
   const isDesktop = useViewportMinLg();
+  const landingConfig = useKhoiThongLandingConfig();
   return (
   <section
     className="relative w-full overflow-hidden font-sans"
@@ -404,7 +406,7 @@ const BannerChinh = () => {
               <span className="flex items-center gap-1.5 mt-0.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#FFE566] animate-ping opacity-80" />
                 <span className="text-white/90 text-[0.65rem] sm:text-xs font-semibold uppercase tracking-wider">
-                  {KHOI_THONG_DONG_TIEN_CONFIG.ctaScheduleLabel}
+                  {landingConfig.ctaScheduleLabel}
                 </span>
               </span>
             </a>
@@ -421,7 +423,7 @@ const BannerChinh = () => {
 
         {/* Countdown */}
         <div className="w-full flex justify-center">
-          <Countdown />
+          <Countdown eventStart={landingConfig.eventStart} />
         </div>
       </div>
 

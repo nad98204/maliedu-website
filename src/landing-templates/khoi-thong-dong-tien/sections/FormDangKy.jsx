@@ -293,7 +293,7 @@ const FormDangKy = ({
   const routeFunnel = resolveRouteFunnel(currentPathNormalized);
   const finalFunnel = propFunnel || remoteFunnel || routeFunnel;
   const isLeader = finalFunnel === "leader";
-  const finalSourceKey = initialSourceKey || remoteConfig.active_source_key || "organic_web";
+  const finalSourceKey = remoteConfig.active_source_key || initialSourceKey || "organic_web";
 
   // Debug để kiểm soát luồng
   useEffect(() => {
@@ -497,7 +497,7 @@ const FormDangKy = ({
 
       // --- PHẦN 1: PHÂN LUỒNG & CHUẨN BỊ DATA ---
       const currentFunnel = propFunnel || cfgRemoteFunnel || routeFunnel;
-      const baseKey = initialSourceKey || cfg.active_source_key || "organic_web";
+      const baseKey = cfg.active_source_key || initialSourceKey || "organic_web";
       const linkSenderName = String(searchParams.get("l") || "").trim();
       
       const typedOtherReferrer = formState.otherReferrer.trim();
@@ -660,6 +660,8 @@ const FormDangKy = ({
       sessionStorage.setItem("form_submitted", "true");
       sessionStorage.setItem("khoi_thong_funnel", finalTargetFunnel);
       sessionStorage.setItem("khoi_thong_pixel_id", trackingEnabled ? cfg.fbPixel || "" : "");
+      sessionStorage.setItem("khoi_thong_source_key", submissionSourceKey);
+      sessionStorage.setItem("khoi_thong_landing_page_id", cfg.landingPageId || "");
       const thankYouParams = new URLSearchParams({ funnel: finalTargetFunnel });
       if (completeRegistrationEventId) {
         thankYouParams.set("eventId", completeRegistrationEventId);
