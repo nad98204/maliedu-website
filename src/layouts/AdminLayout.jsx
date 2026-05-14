@@ -205,6 +205,12 @@ const AdminLayout = () => {
               {!isCollapsed && <span className="truncate">Quản lý Học viên</span>}
             </NavLink>
           )}
+          {hasAccess("leads") && (
+            <NavLink to="/admin/leads" className={getNavClasses} title={isCollapsed ? "Quản lý Leads" : ""}>
+              <Users className="h-4 w-4 shrink-0 transition-colors" />
+              {!isCollapsed && <span className="truncate">Quản lý Leads</span>}
+            </NavLink>
+          )}
           {hasAccess("recruitment") && (
             <NavLink to="/admin/recruitment" className={getNavClasses} title={isCollapsed ? "Tuyển dụng" : ""}>
               <Briefcase className="h-4 w-4 shrink-0 transition-colors" />

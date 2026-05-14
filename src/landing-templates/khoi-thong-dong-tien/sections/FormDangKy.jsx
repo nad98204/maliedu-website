@@ -621,6 +621,23 @@ const FormDangKy = ({
         clientIp: clientIp,
       });
 
+      // --- LƯU VÀO FIRESTORE LEADS COLLECTION ---
+      try {
+        const [{ db }, { collection, addDoc }] = await Promise.all([
+          import("../../../firebase"),
+          import("firebase/firestore"),
+        ]);
+        await addDoc(collection(db, "leads"), {
+          name: nameTrim,
+          phone: formState.phone.replace(/\s/g, ""),
+          source: "khoi-thong-dong-tien",
+          createdAt: Date.now(),
+          status: "new"
+        });
+      } catch (firestoreErr) {
+        console.error("Lỗi lưu vào Firestore leads:", firestoreErr);
+      }
+
       // --- PHẦN 4: XỬ LÝ HASH DATA CHO FB ---
       const normalizedPhone = formState.phone.replace(/\D/g, "").replace(/^0/, "84");
       const hashedPhone = normalizedPhone ? await hashData(normalizedPhone) : "";

@@ -73,6 +73,7 @@ const AdminCategories = lazy(() => import("./pages/admin/AdminCategories"));
 const AdminOrders = lazy(() => import("./pages/admin/AdminOrders"));
 const AdminReviews = lazy(() => import("./pages/admin/AdminReviews"));
 const AdminStudents = lazy(() => import("./pages/admin/AdminStudents"));
+const AdminLeads = lazy(() => import("./pages/admin/AdminLeads"));
 const AdminInstructors = lazy(() => import("./pages/admin/AdminInstructors"));
 const AdminRecruitment = lazy(() => import("./pages/admin/AdminRecruitment"));
 const AdminPosts = lazy(() => import("./pages/admin/AdminPosts"));
@@ -186,6 +187,7 @@ const AppShell = () => {
               <Route path="orders" element={<AdminOrders />} />
               <Route path="reviews" element={<AdminReviews />} />
               <Route path="students" element={<AdminStudents />} />
+              <Route path="leads" element={<AdminLeads />} />
               <Route path="instructors" element={<AdminInstructors />} />
               <Route path="recruitment" element={<AdminRecruitment />} />
               <Route path="posts" element={<AdminPosts />} />
