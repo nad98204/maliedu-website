@@ -26,6 +26,7 @@ import {
   MessageSquare,
   Globe,
   Database,
+  Megaphone,
 } from "lucide-react";
 
 import { auth, db } from "../firebase";
@@ -205,10 +206,10 @@ const AdminLayout = () => {
               {!isCollapsed && <span className="truncate">Quản lý Học viên</span>}
             </NavLink>
           )}
-          {hasAccess("leads") && (
-            <NavLink to="/admin/leads" className={getNavClasses} title={isCollapsed ? "Quản lý Leads" : ""}>
-              <Users className="h-4 w-4 shrink-0 transition-colors" />
-              {!isCollapsed && <span className="truncate">Quản lý Leads</span>}
+          {hasAccess("data-ads") && (
+            <NavLink to="/admin/data-ads" className={getNavClasses} title={isCollapsed ? "Quản lý Data Ads" : ""}>
+              <Megaphone className="h-4 w-4 shrink-0 transition-colors" />
+              {!isCollapsed && <span className="truncate">Quản lý Data Ads</span>}
             </NavLink>
           )}
           {hasAccess("recruitment") && (

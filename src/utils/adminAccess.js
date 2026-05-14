@@ -10,7 +10,7 @@ export const ADMIN_MODULES = [
   { key: "orders", label: "Đơn hàng", path: "/admin/orders" },
   { key: "reviews", label: "Đánh giá", path: "/admin/reviews" },
   { key: "students", label: "Học viên", path: "/admin/students" },
-  { key: "leads", label: "Leads", path: "/admin/leads" },
+  { key: "data-ads", label: "Quản lý Data Ads", path: "/admin/data-ads" },
   { key: "instructors", label: "Giảng viên", path: "/admin/instructors" },
   { key: "recruitment", label: "Tuyển dụng", path: "/admin/recruitment" },
   { key: "testimonials", label: "Cảm nhận học viên", path: "/admin/testimonials" },

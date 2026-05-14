@@ -5,10 +5,10 @@ import {
     query,
     orderBy,
 } from 'firebase/firestore';
-import { Users, Search } from 'lucide-react';
+import { Megaphone, Search } from 'lucide-react';
 import { db } from '../../firebase';
 
-const AdminLeads = () => {
+const AdminDataAds = () => {
     const [leads, setLeads] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
@@ -46,8 +46,8 @@ const AdminLeads = () => {
                 <div className="flex flex-col xl:flex-row justify-between items-center gap-6 bg-white p-5 md:p-8 rounded-3xl shadow-sm border border-slate-100">
                     <div className="w-full xl:w-auto text-center xl:text-left flex flex-col items-center xl:items-start">
                         <h1 className="text-xl md:text-3xl font-black text-slate-900 tracking-tight flex items-center gap-2 md:gap-3 uppercase">
-                            <Users className="w-6 h-6 md:w-8 md:h-8 text-secret-wax" />
-                            Quản lý Leads
+                            <Megaphone className="w-6 h-6 md:w-8 md:h-8 text-secret-wax" />
+                            Quản lý Data Ads
                         </h1>
                         <p className="text-slate-500 mt-1 md:mt-2 text-[10px] sm:text-[11px] md:text-[13px] font-medium whitespace-nowrap tracking-tight">Danh sách đăng ký khóa học Phễu.</p>
                     </div>
@@ -148,4 +148,4 @@ const AdminLeads = () => {
     );
 };
 
-export default AdminLeads;
+export default AdminDataAds;
