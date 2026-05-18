@@ -54,6 +54,12 @@ export const ROUTE_SEO = {
       "https://res.cloudinary.com/dstukyjzd/image/upload/v1770190950/Gemini_Generated_Image_6h5i7y6h5i7y6h5i_w1qnrr.png",
     url: "/landing/thien-giao-thua",
   },
+  "/chinh-sach-bao-mat": {
+    title: "Chính sách bảo mật",
+    description:
+      "Chính sách bảo mật thông tin cá nhân của CÔNG TY TNHH TƯ VẤN MAGIC LIFE trên website luathapdan.vn.",
+    url: "/chinh-sach-bao-mat",
+  },
 };
 
 export const normalizeRoutePath = (path = "/") => {

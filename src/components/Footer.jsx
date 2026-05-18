@@ -1,5 +1,5 @@
 import React from "react";
-import { useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { MALI_LOGO_KHOI_THONG_ADS_URL, MALI_LOGO_URL } from "../constants/brandAssets.js";
 
 const Footer = () => {
@@ -160,7 +160,16 @@ const Footer = () => {
 
         <div className="border-t border-white/10 pt-6 flex flex-col md:flex-row justify-between items-center text-sm text-[#e5d3b4] gap-3">
           <span>© 2026 Mali Edu. All rights reserved.</span>
-          <span className="text-[#f7b94a] font-semibold">Designed for Success.</span>
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <Link
+              to="/chinh-sach-bao-mat"
+              className="hover:text-[#f7b94a] transition-colors"
+            >
+              Chính sách bảo mật
+            </Link>
+            <span className="hidden sm:inline text-white/25">|</span>
+            <span className="text-[#f7b94a] font-semibold">Designed for Success.</span>
+          </div>
         </div>
       </div>
     </footer>

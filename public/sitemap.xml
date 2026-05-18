@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Sitemap tự động sinh lúc build – 2026-05-13 -->
-<!-- Tổng URL: 20 (tĩnh: 20, khóa học: 0, bài viết: 0, news: 0, tuyển dụng: 0) -->
+<!-- Sitemap tự động sinh lúc build – 2026-05-18 -->
+<!-- Tổng URL: 21 (tĩnh: 21, khóa học: 0, bài viết: 0, news: 0, tuyển dụng: 0) -->
 <urlset
   xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -65,6 +65,11 @@
     <loc>https://luathapdan.vn/lien-he</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://luathapdan.vn/chinh-sach-bao-mat</loc>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
   </url>
   <url>
     <loc>https://luathapdan.vn/kien-thuc/luat-nhan-qua-hap-dan</loc>

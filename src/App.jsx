@@ -46,6 +46,7 @@ const OrderHistory = lazy(() => import("./pages/OrderHistory"));
 const OrderSuccess = lazy(() => import("./pages/OrderSuccess"));
 const Profile = lazy(() => import("./pages/Profile"));
 const Contact = lazy(() => import("./pages/Contact"));
+const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const LandingPageViewer = lazy(() => import("./pages/LandingPageViewer"));
 
@@ -157,6 +158,7 @@ const AppShell = () => {
             <Route path="/ghi-chep/:courseId" element={<CourseGhiChep />} />
             <Route path="/dang-ky" element={<Register />} />
             <Route path="/lien-he" element={<Contact />} />
+            <Route path="/chinh-sach-bao-mat" element={<PrivacyPolicy />} />
             <Route path="/gio-hang" element={<Cart />} />
             <Route path="/cart" element={<Navigate to="/gio-hang" replace />} />
             <Route path="/lich-su-don-hang" element={<OrderHistory />} />

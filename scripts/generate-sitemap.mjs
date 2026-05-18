@@ -96,6 +96,7 @@ const STATIC_ROUTES = [
   { path: "/cam-nhan",                     priority: "0.7", changefreq: "monthly" },
   { path: "/tuyen-dung",                   priority: "0.7", changefreq: "weekly"  },
   { path: "/lien-he",                      priority: "0.6", changefreq: "monthly" },
+  { path: "/chinh-sach-bao-mat",           priority: "0.5", changefreq: "yearly"  },
   // Trang kiến thức tĩnh
   { path: "/kien-thuc/luat-nhan-qua-hap-dan",  priority: "0.7", changefreq: "monthly" },
   { path: "/kien-thuc/tiem-thuc-niem-tin",      priority: "0.7", changefreq: "monthly" },
