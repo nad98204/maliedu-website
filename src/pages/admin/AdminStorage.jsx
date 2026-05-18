@@ -1,19 +1,18 @@
 import { useState, useEffect, useRef } from 'react';
 import { collection, query, getDocs, addDoc, serverTimestamp, deleteDoc, doc, where, updateDoc } from 'firebase/firestore';
-import { File, Video, Upload, Copy, Trash2, ExternalLink, Folder as FolderIcon, ChevronRight, Plus, Eye, X, Edit2, Check, ArchiveRestore, MoveRight } from 'lucide-react';
+import { File, Video, Upload, Copy, Trash2, ExternalLink, Folder as FolderIcon, ChevronRight, Plus, Eye, X, Edit2, Check, ArchiveRestore, MoveRight, Image as ImageIcon, FileText, Package, HardDrive, Download, Share2, MoreHorizontal, List, Grid2X2, Home, SlidersHorizontal } from 'lucide-react';
 import { db } from '../../firebase';
-import { uploadVideoToS3 } from '../../utils/s3UploadService';
-import { uploadToCloudinary } from '../../utils/uploadService';
+import { uploadFileToS3 } from '../../utils/s3UploadService';
 import toast from 'react-hot-toast';
 
 export default function AdminStorage() {
   const [files, setFiles] = useState([]);
+  const [allStorageFiles, setAllStorageFiles] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [uploadProvider, setUploadProvider] = useState('auto');
-
   const [folders, setFolders] = useState([]);
   const [currentFolder, setCurrentFolder] = useState(null);
+  const [folderPath, setFolderPath] = useState([]);
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [previewFile, setPreviewFile] = useState(null);
@@ -22,6 +21,12 @@ export default function AdminStorage() {
   const [editingFileName, setEditingFileName] = useState('');
   
   const [viewMode, setViewMode] = useState('storage');
+  const [displayMode, setDisplayMode] = useState('list');
+  const [activeCategory, setActiveCategory] = useState('all');
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [formatFilter, setFormatFilter] = useState('all');
+  const [sizeFilter, setSizeFilter] = useState('all');
+  const [dateFilter, setDateFilter] = useState('all');
   const [selectedItems, setSelectedItems] = useState([]);
   const [isMoveModalOpen, setIsMoveModalOpen] = useState(false);
   const [allFoldersList, setAllFoldersList] = useState([]);
@@ -78,8 +83,22 @@ export default function AdminStorage() {
 
   useEffect(() => {
     fetchItems(currentFolder, viewMode);
+    fetchAllStorageFiles();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentFolder, viewMode]);
+
+  const fetchAllStorageFiles = async () => {
+    try {
+      const snapFiles = await getDocs(query(collection(db, 'storage_files')));
+      const dataFiles = snapFiles.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter(d => !d.isDeleted);
+      dataFiles.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+      setAllStorageFiles(dataFiles);
+    } catch (error) {
+      console.error("Error fetching all storage files:", error);
+    }
+  };
 
   const fetchItems = async (folder, mode = viewMode) => {
     setSelectedItems([]);
@@ -117,6 +136,11 @@ export default function AdminStorage() {
     }
   };
 
+  const refreshItems = () => {
+    fetchItems(currentFolder);
+    fetchAllStorageFiles();
+  };
+
   const handleCreateFolder = async (e) => {
     e.preventDefault();
     if (!newFolderName.trim()) return;
@@ -128,7 +152,7 @@ export default function AdminStorage() {
       });
       setNewFolderName('');
       setIsCreatingFolder(false);
-      fetchItems(currentFolder);
+      refreshItems();
       toast.success("Đã tạo thư mục");
     } catch {
       toast.error("Lỗi tạo thư mục");
@@ -141,7 +165,7 @@ export default function AdminStorage() {
       try {
         await updateDoc(doc(db, 'storage_folders', id), { isDeleted: true, deletedAt: serverTimestamp() });
         toast.success("Đã chuyển vào thùng rác!");
-        fetchItems(currentFolder);
+        refreshItems();
       } catch {
         toast.error("Lỗi xóa thư mục");
       }
@@ -162,14 +186,9 @@ export default function AdminStorage() {
         
         let fileUrl = '';
         
-        if (uploadProvider === 'cloudinary' || (uploadProvider === 'auto' && file.type.startsWith('image/'))) {
-           const res = await uploadToCloudinary(file);
-           fileUrl = res.secureUrl;
-        } else {
-           fileUrl = await uploadVideoToS3(file, (progress) => {
-             setUploadProgress(`tệp ${i + 1}/${selectedFiles.length} (${progress}%)`);
-           });
-        }
+        fileUrl = await uploadFileToS3(file, (progress) => {
+          setUploadProgress(`tệp ${i + 1}/${selectedFiles.length} (${progress}%)`);
+        });
 
         const newFile = {
           name: file.name,
@@ -185,11 +204,11 @@ export default function AdminStorage() {
       }
       
       toast.success(`Đã tải lên thành công ${successCount} tệp!`);
-      fetchItems(currentFolder);
+      refreshItems();
     } catch (error) {
       console.error(error);
       toast.error(`Lỗi: ${error.message}. Đã tải lên ${successCount}/${selectedFiles.length} tệp.`);
-      fetchItems(currentFolder);
+      refreshItems();
     } finally {
       setIsUploading(false);
       setUploadProgress('');
@@ -202,7 +221,7 @@ export default function AdminStorage() {
       try {
         await updateDoc(doc(db, 'storage_files', id), { isDeleted: true, deletedAt: serverTimestamp() });
         toast.success("Đã chuyển vào thùng rác!");
-        fetchItems(currentFolder);
+        refreshItems();
       } catch {
         toast.error("Lỗi xóa file");
       }
@@ -213,7 +232,7 @@ export default function AdminStorage() {
     try {
       await updateDoc(doc(db, 'storage_files', id), { isDeleted: false, deletedAt: null });
       toast.success("Đã khôi phục file!");
-      fetchItems(currentFolder);
+      refreshItems();
     } catch {
       toast.error("Lỗi khôi phục file");
     }
@@ -224,7 +243,7 @@ export default function AdminStorage() {
       try {
         await deleteDoc(doc(db, 'storage_files', id));
         toast.success("Đã xóa vĩnh viễn!");
-        fetchItems(currentFolder);
+        refreshItems();
       } catch {
         toast.error("Lỗi xóa file");
       }
@@ -232,10 +251,10 @@ export default function AdminStorage() {
   };
 
   const toggleSelectAll = () => {
-    if (selectedItems.length === files.length && files.length > 0) {
+    if (selectedItems.length === filteredFiles.length && filteredFiles.length > 0) {
       setSelectedItems([]);
     } else {
-      setSelectedItems(files.map(f => f.id));
+      setSelectedItems(filteredFiles.map(f => f.id));
     }
   };
 
@@ -249,7 +268,6 @@ export default function AdminStorage() {
   };
   
   const handleBulkCopyLinks = () => {
-    const selectedFiles = files.filter(f => selectedItems.includes(f.id));
     const links = selectedFiles.map(f => f.url).join('\n');
     if (links) {
       navigator.clipboard.writeText(links);
@@ -266,7 +284,7 @@ export default function AdminStorage() {
             await updateDoc(doc(db, 'storage_files', id), { isDeleted: true, deletedAt: serverTimestamp() });
          }
          toast.success("Đã chuyển vào thùng rác");
-         fetchItems(currentFolder);
+         refreshItems();
        } catch {
          toast.error("Có lỗi xảy ra");
        }
@@ -325,7 +343,7 @@ export default function AdminStorage() {
        toast.success("Đã di chuyển file thành công");
        setIsMoveModalOpen(false);
        setSelectedMoveFolder(null);
-       fetchItems(currentFolder);
+       refreshItems();
      } catch {
        toast.error("Lỗi di chuyển file");
      }
@@ -339,7 +357,7 @@ export default function AdminStorage() {
     try {
       await updateDoc(doc(db, 'storage_files', file.id), { name: editingFileName });
       toast.success("Đã đổi tên file!");
-      fetchItems(currentFolder);
+      refreshItems();
     } catch {
       toast.error("Lỗi đổi tên file");
     } finally {
@@ -360,291 +378,542 @@ export default function AdminStorage() {
     toast.success('Đã sao chép link!');
   };
 
+  const handleBulkDownload = () => {
+    selectedFiles.forEach(file => window.open(file.url, '_blank', 'noreferrer'));
+  };
+
+  const handleBulkRename = () => {
+    if (selectedFiles.length !== 1) {
+      toast.error('Chỉ đổi tên được 1 file mỗi lần.');
+      return;
+    }
+    setEditingFileId(selectedFiles[0].id);
+    setEditingFileName(selectedFiles[0].name);
+  };
+
+  const resetFolderPath = () => {
+    setFolderPath([]);
+    setCurrentFolder(null);
+  };
+
+  const openFolder = (folder) => {
+    setFolderPath(prev => [...prev, folder]);
+    setCurrentFolder(folder);
+  };
+
+  const goBackFolder = () => {
+    const nextPath = folderPath.slice(0, -1);
+    setFolderPath(nextPath);
+    setCurrentFolder(nextPath[nextPath.length - 1] || null);
+  };
+
+  const goToFolderPathIndex = (index) => {
+    const nextPath = folderPath.slice(0, index + 1);
+    setFolderPath(nextPath);
+    setCurrentFolder(nextPath[nextPath.length - 1] || null);
+  };
+
+  const getFileExtension = (name = '') => {
+    const parts = String(name).split('.');
+    return parts.length > 1 ? parts.pop().toLowerCase() : 'khác';
+  };
+
+  const getStorageCategory = (file) => {
+    const type = file.type || '';
+    const extension = getFileExtension(file.name);
+    if (type.startsWith('image/')) return 'image';
+    if (type.startsWith('video/')) return 'video';
+    if (['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'csv'].includes(extension)) return 'document';
+    if (['zip', 'rar', '7z', 'tar', 'gz'].includes(extension)) return 'archive';
+    return 'other';
+  };
+
+  const getItemDate = (item) => item.createdAt?.toDate ? item.createdAt.toDate() : null;
+
+  const formatUpdatedAt = (item) => {
+    const date = getItemDate(item);
+    if (!date) return '-';
+    return date.toLocaleString('vi-VN', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  const getTypeLabel = (type = '') => {
+    if (type.startsWith('image/')) return 'Hình ảnh';
+    if (type.startsWith('video/')) return 'Video';
+    const extension = type.split('/')[1];
+    return extension ? extension.toUpperCase() : 'Khác';
+  };
+
+  const matchesDateFilter = (item) => {
+    if (dateFilter === 'all') return true;
+    const date = getItemDate(item);
+    if (!date) return false;
+    const now = new Date();
+    const ageMs = now.getTime() - date.getTime();
+    if (dateFilter === 'today') return date.toDateString() === now.toDateString();
+    if (dateFilter === 'week') return ageMs <= 7 * 24 * 60 * 60 * 1000;
+    if (dateFilter === 'month') return ageMs <= 30 * 24 * 60 * 60 * 1000;
+    return true;
+  };
+
+  const matchesSizeFilter = (file) => {
+    if (sizeFilter === 'all') return true;
+    const size = file.size || 0;
+    if (sizeFilter === 'small') return size < 1024 * 1024;
+    if (sizeFilter === 'medium') return size >= 1024 * 1024 && size < 50 * 1024 * 1024;
+    if (sizeFilter === 'large') return size >= 50 * 1024 * 1024;
+    return true;
+  };
+
+  const matchesFormatFilter = (file) => {
+    if (formatFilter === 'all') return true;
+    return getFileExtension(file.name) === formatFilter;
+  };
+
+  const categoryCounts = allStorageFiles.reduce((counts, file) => {
+    const category = getStorageCategory(file);
+    return { ...counts, [category]: (counts[category] || 0) + 1 };
+  }, {});
+
+  const fileSource = viewMode === 'storage' && activeCategory !== 'all'
+    ? allStorageFiles
+    : files;
+  const fileExtensions = Array.from(new Set(fileSource.map(file => getFileExtension(file.name)))).sort();
+  const filteredFolders = viewMode === 'storage' && activeCategory === 'all' && ['all', 'folders'].includes(typeFilter)
+    ? folders.filter(matchesDateFilter)
+    : [];
+  const filteredFiles = fileSource.filter(file => {
+    if (typeFilter === 'folders') return false;
+    if (activeCategory !== 'all' && getStorageCategory(file) !== activeCategory) return false;
+    return matchesDateFilter(file) && matchesSizeFilter(file) && matchesFormatFilter(file);
+  });
+  const totalVisibleItems = filteredFolders.length + filteredFiles.length;
+  const selectedFiles = fileSource.filter(f => selectedItems.includes(f.id));
+  const usedBytes = allStorageFiles.reduce((total, file) => total + (file.size || 0), 0);
+  const storageLimitBytes = 500 * 1024 * 1024 * 1024;
+  const usedPercent = Math.min(100, Math.round((usedBytes / storageLimitBytes) * 100));
+  const hasActiveFilters = typeFilter !== 'all' || formatFilter !== 'all' || sizeFilter !== 'all' || dateFilter !== 'all';
+
+  const resetFilters = () => {
+    setTypeFilter('all');
+    setFormatFilter('all');
+    setSizeFilter('all');
+    setDateFilter('all');
+  };
+
+  const handleSelectCategory = (categoryKey) => {
+    setViewMode('storage');
+    setActiveCategory(categoryKey);
+    resetFolderPath();
+    setTypeFilter(categoryKey === 'all' ? 'all' : 'files');
+    setSelectedItems([]);
+  };
+
+  const storageCategories = [
+    { key: 'all', label: 'Tất cả kho lưu trữ', count: folders.length + allStorageFiles.length, icon: FolderIcon },
+    { key: 'image', label: 'Hình ảnh', count: categoryCounts.image || 0, icon: ImageIcon },
+    { key: 'video', label: 'Video', count: categoryCounts.video || 0, icon: Video },
+    { key: 'document', label: 'Tài liệu', count: categoryCounts.document || 0, icon: FileText },
+    { key: 'archive', label: 'File nén', count: categoryCounts.archive || 0, icon: Package },
+    { key: 'other', label: 'Khác', count: categoryCounts.other || 0, icon: File },
+  ];
+
   return (
-    <div className="space-y-6">
-      <div className="flex gap-4 border-b border-slate-200">
-        <button onClick={() => {setViewMode('storage'); setCurrentFolder(null);}} className={`pb-2 font-medium px-4 transition ${viewMode === 'storage' ? 'border-b-2 border-secret-wax text-secret-wax' : 'text-slate-500 hover:text-slate-700'}`}>Tất cả kho lưu trữ</button>
-        <button onClick={() => {setViewMode('trash'); setCurrentFolder(null);}} className={`pb-2 font-medium px-4 transition ${viewMode === 'trash' ? 'border-b-2 border-red-500 text-red-500' : 'text-slate-500 hover:text-slate-700'}`}>Thùng rác</button>
-      </div>
-
-      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
-        <div className="shrink-0 max-w-full">
-          <h1 className="text-2xl font-bold text-slate-900 flex flex-wrap items-center gap-2">
-            {viewMode === 'trash' ? "Thùng rác" : (
-              <button onClick={() => setCurrentFolder(null)} className="hover:text-secret-wax transition whitespace-nowrap">Kho Lưu Trữ</button>
-            )}
-            {currentFolder && viewMode === 'storage' && (
-              <>
-                <ChevronRight className="w-5 h-5 text-slate-400 shrink-0" />
-                <span className="text-secret-wax truncate max-w-[200px] sm:max-w-xs">{currentFolder.name}</span>
-              </>
-            )}
-          </h1>
-          <p className="text-sm text-slate-500 mt-1">{viewMode === 'trash' ? "Tệp trong thùng rác sẽ tự động xóa vĩnh viễn sau 15 ngày." : "Quản lý và sắp xếp hình ảnh, video, tài liệu"}</p>
+    <div className="space-y-5">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+        <div className="flex items-center gap-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-secret-wax text-white shadow-sm shadow-red-900/20">
+            <HardDrive className="h-6 w-6" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">Kho Lưu Trữ</h1>
+            <p className="text-sm text-slate-500">Quản lý và sắp xếp hình ảnh, video, tài liệu</p>
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-3 xl:justify-end w-full xl:w-auto">
-          {selectedItems.length > 0 && viewMode === 'storage' && (
-            <div className="flex flex-wrap items-center gap-2 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100 shrink-0">
-              <span className="text-sm text-blue-700 font-medium mr-1 whitespace-nowrap">Đã chọn: {selectedItems.length}</span>
-              <button onClick={handleBulkCopyLinks} className="flex items-center gap-1.5 text-green-600 hover:bg-green-100 px-2 py-1 rounded text-sm transition whitespace-nowrap"><Copy className="w-4 h-4" /> Lấy link</button>
-              <button onClick={handleOpenMoveModal} className="flex items-center gap-1.5 text-blue-600 hover:bg-blue-100 px-2 py-1 rounded text-sm transition whitespace-nowrap"><MoveRight className="w-4 h-4" /> Di chuyển</button>
-              <button onClick={handleBulkSoftDelete} className="flex items-center gap-1.5 text-red-600 hover:bg-red-50 px-2 py-1 rounded text-sm transition whitespace-nowrap"><Trash2 className="w-4 h-4" /> Xóa</button>
+        {viewMode === 'storage' && (
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={() => setIsCreatingFolder(true)}
+              className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-secret-wax hover:text-secret-wax"
+            >
+              <Plus className="h-4 w-4" />
+              Thư mục mới
+            </button>
+            <div className="relative">
+              <input
+                type="file"
+                multiple
+                onChange={handleFileUpload}
+                className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
+                disabled={isUploading}
+              />
+              <button className="relative z-0 flex items-center gap-2 rounded-lg bg-secret-wax px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-secret-ink disabled:opacity-50">
+                <Upload className="h-4 w-4" />
+                {isUploading ? `Đang tải ${typeof uploadProgress === 'number' ? uploadProgress + '%' : uploadProgress}` : 'Tải file lên'}
+              </button>
             </div>
-          )}
-          {viewMode === 'storage' && (
-             <>
-               <button 
-                 onClick={() => setIsCreatingFolder(true)} 
-                 className="flex items-center gap-2 bg-slate-100 text-slate-700 px-4 py-2 rounded-lg hover:bg-slate-200 transition font-medium border border-slate-200"
-               >
-                 <Plus className="w-4 h-4" />
-                 Thư mục mới
-               </button>
-               <select 
-                 value={uploadProvider} 
-                 onChange={(e) => setUploadProvider(e.target.value)}
-                 className="border-slate-200 border rounded-lg px-3 py-2 text-sm text-slate-700 bg-white outline-none focus:border-secret-wax shadow-sm"
-                 disabled={isUploading}
-               >
-                 <option value="auto">Tự động (Ảnh: Cloudinary, Khác: S3)</option>
-                 <option value="cloudinary">Tải lên Cloudinary</option>
-                 <option value="s3">Tải lên Long Vân S3</option>
-               </select>
-
-               <div className="relative">
-                 <input 
-                   type="file" 
-                   multiple
-                   onChange={handleFileUpload} 
-                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10 disabled:cursor-not-allowed"
-                   disabled={isUploading}
-                 />
-                 <button className="flex items-center gap-2 bg-secret-wax text-white px-4 py-2 rounded-lg hover:bg-secret-ink transition font-medium relative z-0 disabled:opacity-50">
-                    <Upload className="w-4 h-4" />
-                    {isUploading ? `Đang tải ${typeof uploadProgress === 'number' ? uploadProgress + '%' : uploadProgress}` : 'Tải file lên'}
-                 </button>
-               </div>
-             </>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
-      {isCreatingFolder && viewMode === 'storage' && (
-        <form onSubmit={handleCreateFolder} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-3">
-          <FolderIcon className="w-5 h-5 text-slate-400" />
-          <input 
-            type="text" 
-            autoFocus
-            value={newFolderName}
-            onChange={(e) => setNewFolderName(e.target.value)}
-            placeholder="Tên thư mục mới..."
-            className="flex-1 border-none outline-none text-sm bg-transparent"
-          />
-          <button type="submit" className="text-sm font-bold text-secret-wax hover:text-secret-ink px-3">Lưu</button>
-          <button type="button" onClick={() => setIsCreatingFolder(false)} className="text-sm text-slate-400 hover:text-slate-600 px-3">Hủy</button>
-        </form>
-      )}
+      <div className="flex gap-8 border-b border-slate-200">
+        <button
+          onClick={() => { resetFolderPath(); handleSelectCategory('all'); }}
+          className={`pb-3 text-sm font-semibold transition ${viewMode === 'storage' ? 'border-b-2 border-secret-wax text-secret-wax' : 'text-slate-500 hover:text-slate-800'}`}
+        >
+          Tất cả kho lưu trữ
+        </button>
+        <button
+          onClick={() => { setViewMode('trash'); resetFolderPath(); setActiveCategory('all'); setTypeFilter('all'); setSelectedItems([]); }}
+          className={`pb-3 text-sm font-semibold transition ${viewMode === 'trash' ? 'border-b-2 border-secret-wax text-secret-wax' : 'text-slate-500 hover:text-slate-800'}`}
+        >
+          Thùng rác
+        </button>
+      </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-slate-600">
-             <thead className="bg-slate-50 text-xs uppercase text-slate-500 font-bold border-b border-slate-200">
-                <tr>
-                   {viewMode === 'storage' && (
-                     <th className="px-4 py-4 w-10">
-                       <input type="checkbox" onChange={toggleSelectAll} checked={files.length > 0 && selectedItems.length === files.length} className="rounded border-slate-300 text-secret-wax focus:ring-secret-wax cursor-pointer w-4 h-4" />
-                     </th>
-                   )}
-                   <th className="px-6 py-4">File</th>
-                   <th className="px-6 py-4">Loại</th>
-                   <th className="px-6 py-4">Kích thước</th>
-                   <th className="px-6 py-4 text-right">Hành động</th>
-                </tr>
-             </thead>
-             <tbody className="divide-y divide-slate-100">
-                {currentFolder && viewMode === 'storage' && (
-                   <tr onClick={() => setCurrentFolder(null)} className="hover:bg-slate-50 cursor-pointer">
-                      <td className="px-4 py-4"></td>
-                      <td className="px-6 py-4" colSpan="4">
-                         <div className="flex items-center gap-3 text-slate-500 font-medium">
-                            <FolderIcon className="w-5 h-5" />
-                            .. (Quay lại)
-                         </div>
-                      </td>
-                   </tr>
-                )}
-                {viewMode === 'storage' && folders.map(folder => (
-                   <tr key={folder.id} onClick={() => setCurrentFolder(folder)} className="hover:bg-slate-50 cursor-pointer group">
-                      <td className="px-4 py-4"></td>
-                      <td className="px-6 py-4">
-                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded bg-amber-50 flex items-center justify-center text-amber-500 border border-amber-100">
-                               <FolderIcon className="w-5 h-5 fill-current opacity-20" />
-                            </div>
-                            <span className="font-semibold text-slate-800">{folder.name}</span>
-                         </div>
-                      </td>
-                      <td className="px-6 py-4"><span className="px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600">Thư mục</span></td>
-                      <td className="px-6 py-4 text-slate-500">-</td>
-                      <td className="px-6 py-4 text-right">
-                         <button
-                            onClick={(e) => handleDeleteFolder(folder.id, e)}
-                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition opacity-0 group-hover:opacity-100"
-                            title="Xóa thư mục"
-                         >
-                            <Trash2 className="w-4 h-4" />
-                         </button>
-                      </td>
-                   </tr>
-                ))}
-                {files.length === 0 && (viewMode === 'trash' || folders.length === 0) ? (
-                  <tr>
-                    <td colSpan={viewMode === 'storage' ? "5" : "4"} className="py-10 text-center text-slate-500">
-                      {viewMode === 'storage' ? 'Chưa có file nào trong kho lưu trữ.' : 'Thùng rác trống.'}
-                    </td>
-                  </tr>
-                ) : (
-                  files.map((file) => (
-                    <tr 
-                       key={file.id} 
-                       className={`hover:bg-slate-50 transition-colors ${selectedItems.includes(file.id) ? 'bg-blue-50/50' : ''} ${isDragging ? 'cursor-row-resize' : ''}`}
-                       onMouseDown={(e) => viewMode === 'storage' && handleRowMouseDown(e, file.id)}
-                       onMouseEnter={() => viewMode === 'storage' && handleRowMouseEnter(file.id)}
-                    >
-                       {viewMode === 'storage' && (
-                         <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
-                           <input type="checkbox" checked={selectedItems.includes(file.id)} onChange={(e) => handleSelectItem(file.id, e)} className="rounded border-slate-300 text-secret-wax focus:ring-secret-wax cursor-pointer w-4 h-4" />
-                         </td>
-                       )}
-                       <td className="px-6 py-4">
-                          <div className="flex items-center gap-3">
-                             {file.type.startsWith('image/') ? (
-                                <img 
-                                  src={file.url} 
-                                  alt={file.name} 
-                                  className="w-10 h-10 object-cover rounded bg-slate-100 border border-slate-200 cursor-pointer hover:opacity-80 transition shrink-0"
-                                  onClick={() => setPreviewFile(file)}
-                                />
-                             ) : file.type.startsWith('video/') ? (
-                                <div 
-                                  className="relative w-10 h-10 rounded bg-black flex items-center justify-center border border-slate-200 cursor-pointer hover:opacity-80 transition overflow-hidden shrink-0"
-                                  onClick={() => setPreviewFile(file)}
-                                >
-                                   <video src={`${file.url}#t=0.1`} className="w-full h-full object-cover" preload="metadata" />
-                                   <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 hover:opacity-100 transition-opacity">
-                                      <Video className="w-4 h-4 text-white" />
-                                   </div>
-                                </div>
-                             ) : (
-                                <div className="w-10 h-10 rounded bg-slate-100 flex items-center justify-center text-slate-600 border border-slate-200">
-                                   <File className="w-5 h-5" />
-                                </div>
-                             )}
-                             <div className="flex flex-col gap-1 w-full relative group/title">
-                                {editingFileId === file.id ? (
-                                   <div className="flex items-center gap-2">
-                                     <input 
-                                       type="text"
-                                       value={editingFileName}
-                                       onChange={(e) => setEditingFileName(e.target.value)}
-                                       autoFocus
-                                       className="border-slate-300 border rounded px-2 py-1 text-sm bg-white"
-                                     />
-                                     <button onClick={() => handleRenameFile(file)} className="text-green-600 hover:text-green-700 bg-green-50 p-1.5 rounded-lg transition" title="Lưu">
-                                       <Check className="w-3.5 h-3.5" />
-                                     </button>
-                                     <button onClick={() => setEditingFileId(null)} className="text-slate-400 hover:text-slate-600 bg-slate-100 p-1.5 rounded-lg transition" title="Hủy">
-                                       <X className="w-3.5 h-3.5" />
-                                     </button>
-                                   </div>
-                                ) : (
-                                   <div className="flex items-center gap-2 max-w-[280px]">
-                                     <p className="font-medium text-slate-900 line-clamp-1 flex-1" title={file.name}>{file.name}</p>
-                                     <button
-                                       onClick={(e) => { e.stopPropagation(); setEditingFileId(file.id); setEditingFileName(file.name); }}
-                                       className="p-1.5 opacity-0 group-hover/title:opacity-100 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded bg-white transition shadow-sm border border-slate-100 absolute right-0 top-0"
-                                       title="Đổi tên"
-                                     >
-                                       <Edit2 className="w-3.5 h-3.5" />
-                                     </button>
-                                   </div>
-                                )}
-                                <p className="text-xs text-slate-500">
-                                  {file.createdAt?.toDate ? file.createdAt.toDate().toLocaleDateString('vi-VN') : ''}
-                                </p>
-                             </div>
-                          </div>
-                       </td>
-                       <td className="px-6 py-4">
-                          <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
-                             {file.type.split('/')[0] || 'Khác'}
-                          </span>
-                       </td>
-                       <td className="px-6 py-4 text-slate-500">
-                          {formatSize(file.size)}
-                       </td>
-                       <td className="px-6 py-4 text-right">
-                           <div className="flex items-center justify-end gap-2">
-                             {viewMode === 'trash' ? (
-                               <>
-                                 <button
-                                    onClick={() => handleRestoreFile(file.id)}
-                                    className="p-2 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition"
-                                    title="Khôi phục"
-                                 >
-                                    <ArchiveRestore className="w-4 h-4" />
-                                 </button>
-                                 <button
-                                    onClick={() => handlePermanentDelete(file.id)}
-                                    className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
-                                    title="Xóa vĩnh viễn"
-                                 >
-                                    <Trash2 className="w-4 h-4" />
-                                 </button>
-                               </>
-                             ) : (
-                               <>
-                                 {file.type.startsWith('image/') || file.type.startsWith('video/') ? (
-                                   <button
-                                      onClick={() => setPreviewFile(file)}
-                                      className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
-                                      title="Xem trước"
-                                   >
-                                      <Eye className="w-4 h-4" />
-                                   </button>
-                                 ) : null}
-                                 <a 
-                                    href={file.url} 
-                                    target="_blank" 
-                                    rel="noreferrer"
-                                    className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
-                                    title="Mở file"
-                                 >
-                                    <ExternalLink className="w-4 h-4" />
-                                 </a>
-                                 <button
-                                    onClick={() => copyToClipboard(file.url)}
-                                    className="p-2 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition"
-                                    title="Copy Link"
-                                 >
-                                    <Copy className="w-4 h-4" />
-                                 </button>
-                                 <button
-                                    onClick={() => handleDelete(file.id)}
-                                    className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
-                                    title="Xóa vào thùng rác"
-                                 >
-                                    <Trash2 className="w-4 h-4" />
-                                 </button>
-                               </>
-                             )}
-                           </div>
-                       </td>
+      <div className="flex flex-wrap items-center gap-2 text-sm text-slate-500">
+        <button onClick={resetFolderPath} className="rounded-md p-1.5 text-slate-500 transition hover:bg-slate-100 hover:text-secret-wax">
+          <Home className="h-4 w-4" />
+        </button>
+        <ChevronRight className="h-4 w-4 text-slate-300" />
+        <button onClick={resetFolderPath} className="font-medium transition hover:text-secret-wax">
+          Tất cả kho lưu trữ
+        </button>
+        {viewMode === 'storage' && folderPath.map((folder, index) => (
+          <span key={folder.id} className="inline-flex min-w-0 items-center gap-2">
+            <ChevronRight className="h-4 w-4 shrink-0 text-slate-300" />
+            <button
+              onClick={() => goToFolderPathIndex(index)}
+              className={`max-w-[220px] truncate font-medium transition ${index === folderPath.length - 1 ? 'text-secret-wax' : 'text-slate-500 hover:text-secret-wax'}`}
+              title={folder.name}
+            >
+              {folder.name}
+            </button>
+          </span>
+        ))}
+      </div>
+
+      <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
+        <div className="flex flex-col gap-3 border-b border-slate-100 p-3 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex flex-wrap items-center gap-2">
+            <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 outline-none transition focus:border-secret-wax">
+              <option value="all">Loại: Tất cả</option>
+              <option value="folders">Loại: Thư mục</option>
+              <option value="files">Loại: File</option>
+            </select>
+            <select value={formatFilter} onChange={(e) => setFormatFilter(e.target.value)} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 outline-none transition focus:border-secret-wax">
+              <option value="all">Định dạng: Tất cả</option>
+              {fileExtensions.map(extension => (
+                <option key={extension} value={extension}>Định dạng: {extension.toUpperCase()}</option>
+              ))}
+            </select>
+            <select value={sizeFilter} onChange={(e) => setSizeFilter(e.target.value)} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 outline-none transition focus:border-secret-wax">
+              <option value="all">Kích thước: Tất cả</option>
+              <option value="small">Dưới 1 MB</option>
+              <option value="medium">1 MB - 50 MB</option>
+              <option value="large">Trên 50 MB</option>
+            </select>
+            <select value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 outline-none transition focus:border-secret-wax">
+              <option value="all">Ngày cập nhật: Mọi thời điểm</option>
+              <option value="today">Hôm nay</option>
+              <option value="week">7 ngày gần đây</option>
+              <option value="month">30 ngày gần đây</option>
+            </select>
+            {hasActiveFilters && (
+              <button onClick={resetFilters} className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 transition hover:border-secret-wax hover:text-secret-wax">
+                Xóa bộ lọc
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <button className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700">
+              <SlidersHorizontal className="h-4 w-4" />
+              Mới nhất
+            </button>
+            <div className="flex rounded-lg border border-slate-200 bg-slate-50 p-1">
+              <button onClick={() => setDisplayMode('list')} className={`rounded-md p-2 transition ${displayMode === 'list' ? 'bg-white text-secret-wax shadow-sm' : 'text-slate-500 hover:text-slate-800'}`} title="Dạng danh sách">
+                <List className="h-4 w-4" />
+              </button>
+              <button onClick={() => setDisplayMode('grid')} className={`rounded-md p-2 transition ${displayMode === 'grid' ? 'bg-white text-secret-wax shadow-sm' : 'text-slate-500 hover:text-slate-800'}`} title="Dạng lưới">
+                <Grid2X2 className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid min-h-[560px] grid-cols-1 lg:grid-cols-[290px_minmax(0,1fr)]">
+          <aside className="flex flex-col border-b border-slate-100 bg-white p-4 lg:border-b-0 lg:border-r">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-sm font-bold text-slate-900">Danh mục</h2>
+              <button onClick={() => setIsCreatingFolder(true)} className="rounded-md border border-slate-200 p-1.5 text-slate-500 transition hover:border-secret-wax hover:text-secret-wax">
+                <Plus className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="space-y-1">
+              {storageCategories.map(category => {
+                const CategoryIcon = category.icon;
+                const isActive = viewMode === 'storage' && activeCategory === category.key;
+                return (
+                  <button
+                    key={category.key}
+                    onClick={() => handleSelectCategory(category.key)}
+                    className={`flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-sm transition ${isActive ? 'bg-red-50 text-secret-wax ring-1 ring-red-100' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
+                  >
+                    <span className="flex items-center gap-3">
+                      <CategoryIcon className={`h-4 w-4 ${category.key === 'all' ? '' : 'text-amber-500'}`} />
+                      <span className="font-semibold">{category.label}</span>
+                    </span>
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-500">{category.count}</span>
+                  </button>
+                );
+              })}
+              <button
+                onClick={() => { setViewMode('trash'); resetFolderPath(); setActiveCategory('all'); setTypeFilter('all'); setSelectedItems([]); }}
+                className={`mt-4 flex w-full items-center justify-between border-t border-slate-100 px-3 py-3 text-sm transition ${viewMode === 'trash' ? 'text-secret-wax' : 'text-slate-600 hover:text-slate-900'}`}
+              >
+                <span className="flex items-center gap-3 font-semibold">
+                  <Trash2 className="h-4 w-4" />
+                  Thùng rác
+                </span>
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-500">{viewMode === 'trash' ? files.length : 0}</span>
+              </button>
+            </div>
+
+            <div className="mt-auto rounded-lg border border-amber-100 bg-amber-50/40 p-4">
+              <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Dung lượng lưu trữ</p>
+              <p className="mt-3 text-sm font-bold text-slate-900">{formatSize(usedBytes)} <span className="font-medium text-slate-500">/ 500 GB</span></p>
+              <div className="mt-3 h-2 rounded-full bg-slate-200">
+                <div className="h-2 rounded-full bg-secret-wax" style={{ width: `${usedPercent}%` }} />
+              </div>
+            </div>
+          </aside>
+
+          <section className="min-w-0">
+            {isCreatingFolder && viewMode === 'storage' && (
+              <form onSubmit={handleCreateFolder} className="m-4 flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <FolderIcon className="h-5 w-5 text-slate-400" />
+                <input
+                  type="text"
+                  autoFocus
+                  value={newFolderName}
+                  onChange={(e) => setNewFolderName(e.target.value)}
+                  placeholder="Tên thư mục mới..."
+                  className="min-w-0 flex-1 bg-transparent text-sm outline-none"
+                />
+                <button type="submit" className="rounded-lg bg-secret-wax px-3 py-1.5 text-sm font-semibold text-white">Lưu</button>
+                <button type="button" onClick={() => setIsCreatingFolder(false)} className="rounded-lg px-3 py-1.5 text-sm font-semibold text-slate-500 hover:bg-white">Hủy</button>
+              </form>
+            )}
+
+            <div className="flex flex-col gap-3 border-b border-slate-100 p-4 xl:flex-row xl:items-center xl:justify-between">
+              {selectedItems.length > 0 && viewMode === 'storage' ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className="flex items-center gap-2 text-sm font-semibold text-slate-600">
+                    <input type="checkbox" onChange={toggleSelectAll} checked={filteredFiles.length > 0 && selectedItems.length === filteredFiles.length} className="h-4 w-4 rounded border-slate-300 text-secret-wax focus:ring-secret-wax" />
+                    Đã chọn {selectedFiles.length} mục
+                  </label>
+                  <button onClick={handleBulkCopyLinks} className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 hover:text-secret-wax"><Share2 className="h-4 w-4" /> Chia sẻ</button>
+                  <button onClick={handleBulkDownload} className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 hover:text-secret-wax"><Download className="h-4 w-4" /> Tải xuống</button>
+                  <button onClick={handleOpenMoveModal} className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 hover:text-secret-wax"><MoveRight className="h-4 w-4" /> Di chuyển</button>
+                  <button onClick={handleBulkRename} className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 hover:text-secret-wax"><Edit2 className="h-4 w-4" /> Đổi tên</button>
+                  <button onClick={handleBulkSoftDelete} className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 hover:text-red-600"><Trash2 className="h-4 w-4" /> Xóa</button>
+                </div>
+              ) : (
+                <label className="flex items-center gap-2 text-sm font-semibold text-slate-600">
+                  <input type="checkbox" onChange={toggleSelectAll} checked={filteredFiles.length > 0 && selectedItems.length === filteredFiles.length} className="h-4 w-4 rounded border-slate-300 text-secret-wax focus:ring-secret-wax" />
+                  {totalVisibleItems} mục
+                </label>
+              )}
+              <button className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:text-secret-wax" title="Tùy chọn">
+                <MoreHorizontal className="h-4 w-4" />
+              </button>
+            </div>
+
+            {displayMode === 'list' ? (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[920px] text-left text-sm">
+                  <thead className="bg-slate-50 text-xs font-bold uppercase text-slate-500">
+                    <tr>
+                      <th className="w-12 px-4 py-3"></th>
+                      <th className="px-4 py-3">Tên</th>
+                      <th className="px-4 py-3">Loại</th>
+                      <th className="px-4 py-3">Kích thước</th>
+                      <th className="px-4 py-3">Số lượng</th>
+                      <th className="px-4 py-3">Cập nhật</th>
+                      <th className="px-4 py-3 text-right">...</th>
                     </tr>
-                  ))
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {currentFolder && viewMode === 'storage' && (
+                      <tr onClick={goBackFolder} className="cursor-pointer hover:bg-slate-50">
+                        <td className="px-4 py-4"></td>
+                        <td className="px-4 py-4" colSpan="6">
+                          <div className="flex items-center gap-3 text-sm font-semibold text-slate-500">
+                            <FolderIcon className="h-5 w-5" />
+                            .. (Quay lại)
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                    {filteredFolders.map(folder => (
+                      <tr key={folder.id} onClick={() => openFolder(folder)} className="group cursor-pointer hover:bg-slate-50">
+                        <td className="px-4 py-4"></td>
+                        <td className="px-4 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-50 text-amber-500">
+                              <FolderIcon className="h-5 w-5 fill-current opacity-30" />
+                            </div>
+                            <span className="font-semibold text-slate-900">{folder.name}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-4"><span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">Thư mục</span></td>
+                        <td className="px-4 py-4 text-slate-500">1 file</td>
+                        <td className="px-4 py-4 text-slate-600">-</td>
+                        <td className="px-4 py-4 text-slate-500">{formatUpdatedAt(folder)}</td>
+                        <td className="px-4 py-4 text-right">
+                          <button onClick={(e) => handleDeleteFolder(folder.id, e)} className="rounded-lg p-2 text-slate-400 opacity-0 transition hover:bg-red-50 hover:text-red-600 group-hover:opacity-100" title="Xóa thư mục">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    {filteredFiles.map(file => (
+                      <tr
+                        key={file.id}
+                        className={`transition hover:bg-slate-50 ${selectedItems.includes(file.id) ? 'bg-red-50/70' : ''} ${isDragging ? 'cursor-row-resize' : ''}`}
+                        onMouseDown={(e) => viewMode === 'storage' && handleRowMouseDown(e, file.id)}
+                        onMouseEnter={() => viewMode === 'storage' && handleRowMouseEnter(file.id)}
+                      >
+                        <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
+                          {viewMode === 'storage' && (
+                            <input type="checkbox" checked={selectedItems.includes(file.id)} onChange={(e) => handleSelectItem(file.id, e)} className="h-4 w-4 rounded border-slate-300 text-secret-wax focus:ring-secret-wax" />
+                          )}
+                        </td>
+                        <td className="px-4 py-4">
+                          <div className="flex items-center gap-3">
+                            {file.type.startsWith('image/') ? (
+                              <img src={file.url} alt={file.name} className="h-10 w-10 shrink-0 cursor-pointer rounded-lg border border-slate-200 bg-slate-100 object-cover" onClick={() => setPreviewFile(file)} />
+                            ) : file.type.startsWith('video/') ? (
+                              <div className="relative flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-lg bg-black" onClick={() => setPreviewFile(file)}>
+                                <video src={`${file.url}#t=0.1`} className="h-full w-full object-cover" preload="metadata" />
+                                <Video className="absolute h-4 w-4 text-white" />
+                              </div>
+                            ) : (
+                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-500">
+                                <File className="h-5 w-5" />
+                              </div>
+                            )}
+                            <div className="min-w-0">
+                              {editingFileId === file.id ? (
+                                <div className="flex items-center gap-2">
+                                  <input type="text" value={editingFileName} onChange={(e) => setEditingFileName(e.target.value)} autoFocus className="w-56 rounded-lg border border-slate-300 bg-white px-2 py-1 text-sm outline-none focus:border-secret-wax" />
+                                  <button onClick={() => handleRenameFile(file)} className="rounded-md bg-green-50 p-1.5 text-green-600"><Check className="h-3.5 w-3.5" /></button>
+                                  <button onClick={() => setEditingFileId(null)} className="rounded-md bg-slate-100 p-1.5 text-slate-500"><X className="h-3.5 w-3.5" /></button>
+                                </div>
+                              ) : (
+                                <p className="truncate font-semibold text-slate-900" title={file.name}>{file.name}</p>
+                              )}
+                              <p className="text-xs text-slate-500">{getFileExtension(file.name).toUpperCase()}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-4"><span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">{getTypeLabel(file.type)}</span></td>
+                        <td className="px-4 py-4 text-slate-600">{formatSize(file.size)}</td>
+                        <td className="px-4 py-4 text-slate-500">-</td>
+                        <td className="px-4 py-4 text-slate-500">{formatUpdatedAt(file)}</td>
+                        <td className="px-4 py-4 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            {viewMode === 'trash' ? (
+                              <>
+                                <button onClick={() => handleRestoreFile(file.id)} className="rounded-lg p-2 text-slate-400 hover:bg-green-50 hover:text-green-600" title="Khôi phục"><ArchiveRestore className="h-4 w-4" /></button>
+                                <button onClick={() => handlePermanentDelete(file.id)} className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600" title="Xóa vĩnh viễn"><Trash2 className="h-4 w-4" /></button>
+                              </>
+                            ) : (
+                              <>
+                                {(file.type.startsWith('image/') || file.type.startsWith('video/')) && <button onClick={() => setPreviewFile(file)} className="rounded-lg p-2 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600" title="Xem trước"><Eye className="h-4 w-4" /></button>}
+                                <a href={file.url} target="_blank" rel="noreferrer" className="rounded-lg p-2 text-slate-400 hover:bg-blue-50 hover:text-blue-600" title="Mở file"><ExternalLink className="h-4 w-4" /></a>
+                                <button onClick={() => copyToClipboard(file.url)} className="rounded-lg p-2 text-slate-400 hover:bg-green-50 hover:text-green-600" title="Copy Link"><Copy className="h-4 w-4" /></button>
+                                <button onClick={() => handleDelete(file.id)} className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600" title="Xóa vào thùng rác"><MoreHorizontal className="h-4 w-4" /></button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {totalVisibleItems === 0 && (
+                      <tr>
+                        <td colSpan="7" className="py-12 text-center text-sm text-slate-500">
+                          {viewMode === 'storage' ? 'Chưa có mục nào phù hợp.' : 'Thùng rác trống.'}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+                {currentFolder && viewMode === 'storage' && (
+                  <button onClick={goBackFolder} className="flex min-h-[150px] flex-col items-start justify-between rounded-lg border border-dashed border-slate-200 p-4 text-left text-slate-500 transition hover:border-secret-wax hover:text-secret-wax">
+                    <FolderIcon className="h-8 w-8" />
+                    <span className="font-semibold">.. (Quay lại)</span>
+                  </button>
                 )}
-             </tbody>
-          </table>
+                {filteredFolders.map(folder => (
+                  <div key={folder.id} onClick={() => openFolder(folder)} className="group cursor-pointer rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition hover:border-secret-wax">
+                    <div className="flex items-start justify-between">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-amber-50 text-amber-500"><FolderIcon className="h-6 w-6 fill-current opacity-30" /></div>
+                      <button onClick={(e) => handleDeleteFolder(folder.id, e)} className="rounded-lg p-2 text-slate-400 opacity-0 transition hover:bg-red-50 hover:text-red-600 group-hover:opacity-100"><MoreHorizontal className="h-4 w-4" /></button>
+                    </div>
+                    <p className="mt-4 truncate font-semibold text-slate-900">{folder.name}</p>
+                    <p className="mt-1 text-xs text-slate-500">Thư mục · {formatUpdatedAt(folder)}</p>
+                  </div>
+                ))}
+                {filteredFiles.map(file => (
+                  <div key={file.id} className={`group rounded-lg border bg-white p-4 shadow-sm transition hover:border-secret-wax ${selectedItems.includes(file.id) ? 'border-secret-wax bg-red-50/60' : 'border-slate-200'}`}>
+                    <div className="flex items-center justify-between">
+                      {viewMode === 'storage' && <input type="checkbox" checked={selectedItems.includes(file.id)} onChange={(e) => handleSelectItem(file.id, e)} className="h-4 w-4 rounded border-slate-300 text-secret-wax focus:ring-secret-wax" />}
+                      <button className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-secret-wax"><MoreHorizontal className="h-4 w-4" /></button>
+                    </div>
+                    <div className="mt-3 flex h-28 items-center justify-center overflow-hidden rounded-lg bg-slate-50">
+                      {file.type.startsWith('image/') ? (
+                        <img src={file.url} alt={file.name} className="h-full w-full cursor-pointer object-cover" onClick={() => setPreviewFile(file)} />
+                      ) : file.type.startsWith('video/') ? (
+                        <video src={`${file.url}#t=0.1`} className="h-full w-full cursor-pointer object-cover" preload="metadata" onClick={() => setPreviewFile(file)} />
+                      ) : (
+                        <File className="h-10 w-10 text-slate-400" />
+                      )}
+                    </div>
+                    <p className="mt-3 truncate font-semibold text-slate-900" title={file.name}>{file.name}</p>
+                    <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
+                      <span>{getTypeLabel(file.type)}</span>
+                      <span>{formatSize(file.size)}</span>
+                    </div>
+                    <div className="mt-3 flex items-center gap-1">
+                      {(file.type.startsWith('image/') || file.type.startsWith('video/')) && <button onClick={() => setPreviewFile(file)} className="rounded-lg p-2 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600"><Eye className="h-4 w-4" /></button>}
+                      <a href={file.url} target="_blank" rel="noreferrer" className="rounded-lg p-2 text-slate-400 hover:bg-blue-50 hover:text-blue-600"><ExternalLink className="h-4 w-4" /></a>
+                      <button onClick={() => copyToClipboard(file.url)} className="rounded-lg p-2 text-slate-400 hover:bg-green-50 hover:text-green-600"><Copy className="h-4 w-4" /></button>
+                      {viewMode === 'trash' ? (
+                        <button onClick={() => handleRestoreFile(file.id)} className="rounded-lg p-2 text-slate-400 hover:bg-green-50 hover:text-green-600"><ArchiveRestore className="h-4 w-4" /></button>
+                      ) : (
+                        <button onClick={() => handleDelete(file.id)} className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 className="h-4 w-4" /></button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {totalVisibleItems === 0 && (
+                  <div className="col-span-full py-12 text-center text-sm text-slate-500">
+                    {viewMode === 'storage' ? 'Chưa có mục nào phù hợp.' : 'Thùng rác trống.'}
+                  </div>
+                )}
+              </div>
+            )}
+          </section>
         </div>
       </div>
 

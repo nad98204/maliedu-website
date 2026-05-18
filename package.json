@@ -8,6 +8,7 @@
     "build": "vite build && node scripts/generate-runtime-config.mjs && node scripts/generate-route-html.mjs && node scripts/generate-sitemap.mjs",
     "sitemap": "node scripts/generate-sitemap.mjs",
     "check:runtime-config": "node scripts/check-runtime-config.mjs",
+    "backfill:lead-search": "node scripts/backfill-lead-search-keywords.mjs",
     "lint": "eslint .",
     "preview": "vite preview"
   },

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { submitToCRM } from "../../../services/crmService";
+import { buildLeadSearchKeywords, normalizeLeadPhoneDigits, normalizeLeadSearchText } from "../../../utils/leadSearch";
 import {
   createMetaEventId,
   getMetaBrowserData,
@@ -630,6 +631,9 @@ const FormDangKy = ({
         await addDoc(collection(db, "leads"), {
           name: nameTrim,
           phone: formState.phone.replace(/\s/g, ""),
+          searchName: normalizeLeadSearchText(nameTrim),
+          searchPhone: normalizeLeadPhoneDigits(formState.phone),
+          searchKeywords: buildLeadSearchKeywords({ name: nameTrim, phone: formState.phone }),
           source: "khoi-thong-dong-tien",
           createdAt: Date.now(),
           status: "new"
