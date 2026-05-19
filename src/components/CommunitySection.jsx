@@ -1,5 +1,5 @@
 const COMMUNITY_IMAGE_URL =
-  "https://res.cloudinary.com/dstukyjzd/image/upload/v1767860452/C%E1%BB%99ng_%C4%90%E1%BB%93ng_Lu%E1%BA%ADt_H%E1%BA%A5p_D%E1%BA%ABn_Vi%E1%BB%87t_Nam_ztmdwv.png";
+  "https://s3-hn1-api.longvan.vn/video-khoa-hoc/files/1779204979511-470024008-C-ng---ng-lu-t-h-p-d-n.jpg";
 const COMMUNITY_LINK =
   "https://www.facebook.com/groups/1567840277339435";
 
@@ -37,7 +37,7 @@ const CommunitySection = () => {
       <div className="relative max-w-6xl mx-auto px-6 lg:px-8">
         <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
           <div className="flex justify-center lg:justify-start">
-            <div className="rounded-3xl bg-white/70 p-4 sm:p-6 shadow-xl ring-1 ring-black/5 transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-2xl">
+            <div className="rounded-3xl bg-white/70 p-2 sm:p-3 shadow-xl ring-1 ring-black/5 transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-2xl">
               <div className="overflow-hidden rounded-2xl bg-white">
                 <img
                   src={COMMUNITY_IMAGE_URL}

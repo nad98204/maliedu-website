@@ -5,7 +5,7 @@ const PROGRAMS = [
   {
     title: "Luật Hấp Dẫn",
     image:
-      "https://res.cloudinary.com/dstukyjzd/image/upload/v1767682596/LU%E1%BA%ACT_H%E1%BA%A4P_D%E1%BA%AAN_dnrvn0.jpg",
+      "https://s3-hn1-api.longvan.vn/video-khoa-hoc/files/1779202338159-779090844-LU-T-H-P-D-N.jpg",
     summary:
       "Tiếp cận Luật Hấp Dẫn như một hệ thống làm việc với tiềm thức, cảm xúc và niềm tin gốc rễ để thay đổi cuộc sống từ bên trong.",
     bullets: [
@@ -31,7 +31,7 @@ const PROGRAMS = [
   {
     title: "Khơi Thông Dòng Tiền",
     image:
-      "https://res.cloudinary.com/dstukyjzd/image/upload/v1767682614/Kh%C6%A1i_Th%C3%B4ng_D%C3%B2ng_Ti%E1%BB%81n_M%C3%A0u_Xanh_sjajsx.jpg",
+      "https://s3-hn1-api.longvan.vn/video-khoa-hoc/files/1779202337250-376330130-Kh-i-Th-ng-D-ng-Ti-n.jpg",
     summary:
       "Chữa lành mối quan hệ với tài chính, gỡ niềm tin giới hạn và mở rộng dòng chảy thu nhập bền vững.",
     bullets: [
@@ -58,7 +58,7 @@ const PROGRAMS = [
   {
     title: "Vút Tốc Mục Tiêu",
     image:
-      "https://res.cloudinary.com/dstukyjzd/image/upload/v1767682425/V%C3%BAt_T%E1%BB%91c_M%E1%BB%A5c_Ti%C3%AAu_2024_b%E1%BA%A3n_2_d6mhn3.jpg",
+      "https://s3-hn1-api.longvan.vn/video-khoa-hoc/files/1779202338584-594051152-V-t-T-c-M-c-Ti-u-web.jpg",
     summary:
       "Kết nối mục tiêu với tiềm thức và hành động thực tế để tăng tốc kết quả trong công việc & cuộc sống.",
     bullets: [

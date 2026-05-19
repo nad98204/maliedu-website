@@ -7,7 +7,7 @@ const teamMembers = [
     role: "LEADER",
     tagline: "Dẫn dắt – Đồng hành – Giữ nhịp phát triển",
     photo:
-      "https://res.cloudinary.com/dstukyjzd/image/upload/v1767858349/Th%C3%A0nh_Seven_di3gc8.jpg",
+      "https://s3-hn1-api.longvan.vn/video-khoa-hoc/files/1779205465221-26736724-Th-nh-Seven.jpg",
     facebook: "https://facebook.com/thanhseven",
     zalo: "https://zalo.me/0123456789",
   },
@@ -17,7 +17,7 @@ const teamMembers = [
     role: "LEADER",
     tagline: "Dẫn dắt – Đồng hành – Giữ nhịp phát triển",
     photo:
-      "https://res.cloudinary.com/dstukyjzd/image/upload/v1767859693/V%C4%83n_Tr%C6%B0%E1%BB%9Dng_fb4t6g.jpg",
+      "https://s3-hn1-api.longvan.vn/video-khoa-hoc/files/1779205465942-91679980-V-n-Tr--ng.jpg",
     facebook: "https://facebook.com/vantruong",
     zalo: "https://zalo.me/0123456789",
   },
@@ -27,7 +27,7 @@ const teamMembers = [
     role: "LEADER",
     tagline: "Dẫn dắt – Đồng hành – Giữ nhịp phát triển",
     photo:
-      "https://res.cloudinary.com/dstukyjzd/image/upload/v1767858349/%C4%90%E1%BB%A9c_Tu%E1%BB%87_b4tqz7.jpg",
+      "https://s3-hn1-api.longvan.vn/video-khoa-hoc/files/1779205466365-83289387---c-Tu-.jpg",
     facebook: "https://facebook.com/ductue",
     zalo: "https://zalo.me/0123456789",
   },
