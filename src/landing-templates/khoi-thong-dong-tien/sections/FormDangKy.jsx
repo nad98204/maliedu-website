@@ -374,7 +374,7 @@ const FormDangKy = ({
         const normalized = value.replace(/\D/g, "").replace(/^0/, "84");
         if (normalized.length < 9) return;
         const hashed = await hashData(normalized);
-        if (hashed) setMetaUserData({ ph: [hashed] });
+        if (hashed) setMetaUserData({ ph: [hashed] }, remoteConfig.fbPixel);
       } else if (field === "name") {
         const parts = value.trim().split(/\s+/).filter(Boolean);
         if (parts.length === 0) return;
@@ -386,7 +386,7 @@ const FormDangKy = ({
           ...(hashedFn ? { fn: [hashedFn] } : {}),
           ...(hashedLn ? { ln: [hashedLn] } : {}),
         };
-        if (Object.keys(userData).length > 0) setMetaUserData(userData);
+        if (Object.keys(userData).length > 0) setMetaUserData(userData, remoteConfig.fbPixel);
       }
     } catch {
       // silent fail - không ảnh hưởng UX
@@ -670,7 +670,7 @@ const FormDangKy = ({
       // 5.1 Browser Pixel
       if (trackingEnabled && cfg.fbPixel) {
         initMetaPixel(cfg.fbPixel);
-        setMetaUserData(userDataCommon);
+        setMetaUserData(userDataCommon, cfg.fbPixel);
         // Chú ý: Ở đây chỉ bắn Lead. CompleteRegistration bắn ở trang Cảm ơn.
         trackMetaEventForPixel(cfg.fbPixel, "Lead", leadEventData, { eventID: leadEventId });
       }

@@ -4,6 +4,19 @@ const DEFAULT_META_CURRENCY = "VND";
 const getWindow = () => (typeof window !== "undefined" ? window : null);
 const getDocument = () => (typeof document !== "undefined" ? document : null);
 const META_COOKIE_MAX_AGE_SECONDS = 90 * 24 * 60 * 60;
+const META_BROWSER_USER_DATA_KEYS = new Set([
+  "em",
+  "ph",
+  "fn",
+  "ln",
+  "ge",
+  "db",
+  "ct",
+  "st",
+  "zp",
+  "country",
+  "external_id",
+]);
 
 const normalizeMetaValue = (value, fallback = 0) => {
   if (typeof value === "number") {
@@ -98,22 +111,57 @@ export const ensureMetaPixel = () => {
   return win.fbq;
 };
 
-export const setMetaUserData = (userData) => {
-  const win = getWindow();
-  if (!win?.fbq || !userData) return;
+const sanitizeMetaUserData = (userData) => {
+  if (!userData || typeof userData !== "object") return {};
 
-  // Browser SDK expects strings, not arrays for user_data
   const sanitizedData = {};
   Object.keys(userData).forEach((key) => {
+    if (!META_BROWSER_USER_DATA_KEYS.has(key)) return;
     const val = userData[key];
-    if (Array.isArray(val)) {
-      if (val.length > 0) sanitizedData[key] = val[0];
-    } else {
-      sanitizedData[key] = val;
-    }
+    const normalizedValue = Array.isArray(val) ? val[0] : val;
+    if (normalizedValue == null || normalizedValue === "") return;
+    sanitizedData[key] = String(normalizedValue);
   });
 
-  win.fbq("set", "user_data", sanitizedData);
+  return sanitizedData;
+};
+
+const createStableFingerprint = (data) =>
+  JSON.stringify(
+    Object.keys(data || {})
+      .sort()
+      .reduce((acc, key) => {
+        acc[key] = data[key];
+        return acc;
+      }, {})
+  );
+
+const mergeMetaUserData = (win, userData) => {
+  const sanitizedData = sanitizeMetaUserData(userData);
+  if (!win || Object.keys(sanitizedData).length === 0) return {};
+
+  win.__maliMetaUserData = {
+    ...(win.__maliMetaUserData || {}),
+    ...sanitizedData,
+  };
+
+  return win.__maliMetaUserData;
+};
+
+export const setMetaUserData = (userData, pixelId) => {
+  const win = getWindow();
+  const mergedData = mergeMetaUserData(win, userData);
+  if (!win || Object.keys(mergedData).length === 0) return;
+
+  if (!import.meta.env.PROD) {
+    console.log("[MetaPixel:dev] userData", { pixelId, userData: mergedData });
+    return;
+  }
+
+  const targetPixelId = pixelId || win.__maliCurrentPixelId;
+  if (targetPixelId) {
+    initMetaPixel(targetPixelId, mergedData);
+  }
 };
 
 export const initMetaPixel = (pixelId, userData) => {
@@ -130,14 +178,28 @@ export const initMetaPixel = (pixelId, userData) => {
   if (!win.__maliMetaPixelInitialized) {
     win.__maliMetaPixelInitialized = new Set();
   }
+  if (!win.__maliMetaPixelUserDataFingerprint) {
+    win.__maliMetaPixelUserDataFingerprint = {};
+  }
+
+  const mergedUserData = mergeMetaUserData(win, userData);
+  const hasUserData = Object.keys(mergedUserData).length > 0;
+  const userDataFingerprint = hasUserData ? createStableFingerprint(mergedUserData) : "";
 
   if (!win.__maliMetaPixelInitialized.has(pixelId)) {
-    if (userData && Object.keys(userData).length > 0) {
-      fbq("init", pixelId, userData);
+    if (hasUserData) {
+      fbq("init", pixelId, mergedUserData);
+      win.__maliMetaPixelUserDataFingerprint[pixelId] = userDataFingerprint;
     } else {
       fbq("init", pixelId);
     }
     win.__maliMetaPixelInitialized.add(pixelId);
+  } else if (
+    hasUserData &&
+    win.__maliMetaPixelUserDataFingerprint[pixelId] !== userDataFingerprint
+  ) {
+    fbq("init", pixelId, mergedUserData);
+    win.__maliMetaPixelUserDataFingerprint[pixelId] = userDataFingerprint;
   }
 
   return fbq;
