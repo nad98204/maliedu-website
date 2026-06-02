@@ -76,6 +76,9 @@ export const submitToCRM = async (formData) => {
             "Đăng ký từ Landing Page";
 
         // 2. Đóng gói dữ liệu đúng chuẩn CRM yêu cầu (Theo tài liệu tích hợp)
+        const isLeaderFunnel = funnelType === "leader";
+        const initialAssignee = isLeaderFunnel ? (formData.assigned_to || "") : "";
+
         const payload = {
             name: formData.name || "Khách hàng mới",
             phone: formData.phone,
@@ -121,10 +124,10 @@ export const submitToCRM = async (formData) => {
             is_learned_loa: formData.is_learned_loa || "",
             hasRegisteredLHD: formData.is_learned_loa === "ĐÃ HỌC LUẬT HẤP DẪN", // CRM Live dùng trường này
             funnel_channel: formData.funnel_channel || "",
-            assigned_to: formData.assigned_to || "",
-            assignedName: formData.assigned_to || "", // CRM Live dùng trường này
+            assigned_to: initialAssignee,
+            assignedName: initialAssignee, // CRM Live dùng trường này
             registered_loa: formData.registered_loa || "",
-            staff_in_charge: formData.staff_in_charge || "",
+            staff_in_charge: isLeaderFunnel ? (formData.staff_in_charge || initialAssignee) : "",
 
             // TRACKING IDs
             meta_event_id: formData.meta_event_id || "",

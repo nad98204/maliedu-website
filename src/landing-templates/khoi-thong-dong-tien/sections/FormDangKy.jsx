@@ -514,11 +514,12 @@ const FormDangKy = ({
       
       let finalTargetFunnel;
       let funnelChannel;
-      let assignedTo = selectedLeaderName;
+      let assignedTo = "";
 
       if (currentFunnel === "leader") {
         finalTargetFunnel = "leader";
         funnelChannel = "leader_funnel";
+        assignedTo = selectedLeaderName;
       } else if (currentFunnel === "thuonghieu") {
         finalTargetFunnel = "thuonghieu";
         funnelChannel = "thuonghieu_funnel";
