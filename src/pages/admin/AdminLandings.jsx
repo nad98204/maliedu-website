@@ -188,7 +188,7 @@ const AdminLandings = () => {
         previousSourceKey,
     }) => {
         const normalizedFunnelType = normalizeFunnelType(funnelType || targetFunnel);
-        const normalizedAssignedSale = normalizedFunnelType === "leader" ? "" : (assignedSale || "Round Robin");
+        const normalizedAssignedSale = normalizedFunnelType === "leader" ? "" : "Round Robin";
         await setDoc(doc(crmFirestore, "source_configs", sourceKey), {
             id: sourceKey,
             sourceKey,
@@ -900,18 +900,10 @@ const AdminLandings = () => {
                                     </div>
                                 </div>
                             ) : (
-                                <div>
-                                    <label className="block text-xs font-semibold text-slate-600 mb-2">Sale phụ trách</label>
-                                    <select
-                                        className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 outline-none transition-all text-sm font-medium cursor-pointer"
-                                        value={form.assignedSale}
-                                        onChange={e => setForm({ ...form, assignedSale: e.target.value })}
-                                    >
-                                        <option value="Round Robin">Chia Vòng Tròn (Auto)</option>
-                                        {crmSaleUsers.map(u => (
-                                            <option key={u.email} value={u.name}>{u.name} ({u.team})</option>
-                                        ))}
-                                    </select>
+                                <div className="rounded-xl border border-indigo-100 bg-indigo-50 p-4">
+                                    <p className="text-xs font-bold uppercase tracking-wide text-indigo-700">Sale phụ trách</p>
+                                    <p className="mt-1 text-sm font-semibold text-slate-700">CRM tự chia theo tỷ lệ của từng phễu.</p>
+                                    <p className="mt-1 text-xs text-slate-500">Website chỉ gửi mã nguồn, khóa K và đích đến phễu; không gán sale tại màn Landing.</p>
                                 </div>
                             )}
 

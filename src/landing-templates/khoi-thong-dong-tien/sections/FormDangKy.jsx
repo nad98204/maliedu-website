@@ -580,7 +580,10 @@ const FormDangKy = ({
         utm_owner_slug: utmOwnerSlug,
         courseName: "Khơi Thông Dòng Tiền - Phễu",
         targetFunnel: finalTargetFunnel,
-        funnel_type: finalTargetFunnel,
+        funnel_type:
+          finalTargetFunnel === "leader"
+            ? "leader_funnel"
+            : finalTargetFunnel,
         source_type:
           finalTargetFunnel === "ads"
             ? "ads"
@@ -604,7 +607,7 @@ const FormDangKy = ({
         leaderUtm: utmOwnerSlug,
         leaderSlug: utmOwnerSlug,
         introducedBy: directIntroducerName,
-        staff_in_charge: assignedTo,
+        staff_in_charge: finalTargetFunnel === "leader" ? assignedTo : "",
         course_k: currentBatch,
         batch_id: currentBatch,
         source_key: submissionSourceKey,

@@ -1,5 +1,7 @@
 import { Buffer } from "node:buffer";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import process from "node:process";
+import { Readable } from "node:stream";
 
 import { onRequest } from "firebase-functions/v2/https";
 import { onValueCreated } from "firebase-functions/v2/database";
@@ -15,6 +17,8 @@ const CRM_DATABASE_URL =
   "https://dangpkkzxy-default-rtdb.asia-southeast1.firebasedatabase.app";
 const crmAdminApp = initializeApp({ databaseURL: CRM_DATABASE_URL }, "crm-admin");
 const crmDatabase = getDatabase(crmAdminApp);
+const STORAGE_MEDIA_TOKEN_TTL_SECONDS = 2 * 60 * 60;
+const STORAGE_MEDIA_MAX_RANGE_BYTES = 8 * 1024 * 1024;
 
 import { onRequestPost as onAbort } from "./api/s3-multipart/abort.js";
 import { onRequestPost as onComplete } from "./api/s3-multipart/complete.js";
@@ -73,8 +77,60 @@ const onCreateCrmLead = async ({ request }) => {
   return createJsonResponse({ success: true, id: leadRef.key });
 };
 
+const onGetStorageShare = async ({ request }) => {
+  const requestUrl = new URL(request.url);
+  const fileId = String(requestUrl.searchParams.get("id") || "").trim();
+
+  if (!fileId || fileId.length > 200 || fileId.includes("/")) {
+    return createJsonResponse({ error: "Media not found" }, 404);
+  }
+
+  const fileSnapshot = await firestore.collection("storage_files").doc(fileId).get();
+
+  if (!fileSnapshot.exists) {
+    return createJsonResponse({ error: "Media not found" }, 404);
+  }
+
+  const file = fileSnapshot.data() || {};
+  const type = String(file.type || "");
+  const isShareableMedia = type.startsWith("image/") || type.startsWith("video/");
+
+  if (!file.isPublic || file.isDeleted || !isShareableMedia || !file.url) {
+    return createJsonResponse({ error: "Media not found" }, 404);
+  }
+
+  const isVideo = type.startsWith("video/");
+  const expires = Math.floor(Date.now() / 1000) + STORAGE_MEDIA_TOKEN_TTL_SECONDS;
+  const createMediaPath = (mode) => {
+    const token = createStorageMediaToken({
+      fileId: fileSnapshot.id,
+      expires,
+      mode,
+    });
+    const params = new URLSearchParams({
+      id: fileSnapshot.id,
+      expires: String(expires),
+      mode,
+      token,
+    });
+    return `/api/storage-media?${params.toString()}`;
+  };
+
+  return createJsonResponse({
+    id: fileSnapshot.id,
+    name: String(file.name || "Media Mali Edu"),
+    type,
+    size: Number(file.size) || 0,
+    mediaUrl: isVideo ? createMediaPath("stream") : String(file.url),
+    allowDownload: isVideo && file.allowDownload === true,
+    downloadUrl: isVideo && file.allowDownload === true ? createMediaPath("download") : null,
+    createdAt: file.createdAt?.toDate?.().toISOString() || null,
+  });
+};
+
 const ROUTES = new Map([
   ["POST /api/crm-leads", onCreateCrmLead],
+  ["GET /api/storage-share", onGetStorageShare],
   ["GET /api/s3-multipart/health", onHealth],
   ["POST /api/s3-multipart/abort", onAbort],
   ["POST /api/s3-multipart/complete", onComplete],
@@ -95,6 +151,128 @@ const normalizeRequestPath = (request) => {
     : withoutQuery;
 
   return normalizedPath.replace(/\/+$/, "") || "/";
+};
+
+const getStorageMediaTokenSecret = () =>
+  process.env.STORAGE_MEDIA_TOKEN_SECRET ||
+  process.env.VITE_S3_SECRET_KEY ||
+  process.env.S3_SECRET_KEY ||
+  "";
+
+const createStorageMediaToken = ({ fileId, expires, mode }) => {
+  const secret = getStorageMediaTokenSecret();
+  if (!secret) {
+    throw new Error("Missing storage media token secret");
+  }
+
+  return createHmac("sha256", secret)
+    .update(`${fileId}:${expires}:${mode}`)
+    .digest("base64url");
+};
+
+const isValidStorageMediaToken = ({ fileId, expires, mode, token }) => {
+  if (!token || !Number.isInteger(expires) || expires < Math.floor(Date.now() / 1000)) {
+    return false;
+  }
+
+  const expected = createStorageMediaToken({ fileId, expires, mode });
+  const expectedBuffer = Buffer.from(expected);
+  const tokenBuffer = Buffer.from(token);
+  return expectedBuffer.length === tokenBuffer.length && timingSafeEqual(expectedBuffer, tokenBuffer);
+};
+
+const parseCappedRange = (rangeHeader, totalSize) => {
+  const match = /^bytes=(\d+)-(\d*)$/i.exec(String(rangeHeader || "").trim());
+  if (!match || !Number.isFinite(totalSize) || totalSize <= 0) return null;
+
+  const start = Number(match[1]);
+  const requestedEnd = match[2] ? Number(match[2]) : totalSize - 1;
+  if (!Number.isInteger(start) || !Number.isInteger(requestedEnd) || start >= totalSize || requestedEnd < start) {
+    return null;
+  }
+
+  return {
+    start,
+    end: Math.min(requestedEnd, start + STORAGE_MEDIA_MAX_RANGE_BYTES - 1, totalSize - 1),
+  };
+};
+
+const pipeWebResponseBody = (body, response) =>
+  new Promise((resolve, reject) => {
+    const stream = Readable.fromWeb(body);
+    stream.on("error", reject);
+    response.on("finish", resolve);
+    response.on("close", resolve);
+    stream.pipe(response);
+  });
+
+const handleStorageMediaRequest = async (request, response) => {
+  const requestUrl = new URL(
+    `${request.protocol || "https"}://${request.get("host")}${request.originalUrl || request.url || "/"}`,
+  );
+  const fileId = String(requestUrl.searchParams.get("id") || "").trim();
+  const mode = requestUrl.searchParams.get("mode") === "download" ? "download" : "stream";
+  const expires = Number(requestUrl.searchParams.get("expires"));
+  const token = String(requestUrl.searchParams.get("token") || "");
+
+  if (!fileId || fileId.includes("/") || !isValidStorageMediaToken({ fileId, expires, mode, token })) {
+    return response.status(404).set("cache-control", "no-store").send("Media not found");
+  }
+
+  const fileSnapshot = await firestore.collection("storage_files").doc(fileId).get();
+  const file = fileSnapshot.exists ? fileSnapshot.data() || {} : {};
+  const type = String(file.type || "");
+  const isVideo = type.startsWith("video/");
+
+  if (!fileSnapshot.exists || !file.isPublic || file.isDeleted || !isVideo || !file.url) {
+    return response.status(404).set("cache-control", "no-store").send("Media not found");
+  }
+
+  if (mode === "download" && file.allowDownload !== true) {
+    return response.status(404).set("cache-control", "no-store").send("Media not found");
+  }
+
+  const upstreamHeaders = {};
+  if (mode === "stream") {
+    const range = parseCappedRange(request.headers.range, Number(file.size));
+    if (!range) {
+      return response
+        .status(416)
+        .set({
+          "accept-ranges": "bytes",
+          "cache-control": "no-store",
+          "content-range": `bytes */${Number(file.size) || "*"}`,
+        })
+        .send("Range request required");
+    }
+    upstreamHeaders.range = `bytes=${range.start}-${range.end}`;
+  }
+
+  const upstream = await fetch(String(file.url), { headers: upstreamHeaders });
+  if (!upstream.ok || !upstream.body) {
+    return response.status(upstream.status || 502).set("cache-control", "no-store").send("Unable to load media");
+  }
+  if (mode === "stream" && upstream.status !== 206) {
+    return response.status(502).set("cache-control", "no-store").send("Media range streaming unavailable");
+  }
+
+  response.status(mode === "stream" ? 206 : 200);
+  response.set({
+    "accept-ranges": "bytes",
+    "cache-control": "private, no-store, max-age=0",
+    "content-type": upstream.headers.get("content-type") || type || "video/mp4",
+    "content-disposition": mode === "download"
+      ? `attachment; filename*=UTF-8''${encodeURIComponent(String(file.name || "video.mp4"))}`
+      : "inline",
+    "x-content-type-options": "nosniff",
+  });
+
+  const contentLength = upstream.headers.get("content-length");
+  const contentRange = upstream.headers.get("content-range");
+  if (contentLength) response.set("content-length", contentLength);
+  if (contentRange) response.set("content-range", contentRange);
+
+  return pipeWebResponseBody(upstream.body, response);
 };
 
 const getRawBodyText = (request) => {
@@ -269,7 +447,17 @@ export const uploadApi = onRequest(
     region: "asia-southeast1",
   },
   async (request, response) => {
-    const routeKey = `${request.method.toUpperCase()} ${normalizeRequestPath(request)}`;
+    const normalizedPath = normalizeRequestPath(request);
+    if (request.method.toUpperCase() === "GET" && normalizedPath === "/api/storage-media") {
+      try {
+        return await handleStorageMediaRequest(request, response);
+      } catch (error) {
+        console.error("Storage media proxy error:", error);
+        return response.status(500).set("cache-control", "no-store").send("Unable to load media");
+      }
+    }
+
+    const routeKey = `${request.method.toUpperCase()} ${normalizedPath}`;
     const handler = ROUTES.get(routeKey);
 
     if (!handler) {

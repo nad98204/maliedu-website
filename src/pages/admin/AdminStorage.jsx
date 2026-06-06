@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { collection, query, getDocs, addDoc, serverTimestamp, deleteDoc, doc, where, updateDoc } from 'firebase/firestore';
-import { File, Video, Upload, Copy, Trash2, ExternalLink, Folder as FolderIcon, ChevronRight, Plus, Eye, X, Edit2, Check, ArchiveRestore, MoveRight, Image as ImageIcon, FileText, Package, HardDrive, Download, Share2, MoreHorizontal, List, Grid2X2, Home, SlidersHorizontal } from 'lucide-react';
+import { File, Video, Upload, Copy, Trash2, ExternalLink, Folder as FolderIcon, ChevronRight, Plus, Eye, X, Edit2, Check, ArchiveRestore, MoveRight, Image as ImageIcon, FileText, Package, HardDrive, Download, Share2, MoreHorizontal, List, Grid2X2, Home, SlidersHorizontal, Link2Off } from 'lucide-react';
 import { db } from '../../firebase';
 import { uploadFileToS3 } from '../../utils/s3UploadService';
+import { SITE_URL } from '../../seo/routeSeo';
 import toast from 'react-hot-toast';
 
 export default function AdminStorage() {
@@ -196,6 +197,8 @@ export default function AdminStorage() {
           type: file.type || 'unknown',
           size: file.size,
           folderId: currentFolder ? currentFolder.id : "root",
+          isPublic: false,
+          allowDownload: false,
           createdAt: serverTimestamp()
         };
 
@@ -267,13 +270,84 @@ export default function AdminStorage() {
     }
   };
   
-  const handleBulkCopyLinks = () => {
-    const links = selectedFiles.map(f => f.url).join('\n');
-    if (links) {
-      navigator.clipboard.writeText(links);
-      toast.success(`Đã sao chép ${selectedFiles.length} link!`);
-    } else {
-      toast.error('Không tìm thấy link nào.');
+  const isShareableMedia = (file) =>
+    file?.type?.startsWith('image/') || file?.type?.startsWith('video/');
+
+  const getShareUrl = (fileId) => `${SITE_URL}/xem/${fileId}`;
+
+  const enablePublicShare = async (file) => {
+    if (!isShareableMedia(file)) {
+      throw new Error('Chỉ có thể chia sẻ ảnh hoặc video.');
+    }
+
+    if (!file.isPublic) {
+      await updateDoc(doc(db, 'storage_files', file.id), {
+        isPublic: true,
+        sharedAt: serverTimestamp(),
+      });
+    }
+  };
+
+  const handleCopyShareLink = async (file) => {
+    try {
+      await enablePublicShare(file);
+      await navigator.clipboard.writeText(getShareUrl(file.id));
+      toast.success(file.isPublic ? 'Đã sao chép link xem!' : 'Đã bật chia sẻ và sao chép link xem!');
+      refreshItems();
+    } catch (error) {
+      toast.error(error.message || 'Không thể tạo link xem.');
+    }
+  };
+
+  const handleDisablePublicShare = async (file) => {
+    try {
+      await updateDoc(doc(db, 'storage_files', file.id), {
+        isPublic: false,
+        sharedAt: null,
+      });
+      toast.success('Đã tắt chia sẻ công khai.');
+      refreshItems();
+    } catch {
+      toast.error('Không thể tắt chia sẻ.');
+    }
+  };
+
+  const handleToggleVideoDownload = async (file) => {
+    if (!file?.type?.startsWith('video/')) return;
+
+    const nextAllowDownload = !file.allowDownload;
+    try {
+      await updateDoc(doc(db, 'storage_files', file.id), {
+        allowDownload: nextAllowDownload,
+      });
+      toast.success(nextAllowDownload ? 'Đã bật tải video.' : 'Đã tắt tải video.');
+      refreshItems();
+    } catch {
+      toast.error('Không thể cập nhật quyền tải video.');
+    }
+  };
+
+  const handleBulkCopyLinks = async () => {
+    const shareableFiles = selectedFiles.filter(isShareableMedia);
+    const skippedCount = selectedFiles.length - shareableFiles.length;
+
+    if (!shareableFiles.length) {
+      toast.error('Không có ảnh hoặc video nào để chia sẻ.');
+      return;
+    }
+
+    try {
+      await Promise.all(shareableFiles.map(enablePublicShare));
+      const links = shareableFiles.map(file => getShareUrl(file.id)).join('\n');
+      await navigator.clipboard.writeText(links);
+      toast.success(
+        skippedCount > 0
+          ? `Đã sao chép ${shareableFiles.length} link xem, bỏ qua ${skippedCount} file.`
+          : `Đã sao chép ${shareableFiles.length} link xem!`
+      );
+      refreshItems();
+    } catch {
+      toast.error('Không thể tạo danh sách link xem.');
     }
   };
 
@@ -819,7 +893,14 @@ export default function AdminStorage() {
                               ) : (
                                 <p className="truncate font-semibold text-slate-900" title={file.name}>{file.name}</p>
                               )}
-                              <p className="text-xs text-slate-500">{getFileExtension(file.name).toUpperCase()}</p>
+                              <div className="mt-0.5 flex flex-wrap items-center gap-2">
+                                <p className="text-xs text-slate-500">{getFileExtension(file.name).toUpperCase()}</p>
+                                {file.isPublic && isShareableMedia(file) && (
+                                  <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-700">
+                                    Đang chia sẻ
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </td>
@@ -838,7 +919,10 @@ export default function AdminStorage() {
                               <>
                                 {(file.type.startsWith('image/') || file.type.startsWith('video/')) && <button onClick={() => setPreviewFile(file)} className="rounded-lg p-2 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600" title="Xem trước"><Eye className="h-4 w-4" /></button>}
                                 <a href={file.url} target="_blank" rel="noreferrer" className="rounded-lg p-2 text-slate-400 hover:bg-blue-50 hover:text-blue-600" title="Mở file"><ExternalLink className="h-4 w-4" /></a>
-                                <button onClick={() => copyToClipboard(file.url)} className="rounded-lg p-2 text-slate-400 hover:bg-green-50 hover:text-green-600" title="Copy Link"><Copy className="h-4 w-4" /></button>
+                                {isShareableMedia(file) && <button onClick={() => handleCopyShareLink(file)} className="rounded-lg p-2 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600" title="Copy link xem"><Share2 className="h-4 w-4" /></button>}
+                                <button onClick={() => copyToClipboard(file.url)} className="rounded-lg p-2 text-slate-400 hover:bg-green-50 hover:text-green-600" title="Copy link file S3"><Copy className="h-4 w-4" /></button>
+                                {file.type.startsWith('video/') && <button onClick={() => handleToggleVideoDownload(file)} className={`rounded-lg p-2 transition ${file.allowDownload ? 'bg-blue-50 text-blue-600 hover:bg-blue-100' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600'}`} title={file.allowDownload ? 'Tắt tải video' : 'Bật tải video'}><Download className="h-4 w-4" /></button>}
+                                {file.isPublic && isShareableMedia(file) && <button onClick={() => handleDisablePublicShare(file)} className="rounded-lg p-2 text-slate-400 hover:bg-amber-50 hover:text-amber-600" title="Tắt chia sẻ"><Link2Off className="h-4 w-4" /></button>}
                                 <button onClick={() => handleDelete(file.id)} className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600" title="Xóa vào thùng rác"><MoreHorizontal className="h-4 w-4" /></button>
                               </>
                             )}
@@ -889,7 +973,10 @@ export default function AdminStorage() {
                         <File className="h-10 w-10 text-slate-400" />
                       )}
                     </div>
-                    <p className="mt-3 truncate font-semibold text-slate-900" title={file.name}>{file.name}</p>
+                    <div className="mt-3 flex min-w-0 items-center gap-2">
+                      <p className="min-w-0 flex-1 truncate font-semibold text-slate-900" title={file.name}>{file.name}</p>
+                      {file.isPublic && isShareableMedia(file) && <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-500" title="Đang chia sẻ" />}
+                    </div>
                     <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
                       <span>{getTypeLabel(file.type)}</span>
                       <span>{formatSize(file.size)}</span>
@@ -897,7 +984,10 @@ export default function AdminStorage() {
                     <div className="mt-3 flex items-center gap-1">
                       {(file.type.startsWith('image/') || file.type.startsWith('video/')) && <button onClick={() => setPreviewFile(file)} className="rounded-lg p-2 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600"><Eye className="h-4 w-4" /></button>}
                       <a href={file.url} target="_blank" rel="noreferrer" className="rounded-lg p-2 text-slate-400 hover:bg-blue-50 hover:text-blue-600"><ExternalLink className="h-4 w-4" /></a>
-                      <button onClick={() => copyToClipboard(file.url)} className="rounded-lg p-2 text-slate-400 hover:bg-green-50 hover:text-green-600"><Copy className="h-4 w-4" /></button>
+                      {isShareableMedia(file) && <button onClick={() => handleCopyShareLink(file)} className="rounded-lg p-2 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600" title="Copy link xem"><Share2 className="h-4 w-4" /></button>}
+                      <button onClick={() => copyToClipboard(file.url)} className="rounded-lg p-2 text-slate-400 hover:bg-green-50 hover:text-green-600" title="Copy link file S3"><Copy className="h-4 w-4" /></button>
+                      {file.type.startsWith('video/') && <button onClick={() => handleToggleVideoDownload(file)} className={`rounded-lg p-2 transition ${file.allowDownload ? 'bg-blue-50 text-blue-600 hover:bg-blue-100' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600'}`} title={file.allowDownload ? 'Tắt tải video' : 'Bật tải video'}><Download className="h-4 w-4" /></button>}
+                      {file.isPublic && isShareableMedia(file) && <button onClick={() => handleDisablePublicShare(file)} className="rounded-lg p-2 text-slate-400 hover:bg-amber-50 hover:text-amber-600" title="Tắt chia sẻ"><Link2Off className="h-4 w-4" /></button>}
                       {viewMode === 'trash' ? (
                         <button onClick={() => handleRestoreFile(file.id)} className="rounded-lg p-2 text-slate-400 hover:bg-green-50 hover:text-green-600"><ArchiveRestore className="h-4 w-4" /></button>
                       ) : (

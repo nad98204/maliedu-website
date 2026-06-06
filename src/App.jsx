@@ -64,6 +64,7 @@ const LuatHapDan = lazy(() => import("./pages/landingpage/LuatHapDan"));
 const VutTocMucTieu = lazy(() => import("./pages/landingpage/VutTocMucTieu"));
 const MongCoaching = lazy(() => import("./pages/about/MongCoaching"));
 const LinkBio = lazy(() => import("./pages/LinkBio"));
+const MediaShare = lazy(() => import("./pages/MediaShare"));
 
 // Admin Pages
 const AdminLogin = lazy(() => import("./pages/admin/Login"));
@@ -136,6 +137,7 @@ const AppShell = () => {
             <Route path="/landing/:templateId" element={<LandingPageViewer />} />
             <Route path="/thanh-toan/:courseId" element={<Checkout />} />
             <Route path="/mongcoaching" element={<LinkBio />} />
+            <Route path="/xem/:fileId" element={<MediaShare />} />
             
             {/* Standard Routes */}
             <Route path="/" element={<Home />} />

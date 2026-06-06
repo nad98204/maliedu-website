@@ -78,6 +78,24 @@ export const submitToCRM = async (formData) => {
         // 2. Đóng gói dữ liệu đúng chuẩn CRM yêu cầu (Theo tài liệu tích hợp)
         const isLeaderFunnel = funnelType === "leader";
         const initialAssignee = isLeaderFunnel ? (formData.assigned_to || "") : "";
+        const normalizedFunnelType =
+            funnelType === "leader"
+                ? "leader_funnel"
+                : funnelType === "thuonghieu"
+                    ? "thuonghieu"
+                    : "ads";
+        const normalizedSourceType =
+            funnelType === "leader"
+                ? "leader_funnel"
+                : funnelType === "thuonghieu"
+                    ? "thuonghieu_funnel"
+                    : "ads";
+        const normalizedFunnelChannel =
+            funnelType === "leader"
+                ? "leader_funnel"
+                : funnelType === "thuonghieu"
+                    ? "thuonghieu_funnel"
+                    : "ads_funnel";
 
         const payload = {
             name: formData.name || "Khách hàng mới",
@@ -107,9 +125,9 @@ export const submitToCRM = async (formData) => {
             utm_owner_slug: formData.utm_owner_slug || formData.leader_utm || "",
 
             // BỔ SUNG CÁC TRƯỜNG CHO PHỄU LEADER / PHÊU ADS (TÙY CHỈNH)
-            funnel_type: formData.funnel_type || "",
+            funnel_type: normalizedFunnelType,
             targetFunnel: funnelType,
-            source_type: formData.source_type || (funnelType === "leader" ? "leader_funnel" : funnelType === "thuonghieu" ? "thuonghieu_funnel" : funnelType),
+            source_type: normalizedSourceType,
             sourceUrl: formData.sourceUrl || "",
             landingPageId: formData.landingPageId || "",
             landingPageSlug: formData.landingPageSlug || "",
@@ -123,7 +141,7 @@ export const submitToCRM = async (formData) => {
             introducedBy: formData.introducedBy || formData.referrer || "",
             is_learned_loa: formData.is_learned_loa || "",
             hasRegisteredLHD: formData.is_learned_loa === "ĐÃ HỌC LUẬT HẤP DẪN", // CRM Live dùng trường này
-            funnel_channel: formData.funnel_channel || "",
+            funnel_channel: normalizedFunnelChannel,
             assigned_to: initialAssignee,
             assignedName: initialAssignee, // CRM Live dùng trường này
             registered_loa: formData.registered_loa || "",
