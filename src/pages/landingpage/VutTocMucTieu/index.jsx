@@ -387,7 +387,7 @@ const CourseSchedule = () => {
               Thời gian
             </p>
             <p className="mt-0.5 text-[15px] font-black text-[#242424] sm:text-base">
-              4–5–6/07/2026
+              4–5–6/07
             </p>
           </div>
         </div>
@@ -534,6 +534,10 @@ const RegistrationModal = ({ isOpen, onClose }) => {
           searchPhone: phone,
           searchKeywords: buildLeadSearchKeywords({ name, phone }),
           source: "chinh-phuc-muc-tieu",
+          courseId: "chinh-phuc-muc-tieu",
+          courseName: "Chinh Phục Mục Tiêu",
+          landingPageId: "chinh-phuc-muc-tieu",
+          landingPageSlug: window.location.pathname,
           referralCode,
           utmSource:
             searchParams.get("utm_source") ||
@@ -961,7 +965,7 @@ const VutTocMucTieu = () => {
           <div className="mx-auto max-w-6xl relative z-10">
             <div className="px-4 sm:px-0">
               <SectionHeading
-                eyebrow="Bạn nhận được gì từ khóa học miễn phí?"
+                eyebrow="Bạn nhận được gì từ khóa học?"
                 title={
                   <>
                     <span className="lg:block">Hành trình chuyển hóa </span>

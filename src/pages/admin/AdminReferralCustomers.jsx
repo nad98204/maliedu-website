@@ -2,19 +2,25 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   collection,
   doc,
+  getCountFromServer,
   getDocs,
+  limit,
   orderBy,
   query,
   serverTimestamp,
   setDoc,
+  startAfter,
   updateDoc,
   where,
 } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import {
   Check,
+  ChevronLeft,
+  ChevronRight,
   ClipboardCopy,
   ExternalLink,
+  GraduationCap,
   Link2,
   Loader2,
   Search,
@@ -28,7 +34,17 @@ import { auth, db } from "../../firebase";
 import { isSuperAdminEmail } from "../../utils/adminAccess";
 import { normalizeLeadSearchText } from "../../utils/leadSearch";
 
-const LANDING_PATH = "/dao-tao/chinh-phuc-muc-tieu";
+const COURSE_OPTIONS = [
+  {
+    id: "chinh-phuc-muc-tieu",
+    name: "Chinh Phục Mục Tiêu",
+    path: "/dao-tao/chinh-phuc-muc-tieu",
+    sources: ["chinh-phuc-muc-tieu"],
+  },
+];
+
+const DEFAULT_COURSE_ID = COURSE_OPTIONS[0].id;
+const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 const COMPANY_PARTNER = {
   id: "cong-ty",
   code: "cong-ty",
@@ -82,6 +98,23 @@ const formatDateTime = (value) => {
 const getStatusMeta = (status) =>
   STATUS_OPTIONS.find((item) => item.value === status) || STATUS_OPTIONS[0];
 
+const getLeadCourseId = (lead = {}) => {
+  const explicitId = String(lead.courseId || lead.landingPageId || "").trim();
+  const source = String(lead.source || "").trim();
+  const slug = String(lead.landingPageSlug || lead.sourceUrl || "").toLowerCase();
+  const courseName = normalizeLeadSearchText(lead.courseName || "");
+
+  const matchedCourse = COURSE_OPTIONS.find(
+    (course) =>
+      explicitId === course.id ||
+      course.sources.includes(source) ||
+      slug.includes(course.path) ||
+      courseName.includes(normalizeLeadSearchText(course.name))
+  );
+
+  return matchedCourse?.id || explicitId || source || "khac";
+};
+
 const AdminReferralCustomers = () => {
   const [currentUser, setCurrentUser] = useState(null);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
@@ -89,11 +122,26 @@ const AdminReferralCustomers = () => {
   const [webUsers, setWebUsers] = useState([]);
   const [leads, setLeads] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingLeads, setIsLoadingLeads] = useState(false);
   const [isSavingPartner, setIsSavingPartner] = useState(false);
   const [activeView, setActiveView] = useState("customers");
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [partnerFilter, setPartnerFilter] = useState("all");
+  const [courseFilter, setCourseFilter] = useState("all");
+  const [linkCourseId, setLinkCourseId] = useState(DEFAULT_COURSE_ID);
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
+  const [pageSize, setPageSize] = useState(10);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageCursors, setPageCursors] = useState({ 1: null });
+  const [pageEndCursor, setPageEndCursor] = useState(null);
+  const [hasNextPage, setHasNextPage] = useState(false);
+  const [leadStats, setLeadStats] = useState({
+    total: 0,
+    contacted: 0,
+    registered: 0,
+  });
+  const [partnerStats, setPartnerStats] = useState([]);
   const [partnerForm, setPartnerForm] = useState({
     userId: "",
     name: "",
@@ -124,40 +172,7 @@ const AdminReferralCustomers = () => {
         : storedPartnerList;
       setPartners(partnerList);
 
-      const ownPartner = partnerList.find(
-        (item) =>
-          item.userId === user.uid ||
-          String(item.email || "").toLowerCase() === String(user.email || "").toLowerCase()
-      );
-
-      let leadSnapshot;
-      if (superAdmin) {
-        leadSnapshot = await getDocs(
-          query(
-            collection(db, "leads"),
-            where("source", "==", "chinh-phuc-muc-tieu")
-          )
-        );
-      } else if (ownPartner?.code) {
-        leadSnapshot = await getDocs(
-          query(
-            collection(db, "leads"),
-            where("referralCode", "==", ownPartner.code)
-          )
-        );
-      }
-
-      setLeads(
-        leadSnapshot
-          ? leadSnapshot.docs
-              .map((item) => ({
-                id: item.id,
-                ...item.data(),
-                referralCode: item.data().referralCode || COMPANY_PARTNER.code,
-              }))
-              .sort((left, right) => toMillis(right.createdAt) - toMillis(left.createdAt))
-          : []
-      );
+      setLeads([]);
 
       if (superAdmin) {
         const userSnapshot = await getDocs(collection(db, "users"));
@@ -197,6 +212,16 @@ const AdminReferralCustomers = () => {
     return unsubscribe;
   }, [loadData]);
 
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+      setCurrentPage(1);
+      setPageCursors({ 1: null });
+    }, 350);
+
+    return () => window.clearTimeout(timeout);
+  }, [searchTerm]);
+
   const partnerByCode = useMemo(
     () => new Map(partners.map((partner) => [partner.code, partner])),
     [partners]
@@ -213,53 +238,237 @@ const AdminReferralCustomers = () => {
     [currentUser, partners]
   );
 
-  const filteredLeads = useMemo(() => {
-    const normalizedSearch = normalizeLeadSearchText(searchTerm);
+  const filteredLeads = leads;
 
-    return leads.filter((lead) => {
-      const partner = partnerByCode.get(lead.referralCode);
-      const haystack = normalizeLeadSearchText(
-        [lead.name, lead.phone, lead.note, partner?.name, lead.referralCode].join(" ")
-      );
-      const matchesSearch = !normalizedSearch || haystack.includes(normalizedSearch);
-      const matchesStatus = statusFilter === "all" || lead.status === statusFilter;
-      const matchesPartner =
-        partnerFilter === "all" || lead.referralCode === partnerFilter;
-      return matchesSearch && matchesStatus && matchesPartner;
-    });
-  }, [leads, partnerByCode, partnerFilter, searchTerm, statusFilter]);
+  const resetPagination = useCallback(() => {
+    setCurrentPage(1);
+    setPageCursors({ 1: null });
+    setPageEndCursor(null);
+    setHasNextPage(false);
+  }, []);
 
-  const partnerStats = useMemo(
+  const selectedCourseSources = useMemo(
     () =>
-      partners.map((partner) => {
-        const partnerLeads = leads.filter((lead) => lead.referralCode === partner.code);
-        return {
-          ...partner,
-          leadCount: partnerLeads.length,
-          registeredCount: partnerLeads.filter((lead) => lead.status === "registered").length,
-        };
-      }),
-    [leads, partners]
+      courseFilter === "all"
+        ? COURSE_OPTIONS.flatMap((course) => course.sources)
+        : COURSE_OPTIONS.find((course) => course.id === courseFilter)?.sources || [],
+    [courseFilter]
   );
 
-  const totalRegistered = leads.filter((lead) => lead.status === "registered").length;
-  const totalContacted = leads.filter((lead) =>
-    ["contacted", "interested", "registered"].includes(lead.status)
-  ).length;
+  const countLeads = useCallback(async ({ sources, referralCode, status }) => {
+    const counts = await Promise.all(
+      sources.map(async (source) => {
+        const constraints = [where("source", "==", source)];
+        if (referralCode) constraints.push(where("referralCode", "==", referralCode));
+        if (status) constraints.push(where("status", "==", status));
+        const snapshot = await getCountFromServer(
+          query(collection(db, "leads"), ...constraints)
+        );
+        return snapshot.data().count;
+      })
+    );
+    return counts.reduce((total, count) => total + count, 0);
+  }, []);
 
-  const getReferralLink = (code) => {
+  const matchesLeadFilters = useCallback(
+    (lead) => {
+      if (!selectedCourseSources.includes(lead.source)) return false;
+      if (statusFilter !== "all" && lead.status !== statusFilter) return false;
+      if (partnerFilter !== "all" && lead.referralCode !== partnerFilter) return false;
+
+      const normalizedSearch = normalizeLeadSearchText(debouncedSearchTerm);
+      if (!normalizedSearch) return true;
+
+      const partner = partnerByCode.get(lead.referralCode);
+      const course = COURSE_OPTIONS.find((item) => item.id === lead.courseId);
+      const haystack = normalizeLeadSearchText(
+        [
+          lead.name,
+          lead.phone,
+          lead.note,
+          partner?.name,
+          lead.referralCode,
+          course?.name,
+          lead.courseName,
+        ].join(" ")
+      );
+      return haystack.includes(normalizedSearch);
+    },
+    [
+      debouncedSearchTerm,
+      partnerByCode,
+      partnerFilter,
+      selectedCourseSources,
+      statusFilter,
+    ]
+  );
+
+  const loadLeadPage = useCallback(async () => {
+    if (!currentUser || selectedCourseSources.length === 0) {
+      setLeads([]);
+      return;
+    }
+
+    const ownCode = ownPartner?.code || "";
+    if (!isSuperAdmin && !ownCode) {
+      setLeads([]);
+      return;
+    }
+
+    setIsLoadingLeads(true);
+    try {
+      const matchedLeads = [];
+      const scanSize = Math.max(pageSize * 2, 50);
+      let cursor = pageCursors[currentPage] || null;
+      let endCursor = cursor;
+      let nextPageExists = false;
+      let exhausted = false;
+
+      while (!exhausted && !nextPageExists) {
+        const constraints = [];
+        if (!isSuperAdmin) constraints.push(where("referralCode", "==", ownCode));
+        constraints.push(orderBy("createdAt", "desc"));
+        if (cursor) constraints.push(startAfter(cursor));
+        constraints.push(limit(scanSize));
+
+        const snapshot = await getDocs(
+          query(collection(db, "leads"), ...constraints)
+        );
+
+        if (snapshot.empty) {
+          exhausted = true;
+          break;
+        }
+
+        for (const leadDoc of snapshot.docs) {
+          const data = leadDoc.data();
+          const lead = {
+            id: leadDoc.id,
+            ...data,
+            referralCode: data.referralCode || COMPANY_PARTNER.code,
+            courseId: getLeadCourseId(data),
+          };
+
+          if (matchesLeadFilters(lead)) {
+            if (matchedLeads.length < pageSize) {
+              matchedLeads.push(lead);
+              endCursor = leadDoc;
+            } else {
+              nextPageExists = true;
+              break;
+            }
+          }
+        }
+
+        cursor = snapshot.docs[snapshot.docs.length - 1];
+        if (snapshot.size < scanSize) exhausted = true;
+      }
+
+      setLeads(matchedLeads);
+      setPageEndCursor(endCursor);
+      setHasNextPage(nextPageExists);
+    } catch (error) {
+      console.error("Lỗi tải trang khách hàng:", error);
+      toast.error("Không thể tải trang khách hàng.");
+      setLeads([]);
+    } finally {
+      setIsLoadingLeads(false);
+    }
+  }, [
+    currentPage,
+    currentUser,
+    isSuperAdmin,
+    matchesLeadFilters,
+    ownPartner?.code,
+    pageCursors,
+    pageSize,
+    selectedCourseSources,
+  ]);
+
+  useEffect(() => {
+    loadLeadPage();
+  }, [loadLeadPage]);
+
+  useEffect(() => {
+    if (!currentUser || selectedCourseSources.length === 0) return;
+    const referralCode = isSuperAdmin ? "" : ownPartner?.code || "";
+    if (!isSuperAdmin && !referralCode) return;
+
+    let isCancelled = false;
+    const loadStats = async () => {
+      try {
+        const [total, contacted, interested, registered] = await Promise.all([
+          countLeads({ sources: selectedCourseSources, referralCode }),
+          countLeads({ sources: selectedCourseSources, referralCode, status: "contacted" }),
+          countLeads({ sources: selectedCourseSources, referralCode, status: "interested" }),
+          countLeads({ sources: selectedCourseSources, referralCode, status: "registered" }),
+        ]);
+        if (!isCancelled) {
+          setLeadStats({
+            total,
+            contacted: contacted + interested + registered,
+            registered,
+          });
+        }
+      } catch (error) {
+        console.error("Lỗi tải thống kê lead:", error);
+      }
+    };
+    loadStats();
+    return () => {
+      isCancelled = true;
+    };
+  }, [
+    countLeads,
+    currentUser,
+    isSuperAdmin,
+    ownPartner?.code,
+    selectedCourseSources,
+  ]);
+
+  useEffect(() => {
+    if (activeView !== "partners" || !isSuperAdmin || partners.length === 0) return;
+    const sources =
+      COURSE_OPTIONS.find((course) => course.id === linkCourseId)?.sources || [];
+    let isCancelled = false;
+
+    const loadPartnerStats = async () => {
+      const stats = await Promise.all(
+        partners.map(async (partner) => {
+          const [leadCount, registeredCount] = await Promise.all([
+            countLeads({ sources, referralCode: partner.code }),
+            countLeads({ sources, referralCode: partner.code, status: "registered" }),
+          ]);
+          return { ...partner, leadCount, registeredCount };
+        })
+      );
+      if (!isCancelled) setPartnerStats(stats);
+    };
+
+    loadPartnerStats().catch((error) => {
+      console.error("Lỗi tải thống kê nhân viên:", error);
+    });
+    return () => {
+      isCancelled = true;
+    };
+  }, [activeView, countLeads, isSuperAdmin, linkCourseId, partners]);
+
+  const getReferralLink = (code, courseId = linkCourseId) => {
     const baseUrl =
       typeof window === "undefined" ? "https://luathapdan.vn" : window.location.origin;
-    const url = new URL(LANDING_PATH, baseUrl);
+    const course =
+      COURSE_OPTIONS.find((item) => item.id === courseId) || COURSE_OPTIONS[0];
+    const url = new URL(course.path, baseUrl);
     if (code !== COMPANY_PARTNER.code) {
       url.searchParams.set("ref", code);
     }
     return url.toString();
   };
 
-  const copyReferralLink = async (code) => {
-    await navigator.clipboard.writeText(getReferralLink(code));
-    toast.success("Đã copy link giới thiệu.");
+  const copyReferralLink = async (code, courseId = linkCourseId) => {
+    await navigator.clipboard.writeText(getReferralLink(code, courseId));
+    const course = COURSE_OPTIONS.find((item) => item.id === courseId);
+    toast.success(`Đã copy link ${course?.name || "khóa học"}.`);
   };
 
   const handleUserSelection = (userId) => {
@@ -332,9 +541,22 @@ const AdminReferralCustomers = () => {
   };
 
   const handleStatusChange = async (leadId, status) => {
+    const previousStatus = leads.find((lead) => lead.id === leadId)?.status || "new";
     setLeads((current) =>
       current.map((lead) => (lead.id === leadId ? { ...lead, status } : lead))
     );
+    const contactedStatuses = ["contacted", "interested", "registered"];
+    setLeadStats((current) => ({
+      ...current,
+      contacted:
+        current.contacted -
+        (contactedStatuses.includes(previousStatus) ? 1 : 0) +
+        (contactedStatuses.includes(status) ? 1 : 0),
+      registered:
+        current.registered -
+        (previousStatus === "registered" ? 1 : 0) +
+        (status === "registered" ? 1 : 0),
+    }));
     try {
       await updateDoc(doc(db, "leads", leadId), {
         status,
@@ -344,7 +566,18 @@ const AdminReferralCustomers = () => {
     } catch (error) {
       console.error("Lỗi cập nhật trạng thái:", error);
       toast.error("Không thể cập nhật trạng thái.");
-      await loadData(currentUser, isSuperAdmin);
+      setLeadStats((current) => ({
+        ...current,
+        contacted:
+          current.contacted -
+          (contactedStatuses.includes(status) ? 1 : 0) +
+          (contactedStatuses.includes(previousStatus) ? 1 : 0),
+        registered:
+          current.registered -
+          (status === "registered" ? 1 : 0) +
+          (previousStatus === "registered" ? 1 : 0),
+      }));
+      await loadLeadPage();
     }
   };
 
@@ -436,9 +669,9 @@ const AdminReferralCustomers = () => {
           <>
             <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               {[
-                ["Tổng khách giới thiệu", leads.length, <Users key="users" className="h-5 w-5" />, "text-blue-600 bg-blue-50"],
-                ["Đã liên hệ", totalContacted, <Check key="check" className="h-5 w-5" />, "text-amber-600 bg-amber-50"],
-                ["Đã đăng ký", totalRegistered, <UserPlus key="user-plus" className="h-5 w-5" />, "text-emerald-600 bg-emerald-50"],
+                ["Tổng khách giới thiệu", leadStats.total, <Users key="users" className="h-5 w-5" />, "text-blue-600 bg-blue-50"],
+                ["Đã liên hệ", leadStats.contacted, <Check key="check" className="h-5 w-5" />, "text-amber-600 bg-amber-50"],
+                ["Đã đăng ký", leadStats.registered, <UserPlus key="user-plus" className="h-5 w-5" />, "text-emerald-600 bg-emerald-50"],
                 [
                   isSuperAdmin ? "Nhân viên có mã" : "Mã của bạn",
                   isSuperAdmin
@@ -460,18 +693,31 @@ const AdminReferralCustomers = () => {
 
             {!isSuperAdmin && ownPartner ? (
               <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
-                <p className="text-sm font-black uppercase tracking-wider text-emerald-700">
-                  Link giới thiệu của bạn
-                </p>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm font-black uppercase tracking-wider text-emerald-700">
+                    Link giới thiệu của bạn
+                  </p>
+                  <select
+                    value={linkCourseId}
+                    onChange={(event) => setLinkCourseId(event.target.value)}
+                    className="min-h-10 rounded-xl border border-emerald-200 bg-white px-3 text-sm font-bold text-slate-700"
+                  >
+                    {COURSE_OPTIONS.map((course) => (
+                      <option key={course.id} value={course.id}>
+                        {course.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 <div className="mt-3 flex flex-col gap-3 lg:flex-row">
                   <input
                     readOnly
-                    value={getReferralLink(ownPartner.code)}
+                    value={getReferralLink(ownPartner.code, linkCourseId)}
                     className="min-h-12 flex-1 rounded-xl border border-emerald-200 bg-white px-4 text-sm font-semibold text-slate-700"
                   />
                   <button
                     type="button"
-                    onClick={() => copyReferralLink(ownPartner.code)}
+                    onClick={() => copyReferralLink(ownPartner.code, linkCourseId)}
                     className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-emerald-700 px-5 font-black text-white"
                   >
                     <ClipboardCopy className="h-5 w-5" />
@@ -494,8 +740,26 @@ const AdminReferralCustomers = () => {
                     />
                   </div>
                   <select
+                    value={courseFilter}
+                    onChange={(event) => {
+                      setCourseFilter(event.target.value);
+                      resetPagination();
+                    }}
+                    className="min-h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700"
+                  >
+                    <option value="all">Tất cả khóa học</option>
+                    {COURSE_OPTIONS.map((course) => (
+                      <option key={course.id} value={course.id}>
+                        {course.name}
+                      </option>
+                    ))}
+                  </select>
+                  <select
                     value={statusFilter}
-                    onChange={(event) => setStatusFilter(event.target.value)}
+                    onChange={(event) => {
+                      setStatusFilter(event.target.value);
+                      resetPagination();
+                    }}
                     className="min-h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700"
                   >
                     <option value="all">Tất cả trạng thái</option>
@@ -508,7 +772,10 @@ const AdminReferralCustomers = () => {
                   {isSuperAdmin ? (
                     <select
                       value={partnerFilter}
-                      onChange={(event) => setPartnerFilter(event.target.value)}
+                      onChange={(event) => {
+                        setPartnerFilter(event.target.value);
+                        resetPagination();
+                      }}
                       className="min-h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700"
                     >
                       <option value="all">Tất cả nhân viên</option>
@@ -520,16 +787,24 @@ const AdminReferralCustomers = () => {
                     </select>
                   ) : null}
                   <div className="flex min-h-11 items-center justify-center rounded-xl border border-secret-wax/20 bg-secret-wax/5 px-4 text-sm font-black text-secret-wax">
-                    {filteredLeads.length} khách hàng
+                    {isLoadingLeads
+                      ? "Đang tải..."
+                      : `${filteredLeads.length} dòng • Trang ${currentPage}`}
                   </div>
                 </div>
 
-                <div className="hidden overflow-x-auto lg:block">
-                  <table className="w-full min-w-[1250px] table-fixed border-collapse text-left">
+                <div className="relative hidden overflow-x-auto lg:block">
+                  {isLoadingLeads ? (
+                    <div className="absolute inset-0 z-20 flex min-h-[180px] items-center justify-center bg-white/75 backdrop-blur-[1px]">
+                      <Loader2 className="h-8 w-8 animate-spin text-secret-wax" />
+                    </div>
+                  ) : null}
+                  <table className="w-full min-w-[1400px] table-fixed border-collapse text-left">
                     <thead className="sticky top-0 z-10 bg-slate-100">
                       <tr className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">
                         <th className="w-[210px] border-r border-slate-200 px-4 py-3">Họ tên</th>
                         <th className="w-[145px] border-r border-slate-200 px-4 py-3">Số điện thoại</th>
+                        <th className="w-[190px] border-r border-slate-200 px-4 py-3">Khóa học</th>
                         <th className="w-[180px] border-r border-slate-200 px-4 py-3">Người giới thiệu</th>
                         <th className="w-[150px] border-r border-slate-200 px-4 py-3">Ngày đăng ký</th>
                         <th className="w-[165px] border-r border-slate-200 px-4 py-3">Trạng thái</th>
@@ -540,6 +815,7 @@ const AdminReferralCustomers = () => {
                     <tbody>
                       {filteredLeads.map((lead, index) => {
                         const partner = partnerByCode.get(lead.referralCode);
+                        const course = COURSE_OPTIONS.find((item) => item.id === lead.courseId);
                         const statusMeta = getStatusMeta(lead.status);
                         return (
                           <tr
@@ -551,6 +827,12 @@ const AdminReferralCustomers = () => {
                             </td>
                             <td className="border-r border-slate-200 px-4 py-3 font-mono text-sm font-bold">
                               {lead.phone}
+                            </td>
+                            <td className="border-r border-slate-200 px-4 py-3">
+                              <span className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-[11px] font-black text-rose-700">
+                                <GraduationCap className="h-3.5 w-3.5" />
+                                {course?.name || lead.courseName || "Chưa xác định"}
+                              </span>
                             </td>
                             <td className="border-r border-slate-200 px-4 py-3">
                               <p className="font-bold text-slate-800">{partner?.name || lead.referralCode}</p>
@@ -594,9 +876,15 @@ const AdminReferralCustomers = () => {
                   </table>
                 </div>
 
-                <div className="space-y-3 p-3 lg:hidden">
+                <div className="relative space-y-3 p-3 lg:hidden">
+                  {isLoadingLeads ? (
+                    <div className="flex min-h-[160px] items-center justify-center">
+                      <Loader2 className="h-8 w-8 animate-spin text-secret-wax" />
+                    </div>
+                  ) : null}
                   {filteredLeads.map((lead) => {
                     const partner = partnerByCode.get(lead.referralCode);
+                    const course = COURSE_OPTIONS.find((item) => item.id === lead.courseId);
                     const statusMeta = getStatusMeta(lead.status);
                     return (
                       <article key={lead.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -620,6 +908,12 @@ const AdminReferralCustomers = () => {
                           </select>
                         </div>
                         <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                          <div className="col-span-2">
+                            <p className="text-xs font-bold uppercase text-slate-400">Khóa học</p>
+                            <p className="mt-1 font-bold text-rose-700">
+                              {course?.name || lead.courseName || "Chưa xác định"}
+                            </p>
+                          </div>
                           <div>
                             <p className="text-xs font-bold uppercase text-slate-400">Người giới thiệu</p>
                             <p className="mt-1 font-bold">{partner?.name || lead.referralCode}</p>
@@ -641,11 +935,63 @@ const AdminReferralCustomers = () => {
                   })}
                 </div>
 
-                {filteredLeads.length === 0 ? (
+                {!isLoadingLeads && filteredLeads.length === 0 ? (
                   <div className="px-6 py-16 text-center text-slate-400">
                     Chưa có khách hàng phù hợp với bộ lọc.
                   </div>
                 ) : null}
+
+                <div className="flex flex-col gap-3 border-t border-slate-200 bg-slate-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                  <label className="flex items-center gap-2 text-sm font-bold text-slate-600">
+                    Hiển thị
+                    <select
+                      value={pageSize}
+                      onChange={(event) => {
+                        setPageSize(Number(event.target.value));
+                        resetPagination();
+                      }}
+                      className="min-h-10 rounded-xl border border-slate-200 bg-white px-3 font-black text-slate-800"
+                    >
+                      {PAGE_SIZE_OPTIONS.map((size) => (
+                        <option key={size} value={size}>
+                          {size}
+                        </option>
+                      ))}
+                    </select>
+                    dòng / trang
+                  </label>
+
+                  <div className="flex items-center justify-between gap-3 sm:justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                      disabled={currentPage === 1 || isLoadingLeads}
+                      className="inline-flex min-h-10 items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 text-sm font-black text-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      Trước
+                    </button>
+                    <span className="min-w-20 text-center text-sm font-black text-slate-700">
+                      Trang {currentPage}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!pageEndCursor) return;
+                        setPageCursors((current) => ({
+                          ...current,
+                          [currentPage + 1]: pageEndCursor,
+                        }));
+                        setCurrentPage((page) => page + 1);
+                      }}
+                      disabled={!hasNextPage || isLoadingLeads}
+                      className="inline-flex min-h-10 items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 text-sm font-black text-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Sau
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
               </section>
             ) : null}
 
@@ -731,8 +1077,19 @@ const AdminReferralCustomers = () => {
                 </form>
 
                 <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                  <div className="border-b border-slate-200 bg-slate-50 px-5 py-4">
+                  <div className="flex flex-col gap-3 border-b border-slate-200 bg-slate-50 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
                     <h2 className="text-lg font-black">Danh sách nguồn giới thiệu</h2>
+                    <select
+                      value={linkCourseId}
+                      onChange={(event) => setLinkCourseId(event.target.value)}
+                      className="min-h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700"
+                    >
+                      {COURSE_OPTIONS.map((course) => (
+                        <option key={course.id} value={course.id}>
+                          Khóa: {course.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   <div className="divide-y divide-slate-100">
                     {partnerStats.map((partner) => (
@@ -760,14 +1117,14 @@ const AdminReferralCustomers = () => {
                             </span>
                             <button
                               type="button"
-                              onClick={() => copyReferralLink(partner.code)}
+                              onClick={() => copyReferralLink(partner.code, linkCourseId)}
                               className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-slate-200 px-3 text-sm font-black text-slate-700 hover:border-secret-wax hover:text-secret-wax"
                             >
                               <ClipboardCopy className="h-4 w-4" />
                               Copy link
                             </button>
                             <a
-                              href={getReferralLink(partner.code)}
+                              href={getReferralLink(partner.code, linkCourseId)}
                               target="_blank"
                               rel="noreferrer"
                               className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-slate-200 px-3 text-sm font-black text-slate-700"
