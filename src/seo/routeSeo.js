@@ -39,9 +39,9 @@ export const ROUTE_SEO = {
     url: "/dao-tao/vut-toc-muc-tieu",
   },
   "/dao-tao/chinh-phuc-muc-tieu": {
-    title: "Chinh Phục Mục Tiêu",
+    title: "Chinh Phục Mục Tiêu - Khóa Học 3 Buổi Miễn Phí",
     description:
-      "Biến mục tiêu thành kế hoạch rõ ràng và hành động thực tế cùng chương trình Chinh Phục Mục Tiêu tại Mali Edu.",
+      "Đăng ký miễn phí khóa học 3 buổi Chinh Phục Mục Tiêu tại Mali Edu để biến mục tiêu thành kế hoạch rõ ràng và hành động thực tế.",
     image:
       "https://res.cloudinary.com/dstukyjzd/image/upload/v1767682425/V%C3%BAt_T%E1%BB%91c_M%E1%BB%A5c_Ti%C3%AAu_2024_b%E1%BA%A3n_2_d6mhn3.jpg",
     url: "/dao-tao/chinh-phuc-muc-tieu",
