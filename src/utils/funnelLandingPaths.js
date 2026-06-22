@@ -11,6 +11,7 @@ export function isFunnelLandingPath(pathname) {
   if (p.startsWith("/dao-tao/khoi-thong-dong-tien")) return true;
   if (p.startsWith("/dao-tao/luat-hap-dan")) return true;
   if (p.startsWith("/dao-tao/vut-toc-muc-tieu")) return true;
+  if (p.startsWith("/dao-tao/chinh-phuc-muc-tieu")) return true;
   if (p.startsWith("/landing")) return true;
 
   return false;

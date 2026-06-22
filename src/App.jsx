@@ -103,6 +103,7 @@ const AppShell = () => {
     "/dao-tao/khoi-thong-dong-tien",
     "/dao-tao/luat-hap-dan",
     "/dao-tao/vut-toc-muc-tieu",
+    "/dao-tao/chinh-phuc-muc-tieu",
     "/landing",
     "/cam-on-khoi-thong",
     "/mongcoaching",
@@ -134,6 +135,7 @@ const AppShell = () => {
             <Route path="/cam-on-khoi-thong" element={<CamOnKhoiThong />} />
             <Route path="/dao-tao/luat-hap-dan" element={<LuatHapDan />} />
             <Route path="/dao-tao/vut-toc-muc-tieu" element={<VutTocMucTieu />} />
+            <Route path="/dao-tao/chinh-phuc-muc-tieu" element={<VutTocMucTieu />} />
             <Route path="/landing/:templateId" element={<LandingPageViewer />} />
             <Route path="/thanh-toan/:courseId" element={<Checkout />} />
             <Route path="/mongcoaching" element={<LinkBio />} />

@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { ArrowRight, BookOpen, Download, Home, Image as ImageIcon, LoaderCircle, PlayCircle } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
+import { doc, getDoc } from "firebase/firestore";
 
 import SEO from "../components/SEO";
 import { MALI_LOGO_URL } from "../constants/brandAssets";
+import { db } from "../firebase";
 
 const MediaShare = () => {
   const { fileId } = useParams();
@@ -22,12 +24,32 @@ const MediaShare = () => {
           cache: "no-store",
         });
 
-        if (!response.ok) {
+        const contentType = response.headers.get("content-type") || "";
+        if (response.ok && contentType.includes("application/json")) {
+          const payload = await response.json();
+          setMedia(payload);
+          setStatus("ready");
+          return;
+        }
+
+        // Temporary compatibility fallback while the protected media API is not deployed.
+        const snapshot = await getDoc(doc(db, "storage_files", fileId || ""));
+        const file = snapshot.exists() ? snapshot.data() : null;
+        const type = String(file?.type || "");
+        const isShareableMedia = type.startsWith("image/") || type.startsWith("video/");
+        if (!file?.isPublic || file?.isDeleted || !isShareableMedia || !file?.url) {
           throw new Error("Media is unavailable");
         }
 
-        const payload = await response.json();
-        setMedia(payload);
+        setMedia({
+          id: snapshot.id,
+          name: String(file.name || "Media Mali Edu"),
+          type,
+          size: Number(file.size) || 0,
+          mediaUrl: String(file.url),
+          allowDownload: type.startsWith("video/") && file.allowDownload === true,
+          downloadUrl: type.startsWith("video/") && file.allowDownload === true ? String(file.url) : null,
+        });
         setStatus("ready");
       } catch (error) {
         if (error.name !== "AbortError") {

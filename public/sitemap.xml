@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Sitemap tự động sinh lúc build – 2026-06-06 -->
-<!-- Tổng URL: 21 (tĩnh: 21, khóa học: 0, bài viết: 0, news: 0, tuyển dụng: 0) -->
+<!-- Sitemap tự động sinh lúc build – 2026-06-22 -->
+<!-- Tổng URL: 22 (tĩnh: 22, khóa học: 0, bài viết: 0, news: 0, tuyển dụng: 0) -->
 <urlset
   xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -38,6 +38,11 @@
   </url>
   <url>
     <loc>https://luathapdan.vn/dao-tao/vut-toc-muc-tieu</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://luathapdan.vn/dao-tao/chinh-phuc-muc-tieu</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>

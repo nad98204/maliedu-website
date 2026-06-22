@@ -17,7 +17,7 @@ export const MENU_ITEMS = [
     children: [
       { label: "Luật Hấp Dẫn", path: "/dao-tao/luat-hap-dan" },
       { label: "Khơi Thông Dòng Tiền", path: "/dao-tao/khoi-thong-dong-tien" },
-      { label: "Vút Tốc Mục Tiêu", path: "/dao-tao/vut-toc-muc-tieu" },
+      { label: "Chinh Phục Mục Tiêu", path: "/dao-tao/chinh-phuc-muc-tieu" },
     ],
   },
   {

@@ -91,6 +91,7 @@ const STATIC_ROUTES = [
   { path: "/dao-tao/luat-hap-dan",         priority: "0.8", changefreq: "monthly" },
   { path: "/dao-tao/khoi-thong-dong-tien", priority: "0.8", changefreq: "monthly" },
   { path: "/dao-tao/vut-toc-muc-tieu",     priority: "0.8", changefreq: "monthly" },
+  { path: "/dao-tao/chinh-phuc-muc-tieu",  priority: "0.8", changefreq: "monthly" },
   { path: "/tin-tuc",                      priority: "0.8", changefreq: "daily"   },
   { path: "/khoa-hoc",                     priority: "0.9", changefreq: "weekly"  },
   { path: "/cam-nhan",                     priority: "0.7", changefreq: "monthly" },
