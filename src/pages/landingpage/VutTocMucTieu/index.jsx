@@ -4,6 +4,7 @@ import {
   CalendarCheck,
   Check,
   ChevronDown,
+  Clock3,
   ClipboardCheck,
   Compass,
   Flag,
@@ -15,14 +16,15 @@ import {
   Sparkles,
   Target,
   User,
-  Users,
+  Video,
   X,
 } from "lucide-react";
 import { addDoc, collection } from "firebase/firestore";
-import { Link, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { toast } from "react-hot-toast";
 
 import SEO from "../../../components/SEO";
+import Footer from "../../../components/Footer";
 import { db } from "../../../firebase";
 import { submitToCRM } from "../../../services/crmService";
 import {
@@ -32,7 +34,8 @@ import {
 } from "../../../utils/leadSearch";
 
 const COURSE_IMAGE =
-  "https://res.cloudinary.com/dstukyjzd/image/upload/v1767682425/V%C3%BAt_T%E1%BB%91c_M%E1%BB%A5c_Ti%C3%AAu_2024_b%E1%BA%A3n_2_d6mhn3.jpg";
+  "https://s3-hn1-api.longvan.vn/video-khoa-hoc/files/1782120213116-146839060-Chinh-Ph-c-M-c-Ti-u-2026-3-2.jpg";
+const COURSE_START_TIME = new Date("2026-07-04T00:00:00+07:00").getTime();
 
 const painPoints = [
   "Có mục tiêu nhưng chưa biết bắt đầu từ đâu.",
@@ -65,12 +68,44 @@ const outcomes = [
 ];
 
 const modules = [
-  ["01", "Xác định đích đến", "Làm rõ mục tiêu và lý do bạn thực sự muốn đạt được mục tiêu đó."],
-  ["02", "Nhận diện rào cản", "Nhìn thấy những thói quen, niềm tin và sự trì hoãn đang giữ bạn lại."],
-  ["03", "Thiết kế bản đồ mục tiêu", "Chuyển mong muốn thành những cột mốc có thể quan sát và đo lường."],
-  ["04", "Lập kế hoạch hành động", "Biết việc nào cần ưu tiên và bắt đầu bằng bước phù hợp nhất."],
-  ["05", "Duy trì kỷ luật", "Tạo cách theo dõi đơn giản để không bỏ cuộc sau những ngày đầu."],
-  ["06", "Đánh giá và bứt phá", "Kiểm tra tiến độ, điều chỉnh kế hoạch và tiếp tục tiến về phía trước."],
+  {
+    number: "01",
+    title: "Tại Sao Mục Tiêu Bạn Cứ Mãi Dang Dở? Bạn Đang Sai Ở Đâu?",
+    lessons: [
+      "5 yếu tố khiến 90% mọi người thất bại khi chinh phục mục tiêu",
+      "Phương pháp xử lý 5 vấn đề trên",
+      "Lộ trình 4 bước Chinh phục mục tiêu",
+    ],
+  },
+  {
+    number: "02",
+    title: "Thiết Lập Bức Tranh Mục Tiêu Đầy Cảm Hứng Từ Tận Trong Tiềm Thức",
+    lessons: [
+      "Nguyên lý Cân Bằng Bánh Xe Cuộc đời",
+      "Tìm gốc cảm xúc thiết lập mục tiêu",
+      "Thiết lập bức tranh mục tiêu rõ ràng",
+    ],
+  },
+  {
+    number: "03",
+    title: "Kỷ Luật Bằng Tiềm Thức",
+    lessons: [
+      "Nhận diện những mô thức sai khiến ta không thể kỷ luật được lâu",
+      "Cài đặt lập trình thói quen kỷ luật từ tiềm thức",
+      "Phương pháp duy trì kỷ luật bền vững",
+    ],
+  },
+];
+
+const studentVideos = [
+  "qEIaX2OoMCQ",
+  "3m1FyyM2jB4",
+  "3KkZVeN8_18",
+  "7_QVSMSu8dM",
+  "CuTIq0nfXFY",
+  "UAJITOjiJO8",
+  "CYZB4ikhAqg",
+  "IckLUPaf0U0",
 ];
 
 const audiences = [
@@ -132,6 +167,81 @@ const CtaButton = ({ onClick, label = "TÔI MUỐN ĐĂNG KÝ", className = "" }
   </button>
 );
 
+const CourseSchedule = () => {
+  const calculateTimeLeft = () => {
+    const distance = Math.max(0, COURSE_START_TIME - Date.now());
+    return {
+      days: Math.floor(distance / 86400000),
+      hours: Math.floor((distance / 3600000) % 24),
+      minutes: Math.floor((distance / 60000) % 60),
+      seconds: Math.floor((distance / 1000) % 60),
+    };
+  };
+
+  const [timeLeft, setTimeLeft] = useState(calculateTimeLeft);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setTimeLeft(calculateTimeLeft());
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, []);
+
+  return (
+    <div className="mx-auto mt-4 max-w-xl rounded-2xl border border-[#E8D8D4] bg-[#FFF4F1] p-4 sm:mt-5 sm:p-5">
+      <div className="grid grid-cols-2 gap-3">
+        <div className="flex items-center gap-2.5 rounded-xl bg-white px-3 py-3 text-left">
+          <CalendarCheck className="h-5 w-5 shrink-0 text-[#B91C1C]" />
+          <div>
+            <p className="text-[11px] font-black uppercase tracking-wide text-[#8A6B65]">
+              Thời gian
+            </p>
+            <p className="mt-0.5 text-[15px] font-black text-[#242424] sm:text-base">
+              4–5–6/07/2026
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2.5 rounded-xl bg-white px-3 py-3 text-left">
+          <Video className="h-5 w-5 shrink-0 text-[#B91C1C]" />
+          <div>
+            <p className="text-[11px] font-black uppercase tracking-wide text-[#8A6B65]">
+              Hình thức
+            </p>
+            <p className="mt-0.5 text-[15px] font-black text-[#242424] sm:text-base">
+              Học qua Zoom
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-4 flex items-center justify-center gap-2 text-[#7A2113]">
+        <Clock3 className="h-4 w-4" />
+        <p className="text-[13px] font-black uppercase tracking-[0.08em]">
+          Thời gian còn lại đến khai giảng
+        </p>
+      </div>
+      <div className="mt-3 grid grid-cols-4 gap-2">
+        {[
+          ["Ngày", timeLeft.days],
+          ["Giờ", timeLeft.hours],
+          ["Phút", timeLeft.minutes],
+          ["Giây", timeLeft.seconds],
+        ].map(([label, value]) => (
+          <div key={label} className="rounded-xl bg-[#B91C1C] px-1 py-2.5 text-center text-white">
+            <p className="text-[22px] font-black leading-none tabular-nums sm:text-2xl">
+              {String(value).padStart(2, "0")}
+            </p>
+            <p className="mt-1.5 text-[10px] font-bold uppercase tracking-wide text-white/80">
+              {label}
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 const RegistrationModal = ({ isOpen, onClose }) => {
   const titleId = useId();
   const [searchParams] = useSearchParams();
@@ -179,6 +289,12 @@ const RegistrationModal = ({ isOpen, onClose }) => {
 
     const name = form.name.trim();
     const phone = normalizeLeadPhoneDigits(form.phone);
+    const referralCode = String(
+      searchParams.get("ref") || searchParams.get("leader") || "cong-ty"
+    )
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9-]/g, "");
     const nextErrors = {
       name: name.length < 2,
       phone: phone.length < 9 || phone.length > 11,
@@ -202,6 +318,15 @@ const RegistrationModal = ({ isOpen, onClose }) => {
         sourceUrl: window.location.href,
         landingPageId: "chinh-phuc-muc-tieu",
         landingPageSlug: window.location.pathname,
+        referrer: referralCode,
+        referrer_type:
+          referralCode === "cong-ty" ? "company_direct" : "employee_referral",
+        introducedBy: referralCode,
+        leader_utm: referralCode,
+        leaderUtm: referralCode,
+        leaderSlug: referralCode,
+        utm_owner: referralCode,
+        utm_owner_slug: referralCode,
         utm_source: searchParams.get("utm_source") || "website",
         utm_medium: searchParams.get("utm_medium") || "landing",
         utm_campaign: searchParams.get("utm_campaign") || "chinh_phuc_muc_tieu",
@@ -218,6 +343,13 @@ const RegistrationModal = ({ isOpen, onClose }) => {
           searchPhone: phone,
           searchKeywords: buildLeadSearchKeywords({ name, phone }),
           source: "chinh-phuc-muc-tieu",
+          referralCode,
+          utmSource:
+            searchParams.get("utm_source") ||
+            (referralCode === "cong-ty" ? "company_direct" : "employee_referral"),
+          utmMedium: searchParams.get("utm_medium") || "landing",
+          utmCampaign:
+            searchParams.get("utm_campaign") || "chinh_phuc_muc_tieu",
           sourceUrl: window.location.href,
           createdAt: Date.now(),
           status: "new",
@@ -395,13 +527,7 @@ const VutTocMucTieu = () => {
             </div>
             <div className="px-4 pt-5 text-center sm:px-6 sm:pt-9">
               <CtaButton onClick={openRegistration} />
-              <p className="mx-auto mt-3 max-w-xl text-[16px] leading-6 text-[#555] sm:mt-4 sm:text-lg sm:leading-7">
-                Nhấn nút và để lại thông tin. Mali Edu sẽ liên hệ tư vấn cụ thể cho bạn.
-              </p>
-              <div className="mx-auto mt-4 flex max-w-md items-center justify-center gap-2 rounded-full bg-[#FFF4F1] px-3 py-2 text-[14px] font-bold text-[#7A2113] sm:hidden">
-                <LockKeyhole className="h-4 w-4 shrink-0" />
-                Không thanh toán ngay · Thông tin được bảo mật
-              </div>
+              <CourseSchedule />
             </div>
           </div>
         </section>
@@ -456,18 +582,37 @@ const VutTocMucTieu = () => {
           <div className="mx-auto max-w-5xl">
             <SectionHeading
               eyebrow="Nội dung chương trình"
-              title="Lộ trình 6 bước dễ hiểu, dễ thực hiện"
-              description="Mỗi phần tập trung vào một việc quan trọng để bạn không bị quá tải."
+              title="Nội dung 3 buổi học"
+              description="Mỗi buổi giúp bạn tháo gỡ một vấn đề quan trọng trên hành trình chinh phục mục tiêu."
             />
             <div className="space-y-3 sm:space-y-4">
-              {modules.map(([number, title, text]) => (
-                <article key={number} className="grid grid-cols-[48px_1fr] gap-3 rounded-2xl border border-[#E8D8D4] bg-white p-4 shadow-sm sm:grid-cols-[76px_1fr] sm:items-center sm:gap-4 sm:p-6">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#D62828] text-lg font-black text-white sm:h-16 sm:w-16 sm:rounded-2xl sm:text-2xl">
-                    {number}
+              {modules.map(({ number, title, lessons }) => (
+                <article key={number} className="rounded-2xl border border-[#E8D8D4] bg-white p-4 shadow-sm sm:p-7">
+                  <div className="flex items-start gap-3 sm:gap-5">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#D62828] text-lg font-black text-white sm:h-16 sm:w-16 sm:rounded-2xl sm:text-2xl">
+                      {number}
+                    </div>
+                    <div>
+                      <p className="text-[13px] font-extrabold uppercase tracking-[0.12em] text-[#B91C1C] sm:text-sm">
+                        Buổi {Number(number)}
+                      </p>
+                      <h3 className="mt-1 text-[20px] font-black leading-6 text-[#242424] sm:text-2xl sm:leading-8">
+                        {title}
+                      </h3>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-[20px] font-black leading-6 text-[#242424] sm:text-2xl">{title}</h3>
-                    <p className="mt-1.5 text-[16px] leading-6 text-[#555] sm:mt-2 sm:text-[18px] sm:leading-8">{text}</p>
+                  <div className="mt-5 border-t border-[#F0E2DE] pt-4 sm:ml-[84px] sm:mt-4 sm:pt-5">
+                    <p className="mb-3 text-[16px] font-black text-[#333] sm:text-lg">Nội dung học:</p>
+                    <ul className="space-y-3">
+                      {lessons.map((lesson) => (
+                        <li key={lesson} className="flex items-start gap-3 text-[16px] font-medium leading-6 text-[#4A4A4A] sm:text-[18px] sm:leading-8">
+                          <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-red-50 text-[#D62828] sm:mt-1">
+                            <Check className="h-4 w-4" strokeWidth={3} aria-hidden="true" />
+                          </span>
+                          <span>{lesson}</span>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
                 </article>
               ))}
@@ -525,24 +670,38 @@ const VutTocMucTieu = () => {
           </div>
         </section>
 
-        <section className="px-4 py-11 sm:px-6 sm:py-20">
-          <div className="mx-auto max-w-5xl rounded-3xl border border-[#E8D8D4] bg-white p-6 text-left shadow-sm sm:p-12 sm:text-center">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#D62828] text-white sm:mx-auto sm:h-16 sm:w-16">
-              <Users className="h-8 w-8" />
+        <section className="py-11 sm:px-6 sm:py-20">
+          <div className="mx-auto max-w-6xl">
+            <div className="px-4 sm:px-0">
+              <SectionHeading
+                eyebrow="KẾT QUẢ HỌC VIÊN"
+                title="Hành trình ứng dụng Luật Hấp Dẫn và chuyển hóa cuộc sống"
+                description="Lắng nghe chia sẻ thực tế từ học viên sau khi học cùng Mali Edu — những thay đổi trong tư duy, cảm xúc và kết quả đạt được trên hành trình phát triển bản thân."
+              />
             </div>
-            <h2 className="mt-5 text-[28px] font-black leading-tight sm:mt-6 sm:text-4xl">
-              Câu chuyện thật từ học viên Mali Edu
-            </h2>
-            <p className="mx-auto mt-3 max-w-2xl text-[17px] leading-7 text-[#555] sm:mt-4 sm:text-[18px] sm:leading-8">
-              Xem những chia sẻ thực tế từ những người đã tham gia hành trình mục tiêu cùng Mali Edu.
-            </p>
-            <Link
-              to="/cam-nhan/vut-toc-muc-tieu"
-              className="mt-6 inline-flex min-h-[56px] w-full items-center justify-center gap-2 rounded-2xl border-2 border-[#B91C1C] px-4 text-[16px] font-black text-[#B91C1C] active:scale-[0.985] hover:bg-red-50 focus:outline-none focus:ring-4 focus:ring-red-100 sm:mt-7 sm:w-auto sm:rounded-xl sm:px-6 sm:text-lg"
-            >
-              XEM CẢM NHẬN HỌC VIÊN
-              <ArrowRight className="h-5 w-5" />
-            </Link>
+            <div className="flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:grid sm:grid-cols-2 sm:gap-6 sm:overflow-visible sm:px-0 sm:pb-0">
+              {studentVideos.map((videoId, index) => (
+                <article
+                  key={videoId}
+                  className="w-[88vw] max-w-[390px] shrink-0 snap-center overflow-hidden rounded-2xl border border-[#E8D8D4] bg-white shadow-sm sm:w-auto sm:max-w-none"
+                >
+                  <div className="aspect-video bg-[#2A1717]">
+                    <iframe
+                      src={`https://www.youtube-nocookie.com/embed/${videoId}`}
+                      title={`Kết quả học viên Mali Edu ${index + 1}`}
+                      className="h-full w-full"
+                      loading="lazy"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                      referrerPolicy="strict-origin-when-cross-origin"
+                      allowFullScreen
+                    />
+                  </div>
+                </article>
+              ))}
+            </div>
+            <div className="mt-7 px-4 text-center sm:mt-10 sm:px-0">
+              <CtaButton onClick={openRegistration} />
+            </div>
           </div>
         </section>
 
@@ -593,6 +752,8 @@ const VutTocMucTieu = () => {
           </div>
         </section>
       </main>
+
+      <Footer />
 
       <div className="h-[86px] sm:hidden" aria-hidden="true" />
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-red-100 bg-white/95 px-3 pb-[calc(10px+env(safe-area-inset-bottom))] pt-2.5 shadow-[0_-8px_24px_rgba(0,0,0,0.12)] backdrop-blur sm:hidden">

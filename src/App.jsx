@@ -82,6 +82,7 @@ const AdminPosts = lazy(() => import("./pages/admin/AdminPosts"));
 const AdminKnowledge = lazy(() => import("./pages/admin/AdminKnowledge"));
 const AdminTestimonials = lazy(() => import("./pages/admin/AdminTestimonials"));
 const AdminLandings = lazy(() => import("./pages/admin/AdminLandings"));
+const AdminReferralCustomers = lazy(() => import("./pages/admin/AdminReferralCustomers"));
 const AdminLandingBuilder = lazy(() => import("./pages/admin/landing-builder/AdminLandingBuilder"));
 const AdminSettings = lazy(() => import("./pages/admin/AdminSettings"));
 const AdminCoupons = lazy(() => import("./pages/admin/AdminCoupons"));
@@ -194,6 +195,7 @@ const AppShell = () => {
               <Route path="reviews" element={<AdminReviews />} />
               <Route path="students" element={<AdminStudents />} />
               <Route path="data-ads" element={<AdminDataAds />} />
+              <Route path="referral-customers" element={<AdminReferralCustomers />} />
               <Route path="instructors" element={<AdminInstructors />} />
               <Route path="recruitment" element={<AdminRecruitment />} />
               <Route path="posts" element={<AdminPosts />} />

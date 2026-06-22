@@ -27,6 +27,7 @@ import {
   Globe,
   Database,
   Megaphone,
+  Sheet,
 } from "lucide-react";
 
 import { auth, db } from "../firebase";
@@ -210,6 +211,12 @@ const AdminLayout = () => {
             <NavLink to="/admin/data-ads" className={getNavClasses} title={isCollapsed ? "Quản lý Data Ads" : ""}>
               <Megaphone className="h-4 w-4 shrink-0 transition-colors" />
               {!isCollapsed && <span className="truncate">Quản lý Data Ads</span>}
+            </NavLink>
+          )}
+          {hasAccess("referral-customers") && (
+            <NavLink to="/admin/referral-customers" className={getNavClasses} title={isCollapsed ? "Khách hàng giới thiệu" : ""}>
+              <Sheet className="h-4 w-4 shrink-0 transition-colors" />
+              {!isCollapsed && <span className="truncate">Khách hàng giới thiệu</span>}
             </NavLink>
           )}
           {hasAccess("recruitment") && (
