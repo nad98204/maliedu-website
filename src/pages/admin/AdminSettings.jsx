@@ -52,18 +52,19 @@ const slugify = (text) => {
         .replace(/\s+/g, '-');
 };
 
-const ALL_MODULES = [
-    { key: 'dashboard', label: 'Dashboard' },
-    { key: 'banners', label: 'Trang chủ' },
-    { key: 'posts', label: 'Tin Tức & Bài Viết' },
-    { key: 'knowledge', label: 'Kho Kiến Thức' },
-    { key: 'courses', label: 'Khóa học Online' },
-    { key: 'orders', label: 'Đơn hàng' },
-    { key: 'students', label: 'Học viên' },
-    { key: 'recruitment', label: 'Tuyển dụng' },
-    { key: 'testimonials', label: 'Cảm nhận HV' },
-    { key: 'landings', label: 'Landing Page' },
-    { key: 'settings', label: 'C\u1ea5u h\u00ecnh' },
+const ACCESS_TAB_OPTIONS = [
+    {
+        key: 'students',
+        label: 'Quản lý học viên',
+        description: 'Xem và quản lý danh sách học viên.',
+        icon: Users,
+    },
+    {
+        key: 'referral-customers',
+        label: 'Khách hàng giới thiệu',
+        description: 'Theo dõi khách hàng và kết quả giới thiệu.',
+        icon: ExternalLink,
+    },
 ];
 
 const AdminSettings = () => {
@@ -349,6 +350,38 @@ const AdminSettings = () => {
                 ...prev,
                 role: 'student',
                 allowedModules: [],
+            };
+        });
+    };
+
+    const toggleWebUserAccessTab = (moduleKey) => {
+        setEditingWebUser(prev => {
+            if (!prev) return prev;
+
+            const currentModules = Array.isArray(prev.allowedModules)
+                ? prev.allowedModules
+                : [];
+            const hasFullAccess = prev.role === 'admin' && currentModules.length === 0;
+            const selectedTabs = hasFullAccess
+                ? ACCESS_TAB_OPTIONS.map(tab => tab.key)
+                : ACCESS_TAB_OPTIONS
+                    .filter(tab => currentModules.includes(tab.key))
+                    .map(tab => tab.key);
+            const isSelected = selectedTabs.includes(moduleKey);
+
+            if (isSelected && selectedTabs.length === 1) {
+                toast.error('Tài khoản admin cần được chọn ít nhất một tab.');
+                return prev;
+            }
+
+            const nextTabs = isSelected
+                ? selectedTabs.filter(key => key !== moduleKey)
+                : [...selectedTabs, moduleKey];
+
+            return {
+                ...prev,
+                role: 'admin',
+                allowedModules: nextTabs,
             };
         });
     };
@@ -1138,72 +1171,68 @@ const AdminSettings = () => {
                                     </div>
                                 </div>
 
-                                {editingWebUser.role === 'admin' && (
-                                    <div className="border border-slate-100 rounded-2xl p-4 space-y-3">
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-2 text-sm font-bold text-slate-700">
-                                                <Settings size={16} className="text-blue-500" />
-                                                Phân quyền Module
-                                            </div>
-                                            <button
-                                                onClick={() => {
-                                                    const allChecked = !editingWebUser.allowedModules || editingWebUser.allowedModules.length === 0;
-                                                    if (allChecked) {
-                                                        // Currently full access, uncheck all (only give dashboard to prevent lockout)
-                                                        setEditingWebUser(prev => ({ ...prev, allowedModules: ['dashboard'] }));
-                                                    } else {
-                                                        // Give full access
-                                                        setEditingWebUser(prev => ({ ...prev, allowedModules: [] }));
-                                                    }
-                                                }}
-                                                className="text-xs font-bold text-indigo-600 hover:underline"
-                                            >
-                                                {(!editingWebUser.allowedModules || editingWebUser.allowedModules.length === 0) ? 'Tùy chỉnh' : 'Chọn toàn quyền'}
-                                            </button>
+                                <div className="border border-slate-100 rounded-2xl p-4 space-y-3">
+                                        <div className="flex items-center gap-2 text-sm font-bold text-slate-700">
+                                            <Layout size={16} className="text-blue-500" />
+                                            Phân quyền từng tab
                                         </div>
+                                        <p className="text-xs text-slate-400">
+                                            Chọn riêng từng tab mà tài khoản này được phép truy cập.
+                                        </p>
+                                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                            {ACCESS_TAB_OPTIONS.map(tab => {
+                                                const isAdmin = editingWebUser.role === 'admin';
+                                                const hasFullAccess = isAdmin && (
+                                                    !editingWebUser.allowedModules
+                                                    || editingWebUser.allowedModules.length === 0
+                                                );
+                                                const isChecked = isAdmin && (
+                                                    hasFullAccess
+                                                    || editingWebUser.allowedModules.includes(tab.key)
+                                                );
+                                                const TabIcon = tab.icon;
 
-                                        {(!editingWebUser.allowedModules || editingWebUser.allowedModules.length === 0) ? (
-                                            <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-3 text-center">
-                                                <span className="text-sm font-bold text-emerald-600">✅ TOÀN QUYỀN - Truy cập tất cả module</span>
-                                            </div>
-                                        ) : (
-                                            <div className="grid grid-cols-1 gap-2">
-                                                {ALL_MODULES.map(mod => {
-                                                    const isChecked = editingWebUser.allowedModules?.includes(mod.key);
-                                                    return (
-                                                        <label
-                                                            key={mod.key}
-                                                            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all cursor-pointer ${
-                                                                isChecked
-                                                                    ? 'border-blue-200 bg-blue-50/50'
-                                                                    : 'border-slate-100 hover:border-slate-200'
-                                                            }`}
-                                                        >
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={isChecked}
-                                                                onChange={() => {
-                                                                    setEditingWebUser(prev => {
-                                                                        const current = prev.allowedModules || [];
-                                                                        if (current.includes(mod.key)) {
-                                                                            return { ...prev, allowedModules: current.filter(m => m !== mod.key) };
-                                                                        } else {
-                                                                            return { ...prev, allowedModules: [...current, mod.key] };
-                                                                        }
-                                                                    });
-                                                                }}
-                                                                className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
-                                                            />
-                                                            <span className={`text-sm font-bold ${isChecked ? 'text-blue-700' : 'text-slate-500'}`}>
-                                                                {mod.label}
+                                                return (
+                                                    <button
+                                                        type="button"
+                                                        key={tab.key}
+                                                        onClick={() => toggleWebUserAccessTab(tab.key)}
+                                                        className={`flex min-h-[104px] items-start gap-3 rounded-xl border p-3 text-left transition-all ${
+                                                            isChecked
+                                                                ? 'border-blue-300 bg-blue-50 text-blue-700 shadow-sm'
+                                                                : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'
+                                                        }`}
+                                                    >
+                                                        <span className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+                                                            isChecked ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-400'
+                                                        }`}>
+                                                            <TabIcon size={17} />
+                                                        </span>
+                                                        <span className="min-w-0 flex-1">
+                                                            <span className="flex items-center justify-between gap-2">
+                                                                <span className="text-sm font-bold">{tab.label}</span>
+                                                                <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${
+                                                                    isChecked
+                                                                        ? 'border-blue-600 bg-blue-600 text-white'
+                                                                        : 'border-slate-300 bg-white'
+                                                                }`}>
+                                                                    {isChecked && <Check size={13} />}
+                                                                </span>
                                                             </span>
-                                                        </label>
-                                                    );
-                                                })}
-                                            </div>
+                                                            <span className="mt-1 block text-xs font-normal leading-5 opacity-80">
+                                                                {tab.description}
+                                                            </span>
+                                                        </span>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                        {editingWebUser.role !== 'admin' && (
+                                            <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-700">
+                                                Chọn một tab sẽ tự chuyển vai trò sang Admin và chỉ cấp quyền cho tab đã chọn.
+                                            </p>
                                         )}
-                                    </div>
-                                )}
+                                </div>
                             </div>
 
                             {/* Modal Footer */}
