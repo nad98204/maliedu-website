@@ -353,6 +353,11 @@ const AdminReferralCustomers = () => {
     return new Map(entries);
   }, [partners]);
 
+  const selectedPartnerFilter = useMemo(
+    () => (partnerFilter !== "all" ? partnerByCode.get(partnerFilter) || null : null),
+    [partnerByCode, partnerFilter]
+  );
+
   const ownPartner = useMemo(
     () =>
       partners.find(
@@ -525,15 +530,23 @@ const AdminReferralCustomers = () => {
 
   useEffect(() => {
     if (!currentUser || selectedCourseSources.length === 0) return;
+    const selectedReferralCodes = selectedPartnerFilter
+      ? getPartnerReferralCodes(selectedPartnerFilter)
+      : undefined;
+
+    if (partnerFilter !== "all" && !selectedPartnerFilter) {
+      setLeadStats({ total: 0, contacted: 0, registered: 0 });
+      return;
+    }
 
     let isCancelled = false;
     const loadStats = async () => {
       try {
         const [total, contacted, interested, registered] = await Promise.all([
-          countLeads({ sources: selectedCourseSources }),
-          countLeads({ sources: selectedCourseSources, status: "contacted" }),
-          countLeads({ sources: selectedCourseSources, status: "interested" }),
-          countLeads({ sources: selectedCourseSources, status: "registered" }),
+          countLeads({ sources: selectedCourseSources, referralCodes: selectedReferralCodes }),
+          countLeads({ sources: selectedCourseSources, referralCodes: selectedReferralCodes, status: "contacted" }),
+          countLeads({ sources: selectedCourseSources, referralCodes: selectedReferralCodes, status: "interested" }),
+          countLeads({ sources: selectedCourseSources, referralCodes: selectedReferralCodes, status: "registered" }),
         ]);
         if (!isCancelled) {
           setLeadStats({
@@ -553,6 +566,8 @@ const AdminReferralCustomers = () => {
   }, [
     countLeads,
     currentUser,
+    partnerFilter,
+    selectedPartnerFilter,
     selectedCourseSources,
   ]);
 
@@ -789,7 +804,14 @@ const AdminReferralCustomers = () => {
         <>
             <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               {[
-                ["Tổng khách giới thiệu", leadStats.total, <Users key="users" className="h-5 w-5" />, "text-blue-600 bg-blue-50"],
+                [
+                  selectedPartnerFilter
+                    ? `Tổng khách của ${selectedPartnerFilter.name}`
+                    : "Tổng khách giới thiệu",
+                  leadStats.total,
+                  <Users key="users" className="h-5 w-5" />,
+                  "text-blue-600 bg-blue-50",
+                ],
                 ["Đã liên hệ", leadStats.contacted, <Check key="check" className="h-5 w-5" />, "text-amber-600 bg-amber-50"],
                 ["Đã đăng ký", leadStats.registered, <UserPlus key="user-plus" className="h-5 w-5" />, "text-emerald-600 bg-emerald-50"],
                 [
