@@ -39,7 +39,7 @@ const HERO_IMAGE = "/assets/landing/chinh-phuc-muc-tieu/hero.png";
 const MODULE_1_IMAGE = "/assets/landing/chinh-phuc-muc-tieu/module1.png";
 const MODULE_2_IMAGE = "/assets/landing/chinh-phuc-muc-tieu/module2.png";
 const MODULE_3_IMAGE = "/assets/landing/chinh-phuc-muc-tieu/module3.png";
-const COURSE_START_TIME = new Date("2026-07-04T00:00:00+07:00").getTime();
+const COURSE_START_TIME = new Date("2026-07-06T00:00:00+07:00").getTime();
 
 const painPoints = [
   "Có mục tiêu nhưng chưa biết bắt đầu từ đâu.",
@@ -387,7 +387,7 @@ const CourseSchedule = () => {
               Thời gian
             </p>
             <p className="mt-0.5 text-[15px] font-black text-[#242424] sm:text-base">
-              4–5–6/07
+              6–7–8/07
             </p>
           </div>
         </div>
