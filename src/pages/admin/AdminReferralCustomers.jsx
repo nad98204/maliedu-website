@@ -45,6 +45,16 @@ const COURSE_OPTIONS = [
 
 const DEFAULT_COURSE_ID = COURSE_OPTIONS[0].id;
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
+const REFERRAL_CUSTOMERS_FILTER_STORAGE_KEY = "mali-admin-referral-customers-filters";
+const DEFAULT_REFERRAL_CUSTOMERS_FILTERS = {
+  activeView: "customers",
+  searchTerm: "",
+  statusFilter: "all",
+  partnerFilter: "all",
+  courseFilter: "all",
+  linkCourseId: DEFAULT_COURSE_ID,
+  pageSize: 10,
+};
 const COMPANY_PARTNER = {
   id: "cong-ty",
   code: "cong-ty",
@@ -54,6 +64,14 @@ const COMPANY_PARTNER = {
   isCompany: true,
   isActive: true,
 };
+const REFERRAL_PARTNER_FIXES = [
+  {
+    email: "ductue38538@gmail.com",
+    canonicalCode: "tue-duc",
+    legacyCodes: ["tue-du"],
+    name: "Tuệ Đức",
+  },
+];
 
 const STATUS_OPTIONS = [
   { value: "new", label: "Mới", className: "bg-blue-50 text-blue-700 border-blue-200" },
@@ -115,11 +133,86 @@ const getLeadCourseId = (lead = {}) => {
   return matchedCourse?.id || explicitId || source || "khac";
 };
 
-const isMissingCompositeIndexError = (error) =>
-  error?.code === "failed-precondition" ||
-  String(error?.message || "").toLowerCase().includes("index");
+const uniqueValues = (values = []) =>
+  [...new Set(values.map((value) => String(value || "").trim()).filter(Boolean))];
+
+const applyPartnerFixes = (partner = {}) => {
+  const email = String(partner.email || "").trim().toLowerCase();
+  const code = String(partner.code || partner.id || "").trim();
+  const fix = REFERRAL_PARTNER_FIXES.find(
+    (item) =>
+      item.email === email ||
+      item.canonicalCode === code ||
+      item.legacyCodes.includes(code)
+  );
+
+  if (!fix) return partner;
+
+  return {
+    ...partner,
+    code: fix.canonicalCode,
+    name: partner.name === code || !partner.name ? fix.name : partner.name,
+    legacyCodes: uniqueValues([
+      ...(Array.isArray(partner.legacyCodes) ? partner.legacyCodes : []),
+      code,
+      ...fix.legacyCodes,
+    ]).filter((item) => item !== fix.canonicalCode),
+  };
+};
+
+const getPartnerReferralCodes = (partner = {}) =>
+  uniqueValues([
+    partner.code,
+    ...(Array.isArray(partner.legacyCodes) ? partner.legacyCodes : []),
+  ]);
+
+const leadBelongsToPartner = (lead, partner) =>
+  getPartnerReferralCodes(partner).includes(lead.referralCode);
+
+const getStoredReferralCustomerFilters = () => {
+  if (typeof window === "undefined") return DEFAULT_REFERRAL_CUSTOMERS_FILTERS;
+
+  try {
+    const rawValue = window.localStorage.getItem(REFERRAL_CUSTOMERS_FILTER_STORAGE_KEY);
+    const storedValue = rawValue ? JSON.parse(rawValue) : {};
+    const validCourseIds = COURSE_OPTIONS.map((course) => course.id);
+    const validStatusValues = STATUS_OPTIONS.map((status) => status.value);
+
+    return {
+      activeView: ["customers", "partners"].includes(storedValue.activeView)
+        ? storedValue.activeView
+        : DEFAULT_REFERRAL_CUSTOMERS_FILTERS.activeView,
+      searchTerm:
+        typeof storedValue.searchTerm === "string"
+          ? storedValue.searchTerm
+          : DEFAULT_REFERRAL_CUSTOMERS_FILTERS.searchTerm,
+      statusFilter:
+        storedValue.statusFilter === "all" || validStatusValues.includes(storedValue.statusFilter)
+          ? storedValue.statusFilter
+          : DEFAULT_REFERRAL_CUSTOMERS_FILTERS.statusFilter,
+      partnerFilter:
+        typeof storedValue.partnerFilter === "string" && storedValue.partnerFilter.trim()
+          ? storedValue.partnerFilter
+          : DEFAULT_REFERRAL_CUSTOMERS_FILTERS.partnerFilter,
+      courseFilter:
+        storedValue.courseFilter === "all" || validCourseIds.includes(storedValue.courseFilter)
+          ? storedValue.courseFilter
+          : DEFAULT_REFERRAL_CUSTOMERS_FILTERS.courseFilter,
+      linkCourseId: validCourseIds.includes(storedValue.linkCourseId)
+        ? storedValue.linkCourseId
+        : DEFAULT_REFERRAL_CUSTOMERS_FILTERS.linkCourseId,
+      pageSize: PAGE_SIZE_OPTIONS.includes(Number(storedValue.pageSize))
+        ? Number(storedValue.pageSize)
+        : DEFAULT_REFERRAL_CUSTOMERS_FILTERS.pageSize,
+    };
+  } catch (error) {
+    console.warn("Không thể khôi phục bộ lọc khách hàng giới thiệu:", error);
+    return DEFAULT_REFERRAL_CUSTOMERS_FILTERS;
+  }
+};
 
 const AdminReferralCustomers = () => {
+  const [storedFilters] = useState(getStoredReferralCustomerFilters);
   const [currentUser, setCurrentUser] = useState(null);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [partners, setPartners] = useState([]);
@@ -128,14 +221,14 @@ const AdminReferralCustomers = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingLeads, setIsLoadingLeads] = useState(false);
   const [isSavingPartner, setIsSavingPartner] = useState(false);
-  const [activeView, setActiveView] = useState("customers");
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [partnerFilter, setPartnerFilter] = useState("all");
-  const [courseFilter, setCourseFilter] = useState("all");
-  const [linkCourseId, setLinkCourseId] = useState(DEFAULT_COURSE_ID);
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
-  const [pageSize, setPageSize] = useState(10);
+  const [activeView, setActiveView] = useState(storedFilters.activeView);
+  const [searchTerm, setSearchTerm] = useState(storedFilters.searchTerm);
+  const [statusFilter, setStatusFilter] = useState(storedFilters.statusFilter);
+  const [partnerFilter, setPartnerFilter] = useState(storedFilters.partnerFilter);
+  const [courseFilter, setCourseFilter] = useState(storedFilters.courseFilter);
+  const [linkCourseId, setLinkCourseId] = useState(storedFilters.linkCourseId);
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(storedFilters.searchTerm);
+  const [pageSize, setPageSize] = useState(storedFilters.pageSize);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageCursors, setPageCursors] = useState({ 1: null });
   const [pageEndCursor, setPageEndCursor] = useState(null);
@@ -153,27 +246,20 @@ const AdminReferralCustomers = () => {
     code: "",
   });
 
-  const loadData = useCallback(async (user, superAdmin) => {
+  const loadData = useCallback(async (superAdmin) => {
     setIsLoading(true);
     try {
       const partnerSnapshot = await getDocs(
-        superAdmin
-          ? query(collection(db, "referral_partners"), orderBy("name", "asc"))
-          : query(
-              collection(db, "referral_partners"),
-              where("userId", "==", user.uid)
-            )
+        query(collection(db, "referral_partners"), orderBy("name", "asc"))
       );
       const storedPartnerList = partnerSnapshot.docs.map((item) => ({
         id: item.id,
         ...item.data(),
-      }));
-      const partnerList = superAdmin
-        ? [
-            COMPANY_PARTNER,
-            ...storedPartnerList.filter((item) => item.code !== COMPANY_PARTNER.code),
-          ]
-        : storedPartnerList;
+      })).map(applyPartnerFixes);
+      const partnerList = [
+        COMPANY_PARTNER,
+        ...storedPartnerList.filter((item) => item.code !== COMPANY_PARTNER.code),
+      ];
       setPartners(partnerList);
 
       setLeads([]);
@@ -210,7 +296,7 @@ const AdminReferralCustomers = () => {
 
       const superAdmin = isSuperAdminEmail(user.email);
       setIsSuperAdmin(superAdmin);
-      await loadData(user, superAdmin);
+      await loadData(superAdmin);
     });
 
     return unsubscribe;
@@ -226,10 +312,46 @@ const AdminReferralCustomers = () => {
     return () => window.clearTimeout(timeout);
   }, [searchTerm]);
 
-  const partnerByCode = useMemo(
-    () => new Map(partners.map((partner) => [partner.code, partner])),
-    [partners]
-  );
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    window.localStorage.setItem(
+      REFERRAL_CUSTOMERS_FILTER_STORAGE_KEY,
+      JSON.stringify({
+        activeView,
+        searchTerm,
+        statusFilter,
+        partnerFilter,
+        courseFilter,
+        linkCourseId,
+        pageSize,
+      })
+    );
+  }, [
+    activeView,
+    courseFilter,
+    linkCourseId,
+    pageSize,
+    partnerFilter,
+    searchTerm,
+    statusFilter,
+  ]);
+
+  useEffect(() => {
+    if (currentUser && !isSuperAdmin && activeView === "partners") {
+      setActiveView("customers");
+    }
+  }, [activeView, currentUser, isSuperAdmin]);
+
+  const partnerByCode = useMemo(() => {
+    const entries = [];
+    partners.forEach((partner) => {
+      getPartnerReferralCodes(partner).forEach((code) => {
+        entries.push([code, partner]);
+      });
+    });
+    return new Map(entries);
+  }, [partners]);
 
   const ownPartner = useMemo(
     () =>
@@ -251,6 +373,13 @@ const AdminReferralCustomers = () => {
     setHasNextPage(false);
   }, []);
 
+  useEffect(() => {
+    if (partnerFilter !== "all" && partners.length > 0 && !partnerByCode.has(partnerFilter)) {
+      setPartnerFilter("all");
+      resetPagination();
+    }
+  }, [partnerByCode, partnerFilter, partners.length, resetPagination]);
+
   const selectedCourseSources = useMemo(
     () =>
       courseFilter === "all"
@@ -259,48 +388,36 @@ const AdminReferralCustomers = () => {
     [courseFilter]
   );
 
-  const countLeads = useCallback(async ({ sources, referralCode, status }) => {
+  const countLeads = useCallback(async ({ sources, referralCode, referralCodes, status }) => {
+    const codesToCount = referralCodes?.length
+      ? referralCodes
+      : referralCode
+        ? [referralCode]
+        : [""];
     const counts = await Promise.all(
-      sources.map(async (source) => {
-        const constraints = [where("source", "==", source)];
-        if (referralCode) constraints.push(where("referralCode", "==", referralCode));
-        if (status) constraints.push(where("status", "==", status));
-        const snapshot = await getCountFromServer(
-          query(collection(db, "leads"), ...constraints)
-        );
-        return snapshot.data().count;
-      })
+      sources.flatMap((source) =>
+        codesToCount.map(async (code) => {
+          const constraints = [where("source", "==", source)];
+          if (code) constraints.push(where("referralCode", "==", code));
+          if (status) constraints.push(where("status", "==", status));
+          const snapshot = await getCountFromServer(
+            query(collection(db, "leads"), ...constraints)
+          );
+          return snapshot.data().count;
+        })
+      )
     );
     return counts.reduce((total, count) => total + count, 0);
-  }, []);
-
-  const countEmployeeLeadsClientSide = useCallback(async ({ sources, referralCode, status }) => {
-    if (!referralCode) return 0;
-
-    const snapshot = await getDocs(
-      query(collection(db, "leads"), where("referralCode", "==", referralCode))
-    );
-
-    return snapshot.docs.reduce((total, leadDoc) => {
-      const data = leadDoc.data();
-      const lead = {
-        id: leadDoc.id,
-        ...data,
-        referralCode: data.referralCode || COMPANY_PARTNER.code,
-        courseId: getLeadCourseId(data),
-      };
-
-      if (!sources.includes(lead.source)) return total;
-      if (status && lead.status !== status) return total;
-      return total + 1;
-    }, 0);
   }, []);
 
   const matchesLeadFilters = useCallback(
     (lead) => {
       if (!selectedCourseSources.includes(lead.source)) return false;
       if (statusFilter !== "all" && lead.status !== statusFilter) return false;
-      if (partnerFilter !== "all" && lead.referralCode !== partnerFilter) return false;
+      if (partnerFilter !== "all") {
+        const selectedPartner = partnerByCode.get(partnerFilter);
+        if (!selectedPartner || !leadBelongsToPartner(lead, selectedPartner)) return false;
+      }
 
       const normalizedSearch = normalizeLeadSearchText(debouncedSearchTerm);
       if (!normalizedSearch) return true;
@@ -335,12 +452,6 @@ const AdminReferralCustomers = () => {
       return;
     }
 
-    const ownCode = ownPartner?.code || "";
-    if (!isSuperAdmin && !ownCode) {
-      setLeads([]);
-      return;
-    }
-
     setIsLoadingLeads(true);
     try {
       const matchedLeads = [];
@@ -352,7 +463,6 @@ const AdminReferralCustomers = () => {
 
       while (!exhausted && !nextPageExists) {
         const constraints = [];
-        if (!isSuperAdmin) constraints.push(where("referralCode", "==", ownCode));
         constraints.push(orderBy("createdAt", "desc"));
         if (cursor) constraints.push(startAfter(cursor));
         constraints.push(limit(scanSize));
@@ -394,34 +504,6 @@ const AdminReferralCustomers = () => {
       setPageEndCursor(endCursor);
       setHasNextPage(nextPageExists);
     } catch (error) {
-      if (!isSuperAdmin && ownCode && isMissingCompositeIndexError(error)) {
-        try {
-          const snapshot = await getDocs(
-            query(collection(db, "leads"), where("referralCode", "==", ownCode))
-          );
-          const allMatchedLeads = snapshot.docs
-            .map((leadDoc) => {
-              const data = leadDoc.data();
-              return {
-                id: leadDoc.id,
-                ...data,
-                referralCode: data.referralCode || COMPANY_PARTNER.code,
-                courseId: getLeadCourseId(data),
-              };
-            })
-            .filter(matchesLeadFilters)
-            .sort((left, right) => toMillis(right.createdAt) - toMillis(left.createdAt));
-
-          const startIndex = (currentPage - 1) * pageSize;
-          setLeads(allMatchedLeads.slice(startIndex, startIndex + pageSize));
-          setPageEndCursor(null);
-          setHasNextPage(allMatchedLeads.length > startIndex + pageSize);
-          return;
-        } catch (fallbackError) {
-          console.error("Lỗi tải trang khách hàng bằng fallback:", fallbackError);
-        }
-      }
-
       console.error("Lỗi tải trang khách hàng:", error);
       toast.error("Không thể tải trang khách hàng.");
       setLeads([]);
@@ -431,9 +513,7 @@ const AdminReferralCustomers = () => {
   }, [
     currentPage,
     currentUser,
-    isSuperAdmin,
     matchesLeadFilters,
-    ownPartner?.code,
     pageCursors,
     pageSize,
     selectedCourseSources,
@@ -445,25 +525,15 @@ const AdminReferralCustomers = () => {
 
   useEffect(() => {
     if (!currentUser || selectedCourseSources.length === 0) return;
-    const referralCode = isSuperAdmin ? "" : ownPartner?.code || "";
-    if (!isSuperAdmin && !referralCode) return;
 
     let isCancelled = false;
     const loadStats = async () => {
       try {
         const [total, contacted, interested, registered] = await Promise.all([
-          isSuperAdmin
-            ? countLeads({ sources: selectedCourseSources, referralCode })
-            : countEmployeeLeadsClientSide({ sources: selectedCourseSources, referralCode }),
-          isSuperAdmin
-            ? countLeads({ sources: selectedCourseSources, referralCode, status: "contacted" })
-            : countEmployeeLeadsClientSide({ sources: selectedCourseSources, referralCode, status: "contacted" }),
-          isSuperAdmin
-            ? countLeads({ sources: selectedCourseSources, referralCode, status: "interested" })
-            : countEmployeeLeadsClientSide({ sources: selectedCourseSources, referralCode, status: "interested" }),
-          isSuperAdmin
-            ? countLeads({ sources: selectedCourseSources, referralCode, status: "registered" })
-            : countEmployeeLeadsClientSide({ sources: selectedCourseSources, referralCode, status: "registered" }),
+          countLeads({ sources: selectedCourseSources }),
+          countLeads({ sources: selectedCourseSources, status: "contacted" }),
+          countLeads({ sources: selectedCourseSources, status: "interested" }),
+          countLeads({ sources: selectedCourseSources, status: "registered" }),
         ]);
         if (!isCancelled) {
           setLeadStats({
@@ -481,11 +551,8 @@ const AdminReferralCustomers = () => {
       isCancelled = true;
     };
   }, [
-    countEmployeeLeadsClientSide,
     countLeads,
     currentUser,
-    isSuperAdmin,
-    ownPartner?.code,
     selectedCourseSources,
   ]);
 
@@ -498,9 +565,10 @@ const AdminReferralCustomers = () => {
     const loadPartnerStats = async () => {
       const stats = await Promise.all(
         partners.map(async (partner) => {
+          const referralCodes = getPartnerReferralCodes(partner);
           const [leadCount, registeredCount] = await Promise.all([
-            countLeads({ sources, referralCode: partner.code }),
-            countLeads({ sources, referralCode: partner.code, status: "registered" }),
+            countLeads({ sources, referralCodes }),
+            countLeads({ sources, referralCodes, status: "registered" }),
           ]);
           return { ...partner, leadCount, registeredCount };
         })
@@ -594,7 +662,7 @@ const AdminReferralCustomers = () => {
 
       toast.success("Đã tạo mã giới thiệu.");
       setPartnerForm({ userId: "", name: "", email: "", code: "" });
-      await loadData(currentUser, isSuperAdmin);
+      await loadData(isSuperAdmin);
     } catch (error) {
       console.error("Lỗi tạo mã giới thiệu:", error);
       toast.error("Không thể tạo mã giới thiệu.");
@@ -718,28 +786,15 @@ const AdminReferralCustomers = () => {
           </div>
         </header>
 
-        {!isSuperAdmin && !ownPartner ? (
-          <div className="rounded-3xl border border-amber-200 bg-amber-50 p-8 text-center">
-            <Link2 className="mx-auto h-12 w-12 text-amber-600" />
-            <h2 className="mt-4 text-2xl font-black text-amber-900">
-              Tài khoản chưa có mã giới thiệu
-            </h2>
-            <p className="mt-2 text-amber-800">
-              Vui lòng liên hệ quản trị viên để được cấp link giới thiệu riêng.
-            </p>
-          </div>
-        ) : (
-          <>
+        <>
             <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               {[
                 ["Tổng khách giới thiệu", leadStats.total, <Users key="users" className="h-5 w-5" />, "text-blue-600 bg-blue-50"],
                 ["Đã liên hệ", leadStats.contacted, <Check key="check" className="h-5 w-5" />, "text-amber-600 bg-amber-50"],
                 ["Đã đăng ký", leadStats.registered, <UserPlus key="user-plus" className="h-5 w-5" />, "text-emerald-600 bg-emerald-50"],
                 [
-                  isSuperAdmin ? "Nhân viên có mã" : "Mã của bạn",
-                  isSuperAdmin
-                    ? partners.filter((partner) => !partner.isCompany).length
-                    : ownPartner?.code || "---",
+                  "Nhân viên có mã",
+                  partners.filter((partner) => !partner.isCompany).length,
                   <Link2 key="link" className="h-5 w-5" />,
                   "text-violet-600 bg-violet-50",
                 ],
@@ -832,23 +887,21 @@ const AdminReferralCustomers = () => {
                       </option>
                     ))}
                   </select>
-                  {isSuperAdmin ? (
-                    <select
-                      value={partnerFilter}
-                      onChange={(event) => {
-                        setPartnerFilter(event.target.value);
-                        resetPagination();
-                      }}
-                      className="min-h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700"
-                    >
-                      <option value="all">Tất cả nhân viên</option>
-                      {partners.map((partner) => (
-                        <option key={partner.id} value={partner.code}>
-                          {partner.name}
-                        </option>
-                      ))}
-                    </select>
-                  ) : null}
+                  <select
+                    value={partnerFilter}
+                    onChange={(event) => {
+                      setPartnerFilter(event.target.value);
+                      resetPagination();
+                    }}
+                    className="min-h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700"
+                  >
+                    <option value="all">Tất cả nhân viên</option>
+                    {partners.map((partner) => (
+                      <option key={partner.id} value={partner.code}>
+                        {partner.name}
+                      </option>
+                    ))}
+                  </select>
                   <div className="flex min-h-11 items-center justify-center rounded-xl border border-secret-wax/20 bg-secret-wax/5 px-4 text-sm font-black text-secret-wax">
                     {isLoadingLeads
                       ? "Đang tải..."
@@ -1203,8 +1256,7 @@ const AdminReferralCustomers = () => {
                 </section>
               </div>
             ) : null}
-          </>
-        )}
+        </>
       </div>
     </div>
   );
