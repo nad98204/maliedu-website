@@ -1300,6 +1300,17 @@ const VutTocMucTieu = () => {
 
       <Footer />
 
+      <style>{`
+        @keyframes sticky-cta-bounce {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-6px); }
+        }
+
+        .sticky-cta-bounce {
+          animation: sticky-cta-bounce 1.15s ease-in-out infinite;
+        }
+      `}</style>
+
       {/* FLOATING MOBILE CTA ISLAND (THIẾT KẾ ĐẢO DI ĐỘNG CỰC KỲ CAO CẤP) */}
       <div className="h-[92px] sm:hidden" aria-hidden="true" />
       <div className="fixed bottom-4 inset-x-4 z-40 bg-white/80 backdrop-blur-md border border-white/40 rounded-2xl p-2.5 shadow-[0_12px_32px_rgba(214,40,40,0.12)] flex justify-between items-center sm:hidden transition-all duration-300">
@@ -1310,7 +1321,7 @@ const VutTocMucTieu = () => {
         <CtaButton 
           onClick={openRegistration} 
           label="ĐĂNG KÝ NGAY" 
-          className="!min-h-[46px] !w-auto !min-w-[135px] !rounded-xl !py-2.5 !text-xs !px-4 !shadow-md !from-[#D62828] !to-[#B91C1C]" 
+          className="sticky-cta-bounce !min-h-[46px] !w-auto !min-w-[135px] !rounded-xl !border !border-[#FFE08A] !from-[#FFD84D] !to-[#F59E0B] !px-4 !py-2.5 !text-xs !text-[#5A210F] !shadow-[0_8px_20px_rgba(245,158,11,0.35)]"
         />
       </div>
 
