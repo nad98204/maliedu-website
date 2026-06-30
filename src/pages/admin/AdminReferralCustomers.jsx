@@ -51,10 +51,15 @@ const DEFAULT_REFERRAL_CUSTOMERS_FILTERS = {
   searchTerm: "",
   statusFilter: "all",
   partnerFilter: "all",
+  dedupeMode: "all",
   courseFilter: "all",
   linkCourseId: DEFAULT_COURSE_ID,
   pageSize: 10,
 };
+const DEDUPE_MODE_OPTIONS = [
+  { value: "all", label: "Tính cả trùng" },
+  { value: "unique_phone", label: "Lọc trùng SĐT" },
+];
 const COMPANY_PARTNER = {
   id: "cong-ty",
   code: "cong-ty",
@@ -133,6 +138,57 @@ const getLeadCourseId = (lead = {}) => {
   return matchedCourse?.id || explicitId || source || "khac";
 };
 
+const normalizeLeadPhoneKey = (phone = "") => {
+  const digits = String(phone || "").replace(/\D/g, "");
+  if (!digits) return "";
+  if (digits.startsWith("0084") && digits.length > 4) return `0${digits.slice(4)}`;
+  if (digits.startsWith("84") && digits.length > 9) return `0${digits.slice(2)}`;
+  return digits;
+};
+
+const mapLeadDoc = (leadDoc) => {
+  const data = leadDoc.data();
+  return {
+    id: leadDoc.id,
+    ...data,
+    referralCode: data.referralCode || COMPANY_PARTNER.code,
+    courseId: getLeadCourseId(data),
+  };
+};
+
+const compareLeadByOldestFirst = (left, right) => {
+  const leftMillis = toMillis(left.createdAt);
+  const rightMillis = toMillis(right.createdAt);
+  if (leftMillis !== rightMillis) return leftMillis - rightMillis;
+  return String(left.id || "").localeCompare(String(right.id || ""));
+};
+
+const dedupeLeadsByFirstPhone = (leadList = []) => {
+  const leadByPhone = new Map();
+  const uniqueLeads = [];
+
+  leadList.forEach((lead) => {
+    const phoneKey = normalizeLeadPhoneKey(lead.phone);
+    if (!phoneKey) {
+      uniqueLeads.push(lead);
+      return;
+    }
+
+    const existingLead = leadByPhone.get(phoneKey);
+    if (!existingLead || compareLeadByOldestFirst(lead, existingLead) < 0) {
+      leadByPhone.set(phoneKey, lead);
+    }
+  });
+
+  return [...uniqueLeads, ...leadByPhone.values()];
+};
+
+const applyLeadDedupeMode = (leadList = [], dedupeMode = "all") =>
+  dedupeMode === "unique_phone" ? dedupeLeadsByFirstPhone(leadList) : leadList;
+
+const sortLeadsNewestFirst = (leadList = []) =>
+  [...leadList].sort((left, right) => toMillis(right.createdAt) - toMillis(left.createdAt));
+
 const uniqueValues = (values = []) =>
   [...new Set(values.map((value) => String(value || "").trim()).filter(Boolean))];
 
@@ -177,6 +233,7 @@ const getStoredReferralCustomerFilters = () => {
     const storedValue = rawValue ? JSON.parse(rawValue) : {};
     const validCourseIds = COURSE_OPTIONS.map((course) => course.id);
     const validStatusValues = STATUS_OPTIONS.map((status) => status.value);
+    const validDedupeModes = DEDUPE_MODE_OPTIONS.map((option) => option.value);
 
     return {
       activeView: ["customers", "partners"].includes(storedValue.activeView)
@@ -194,6 +251,9 @@ const getStoredReferralCustomerFilters = () => {
         typeof storedValue.partnerFilter === "string" && storedValue.partnerFilter.trim()
           ? storedValue.partnerFilter
           : DEFAULT_REFERRAL_CUSTOMERS_FILTERS.partnerFilter,
+      dedupeMode: validDedupeModes.includes(storedValue.dedupeMode)
+        ? storedValue.dedupeMode
+        : DEFAULT_REFERRAL_CUSTOMERS_FILTERS.dedupeMode,
       courseFilter:
         storedValue.courseFilter === "all" || validCourseIds.includes(storedValue.courseFilter)
           ? storedValue.courseFilter
@@ -225,6 +285,7 @@ const AdminReferralCustomers = () => {
   const [searchTerm, setSearchTerm] = useState(storedFilters.searchTerm);
   const [statusFilter, setStatusFilter] = useState(storedFilters.statusFilter);
   const [partnerFilter, setPartnerFilter] = useState(storedFilters.partnerFilter);
+  const [dedupeMode, setDedupeMode] = useState(storedFilters.dedupeMode);
   const [courseFilter, setCourseFilter] = useState(storedFilters.courseFilter);
   const [linkCourseId, setLinkCourseId] = useState(storedFilters.linkCourseId);
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(storedFilters.searchTerm);
@@ -322,6 +383,7 @@ const AdminReferralCustomers = () => {
         searchTerm,
         statusFilter,
         partnerFilter,
+        dedupeMode,
         courseFilter,
         linkCourseId,
         pageSize,
@@ -330,6 +392,7 @@ const AdminReferralCustomers = () => {
   }, [
     activeView,
     courseFilter,
+    dedupeMode,
     linkCourseId,
     pageSize,
     partnerFilter,
@@ -459,6 +522,26 @@ const AdminReferralCustomers = () => {
 
     setIsLoadingLeads(true);
     try {
+      if (dedupeMode === "unique_phone") {
+        const snapshot = await getDocs(
+          query(collection(db, "leads"), orderBy("createdAt", "desc"))
+        );
+        const allMatchedLeads = sortLeadsNewestFirst(
+          applyLeadDedupeMode(
+            snapshot.docs
+              .map(mapLeadDoc)
+              .filter((lead) => selectedCourseSources.includes(lead.source)),
+            dedupeMode
+          ).filter(matchesLeadFilters)
+        );
+        const startIndex = (currentPage - 1) * pageSize;
+
+        setLeads(allMatchedLeads.slice(startIndex, startIndex + pageSize));
+        setPageEndCursor(null);
+        setHasNextPage(allMatchedLeads.length > startIndex + pageSize);
+        return;
+      }
+
       const matchedLeads = [];
       const scanSize = Math.max(pageSize * 2, 50);
       let cursor = pageCursors[currentPage] || null;
@@ -482,13 +565,7 @@ const AdminReferralCustomers = () => {
         }
 
         for (const leadDoc of snapshot.docs) {
-          const data = leadDoc.data();
-          const lead = {
-            id: leadDoc.id,
-            ...data,
-            referralCode: data.referralCode || COMPANY_PARTNER.code,
-            courseId: getLeadCourseId(data),
-          };
+          const lead = mapLeadDoc(leadDoc);
 
           if (matchesLeadFilters(lead)) {
             if (matchedLeads.length < pageSize) {
@@ -518,6 +595,7 @@ const AdminReferralCustomers = () => {
   }, [
     currentPage,
     currentUser,
+    dedupeMode,
     matchesLeadFilters,
     pageCursors,
     pageSize,
@@ -542,6 +620,33 @@ const AdminReferralCustomers = () => {
     let isCancelled = false;
     const loadStats = async () => {
       try {
+        if (dedupeMode === "unique_phone") {
+          const snapshot = await getDocs(
+            query(collection(db, "leads"), orderBy("createdAt", "desc"))
+          );
+          const dedupedLeads = applyLeadDedupeMode(
+            snapshot.docs
+              .map(mapLeadDoc)
+              .filter((lead) => selectedCourseSources.includes(lead.source)),
+            dedupeMode
+          ).filter((lead) => {
+            if (!selectedPartnerFilter) return true;
+            return leadBelongsToPartner(lead, selectedPartnerFilter);
+          });
+          const contactedStatuses = ["contacted", "interested", "registered"];
+
+          if (!isCancelled) {
+            setLeadStats({
+              total: dedupedLeads.length,
+              contacted: dedupedLeads.filter((lead) =>
+                contactedStatuses.includes(lead.status)
+              ).length,
+              registered: dedupedLeads.filter((lead) => lead.status === "registered").length,
+            });
+          }
+          return;
+        }
+
         const [total, contacted, interested, registered] = await Promise.all([
           countLeads({ sources: selectedCourseSources, referralCodes: selectedReferralCodes }),
           countLeads({ sources: selectedCourseSources, referralCodes: selectedReferralCodes, status: "contacted" }),
@@ -566,6 +671,7 @@ const AdminReferralCustomers = () => {
   }, [
     countLeads,
     currentUser,
+    dedupeMode,
     partnerFilter,
     selectedPartnerFilter,
     selectedCourseSources,
@@ -924,6 +1030,20 @@ const AdminReferralCustomers = () => {
                       </option>
                     ))}
                   </select>
+                  <select
+                    value={dedupeMode}
+                    onChange={(event) => {
+                      setDedupeMode(event.target.value);
+                      resetPagination();
+                    }}
+                    className="min-h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700"
+                  >
+                    {DEDUPE_MODE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
                   <div className="flex min-h-11 items-center justify-center rounded-xl border border-secret-wax/20 bg-secret-wax/5 px-4 text-sm font-black text-secret-wax">
                     {isLoadingLeads
                       ? "Đang tải..."
@@ -1115,6 +1235,10 @@ const AdminReferralCustomers = () => {
                     <button
                       type="button"
                       onClick={() => {
+                        if (dedupeMode === "unique_phone") {
+                          setCurrentPage((page) => page + 1);
+                          return;
+                        }
                         if (!pageEndCursor) return;
                         setPageCursors((current) => ({
                           ...current,
