@@ -115,6 +115,10 @@ const getLeadCourseId = (lead = {}) => {
   return matchedCourse?.id || explicitId || source || "khac";
 };
 
+const isMissingCompositeIndexError = (error) =>
+  error?.code === "failed-precondition" ||
+  String(error?.message || "").toLowerCase().includes("index");
+
 const AdminReferralCustomers = () => {
   const [currentUser, setCurrentUser] = useState(null);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
@@ -270,6 +274,28 @@ const AdminReferralCustomers = () => {
     return counts.reduce((total, count) => total + count, 0);
   }, []);
 
+  const countEmployeeLeadsClientSide = useCallback(async ({ sources, referralCode, status }) => {
+    if (!referralCode) return 0;
+
+    const snapshot = await getDocs(
+      query(collection(db, "leads"), where("referralCode", "==", referralCode))
+    );
+
+    return snapshot.docs.reduce((total, leadDoc) => {
+      const data = leadDoc.data();
+      const lead = {
+        id: leadDoc.id,
+        ...data,
+        referralCode: data.referralCode || COMPANY_PARTNER.code,
+        courseId: getLeadCourseId(data),
+      };
+
+      if (!sources.includes(lead.source)) return total;
+      if (status && lead.status !== status) return total;
+      return total + 1;
+    }, 0);
+  }, []);
+
   const matchesLeadFilters = useCallback(
     (lead) => {
       if (!selectedCourseSources.includes(lead.source)) return false;
@@ -368,6 +394,34 @@ const AdminReferralCustomers = () => {
       setPageEndCursor(endCursor);
       setHasNextPage(nextPageExists);
     } catch (error) {
+      if (!isSuperAdmin && ownCode && isMissingCompositeIndexError(error)) {
+        try {
+          const snapshot = await getDocs(
+            query(collection(db, "leads"), where("referralCode", "==", ownCode))
+          );
+          const allMatchedLeads = snapshot.docs
+            .map((leadDoc) => {
+              const data = leadDoc.data();
+              return {
+                id: leadDoc.id,
+                ...data,
+                referralCode: data.referralCode || COMPANY_PARTNER.code,
+                courseId: getLeadCourseId(data),
+              };
+            })
+            .filter(matchesLeadFilters)
+            .sort((left, right) => toMillis(right.createdAt) - toMillis(left.createdAt));
+
+          const startIndex = (currentPage - 1) * pageSize;
+          setLeads(allMatchedLeads.slice(startIndex, startIndex + pageSize));
+          setPageEndCursor(null);
+          setHasNextPage(allMatchedLeads.length > startIndex + pageSize);
+          return;
+        } catch (fallbackError) {
+          console.error("Lỗi tải trang khách hàng bằng fallback:", fallbackError);
+        }
+      }
+
       console.error("Lỗi tải trang khách hàng:", error);
       toast.error("Không thể tải trang khách hàng.");
       setLeads([]);
@@ -398,10 +452,18 @@ const AdminReferralCustomers = () => {
     const loadStats = async () => {
       try {
         const [total, contacted, interested, registered] = await Promise.all([
-          countLeads({ sources: selectedCourseSources, referralCode }),
-          countLeads({ sources: selectedCourseSources, referralCode, status: "contacted" }),
-          countLeads({ sources: selectedCourseSources, referralCode, status: "interested" }),
-          countLeads({ sources: selectedCourseSources, referralCode, status: "registered" }),
+          isSuperAdmin
+            ? countLeads({ sources: selectedCourseSources, referralCode })
+            : countEmployeeLeadsClientSide({ sources: selectedCourseSources, referralCode }),
+          isSuperAdmin
+            ? countLeads({ sources: selectedCourseSources, referralCode, status: "contacted" })
+            : countEmployeeLeadsClientSide({ sources: selectedCourseSources, referralCode, status: "contacted" }),
+          isSuperAdmin
+            ? countLeads({ sources: selectedCourseSources, referralCode, status: "interested" })
+            : countEmployeeLeadsClientSide({ sources: selectedCourseSources, referralCode, status: "interested" }),
+          isSuperAdmin
+            ? countLeads({ sources: selectedCourseSources, referralCode, status: "registered" })
+            : countEmployeeLeadsClientSide({ sources: selectedCourseSources, referralCode, status: "registered" }),
         ]);
         if (!isCancelled) {
           setLeadStats({
@@ -419,6 +481,7 @@ const AdminReferralCustomers = () => {
       isCancelled = true;
     };
   }, [
+    countEmployeeLeadsClientSide,
     countLeads,
     currentUser,
     isSuperAdmin,
