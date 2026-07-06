@@ -19,6 +19,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ClipboardCopy,
+  Download,
   ExternalLink,
   GraduationCap,
   Link2,
@@ -192,6 +193,73 @@ const sortLeadsNewestFirst = (leadList = []) =>
 const uniqueValues = (values = []) =>
   [...new Set(values.map((value) => String(value || "").trim()).filter(Boolean))];
 
+const escapeExcelHtml = (value = "") =>
+  String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+
+const safeExcelText = (value = "") => {
+  const text = String(value ?? "").trim();
+  return /^[=+\-@]/.test(text) ? `'${text}` : text;
+};
+
+const downloadHtmlExcel = ({ fileName, sheetName, rows }) => {
+  const headers = [
+    "STT",
+    "Họ tên",
+    "Số điện thoại",
+    "Khóa học",
+    "Người giới thiệu",
+    "Mã giới thiệu",
+    "Ngày đăng ký",
+    "Trạng thái",
+    "Ghi chú",
+    "Nguồn",
+  ];
+  const tableRows = rows
+    .map(
+      (row) =>
+        `<tr>${headers
+          .map(
+            (header) =>
+              `<td class="text">${escapeExcelHtml(safeExcelText(row[header]))}</td>`
+          )
+          .join("")}</tr>`
+    )
+    .join("");
+  const workbookHtml = `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <style>
+    table { border-collapse: collapse; font-family: Arial, sans-serif; }
+    th, td { border: 1px solid #d9e2ec; padding: 8px; vertical-align: top; }
+    th { background: #9f2d2d; color: #ffffff; font-weight: 700; }
+    .text { mso-number-format:"\\@"; }
+  </style>
+</head>
+<body>
+  <table>
+    <thead><tr>${headers.map((header) => `<th>${escapeExcelHtml(header)}</th>`).join("")}</tr></thead>
+    <tbody>${tableRows}</tbody>
+  </table>
+</body>
+</html>`;
+  const blob = new Blob([workbookHtml], {
+    type: "application/vnd.ms-excel;charset=utf-8",
+  });
+  const link = document.createElement("a");
+  const url = URL.createObjectURL(blob);
+  link.href = url;
+  link.download = `${fileName || sheetName}.xls`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+};
+
 const applyPartnerFixes = (partner = {}) => {
   const email = String(partner.email || "").trim().toLowerCase();
   const code = String(partner.code || partner.id || "").trim();
@@ -280,6 +348,7 @@ const AdminReferralCustomers = () => {
   const [leads, setLeads] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingLeads, setIsLoadingLeads] = useState(false);
+  const [isExportingLeads, setIsExportingLeads] = useState(false);
   const [isSavingPartner, setIsSavingPartner] = useState(false);
   const [activeView, setActiveView] = useState(storedFilters.activeView);
   const [searchTerm, setSearchTerm] = useState(storedFilters.searchTerm);
@@ -723,6 +792,86 @@ const AdminReferralCustomers = () => {
     toast.success(`Đã copy link ${course?.name || "khóa học"}.`);
   };
 
+  const handleExportLeads = useCallback(async () => {
+    if (!currentUser || selectedCourseSources.length === 0 || isExportingLeads) return;
+
+    setIsExportingLeads(true);
+    try {
+      const snapshot = await getDocs(
+        query(collection(db, "leads"), orderBy("createdAt", "desc"))
+      );
+      const exportLeads = sortLeadsNewestFirst(
+        applyLeadDedupeMode(
+          snapshot.docs
+            .map(mapLeadDoc)
+            .filter((lead) => selectedCourseSources.includes(lead.source)),
+          dedupeMode
+        ).filter(matchesLeadFilters)
+      );
+
+      if (exportLeads.length === 0) {
+        toast.error("Không có khách hàng phù hợp để xuất Excel.");
+        return;
+      }
+
+      const rows = exportLeads.map((lead, index) => {
+        const partner = partnerByCode.get(lead.referralCode);
+        const course = COURSE_OPTIONS.find((item) => item.id === lead.courseId);
+        const statusMeta = getStatusMeta(lead.status || "new");
+
+        return {
+          STT: index + 1,
+          "Họ tên": lead.name || "",
+          "Số điện thoại": lead.phone || "",
+          "Khóa học": course?.name || lead.courseName || "Chưa xác định",
+          "Người giới thiệu": partner?.name || lead.referralCode || "",
+          "Mã giới thiệu": lead.referralCode || "",
+          "Ngày đăng ký": formatDateTime(lead.createdAt),
+          "Trạng thái": statusMeta.label,
+          "Ghi chú": lead.note || "",
+          "Nguồn": lead.utmSource || lead.source || "Landing",
+        };
+      });
+
+      const courseName =
+        courseFilter === "all"
+          ? "tat-ca-khoa-hoc"
+          : normalizeReferralCode(
+              COURSE_OPTIONS.find((item) => item.id === courseFilter)?.name || courseFilter
+            );
+      const partnerName = selectedPartnerFilter
+        ? normalizeReferralCode(selectedPartnerFilter.name || selectedPartnerFilter.code)
+        : "tat-ca-nhan-vien";
+      const exportedAt = new Date()
+        .toISOString()
+        .slice(0, 16)
+        .replace(/-/g, "")
+        .replace(/:/g, "")
+        .replace("T", "");
+
+      downloadHtmlExcel({
+        fileName: `khach-hang-gioi-thieu-${courseName}-${partnerName}-${exportedAt}`,
+        sheetName: "Khach hang gioi thieu",
+        rows,
+      });
+      toast.success(`Đã xuất ${exportLeads.length} khách hàng ra Excel.`);
+    } catch (error) {
+      console.error("Lỗi xuất Excel khách hàng giới thiệu:", error);
+      toast.error("Không thể xuất Excel. Vui lòng thử lại.");
+    } finally {
+      setIsExportingLeads(false);
+    }
+  }, [
+    courseFilter,
+    currentUser,
+    dedupeMode,
+    isExportingLeads,
+    matchesLeadFilters,
+    partnerByCode,
+    selectedCourseSources,
+    selectedPartnerFilter,
+  ]);
+
   const handleUserSelection = (userId) => {
     const selectedUser = webUsers.find((item) => item.id === userId);
     if (!selectedUser) {
@@ -1044,6 +1193,19 @@ const AdminReferralCustomers = () => {
                       </option>
                     ))}
                   </select>
+                  <button
+                    type="button"
+                    onClick={handleExportLeads}
+                    disabled={isExportingLeads || isLoadingLeads}
+                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-600 px-4 text-sm font-black text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isExportingLeads ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Download className="h-4 w-4" />
+                    )}
+                    Xuất Excel
+                  </button>
                   <div className="flex min-h-11 items-center justify-center rounded-xl border border-secret-wax/20 bg-secret-wax/5 px-4 text-sm font-black text-secret-wax">
                     {isLoadingLeads
                       ? "Đang tải..."
