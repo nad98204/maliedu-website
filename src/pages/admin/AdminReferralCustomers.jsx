@@ -1118,13 +1118,26 @@ const AdminReferralCustomers = () => {
                     <ClipboardCopy className="h-5 w-5" />
                     Copy link
                   </button>
+                  <button
+                    type="button"
+                    onClick={handleExportLeads}
+                    disabled={isExportingLeads || isLoadingLeads}
+                    className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-secret-wax px-5 font-black text-white shadow-sm transition hover:bg-secret-wax/90 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isExportingLeads ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <Download className="h-5 w-5" />
+                    )}
+                    Xuất Excel
+                  </button>
                 </div>
               </section>
             ) : null}
 
             {activeView === "customers" ? (
               <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                <div className="flex flex-col gap-3 border-b border-slate-200 bg-slate-50 p-4 lg:flex-row">
+                <div className="flex flex-col gap-3 border-b border-slate-200 bg-slate-50 p-4 lg:flex-row lg:flex-wrap 2xl:flex-nowrap">
                   <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                     <input
