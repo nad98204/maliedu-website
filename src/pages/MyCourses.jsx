@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
-import { PlayCircle, Award, BookOpen, Clock } from "lucide-react";
+import { PlayCircle, Award, BookOpen, Clock, FileText } from "lucide-react";
 
 import { db, auth } from "../firebase";
 import { ensureUserProfile } from "../utils/userService";
@@ -136,13 +136,20 @@ const MyCourses = () => {
     }
 
     return (
-        <div className="min-h-screen bg-slate-50 pt-28 pb-20">
+        <div className="min-h-screen bg-slate-50 pt-8 pb-36 md:pt-28 md:pb-20">
             <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
                 {/* Header Section */}
                 <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
-                    <div>
-                        <h1 className="text-3xl font-bold text-slate-900">Khóa học của tôi</h1>
-                        <p className="mt-2 text-slate-600 font-medium">Chào mừng trở lại, tiếp tục hành trình học tập nào!</p>
+                    <div className="space-y-1">
+                        <span className="block text-[10px] font-black uppercase tracking-[0.2em] text-[#B91C1C]">
+                            Hành trình của bạn
+                        </span>
+                        <h1 className="text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">
+                            Khóa học của tôi
+                        </h1>
+                        <p className="text-sm font-medium leading-relaxed text-slate-500">
+                            Chào mừng trở lại, tiếp tục hành trình học tập nào!
+                        </p>
                     </div>
 
                     {/* Tabs */}
@@ -183,7 +190,7 @@ const MyCourses = () => {
                         {filteredCourses.map((course) => (
                             <div
                                 key={course.id}
-                                className="group relative flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all hover:shadow-xl hover:-translate-y-1"
+                                className="group relative flex flex-col overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all hover:-translate-y-1 hover:shadow-[0_20px_40px_rgba(0,0,0,0.08)]"
                             >
                                 {/* Image Area */}
                                 <div className="relative aspect-video overflow-hidden bg-slate-100">
@@ -200,15 +207,15 @@ const MyCourses = () => {
                                     {/* Status Badge */}
                                     <div className="absolute top-3 left-3">
                                         {course.progressPercent === 100 ? (
-                                            <span className="bg-green-500 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-md flex items-center gap-1.5">
+                                            <span className="flex items-center gap-1.5 rounded-full border border-emerald-100/50 bg-emerald-50/90 px-3 py-1.5 text-xs font-bold text-emerald-600 backdrop-blur-sm">
                                                 <Award className="w-3.5 h-3.5" /> HOÀN THÀNH
                                             </span>
                                         ) : course.progressPercent > 0 ? (
-                                            <span className="bg-blue-500 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-md flex items-center gap-1.5">
+                                            <span className="flex items-center gap-1.5 rounded-full border border-blue-100/50 bg-blue-50/90 px-3 py-1.5 text-xs font-bold text-blue-600 backdrop-blur-sm">
                                                 <BookOpen className="w-3.5 h-3.5" /> ĐANG HỌC
                                             </span>
                                         ) : (
-                                            <span className="bg-orange-500 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-md flex items-center gap-1.5">
+                                            <span className="flex items-center gap-1.5 rounded-full border border-orange-100/50 bg-orange-50/90 px-3 py-1.5 text-xs font-bold text-orange-600 backdrop-blur-sm">
                                                 <PlayCircle className="w-3.5 h-3.5" /> CHƯA HỌC
                                             </span>
                                         )}
@@ -234,9 +241,9 @@ const MyCourses = () => {
                                                     {course.progressPercent}%
                                                 </span>
                                             </div>
-                                            <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                                            <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
                                                 <div
-                                                    className={`h-full rounded-full transition-all duration-700 ${course.progressPercent === 100 ? 'bg-green-500' : 'bg-blue-600'
+                                                    className={`h-full rounded-full transition-all duration-700 ${course.progressPercent === 100 ? 'bg-gradient-to-r from-emerald-400 to-emerald-600' : 'bg-gradient-to-r from-blue-500 to-indigo-600'
                                                         }`}
                                                     style={{ width: `${course.progressPercent}%` }}
                                                 ></div>
@@ -248,16 +255,16 @@ const MyCourses = () => {
                                             <div className="flex flex-col gap-2">
                                                 <Link
                                                     to={`/bai-giang/${course.id}`}
-                                                    className="block w-full text-center rounded-xl bg-orange-500 px-4 py-3.5 text-base font-bold text-white shadow-md transition-all hover:bg-orange-600 hover:shadow-lg active:scale-[0.98]"
+                                                    className="block w-full rounded-2xl bg-orange-500 px-4 py-3.5 text-center text-base font-bold text-white shadow-md shadow-orange-500/10 transition-all hover:bg-orange-600 hover:shadow-lg active:scale-[0.98]"
                                                 >
                                                     VÀO HỌC NGAY
                                                 </Link>
                                                 <div className="flex gap-2">
-                                                    <Link to={`/tai-lieu/${course.id}`} className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border-2 border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-bold text-slate-600 transition-all hover:bg-white hover:border-slate-300 hover:text-slate-900 active:scale-[0.98]">
-                                                        📄 Tài Liệu
+                                                    <Link to={`/tai-lieu/${course.id}`} className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl border border-slate-200 bg-slate-50/50 px-3 py-3 text-sm font-bold text-slate-600 transition-all hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 active:scale-[0.98]">
+                                                        <FileText className="h-4 w-4" /> Tài Liệu
                                                     </Link>
-                                                    <Link to={`/ghi-chep/${course.id}`} className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border-2 border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-bold text-slate-600 transition-all hover:bg-white hover:border-slate-300 hover:text-slate-900 active:scale-[0.98]">
-                                                        📝 Bài Học Ghi Chép
+                                                    <Link to={`/ghi-chep/${course.id}`} className="flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-2xl border border-slate-200 bg-slate-50/50 px-3 py-3 text-xs font-bold text-slate-600 transition-all hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 active:scale-[0.98] sm:text-sm">
+                                                        <BookOpen className="h-4 w-4" /> Bài Học Ghi Chép
                                                     </Link>
                                                 </div>
                                             </div>
@@ -265,16 +272,16 @@ const MyCourses = () => {
                                             <div className="flex flex-col gap-2">
                                                 <Link
                                                     to={`/bai-giang/${course.id}`}
-                                                    className="block w-full text-center rounded-xl bg-blue-600 px-4 py-3.5 text-base font-bold text-white shadow-md transition-all hover:bg-blue-700 hover:shadow-lg active:scale-[0.98]"
+                                                    className="block w-full rounded-2xl bg-blue-600 px-4 py-3.5 text-center text-base font-bold text-white shadow-md shadow-blue-500/10 transition-all hover:bg-blue-700 hover:shadow-lg active:scale-[0.98]"
                                                 >
                                                     HỌC TIẾP
                                                 </Link>
                                                 <div className="flex gap-2">
-                                                    <Link to={`/tai-lieu/${course.id}`} className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border-2 border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-bold text-slate-600 transition-all hover:bg-white hover:border-slate-300 hover:text-slate-900 active:scale-[0.98]">
-                                                        📄 Tài Liệu
+                                                    <Link to={`/tai-lieu/${course.id}`} className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl border border-slate-200 bg-slate-50/50 px-3 py-3 text-sm font-bold text-slate-600 transition-all hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 active:scale-[0.98]">
+                                                        <FileText className="h-4 w-4" /> Tài Liệu
                                                     </Link>
-                                                    <Link to={`/ghi-chep/${course.id}`} className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border-2 border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-bold text-slate-600 transition-all hover:bg-white hover:border-slate-300 hover:text-slate-900 active:scale-[0.98]">
-                                                        📝 Bài Học Ghi Chép
+                                                    <Link to={`/ghi-chep/${course.id}`} className="flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-2xl border border-slate-200 bg-slate-50/50 px-3 py-3 text-xs font-bold text-slate-600 transition-all hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 active:scale-[0.98] sm:text-sm">
+                                                        <BookOpen className="h-4 w-4" /> Bài Học Ghi Chép
                                                     </Link>
                                                 </div>
                                             </div>
@@ -287,11 +294,11 @@ const MyCourses = () => {
                                                     XEM LẠI
                                                 </Link>
                                                 <div className="flex gap-2">
-                                                    <Link to={`/tai-lieu/${course.id}`} className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border-2 border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-bold text-slate-600 transition-all hover:bg-white hover:border-slate-300 hover:text-slate-900 active:scale-[0.98]">
-                                                        📄 Tài Liệu
+                                                    <Link to={`/tai-lieu/${course.id}`} className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl border border-slate-200 bg-slate-50/50 px-3 py-3 text-sm font-bold text-slate-600 transition-all hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 active:scale-[0.98]">
+                                                        <FileText className="h-4 w-4" /> Tài Liệu
                                                     </Link>
-                                                    <Link to={`/ghi-chep/${course.id}`} className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border-2 border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-bold text-slate-600 transition-all hover:bg-white hover:border-slate-300 hover:text-slate-900 active:scale-[0.98]">
-                                                        📝 Bài Học Ghi Chép
+                                                    <Link to={`/ghi-chep/${course.id}`} className="flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-2xl border border-slate-200 bg-slate-50/50 px-3 py-3 text-xs font-bold text-slate-600 transition-all hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 active:scale-[0.98] sm:text-sm">
+                                                        <BookOpen className="h-4 w-4" /> Bài Học Ghi Chép
                                                     </Link>
                                                 </div>
                                             </div>
