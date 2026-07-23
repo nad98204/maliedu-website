@@ -39,6 +39,7 @@ import {
   MessageSquare,
   ArrowRight,
   ChevronDown,
+  Copy,
 } from "lucide-react";
 
 import { db } from "../../firebase";
@@ -1203,6 +1204,56 @@ const AdminCourses = () => {
     setIsFormOpen(true);
   };
 
+  const handleDuplicate = (course) => {
+    setEditingCourse(null);
+
+    const duplicatedCurriculum = JSON.parse(
+      JSON.stringify(normalizeCurriculumForForm(course.curriculum)),
+    ).map((section) => ({
+      ...section,
+      lessons: (section.lessons || []).map((lesson) => ({
+        ...lesson,
+        id: createLocalId("lesson"),
+        videoId: "",
+      })),
+    }));
+
+    setFormData({
+      name: `[Bản sao] ${course.name || "Khóa học"}`,
+      slug: course.slug ? `${course.slug}-copy` : "",
+      categories:
+        course.categories || (course.category ? [course.category] : []),
+      category: course.category || "",
+      price: course.price || "",
+      salePrice: course.salePrice || "",
+      thumbnailUrl: course.thumbnailUrl || "",
+      instructorImageUrl: course.instructorImageUrl || "",
+      authorId: course.authorId || "",
+      description: course.description || "",
+      content: course.content || "",
+      videoId: course.videoId || "",
+      isPublished: false,
+      isForSale: course.isForSale !== undefined ? course.isForSale : true,
+      freeLessonsCount: course.freeLessonsCount || 3,
+      instructorName: course.instructorName || "",
+      instructorTitle: course.instructorTitle || "",
+      instructorBio: course.instructorBio || "",
+      instructorStudentCount: course.instructorStudentCount || "",
+      instructorCourseCount: course.instructorCourseCount || "",
+      fakeRating: course.fakeRating || "",
+      fakeReviewCount: course.fakeReviewCount || "",
+      fakeStudentCount: course.fakeStudentCount || "",
+      whatYouWillLearn: Array.isArray(course.whatYouWillLearn)
+        ? course.whatYouWillLearn.join("\n")
+        : course.whatYouWillLearn || "",
+      displayCategory: course.displayCategory || "",
+      courseResources: normalizeCourseResources(course.courseResources),
+      curriculum: duplicatedCurriculum,
+    });
+    setActiveTab("info");
+    setIsFormOpen(true);
+  };
+
   const getNormalizedCourseData = (data) => {
     const normalizedCurriculum = normalizeCurriculumForForm(data.curriculum);
     const lessonSectionMap = normalizedCurriculum.reduce(
@@ -1600,6 +1651,13 @@ const AdminCourses = () => {
                         </td>
                         <td className="px-6 py-4 text-right">
                           <div className="flex items-center justify-end gap-1">
+                            <button
+                              onClick={() => handleDuplicate(course)}
+                              className="p-2 text-slate-400 hover:bg-violet-50 hover:text-violet-600 rounded-xl transition-all duration-200"
+                              title="Nhân bản khóa học"
+                            >
+                              <Copy className="h-4.5 w-4.5" />
+                            </button>
                             <button
                               onClick={() => handleEdit(course)}
                               className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all duration-200"

@@ -282,16 +282,17 @@ const PlayerSidebar = ({
                                     openSections[section.sectionIndex] ??
                                     sectionId === currentSectionId;
 
-                                if (section.title) titledSectionCount++;
-                                const displaySectionNumber = section.title ? titledSectionCount : null;
+                                const hasSectionTitle = Boolean(section.title?.trim());
+                                if (hasSectionTitle) titledSectionCount++;
+                                const displaySectionNumber = hasSectionTitle ? titledSectionCount : null;
 
                                 return (
                                     <div
                                         key={`${sectionId}-${section.title}`}
-                                        className={`border-b border-slate-100 last:border-0 ${section.title ? 'mb-3 last:mb-0' : 'mb-6 last:mb-0'} ${!section.title && sIdx > 0 ? 'mt-4' : ''}`}
+                                        className={`border-b border-slate-100 last:border-0 ${hasSectionTitle ? 'mb-3 last:mb-0' : 'mb-6 last:mb-0'} ${!hasSectionTitle && sIdx > 0 ? 'mt-4' : ''}`}
                                     >
-                                        <div className={`bg-white overflow-hidden ${section.title ? 'rounded-lg border border-slate-100 mx-2 shadow-sm' : 'border border-slate-100 shadow-sm sm:mx-2 sm:rounded-lg'}`}>
-                                            {section.title ? (
+                                        <div className={`bg-white overflow-hidden ${hasSectionTitle ? 'rounded-lg border border-slate-100 mx-2 shadow-sm' : 'border border-slate-100 shadow-sm sm:mx-2 sm:rounded-lg'}`}>
+                                            {hasSectionTitle ? (
                                                 <button
                                                     type="button"
                                                     onClick={() =>
@@ -338,9 +339,9 @@ const PlayerSidebar = ({
                                             </button>
                                             ) : (
                                                 <div className="bg-slate-100/50 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="h-1.5 w-1.5 rounded-full bg-slate-400"></div>
-                                                        <span className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.1em]">Kiến thức bổ sung</span>
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="h-1.5 w-1.5 rounded-full bg-slate-400"></div>
+                                                        <span className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.1em]">Bài học lẻ</span>
                                                     </div>
                                                     <span className="text-[10px] font-medium text-slate-400">{section.lessons.length} bài học</span>
                                                 </div>
@@ -378,7 +379,7 @@ const PlayerSidebar = ({
 
                                     <div
                                         className={`overflow-hidden transition-all duration-300 ${
-                                            !section.title || isSectionOpen ? 'max-h-[2000px]' : 'max-h-0'
+                                            !hasSectionTitle || isSectionOpen ? 'max-h-[2000px]' : 'max-h-0'
                                         }`}
                                     >
                                             {section.lessons.map((lesson, lessonIndex) => {
@@ -402,19 +403,9 @@ const PlayerSidebar = ({
                                                       ).length
                                                     : 0;
 
-                                                // Detect "extra" lesson (lẻ)
-                                                const prevLesson = section.lessons[lessonIndex - 1];
-                                                const isNumbered = (title) => /^[0-9\.]+|Nguyên lý [0-9]/.test(title);
-                                                const showExtraDivider = prevLesson && isNumbered(prevLesson.title) && !isNumbered(lesson.title);
-
                                                 return (
-                                                    <React.Fragment key={lessonKey || `${section.sectionIndex}-${lessonIndex}`}>
-                                                        {showExtraDivider && (
-                                                            <div className="bg-slate-50/50 px-4 py-2 border-y border-slate-100/50">
-                                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Kiến thức bổ sung</span>
-                                                            </div>
-                                                        )}
-                                                        <div
+                                                    <div
+                                                        key={lessonKey || `${section.sectionIndex}-${lessonIndex}`}
                                                             className={`border-l-4 transition-all ${
                                                                 isCurrent
                                                                     ? 'border-[#B91C1C] bg-red-50'
@@ -528,8 +519,7 @@ const PlayerSidebar = ({
                                                             </div>
                                                         )}
                                                     </div>
-                                                </React.Fragment>
-                                            );
+                                                );
                                         })}
                                     </div>
                                 </div>

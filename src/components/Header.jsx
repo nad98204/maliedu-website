@@ -1,5 +1,5 @@
-import { createElement, useState, useEffect } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { createElement, useState, useEffect, useRef } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { doc, onSnapshot } from "firebase/firestore";
 import {
@@ -31,7 +31,6 @@ import { logoutSession } from "../utils/sessionService";
 import { warmUpGoogleSignIn } from "../utils/googleAuthWarmup";
 import {
   getFirstAllowedAdminPath,
-  hasModuleAccess,
   isAdminUser,
   isSuperAdminEmail,
 } from "../utils/adminAccess";
@@ -43,16 +42,53 @@ const SOCIAL_LINKS = [
   { name: "Youtube", href: SOCIALS.youtube, Icon: Youtube },
 ];
 
+const COURSE_MENU_OPTIONS = [
+  {
+    label: "Mua khóa học mới",
+    path: "/khoa-hoc",
+    Icon: ShoppingCart,
+  },
+  {
+    label: "Khóa học tôi đã mua",
+    path: "/khoa-hoc-cua-toi",
+    Icon: BookOpen,
+  },
+];
+
 const Header = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openSubmenus, setOpenSubmenus] = useState({});
   const [currentUser, setCurrentUser] = useState(null);
   const [currentUserProfile, setCurrentUserProfile] = useState(null);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [coursesMenuOpen, setCoursesMenuOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const { cartCount = 0, pendingCount = 0, totalBadgeCount = 0 } = useCart() || {};
   const [pendingBannerDismissed, setPendingBannerDismissed] = useState(false);
   const navigate = useNavigate();
+  const coursesMenuRef = useRef(null);
+
+  useEffect(() => {
+    const closeCoursesMenu = (event) => {
+      if (coursesMenuRef.current && !coursesMenuRef.current.contains(event.target)) {
+        setCoursesMenuOpen(false);
+      }
+    };
+
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") {
+        setCoursesMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("pointerdown", closeCoursesMenu);
+    document.addEventListener("keydown", closeOnEscape);
+
+    return () => {
+      document.removeEventListener("pointerdown", closeCoursesMenu);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, []);
 
   useEffect(() => {
     // Pre-warm Google Sign-In connections immediately so the popup opens fast
@@ -141,6 +177,7 @@ const Header = () => {
   const closeMobileMenu = () => {
     setMobileOpen(false);
     setOpenSubmenus({});
+    setCoursesMenuOpen(false);
   };
 
   const openAuthModal = () => {
@@ -297,6 +334,46 @@ const Header = () => {
 
             <nav className="hidden lg:flex flex-1 items-center justify-center gap-6">
               {MENU_ITEMS.map((item) => {
+                if (item.path === "/khoa-hoc") {
+                  return (
+                    <div key={item.path} ref={coursesMenuRef} className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setCoursesMenuOpen((isOpen) => !isOpen)}
+                        className="inline-flex items-center gap-1 rounded-lg px-2 py-2 text-sm font-medium text-secret-ink transition hover:text-secret-wax focus:outline-none focus-visible:ring-2 focus-visible:ring-secret-wax focus-visible:ring-offset-2"
+                        aria-haspopup="menu"
+                        aria-expanded={coursesMenuOpen}
+                        aria-controls="courses-dropdown-menu"
+                      >
+                        {item.label}
+                        <ChevronDown className={`h-4 w-4 transition-transform ${coursesMenuOpen ? "rotate-180" : ""}`} />
+                      </button>
+
+                      {coursesMenuOpen && (
+                        <div
+                          id="courses-dropdown-menu"
+                          role="menu"
+                          aria-label="Lựa chọn khóa học"
+                          className="absolute left-1/2 top-full z-50 mt-3 w-80 -translate-x-1/2 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-900/15"
+                        >
+                          {COURSE_MENU_OPTIONS.map(({ label, path, Icon }, index) => (
+                            <Link
+                              key={path}
+                              to={path}
+                              role="menuitem"
+                              onClick={() => setCoursesMenuOpen(false)}
+                              className={`flex items-center gap-4 px-5 py-4 text-base font-semibold text-slate-900 transition-colors hover:bg-slate-100 focus:bg-slate-100 focus:outline-none ${index > 0 ? "border-t border-slate-200" : ""}`}
+                            >
+                              {createElement(Icon, { className: "h-7 w-7 shrink-0 text-secret-wax", "aria-hidden": true })}
+                              {label}
+                            </Link>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
+
                 if (item.children?.length) {
                   return (
                     <div key={item.path} className="relative group">
@@ -440,6 +517,38 @@ const Header = () => {
                 {MENU_ITEMS.map((item) => {
                   const hasChildren = item.children?.length;
                   const isOpen = openSubmenus[item.path];
+
+                  if (item.path === "/khoa-hoc") {
+                    return (
+                      <div key={item.path} className="border-b border-secret-ink/10 pb-3">
+                        <button
+                          type="button"
+                          onClick={() => toggleSubmenu(item.path)}
+                          className="flex w-full items-center justify-between rounded-lg px-2 py-2 text-left text-base font-medium text-secret-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-secret-wax"
+                          aria-expanded={isOpen}
+                          aria-controls="mobile-courses-menu"
+                        >
+                          {item.label}
+                          <ChevronDown className={`h-5 w-5 transition ${isOpen ? "rotate-180" : ""}`} />
+                        </button>
+                        {isOpen && (
+                          <div id="mobile-courses-menu" className="mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-900/10">
+                            {COURSE_MENU_OPTIONS.map(({ label, path, Icon }, index) => (
+                              <Link
+                                key={path}
+                                to={path}
+                                onClick={closeMobileMenu}
+                                className={`flex items-center gap-4 px-5 py-4 text-base font-semibold text-slate-900 ${index > 0 ? "border-t border-slate-200" : ""}`}
+                              >
+                                {createElement(Icon, { className: "h-7 w-7 shrink-0 text-secret-wax", "aria-hidden": true })}
+                                {label}
+                              </Link>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }
 
                   return (
                     <div

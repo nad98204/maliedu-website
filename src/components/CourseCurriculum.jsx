@@ -106,14 +106,15 @@ const CourseCurriculum = ({ course, courseId, onPreviewClick }) => {
                 {(() => {
                     let titledSectionCount = 0;
                     return sections.map((section, idx) => {
-                        if (section.title) titledSectionCount++;
-                        const displayNumber = section.title ? titledSectionCount : null;
+                        const hasSectionTitle = Boolean(section.title?.trim());
+                        if (hasSectionTitle) titledSectionCount++;
+                        const displayNumber = hasSectionTitle ? titledSectionCount : null;
 
                         return (
                             <div key={idx} className="group/section">
-                                <div className={`overflow-hidden transition-all ${section.title ? 'border border-slate-200 rounded-xl bg-white shadow-sm hover:border-slate-300' : ''}`}>
+                                <div className={`overflow-hidden border border-slate-200 rounded-xl bg-white shadow-sm transition-all ${hasSectionTitle ? 'hover:border-slate-300' : ''}`}>
                                     {/* Header */}
-                                    {section.title ? (
+                                    {hasSectionTitle ? (
                                         <button
                                             onClick={() => toggleSection(idx)}
                                             className={`w-full flex items-start sm:items-center justify-between p-4 transition-all duration-300 text-left ${openSections[idx] ? 'bg-slate-50/80' : 'bg-white hover:bg-slate-50'}`}
@@ -146,31 +147,20 @@ const CourseCurriculum = ({ course, courseId, onPreviewClick }) => {
                                         </button>
                                     ) : (
                                         <div className="bg-slate-50/80 px-4 py-2 border-b border-slate-100 flex items-center justify-between">
-                                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Kiến thức bổ sung</span>
+                                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Bài học lẻ</span>
                                             <span className="text-[10px] font-medium text-slate-400">{section.lessons.length} bài học</span>
                                         </div>
                                     )}
     
                             {/* Lessons List */}
-                            <div className={`transition-all duration-500 ease-in-out overflow-hidden ${openSections[idx] ? 'max-h-[3000px] opacity-100 border-t border-slate-100' : 'max-h-0 opacity-0 invisible'}`}>
+                            <div className={`transition-all duration-500 ease-in-out overflow-hidden ${!hasSectionTitle || openSections[idx] ? 'max-h-[3000px] opacity-100 border-t border-slate-100' : 'max-h-0 opacity-0 invisible'}`}>
                                 <div className="bg-white divide-y divide-slate-50">
                                     {section.lessons.map((lesson, lIdx) => {
                                         const lessonKey = getLessonKey(lesson);
                                         const isAccessible = lessonKey ? previewableLessonKeys.has(lessonKey) : false;
-                                        
-                                        // Detect "extra" lesson (lẻ) - heuristic: if title doesn't start with number after a sequence of numbered lessons
-                                        const prevLesson = section.lessons[lIdx - 1];
-                                        const isNumbered = (title) => /^[0-9\.]+|Nguyên lý [0-9]/.test(title);
-                                        const showExtraDivider = prevLesson && isNumbered(prevLesson.title) && !isNumbered(lesson.title);
-    
+
                                         return (
-                                            <React.Fragment key={lIdx}>
-                                                {showExtraDivider && (
-                                                    <div className="bg-slate-50/50 px-4 py-2 border-y border-slate-50">
-                                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Kiến thức bổ sung</span>
-                                                    </div>
-                                                )}
-                                                <div className="flex items-center justify-between p-3.5 pl-4 sm:pl-12 hover:bg-slate-50/50 transition-all group">
+                                            <div key={lIdx} className="flex items-center justify-between p-3.5 pl-4 sm:pl-12 hover:bg-slate-50/50 transition-all group">
                                                     <div className="flex items-start gap-3 overflow-hidden pr-2">
                                                         <div className="mt-0.5 shrink-0 bg-slate-100/50 p-1.5 rounded-md group-hover:bg-secret-wax/10 transition-colors">
                                                             {lesson.type === 'file' ? (
@@ -214,8 +204,7 @@ const CourseCurriculum = ({ course, courseId, onPreviewClick }) => {
                                                             </div>
                                                         )}
                                                     </div>
-                                                </div>
-                                            </React.Fragment>
+                                            </div>
                                         )
                                     })}
                                 </div>

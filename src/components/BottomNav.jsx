@@ -1,4 +1,4 @@
-import { Home, Info, GraduationCap, PlayCircle, Newspaper, Layout } from "lucide-react";
+import { Home, Info, GraduationCap, PlayCircle, Newspaper, Layout, BookOpen, ShoppingCart } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { onAuthStateChanged } from "firebase/auth";
@@ -24,7 +24,23 @@ const NAV_ITEMS = [
             { label: "Vút Tốc Mục Tiêu", path: "/dao-tao/vut-toc-muc-tieu" }
         ]
     },
-    { id: 'courses', label: "Khóa học", icon: PlayCircle, path: "/khoa-hoc" },
+    {
+        id: 'courses', label: "Khóa học", icon: PlayCircle, path: "/khoa-hoc",
+        children: [
+            {
+                label: "Mua khóa học mới",
+                path: "/khoa-hoc",
+                icon: ShoppingCart,
+                description: "Xem các khóa học đang có",
+            },
+            {
+                label: "Khóa học tôi đã mua",
+                path: "/khoa-hoc-cua-toi",
+                icon: BookOpen,
+                description: "Tiếp tục hành trình học tập",
+            },
+        ],
+    },
     { id: 'news', label: "Tin tức", icon: Newspaper, path: "/tin-tuc" },
 ];
 

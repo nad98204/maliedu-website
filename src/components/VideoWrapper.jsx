@@ -87,6 +87,9 @@ const VideoWrapper = ({
     const playableUrl = getPlayableUrl(currentUrl);
     const isFile = playableUrl && isVideoFile(playableUrl);
     const useHLS = playableUrl && isHLS(playableUrl);
+    const activeSections = sections.filter(
+        (section) => (section.lessons || []).length > 0
+    );
 
     return (
         <div className="mx-auto w-full max-w-6xl" onContextMenu={(e) => e.preventDefault()}>
@@ -200,43 +203,56 @@ const VideoWrapper = ({
                 <div className="mt-2 md:hidden">
                     <button
                         onClick={() => setIsSwitcherOpen(!isSwitcherOpen)}
-                            className="w-full text-left rounded-2xl border border-slate-100 bg-white px-4 py-3.5 shadow-sm hover:bg-slate-50 active:scale-[0.98]"
+                            className="w-full rounded-3xl border border-slate-100 bg-white px-4 py-3.5 text-left shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all hover:bg-slate-50 active:scale-[0.98]"
                         >
                             <div className="flex items-start justify-between gap-3">
-                                <h2 className="text-sm font-bold leading-relaxed text-slate-800">
-                                    {title || 'Đang cập nhật bài học'}
-                                </h2>
-                                <ChevronDown className={`mt-0.5 h-4 w-4 shrink-0 text-slate-400 transition-transform ${isSwitcherOpen ? 'rotate-180' : ''}`} />
+                                <div className="min-w-0">
+                                    <span className="mb-1 flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-[#B91C1C]">
+                                        <span className="h-1.5 w-1.5 rounded-full bg-[#B91C1C] animate-pulse"></span>
+                                        Đang phát bài giảng
+                                    </span>
+                                    <h2 className="text-sm font-bold leading-relaxed text-slate-800">
+                                        {title || 'Đang cập nhật bài học'}
+                                    </h2>
+                                </div>
+                                <ChevronDown className={`mt-1 h-4 w-4 shrink-0 text-slate-400 transition-transform ${isSwitcherOpen ? 'rotate-180' : ''}`} />
                             </div>
                         </button>
                         <div className={`mt-2 overflow-hidden transition-all duration-300 ${isSwitcherOpen ? 'max-h-[400px] opacity-100' : 'max-h-0 opacity-0 invisible'}`}>
-                            <div className="rounded-2xl border border-slate-100 bg-white shadow-lg overflow-y-auto max-h-[400px]">
-                                {sections.map((section, sIdx) => (
-                                    <div key={sIdx} className="border-b border-slate-50 last:border-0">
-                                        {section.title && (
-                                            <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 bg-slate-50/50 px-4 py-2">
-                                                {section.title}
-                                            </div>
-                                        )}
-                                        <div className="divide-y divide-slate-50 mt-1">
+                            <div className="max-h-[400px] overflow-y-auto rounded-3xl border border-slate-100 bg-white shadow-[0_20px_50px_rgba(0,0,0,0.12)]">
+                                {activeSections.map((section, sIdx) => {
+                                    const hasSectionTitle = Boolean(section.title?.trim());
+
+                                    return (
+                                    <div key={sIdx} className="border-b border-slate-50 py-1 last:border-0">
+                                        <div className="flex items-center justify-between border-b border-slate-100/50 bg-slate-50/80 px-4 py-2.5 text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
+                                            <span>{hasSectionTitle ? section.title : 'Bài học lẻ'}</span>
+                                            {!hasSectionTitle && (
+                                                <span className="text-[10px] font-medium normal-case tracking-normal text-slate-400">
+                                                    {(section.lessons || []).length} bài học
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="py-1">
                                             {(section.lessons || []).map((lesson, lIdx) => {
                                                 const isActive = (lesson.id || lesson.videoId) === currentLessonId;
                                                 return (
                                                     <button
                                                         key={lIdx}
                                                         onClick={() => { onLessonSelect?.(lesson); setIsSwitcherOpen(false); }}
-                                                        className={`flex w-full items-center gap-3 py-3 text-left normal-case tracking-normal ${isActive ? 'text-[#B91C1C]' : 'text-slate-600'}`}
+                                                        className={`mx-2 my-1 flex w-[calc(100%-1rem)] items-center gap-3 rounded-2xl px-4 py-3 text-left normal-case tracking-normal transition-all ${isActive ? 'border-l-4 border-[#B91C1C] bg-red-50/60 text-[#B91C1C] font-extrabold' : 'text-slate-600 font-medium hover:bg-slate-50/80 hover:text-slate-900'}`}
                                                     >
-                                                        <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${isActive ? 'bg-[#B91C1C] text-white' : 'bg-slate-100 text-slate-400'}`}>
+                                                        <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${isActive ? 'bg-[#B91C1C] text-white shadow-md shadow-red-500/20' : 'bg-slate-50 text-slate-400'}`}>
                                                             {isActive ? <Play className="h-3 w-3 fill-current" /> : <span className="text-[10px] font-bold">{lIdx + 1}</span>}
                                                         </div>
-                                                        <span className={`text-sm ${isActive ? 'font-bold' : 'font-medium'}`}>{lesson.title}</span>
+                                                        <span className="text-sm">{lesson.title}</span>
                                                     </button>
                                                 );
                                             })}
                                         </div>
                                     </div>
-                                ))}
+                                    );
+                                })}
                         </div>
                     </div>
                 </div>
@@ -247,7 +263,7 @@ const VideoWrapper = ({
                             <button
                                 onClick={onPrev}
                                 disabled={!hasPrev}
-                                className={`flex items-center justify-center gap-2 rounded-2xl border px-5 py-3 text-[13px] font-bold active:scale-95 ${hasPrev ? 'border-slate-100 bg-white text-slate-700 shadow-sm hover:bg-slate-50' : 'bg-slate-50 text-slate-300'}`}
+                                className={`flex items-center justify-center gap-2 rounded-2xl border px-5 py-3 text-[13px] font-extrabold active:scale-95 ${hasPrev ? 'border-slate-200 bg-white text-slate-700 shadow-sm hover:bg-slate-50' : 'border-slate-100 bg-slate-50 text-slate-300'}`}
                             >
                                 <ChevronLeft className="h-4 w-4" />
                                 <span>{hasPrev ? 'Bài trước' : 'Trước'}</span>
@@ -255,7 +271,7 @@ const VideoWrapper = ({
                             <button
                                 onClick={onNext}
                                 disabled={!hasNext}
-                                className={`flex items-center justify-center gap-2 rounded-2xl px-5 py-3 text-[13px] font-bold shadow-md active:scale-95 ${hasNext ? 'bg-[#B91C1C] text-white hover:bg-red-800' : 'bg-slate-100 text-slate-300 shadow-none'}`}
+                                className={`flex items-center justify-center gap-2 rounded-2xl px-5 py-3 text-[13px] font-extrabold shadow-md active:scale-95 ${hasNext ? 'bg-[#B91C1C] text-white shadow-red-500/10 hover:bg-red-800' : 'bg-slate-100 text-slate-300 shadow-none'}`}
                             >
                                 <span>Tiếp theo</span>
                                 <ChevronRight className="h-4 w-4" />
@@ -263,9 +279,9 @@ const VideoWrapper = ({
                         </div>
                         <button
                             onClick={onMarkComplete}
-                            className={`flex w-full items-center justify-center gap-2.5 rounded-2xl border px-6 py-3.5 text-[13px] font-extrabold active:scale-[0.98] ${isCompleted ? 'border-green-100 bg-green-50 text-green-700 shadow-sm shadow-green-100/50 hover:bg-green-100' : 'border-slate-100 bg-white text-slate-600 shadow-sm hover:bg-slate-50 border-dashed'}`}
+                            className={`flex w-full items-center justify-center gap-2.5 rounded-2xl border px-6 py-3.5 text-[13px] font-extrabold active:scale-[0.98] ${isCompleted ? 'border-emerald-100 bg-emerald-50/60 text-emerald-700 shadow-sm shadow-emerald-100/50 hover:bg-emerald-100/80' : 'border-slate-200 bg-white text-slate-500 shadow-sm hover:bg-slate-50'}`}
                         >
-                            <CheckCircle className={`h-4.5 w-4.5 ${isCompleted ? 'text-green-600' : 'text-slate-300'}`} />
+                            <CheckCircle className={`h-4.5 w-4.5 ${isCompleted ? 'text-emerald-600' : 'text-slate-300'}`} />
                             <span>{isCompleted ? 'Đã học xong bài này' : 'Tôi đã học xong bài này'}</span>
                         </button>
                     </div>

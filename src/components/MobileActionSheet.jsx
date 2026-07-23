@@ -1,6 +1,6 @@
 import { X, ChevronRight, Info, User, Building2 } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { createElement, useEffect, useState } from "react";
 
 const MobileActionSheet = ({ isOpen, onClose, title, items }) => {
     const [isVisible, setIsVisible] = useState(false);
@@ -61,10 +61,12 @@ const MobileActionSheet = ({ isOpen, onClose, title, items }) => {
                             key={index}
                             to={item.path}
                             onClick={onClose}
-                            className="flex items-center gap-4 p-4 rounded-2xl bg-white border border-gray-100 shadow-sm hover:shadow-md hover:border-secret-wax/30 active:scale-[0.98] transition-all"
+                            className="flex items-center gap-4 px-5 py-4 rounded-2xl bg-white border border-gray-100 shadow-sm hover:shadow-md hover:border-secret-wax/30 active:scale-[0.98] transition-all"
                         >
                             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-secret-wax/20 to-secret-wax/5 flex items-center justify-center flex-shrink-0">
-                                {item.label.includes("Mong") ? (
+                                {item.icon ? (
+                                    createElement(item.icon, { className: "w-6 h-6 text-secret-wax", "aria-hidden": true })
+                                ) : item.label.includes("Mong") ? (
                                     <User className="w-6 h-6 text-secret-wax" />
                                 ) : (
                                     <Building2 className="w-6 h-6 text-secret-wax" />
@@ -76,9 +78,9 @@ const MobileActionSheet = ({ isOpen, onClose, title, items }) => {
                                     {item.label}
                                 </h4>
                                 <p className="text-xs text-gray-500 mt-0.5">
-                                    {item.label.includes("Mong")
+                                    {item.description || (item.label.includes("Mong")
                                         ? "Tìm hiểu về người sáng lập"
-                                        : "Thông tin về tổ chức"}
+                                        : "Thông tin về tổ chức")}
                                 </p>
                             </div>
 
