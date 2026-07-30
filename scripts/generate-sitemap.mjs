@@ -205,8 +205,7 @@ async function generateSitemap() {
   }
 
   // ── 4c. Posts / Tin tức ──────────────────────────────────────────────────
-  // Collection "posts" chứa cả bài viết thông thường (/bai-viet/:slug)
-  // và tin tức theo danh mục "Tin tức" (/tin-tuc/:slug).
+  // Toàn bộ bài viết trong collection "posts" dùng route công khai /tin-tuc/:slug.
   if (!db) {
     console.log("📝 Bỏ qua bài viết (không có kết nối Firebase)");
   } else {
@@ -223,9 +222,7 @@ async function generateSitemap() {
     snapshot.forEach((doc) => {
       const data = doc.data();
       const slug = data.slug || doc.id;
-      // Phân loại đường dẫn theo danh mục
-      const routePrefix =
-        data.category === "Tin tức" ? "tin-tuc" : "bai-viet";
+      const routePrefix = "tin-tuc";
 
       entries.push(
         urlEntry({
