@@ -1,5 +1,8 @@
 import React from 'react';
 
+const isDynamicImportFetchError = (error) =>
+    error?.message?.includes("Failed to fetch dynamically imported module");
+
 class ErrorBoundary extends React.Component {
     constructor(props) {
         super(props);
@@ -12,6 +15,10 @@ class ErrorBoundary extends React.Component {
 
     componentDidCatch(error, errorInfo) {
         console.error("Uncaught error:", error, errorInfo);
+
+        if (isDynamicImportFetchError(error)) {
+            window.location.reload(true);
+        }
     }
 
     handleReset = () => {
@@ -20,6 +27,10 @@ class ErrorBoundary extends React.Component {
     };
 
     render() {
+        if (isDynamicImportFetchError(this.state.error)) {
+            return null;
+        }
+
         if (this.state.hasError) {
             return (
                 <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
