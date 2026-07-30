@@ -17,7 +17,9 @@ class ErrorBoundary extends React.Component {
         console.error("Uncaught error:", error, errorInfo);
 
         if (isDynamicImportFetchError(error)) {
-            window.location.reload(true);
+            const url = new URL(window.location.href);
+            url.searchParams.set("_reload", Date.now().toString());
+            window.location.href = url.toString();
         }
     }
 
@@ -28,7 +30,12 @@ class ErrorBoundary extends React.Component {
 
     render() {
         if (isDynamicImportFetchError(this.state.error)) {
-            return null;
+            return (
+                <div className="min-h-screen flex flex-col items-center justify-center bg-white p-4">
+                    <div className="w-10 h-10 border-4 border-red-600 border-t-transparent rounded-full animate-spin mb-4" />
+                    <p className="text-gray-600 font-medium">Đang cập nhật phiên bản mới nhất...</p>
+                </div>
+            );
         }
 
         if (this.state.hasError) {
