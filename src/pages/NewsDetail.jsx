@@ -1,21 +1,48 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import '../styles/article-rich-text.css';
-import { useParams, Link, Navigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { Calendar, User, Clock, ArrowRight, Facebook, Twitter, Link as LinkIcon } from 'lucide-react';
+import { useParams, Link, Navigate, useSearchParams } from 'react-router-dom';
+import { Calendar, User, Clock, ArrowRight, Facebook, Twitter, Link as LinkIcon, Eye, MessageCircle, ChevronDown } from 'lucide-react';
 import SEO from '../components/SEO';
-import { addDoc, collection, query, where, getDocs, limit, orderBy, serverTimestamp } from 'firebase/firestore';
-import { db } from '../firebase';
+import { onAuthStateChanged } from 'firebase/auth';
+import { addDoc, collection, doc, getDoc, getDocs, limit, orderBy, query, serverTimestamp, where } from 'firebase/firestore';
+import { auth, crmFirestore, db } from '../firebase';
 import { getYouTubeEmbedUrl } from '../utils/videoUtils';
 import BlockContentRenderer from '../components/BlockContentRenderer';
 import { MALI_LOGO_URL } from '../constants/brandAssets.js';
+import { firestoreValueToDate, formatArticleDate, getReadingTime, isPostPubliclyVisible, prepareArticleContent } from '../utils/articleContent';
+import { isAdminUser, isSuperAdminEmail } from '../utils/adminAccess';
+
+const getAdminPreviewAccess = () => new Promise((resolve) => {
+    let unsubscribe = () => {};
+    unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+        unsubscribe();
+        if (!currentUser) {
+            resolve(false);
+            return;
+        }
+        if (isSuperAdminEmail(currentUser.email)) {
+            resolve(true);
+            return;
+        }
+        try {
+            const userSnapshot = await getDoc(doc(db, 'users', currentUser.uid));
+            resolve(isAdminUser({ email: currentUser.email, role: userSnapshot.data()?.role }));
+        } catch (error) {
+            console.error('Error checking preview access:', error);
+            resolve(false);
+        }
+    });
+});
 
 const NewsDetail = () => {
     const [notFound, setNotFound] = useState(false);
     const { slug } = useParams();
+    const [searchParams] = useSearchParams();
+    const isPreviewRequested = searchParams.get('preview') === 'true';
     const [post, setPost] = useState(null);
     const [loading, setLoading] = useState(true);
     const [recentPosts, setRecentPosts] = useState([]);
+    const [approvedFeedback, setApprovedFeedback] = useState([]);
     const [feedbackName, setFeedbackName] = useState('');
     const [feedbackMessage, setFeedbackMessage] = useState('');
     const [feedbackState, setFeedbackState] = useState({ type: '', message: '' });
@@ -23,18 +50,82 @@ const NewsDetail = () => {
     const [newsletterEmail, setNewsletterEmail] = useState('');
     const [newsletterState, setNewsletterState] = useState({ type: '', message: '' });
     const [isSubmittingNewsletter, setIsSubmittingNewsletter] = useState(false);
+    const [sidebarLanding, setSidebarLanding] = useState(null);
+    const preparedContent = useMemo(() => prepareArticleContent(post), [post]);
+
+    useEffect(() => {
+        let isCancelled = false;
+
+        const fetchNewsSidebarBanners = async () => {
+            try {
+                const sidebarQuery = query(
+                    collection(db, 'banners'),
+                    where('position', '==', 'news_sidebar'),
+                );
+                const [sidebarSnapshot, configSnapshot] = await Promise.all([
+                    getDocs(sidebarQuery),
+                    getDoc(doc(crmFirestore, 'public_settings', 'sidebar_landing_config')),
+                ]);
+                const enabledPaths = configSnapshot.exists()
+                    ? configSnapshot.data()?.enabledPaths
+                    : [];
+                const enabledPathSet = new Set(
+                    Array.isArray(enabledPaths)
+                        ? enabledPaths.map((path) => String(path || '').trim()).filter(Boolean)
+                        : [],
+                );
+                const configuredBanners = sidebarSnapshot.docs
+                    .map((bannerDoc) => {
+                        const data = bannerDoc.data();
+                        return {
+                            id: bannerDoc.id,
+                            title: data.title || 'Chương trình Mali Edu',
+                            subtitle: data.subtitle || '',
+                            path: data.ctaLink || '',
+                            ctaText: data.ctaText || 'Đăng ký ngay',
+                            image: data.imageUrl || data.mobileImageUrl || '',
+                            active: data.active,
+                        };
+                    })
+                    .filter((banner) => (
+                        banner.active !== false
+                        && banner.image
+                        && banner.path
+                        && enabledPathSet.has(banner.path)
+                    ));
+
+                if (!isCancelled) {
+                    setSidebarLanding(
+                        configuredBanners.length > 0
+                            ? configuredBanners[Math.floor(Math.random() * configuredBanners.length)]
+                            : null,
+                    );
+                }
+            } catch (error) {
+                console.error('Không thể tải banner sidebar tin tức:', error);
+            }
+        };
+
+        fetchNewsSidebarBanners();
+        return () => {
+            isCancelled = true;
+        };
+    }, []);
 
     // Fetch post by slug and recent posts
     useEffect(() => {
         const fetchPostAndRecents = async () => {
             try {
+                setLoading(true);
+                setNotFound(false);
+                setPost(null);
+
                 // 1. Fetch Main Post
-                const postQuery = query(
-                    collection(db, 'posts'),
-                    where('slug', '==', slug),
-                    where('isPublished', '==', true),
-                    limit(1)
-                );
+                const canPreviewDraft = isPreviewRequested || await getAdminPreviewAccess();
+                const postConstraints = [where('slug', '==', slug)];
+                if (!canPreviewDraft) postConstraints.push(where('isPublished', '==', true));
+                postConstraints.push(limit(1));
+                const postQuery = query(collection(db, 'posts'), ...postConstraints);
                 const postSnapshot = await getDocs(postQuery);
 
                 if (postSnapshot.empty) {
@@ -45,25 +136,20 @@ const NewsDetail = () => {
 
                 const data = postSnapshot.docs[0].data();
 
+                if (!canPreviewDraft && !isPostPubliclyVisible(data)) {
+                    setNotFound(true);
+                    setLoading(false);
+                    return;
+                }
+
                 // Helper function to format date
                 const formatDate = (timestamp) => {
-                    if (!timestamp) return new Date().toLocaleDateString('vi-VN');
-                    // If it's a Firestore Timestamp object
-                    if (timestamp?.toDate) return timestamp.toDate().toLocaleDateString('vi-VN');
-                    // If it's a number (milliseconds)
-                    if (typeof timestamp === 'number') return new Date(timestamp).toLocaleDateString('vi-VN');
-                    // If it's already a string
-                    if (typeof timestamp === 'string') return timestamp;
-                    return new Date().toLocaleDateString('vi-VN');
+                    return formatArticleDate(timestamp) || new Date().toLocaleDateString('vi-VN');
                 };
 
                 // Helper to get ISO string for JSON-LD
                 const toISOString = (timestamp) => {
-                    if (!timestamp) return new Date().toISOString();
-                    if (timestamp?.toDate) return timestamp.toDate().toISOString();
-                    if (typeof timestamp === 'number') return new Date(timestamp).toISOString();
-                    if (typeof timestamp === 'string') return timestamp;
-                    return new Date().toISOString();
+                    return firestoreValueToDate(timestamp)?.toISOString() || new Date().toISOString();
                 };
 
                 const postData = {
@@ -71,8 +157,28 @@ const NewsDetail = () => {
                     ...data,
                     createdAt: formatDate(data.createdAt),
                     createdAtISO: toISOString(data.createdAt),
-                    updatedAtISO: toISOString(data.updatedAt || data.createdAt)
+                    updatedAtISO: toISOString(data.updatedAt || data.createdAt),
+                    readingTime: getReadingTime(data.content, data.isBlockMode),
                 };
+
+                const viewSessionKey = `viewed-news-${postSnapshot.docs[0].id}`;
+                if (isPostPubliclyVisible(data) && !isPreviewRequested && !sessionStorage.getItem(viewSessionKey)) {
+                    sessionStorage.setItem(viewSessionKey, '1');
+                    const viewerStorageKey = 'mali-news-viewer-id';
+                    let viewerId = sessionStorage.getItem(viewerStorageKey);
+                    if (!viewerId) {
+                        viewerId = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+                        sessionStorage.setItem(viewerStorageKey, viewerId);
+                    }
+                    fetch('/api/post-view', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ postId: postSnapshot.docs[0].id, viewerId }),
+                    })
+                        .then((response) => response.ok ? response.json() : Promise.reject(new Error(`View API ${response.status}`)))
+                        .then((result) => setPost((current) => current ? { ...current, views: result.views } : current))
+                        .catch((error) => console.error('Error updating post views:', error));
+                }
                 setPost(postData);
 
                 // 2. Fetch Recent Posts (Tin nổi bật) for Sidebar
@@ -93,6 +199,25 @@ const NewsDetail = () => {
                     .slice(0, 10); // Keep top 10 relevant posts
                 setRecentPosts(recentData);
 
+                try {
+                    const feedbackQuery = query(
+                        collection(db, 'post_feedback'),
+                        where('postId', '==', postSnapshot.docs[0].id),
+                        where('isApproved', '==', true),
+                        orderBy('createdAt', 'desc'),
+                        limit(20)
+                    );
+                    const feedbackSnapshot = await getDocs(feedbackQuery);
+                    setApprovedFeedback(feedbackSnapshot.docs.map((feedbackDoc) => ({
+                        id: feedbackDoc.id,
+                        ...feedbackDoc.data(),
+                        createdAtLabel: formatDate(feedbackDoc.data().createdAt),
+                    })));
+                } catch (feedbackError) {
+                    console.error('Error fetching approved feedback:', feedbackError);
+                    setApprovedFeedback([]);
+                }
+
             } catch (error) {
                 console.error('Error fetching data:', error);
                 setNotFound(true);
@@ -103,7 +228,7 @@ const NewsDetail = () => {
 
         fetchPostAndRecents();
         window.scrollTo(0, 0);
-    }, [slug]);
+    }, [isPreviewRequested, slug]);
 
     if (loading) {
         return (
@@ -139,9 +264,11 @@ const NewsDetail = () => {
                 name: feedbackName.trim() || 'Ẩn danh',
                 message: feedbackMessage.trim(),
                 source: 'news_detail',
+                isApproved: false,
+                status: 'pending',
                 createdAt: serverTimestamp(),
             });
-            setFeedbackState({ type: 'success', message: 'Cảm ơn bạn đã chia sẻ. Đội ngũ sẽ đọc và phản hồi sớm.' });
+            setFeedbackState({ type: 'success', message: 'Cảm ơn bạn đã chia sẻ. Nội dung sẽ hiển thị sau khi được duyệt.' });
             setFeedbackName('');
             setFeedbackMessage('');
         } catch (error) {
@@ -242,39 +369,43 @@ const NewsDetail = () => {
                 </div>
             </div>
 
-            <div className="container max-w-7xl mx-auto px-4 py-10">
+            <div className="container max-w-7xl mx-auto px-4 py-6 md:py-10">
                 <div className="grid grid-cols-12 gap-8 lg:gap-12">
                     {/* LEFT: MAIN CONTENT (8 Cols) */}
                     <div className="col-span-12 lg:col-span-8">
-                        <article>
+                        <article className="mx-auto max-w-3xl">
                             {/* Header - Magazine Style */}
-                            <header className="mb-10">
+                            <header className="mb-6 md:mb-10">
                                 {/* Category Label */}
-                                <Link to="/tin-tuc" className="inline-block mb-4">
+                                <Link to="/tin-tuc" className="mb-2 inline-block md:mb-4">
                                     <span className="text-xs font-bold text-gray-500 uppercase tracking-[0.2em]">
                                         {post.category || 'Tin tức'}
                                     </span>
                                 </Link>
 
                                 {/* Title */}
-                                <h1 className="font-serif text-3xl md:text-5xl font-bold text-gray-900 mb-6 leading-tight uppercase">
+                                <h1 className="mb-3 w-full max-w-none text-2xl font-bold leading-snug tracking-tight text-gray-900 md:mb-6 md:text-4xl md:leading-[1.4] lg:text-[42px]">
                                     {post.title}
                                 </h1>
 
                                 {/* Excerpt - Italic */}
                                 {post.excerpt && (
-                                    <p className="text-gray-600 text-lg md:text-xl italic mb-8 leading-relaxed">
+                                    <p className="mb-4 text-base italic leading-relaxed text-gray-600 md:mb-8 md:text-xl">
                                         {post.excerpt}
                                     </p>
                                 )}
 
                                 {/* Meta Line: Author + Date | Share */}
                                 <div className="flex flex-wrap items-center justify-between border-t border-b border-gray-200 py-4">
-                                    <div className="flex items-center gap-2 text-sm text-gray-700">
+                                    <div className="flex flex-wrap items-center gap-2 text-sm text-gray-700">
                                         <span className="font-medium">Người viết bài:</span>
                                         <span className="font-semibold text-gray-900">{post.author || 'Mong Coaching'}</span>
                                         <span className="text-gray-400 mx-2">•</span>
                                         <span>{post.createdAt}</span>
+                                        <span className="text-gray-400">•</span>
+                                        <span className="inline-flex items-center gap-1"><Clock size={15} />{post.readingTime} phút đọc</span>
+                                        <span className="text-gray-400">•</span>
+                                        <span className="inline-flex items-center gap-1"><Eye size={15} />{Number(post.views || 0).toLocaleString('vi-VN')} lượt xem</span>
                                     </div>
                                     <div className="flex items-center gap-3 text-sm text-gray-500">
                                         <span>chia sẻ</span>
@@ -304,9 +435,13 @@ const NewsDetail = () => {
                                 </div>
                             </header>
 
+                            {preparedContent.toc.length > 0 && (
+                                <MobileTableOfContents items={preparedContent.toc} />
+                            )}
+
                             {/* Featured Image / Video */}
-                            <div className="mb-10 rounded-xl overflow-hidden shadow-sm">
-                                {post.type === 'video' && post.videoUrl ? (
+                            <div className="mb-6 overflow-hidden rounded-xl shadow-sm md:mb-10">
+                                {post.videoUrl ? (
                                     <div className="aspect-video w-full bg-black">
                                         <iframe
                                             src={getYouTubeEmbedUrl(post.videoUrl)}
@@ -331,42 +466,16 @@ const NewsDetail = () => {
                                         className="w-full h-auto object-cover"
                                     />
                                 )}
-                                {post.excerpt && (
-                                    <p className="mt-3 text-sm text-gray-500 italic text-center px-4">
-                                        {post.excerpt}
-                                    </p>
-                                )}
                             </div>
 
                             {/* Main Body - Harper's Bazaar Typography */}
                             <div className="bazaar-typography">
-                                {post.isBlockMode && post.content ? (
-                                    // Block-based content from Editor.js
-                                    (() => {
-                                        try {
-                                            const parsedContent = JSON.parse(post.content);
-                                            // Add dropcap class to first paragraph block
-                                            if (parsedContent.blocks && parsedContent.blocks.length > 0) {
-                                                const firstParagraphIndex = parsedContent.blocks.findIndex(b => b.type === 'paragraph');
-                                                if (firstParagraphIndex !== -1) {
-                                                    parsedContent.blocks[firstParagraphIndex].data.className = 'dropcap';
-                                                }
-                                            }
-                                            return <BlockContentRenderer data={parsedContent} />;
-                                        } catch (e) {
-                                            console.error('Failed to parse block content:', e);
-                                            return <p className="text-red-500">Không thể hiển thị nội dung</p>;
-                                        }
-                                    })()
+                                {post.isBlockMode && preparedContent.blockData ? (
+                                    <BlockContentRenderer data={preparedContent.blockData} />
                                 ) : (
-                                    // HTML content from rich text editor
                                     <div
                                         className="bazaar-content"
-                                        dangerouslySetInnerHTML={{
-                                            __html: post.content
-                                                // Add dropcap class to first <p> tag
-                                                .replace(/<p>/, '<p class="dropcap">')
-                                        }}
+                                        dangerouslySetInnerHTML={{ __html: preparedContent.html }}
                                     />
                                 )}
                             </div>
@@ -414,6 +523,26 @@ const NewsDetail = () => {
                                     )}
                                 </form>
                             </section>
+
+                            {approvedFeedback.length > 0 && (
+                                <section className="mt-10" aria-labelledby="reader-feedback-heading">
+                                    <div className="mb-5 flex items-center gap-3">
+                                        <MessageCircle className="h-6 w-6 text-secret-wax" aria-hidden="true" />
+                                        <h2 id="reader-feedback-heading" className="text-2xl font-bold text-gray-900">Chia sẻ từ độc giả</h2>
+                                    </div>
+                                    <div className="space-y-4">
+                                        {approvedFeedback.map((feedback) => (
+                                            <article key={feedback.id} className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                                                <div className="flex items-center justify-between gap-3">
+                                                    <p className="font-semibold text-gray-900">{feedback.name || 'Ẩn danh'}</p>
+                                                    <time className="text-xs text-gray-500">{feedback.createdAtLabel}</time>
+                                                </div>
+                                                <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-gray-700">{feedback.message}</p>
+                                            </article>
+                                        ))}
+                                    </div>
+                                </section>
+                            )}
 
                             {/* Post Footer */}
                             <div className="mt-12 pt-8 border-t border-gray-100 flex justify-between items-center">
@@ -535,14 +664,16 @@ const NewsDetail = () => {
 
                     {/* RIGHT: SIDEBAR (4 Cols) */}
                     <div className="col-span-12 lg:col-span-4 pl-0 lg:pl-10 relative hidden lg:block">
-                        <div className="sticky top-28 space-y-12">
+                        <div className="sticky top-4 space-y-6">
+                            {preparedContent.toc.length > 0 && <TableOfContents items={preparedContent.toc} />}
+
                             {/* 1. Tin Nổi Bật */}
                             <div>
                                 <h3 className="flex items-center gap-4 text-xl font-serif font-bold text-gray-900 mb-8">
                                     <span className="w-8 h-[2px] bg-red-600"></span>
                                     Tin Nổi Bật
                                 </h3>
-                                <div className="space-y-6">
+                                <div className="space-y-4">
                                     {recentPosts.slice(0, 5).map(p => (
                                         <Link key={p.id} to={`/tin-tuc/${p.slug}`} className="group flex gap-4 items-start">
                                             <div className="w-24 h-24 flex-shrink-0 rounded-lg overflow-hidden bg-slate-100">
@@ -570,30 +701,97 @@ const NewsDetail = () => {
                             </div>
 
                             {/* 2. Banner Quang Cao */}
-                            <div className="rounded-xl overflow-hidden shadow-lg relative group cursor-pointer">
-                                <img
-                                    src="https://res.cloudinary.com/dstukyjzd/image/upload/v1/mali-edu/banner-ads-vertical-placeholder"
-                                    onError={(e) => {
-                                        e.target.onerror = null;
-                                        e.target.src = "https://placehold.co/400x600/8B2E2E/FFF?text=KHOA+HOC+MALI+EDU&font=playfair";
-                                    }}
-                                    alt="Đăng ký khóa học nghề Mali Edu"
-                                    loading="lazy"
-                                    width="400"
-                                    height="600"
-                                    className="w-full h-auto object-cover"
-                                />
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex flex-col justify-end p-6">
-                                    <span className="text-white/80 text-xs font-bold uppercase tracking-widest mb-2">Khóa học Online</span>
-                                    <h3 className="text-white font-serif text-2xl font-bold mb-4">Làm Chủ Tư Duy Tài Chính</h3>
-                                    <button className="bg-white text-secret-wax font-bold py-2 px-4 rounded-full w-full hover:bg-secret-paper transition-colors">
-                                        Đăng ký ngay
-                                    </button>
+                            {sidebarLanding && (
+                                <div className="relative overflow-hidden rounded-xl bg-slate-900 shadow-lg group">
+                                    <img
+                                        src={sidebarLanding.image}
+                                        onError={() => setSidebarLanding(null)}
+                                        alt={sidebarLanding.title}
+                                        loading="lazy"
+                                        width="400"
+                                        height="600"
+                                        className="aspect-[4/5] w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                    />
+                                    <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/85 via-black/25 to-transparent p-6">
+                                        <span className="mb-2 text-xs font-bold uppercase tracking-widest text-white/80">Chương trình nổi bật</span>
+                                        <h3 className="mb-2 text-2xl font-bold text-white">{sidebarLanding.title}</h3>
+                                        <p className="mb-4 text-sm leading-relaxed text-white/85">{sidebarLanding.subtitle}</p>
+                                        <Link
+                                            to={sidebarLanding.path}
+                                            className="flex w-full items-center justify-center gap-2 rounded-full bg-white px-4 py-2 font-bold text-secret-wax transition-colors hover:bg-secret-paper"
+                                            aria-label={`Đăng ký ${sidebarLanding.title}`}
+                                        >
+                                            {sidebarLanding.ctaText || 'Đăng ký ngay'}
+                                            <ArrowRight size={16} aria-hidden="true" />
+                                        </Link>
+                                    </div>
                                 </div>
-                            </div>
+                            )}
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    );
+};
+
+const TableOfContents = ({ items }) => (
+    <nav className="rounded-2xl border border-gray-200 bg-gray-50 p-5" aria-label="Mục lục bài viết">
+        <h2 className="mb-4 font-serif text-xl font-bold text-gray-900">Trong bài viết này</h2>
+        <ol className="space-y-2 border-l-2 border-secret-wax/20 pl-4">
+            {items.map((item) => (
+                <li key={item.id} className={item.level === 3 ? 'pl-4' : ''}>
+                    <a href={`#${item.id}`} className="block text-sm leading-snug text-gray-600 transition hover:text-secret-wax">
+                        {item.text}
+                    </a>
+                </li>
+            ))}
+        </ol>
+    </nav>
+);
+
+const MobileTableOfContents = ({ items }) => {
+    const [isOpen, setIsOpen] = useState(false);
+
+    return (
+        <div className="mb-5 lg:hidden">
+            <div className="overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
+                <button
+                    type="button"
+                    onClick={() => setIsOpen((current) => !current)}
+                    className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+                    aria-expanded={isOpen}
+                    aria-controls="mobile-article-toc"
+                >
+                    <span className="text-sm font-bold text-gray-900">Trong bài viết này</span>
+                    <ChevronDown
+                        size={18}
+                        className={`shrink-0 text-gray-500 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+                        aria-hidden="true"
+                    />
+                </button>
+
+                {isOpen && (
+                    <nav
+                        id="mobile-article-toc"
+                        className="border-t border-gray-200 px-4 py-3"
+                        aria-label="Mục lục bài viết trên di động"
+                    >
+                        <ol className="space-y-2 border-l-2 border-secret-wax/20 pl-3">
+                            {items.map((item) => (
+                                <li key={item.id} className={item.level === 3 ? 'pl-3' : ''}>
+                                    <a
+                                        href={`#${item.id}`}
+                                        onClick={() => setIsOpen(false)}
+                                        className="block text-sm leading-snug text-gray-600 transition hover:text-secret-wax"
+                                    >
+                                        {item.text}
+                                    </a>
+                                </li>
+                            ))}
+                        </ol>
+                    </nav>
+                )}
             </div>
         </div>
     );

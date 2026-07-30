@@ -48,9 +48,11 @@ const normalizeSlide = (slide, index) => ({
 const hasImage = (slide) =>
   !!(slide.imageUrl || slide.image || slide.mobileImageUrl || slide.mobileImage);
 
+const isHomeHeroBanner = (slide) => !slide.position || slide.position === "home_hero";
+
 const buildSlides = (items) =>
   items
-    .filter((slide) => slide.active !== false && hasImage(slide))
+    .filter((slide) => slide.active !== false && hasImage(slide) && isHomeHeroBanner(slide))
     .map((slide, index) => normalizeSlide(slide, index));
 
 // --- Preload helpers ---

@@ -38,12 +38,16 @@
 }
 
 /* HARPER'S BAZAAR TYPOGRAPHY — NewsDetail article */
+.news-detail-title {
+  font-family: 'Be Vietnam Pro', 'Inter', sans-serif;
+}
+
 .bazaar-typography {
-  font-family: 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-family: 'Be Vietnam Pro', 'Inter', sans-serif;
   font-weight: 400;
-  line-height: 1.7;
+  line-height: 1.8;
   font-size: 18px;
-  color: #2d2d2d;
+  color: #27272a;
 }
 
 .bazaar-typography h1,
@@ -52,10 +56,10 @@
 .bazaar-typography h4,
 .bazaar-typography h5,
 .bazaar-typography h6 {
-  font-family: 'Playfair Display', 'Didot', 'Bodoni MT', serif;
+  font-family: 'Be Vietnam Pro', 'Inter', sans-serif;
   font-weight: 700;
   letter-spacing: -0.5px;
-  color: #1a1a1a;
+  color: #27272a;
   margin-top: 2em;
   margin-bottom: 0.8em;
   line-height: 1.2;
@@ -69,24 +73,14 @@
   font-size: 1.5em;
 }
 
-.bazaar-typography .dropcap::first-letter {
-  font-family: 'Playfair Display', serif;
-  font-size: 4.5em;
-  float: left;
-  line-height: 0.8;
-  margin: 0.1em 0.1em 0 0;
-  font-weight: 700;
-  color: #1a1a1a;
-}
-
 .bazaar-typography p {
   margin-bottom: 1.5em;
   font-size: 18px;
-  line-height: 1.7;
+  line-height: 1.8;
 }
 
 .bazaar-typography blockquote {
-  font-family: 'Playfair Display', serif;
+  font-family: 'Be Vietnam Pro', 'Inter', sans-serif;
   font-style: italic;
   font-size: 1.3em;
   line-height: 1.6;
@@ -98,7 +92,7 @@
 
 .bazaar-typography ul,
 .bazaar-typography ol {
-  font-family: 'Roboto', sans-serif;
+  font-family: 'Be Vietnam Pro', 'Inter', sans-serif;
   margin-bottom: 1.5em;
   padding-left: 1.5em;
 }
@@ -123,4 +117,21 @@
 
 .bazaar-typography em {
   font-style: italic;
+}
+
+/* Editorial treatment for inline article imagery. */
+.bazaar-content img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 2rem auto;
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+}
+
+.block-content-wrapper figure img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.75rem;
 }

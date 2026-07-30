@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   addDoc,
   collection,
@@ -7,30 +7,76 @@ import {
   getDocs,
   updateDoc,
 } from "firebase/firestore";
-import { Trash2, ChevronDown, ChevronUp } from "lucide-react";
+import { Trash2, ChevronDown, ChevronUp, Pencil, X } from "lucide-react";
 
-import { db } from "../../firebase";
+import { crmFirestore, db } from "../../firebase";
 import { writeHomeBannerCache } from "../../utils/homeBannerCache";
 import { deleteFromCloudinary } from "../../utils/uploadService";
 import { uploadFileToS3 } from "../../utils/s3UploadService";
-import { getDoc, setDoc } from "firebase/firestore";
+import { getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import { toast } from "react-hot-toast";
 import { HERO_SLIDES } from "../../data/heroData";
+
+const BANNER_POSITIONS = [
+  { value: "home_hero", label: "Banner Slide Trang chủ" },
+  { value: "news_sidebar", label: "Sidebar Tin tức" },
+];
+
+const DEFAULT_LANDING_OPTIONS = [
+  { title: "Khơi Thông Dòng Tiền", path: "/dao-tao/khoi-thong-dong-tien" },
+  { title: "Luật Hấp Dẫn", path: "/dao-tao/luat-hap-dan" },
+  { title: "Chinh Phục Mục Tiêu", path: "/dao-tao/chinh-phuc-muc-tieu" },
+];
+
+const normalizeLandingPath = (value) => {
+  const path = String(value || "").trim();
+  if (!path || /^https?:\/\//i.test(path)) return path;
+  return path.startsWith("/") ? path : `/${path}`;
+};
+
+const mergeLandingOptions = (dynamicOptions = []) => {
+  const optionsByPath = new Map(
+    DEFAULT_LANDING_OPTIONS.map((option) => [option.path, option]),
+  );
+
+  dynamicOptions.forEach((option) => {
+    const path = normalizeLandingPath(option.path);
+    if (!path || optionsByPath.has(path)) return;
+    optionsByPath.set(path, {
+      title: option.title || path,
+      path,
+    });
+  });
+
+  return Array.from(optionsByPath.values());
+};
+
+const createEmptyBannerForm = () => ({
+  title: "",
+  subtitle: "",
+  ctaText: "",
+  ctaLink: "",
+  imageUrl: "",
+  mobileImageUrl: "",
+  position: "home_hero",
+});
+
+const getBannerPosition = (banner) => banner.position || "home_hero";
 
 const AdminBanners = () => {
   const [activeTab, setActiveTab] = useState("banners"); // 'banners' | 'content'
   const [previewDevice, setPreviewDevice] = useState("desktop"); // 'desktop' | 'mobile'
   const [banners, setBanners] = useState([]);
-  const [formState, setFormState] = useState({
-    title: "",
-    subtitle: "",
-    ctaText: "",
-    ctaLink: "",
-    imageUrl: "",
-    mobileImageUrl: "",
-  });
+  const [formState, setFormState] = useState(createEmptyBannerForm);
   const [file, setFile] = useState(null);
   const [mobileFile, setMobileFile] = useState(null);
+  const [editingBannerId, setEditingBannerId] = useState(null);
+  const [positionFilter, setPositionFilter] = useState("all");
+  const [landingOptions, setLandingOptions] = useState(DEFAULT_LANDING_OPTIONS);
+  const [enabledSidebarLandingPaths, setEnabledSidebarLandingPaths] = useState([]);
+  const [hasSidebarLandingConfig, setHasSidebarLandingConfig] = useState(false);
+  const [isSidebarConfigLoading, setIsSidebarConfigLoading] = useState(true);
+  const [isSavingSidebarConfig, setIsSavingSidebarConfig] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -43,7 +89,7 @@ const AdminBanners = () => {
   const [stories, setStories] = useState([]);
   const [isSavingContent, setIsSavingContent] = useState(false);
 
-  const fetchBanners = async () => {
+  const fetchBanners = useCallback(async () => {
     try {
       console.log("Starting fetch banners from:", db);
       const snapshot = await getDocs(collection(db, "banners"));
@@ -59,19 +105,13 @@ const AdminBanners = () => {
       }));
       setBanners(items);
       writeHomeBannerCache(items);
-
-      // Auto-import if empty and in dev mode
-      if (items.length === 0 && import.meta.env.DEV) {
-        console.log("Auto-importing sample banners since database is empty...");
-        handleImportSamples(true); // pass true to skip confirmation
-      }
     } catch (err) {
       console.error("Error fetching banners:", err);
       toast.error(`Lỗi tải dữ liệu: ${err.message}`);
     }
-  };
+  }, []);
 
-  const fetchContent = async () => {
+  const fetchContent = useCallback(async () => {
     try {
       const docRef = doc(db, "homepage_content", "success_stories");
       const docSnap = await getDoc(docRef);
@@ -87,12 +127,55 @@ const AdminBanners = () => {
     } catch (err) {
       console.error("Error fetching content:", err);
     }
-  };
+  }, []);
+
+  const fetchLandingOptions = useCallback(async () => {
+    try {
+      const snapshot = await getDocs(collection(crmFirestore, "landing_pages"));
+      const dynamicOptions = snapshot.docs.map((landingDoc) => {
+        const data = landingDoc.data();
+        return {
+          title: data.name || data.title || landingDoc.id,
+          path: data.slug || data.path || data.url || "",
+        };
+      });
+      setLandingOptions(mergeLandingOptions(dynamicOptions));
+    } catch (err) {
+      console.warn("Không thể tải danh sách landing_pages, sử dụng danh sách mặc định:", err);
+      setLandingOptions(DEFAULT_LANDING_OPTIONS);
+    }
+  }, []);
+
+  const fetchSidebarLandingConfig = useCallback(async () => {
+    try {
+      const configSnapshot = await getDoc(
+        doc(crmFirestore, "public_settings", "sidebar_landing_config"),
+      );
+      const enabledPaths = configSnapshot.exists()
+        ? configSnapshot.data()?.enabledPaths
+        : null;
+
+      setHasSidebarLandingConfig(configSnapshot.exists());
+      setEnabledSidebarLandingPaths(
+        Array.isArray(enabledPaths)
+          ? [...new Set(enabledPaths.map(normalizeLandingPath).filter(Boolean))]
+          : DEFAULT_LANDING_OPTIONS.map((option) => option.path),
+      );
+    } catch (err) {
+      console.error("Không thể tải cấu hình Sidebar Landing Banners:", err);
+      setEnabledSidebarLandingPaths(DEFAULT_LANDING_OPTIONS.map((option) => option.path));
+      setHasSidebarLandingConfig(false);
+    } finally {
+      setIsSidebarConfigLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     fetchBanners();
     fetchContent();
-  }, []);
+    fetchLandingOptions();
+    fetchSidebarLandingConfig();
+  }, [fetchBanners, fetchContent, fetchLandingOptions, fetchSidebarLandingConfig]);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -106,6 +189,51 @@ const AdminBanners = () => {
       setMobileFile(selectedFile || null);
     } else {
       setFile(selectedFile || null);
+    }
+  };
+
+  const handleLandingSelect = (event) => {
+    const selectedPath = event.target.value;
+    const selectedLanding = landingOptions.find((option) => option.path === selectedPath);
+    if (!selectedLanding) return;
+
+    setFormState((prev) => ({
+      ...prev,
+      ctaLink: selectedLanding.path,
+      title: selectedLanding.title,
+    }));
+  };
+
+  const handleToggleSidebarLanding = (path) => {
+    setEnabledSidebarLandingPaths((currentPaths) => (
+      currentPaths.includes(path)
+        ? currentPaths.filter((currentPath) => currentPath !== path)
+        : [...currentPaths, path]
+    ));
+  };
+
+  const handleSaveSidebarLandingConfig = async () => {
+    setIsSavingSidebarConfig(true);
+    try {
+      const enabledPaths = [...new Set(
+        enabledSidebarLandingPaths.map(normalizeLandingPath).filter(Boolean),
+      )];
+      await setDoc(
+        doc(crmFirestore, "public_settings", "sidebar_landing_config"),
+        {
+          enabledPaths,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true },
+      );
+      setEnabledSidebarLandingPaths(enabledPaths);
+      setHasSidebarLandingConfig(true);
+      toast.success("Đã lưu cấu hình Sidebar Landing Banners!");
+    } catch (err) {
+      console.error("Không thể lưu cấu hình Sidebar Landing Banners:", err);
+      toast.error("Không thể lưu cấu hình Sidebar Landing Banners.");
+    } finally {
+      setIsSavingSidebarConfig(false);
     }
   };
 
@@ -134,39 +262,49 @@ const AdminBanners = () => {
     setIsSubmitting(true);
 
     try {
+      const uploadFolder = formState.position === "news_sidebar"
+        ? "banners/news-sidebar"
+        : "banners/home-hero";
       let finalImageUrl = formState.imageUrl;
-      if (file) finalImageUrl = await uploadFileToS3(file);
+      if (file) finalImageUrl = await uploadFileToS3(file, undefined, { folder: uploadFolder });
       
       let finalMobileImageUrl = formState.mobileImageUrl;
-      if (mobileFile) finalMobileImageUrl = await uploadFileToS3(mobileFile);
+      if (mobileFile) finalMobileImageUrl = await uploadFileToS3(mobileFile, undefined, { folder: uploadFolder });
 
-      await addDoc(collection(db, "banners"), {
+      const bannerPayload = {
         title: formState.title,
         subtitle: formState.subtitle,
         ctaText: formState.ctaText,
         ctaLink: formState.ctaLink,
+        position: formState.position,
         imageUrl: finalImageUrl,
-        imageWidth: null,
-        imageHeight: null,
         mobileImageUrl: finalMobileImageUrl,
-        mobileImageWidth: null,
-        mobileImageHeight: null,
-        deleteToken: null,
-        mobileDeleteToken: null,
-        publicId: null,
-        active: true,
-        createdAt: Date.now(),
-      });
-      setFormState({
-        title: "",
-        subtitle: "",
-        ctaText: "",
-        ctaLink: "",
-        imageUrl: "",
-        mobileImageUrl: "",
-      });
+        updatedAt: Date.now(),
+      };
+
+      if (editingBannerId) {
+        await updateDoc(doc(db, "banners", editingBannerId), bannerPayload);
+        toast.success("Cập nhật banner thành công!");
+      } else {
+        await addDoc(collection(db, "banners"), {
+          ...bannerPayload,
+          imageWidth: null,
+          imageHeight: null,
+          mobileImageWidth: null,
+          mobileImageHeight: null,
+          deleteToken: null,
+          mobileDeleteToken: null,
+          publicId: null,
+          active: true,
+          createdAt: Date.now(),
+        });
+        toast.success("Thêm banner thành công!");
+      }
+
+      setFormState(createEmptyBannerForm());
       setFile(null);
       setMobileFile(null);
+      setEditingBannerId(null);
       
       // Clear file inputs manually
       const fileInputs = document.querySelectorAll('input[type="file"]');
@@ -177,11 +315,36 @@ const AdminBanners = () => {
       console.error("Them banner loi:", err);
       setError(
         err?.message ||
-        "Khong the them banner. Vui long thu lai hoac kiem tra lai cau hinh Cloudinary."
+        "Không thể lưu banner. Vui lòng thử lại hoặc kiểm tra cấu hình S3."
       );
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleEdit = (banner) => {
+    setEditingBannerId(banner.id);
+    setFormState({
+      title: banner.title || "",
+      subtitle: banner.subtitle || "",
+      ctaText: banner.ctaText || "",
+      ctaLink: banner.ctaLink || "",
+      imageUrl: banner.imageUrl || "",
+      mobileImageUrl: banner.mobileImageUrl || "",
+      position: getBannerPosition(banner),
+    });
+    setFile(null);
+    setMobileFile(null);
+    setError("");
+    document.getElementById("banner-editor")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingBannerId(null);
+    setFormState(createEmptyBannerForm());
+    setFile(null);
+    setMobileFile(null);
+    setError("");
   };
 
   const handleDelete = async (bannerId, deleteToken) => {
@@ -259,6 +422,7 @@ const AdminBanners = () => {
           ctaLink: slide.ctaLink,
           imageUrl,
           mobileImageUrl,
+          position: "home_hero",
           active: true,
           createdAt: Date.now(),
         };
@@ -305,10 +469,29 @@ const AdminBanners = () => {
     }
   };
 
+  const displayedBanners = banners.filter((banner) => {
+    const bannerPosition = getBannerPosition(banner);
+    const matchesPosition = positionFilter === "all" || bannerPosition === positionFilter;
+    const hasPreviewImage = bannerPosition === "news_sidebar"
+      ? Boolean(banner.imageUrl || banner.mobileImageUrl)
+      : previewDevice === "desktop"
+        ? Boolean(banner.imageUrl)
+        : Boolean(banner.mobileImageUrl);
+
+    return matchesPosition && hasPreviewImage;
+  });
+
+  const getBannerPreviewImage = (banner) => {
+    if (getBannerPosition(banner) === "news_sidebar") {
+      return banner.imageUrl || banner.mobileImageUrl || "";
+    }
+    return previewDevice === "desktop" ? banner.imageUrl : banner.mobileImageUrl;
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-slate-900">Quản lý Trang Chủ</h1>
+        <h1 className="text-2xl font-bold text-slate-900">Quản lý Banner & Nội dung</h1>
       </div>
 
       {/* Tabs */}
@@ -321,7 +504,7 @@ const AdminBanners = () => {
               : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
               }`}
           >
-            Banner Slide
+            Quản lý Banner
           </button>
           <button
             onClick={() => setActiveTab("content")}
@@ -338,17 +521,37 @@ const AdminBanners = () => {
       {activeTab === "banners" ? (
         <div className="space-y-8">
           {/* Banner Form Section */}
-          <section className="rounded-2xl bg-white p-6 shadow-sm">
+          <section id="banner-editor" className="scroll-mt-24 rounded-2xl bg-white p-6 shadow-sm">
             <div className="border-b border-slate-100 pb-4">
               <h1 className="text-xl font-semibold text-slate-900">
-                Thêm banner mới
+                {editingBannerId ? "Chỉnh sửa banner" : "Thêm banner mới"}
               </h1>
               <p className="mt-1 text-sm text-slate-500">
-                Tải ảnh banner và nhập thông tin hiển thị.
+                Chọn đúng vị trí, tải ảnh lên S3 và nhập thông tin hiển thị.
               </p>
             </div>
 
             <form onSubmit={handleSubmit} className="mt-6 grid gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700" htmlFor="position">
+                  Vị trí banner
+                </label>
+                <select
+                  id="position"
+                  name="position"
+                  value={formState.position}
+                  onChange={handleChange}
+                  className="w-full rounded-lg border border-slate-200 px-4 py-2 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                >
+                  {BANNER_POSITIONS.map((position) => (
+                    <option key={position.value} value={position.value}>{position.label}</option>
+                  ))}
+                </select>
+                {formState.position === "news_sidebar" && (
+                  <p className="text-xs text-slate-500">Khuyến nghị ảnh dọc tỷ lệ 4:5. Ảnh được lưu trong thư mục S3 banners/news-sidebar.</p>
+                )}
+              </div>
+
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-slate-700" htmlFor="title">
@@ -399,15 +602,31 @@ const AdminBanners = () => {
                   <label className="text-sm font-medium text-slate-700" htmlFor="ctaLink">
                     Link nút
                   </label>
-                  <input
-                    id="ctaLink"
-                    name="ctaLink"
-                    type="text"
-                    value={formState.ctaLink}
-                    onChange={handleChange}
-                    className="w-full rounded-lg border border-slate-200 px-4 py-2 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
-                    placeholder="/dao-tao"
-                  />
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <select
+                      value={landingOptions.some((option) => option.path === formState.ctaLink) ? formState.ctaLink : ""}
+                      onChange={handleLandingSelect}
+                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                      aria-label="Chọn nhanh Landing Page"
+                    >
+                      <option value="">Chọn nhanh Landing Page</option>
+                      {landingOptions.map((option) => (
+                        <option key={option.path} value={option.path}>
+                          {option.title} ({option.path})
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      id="ctaLink"
+                      name="ctaLink"
+                      type="text"
+                      value={formState.ctaLink}
+                      onChange={handleChange}
+                      className="w-full rounded-lg border border-slate-200 px-4 py-2 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                      placeholder="/dao-tao hoặc URL tùy chỉnh"
+                    />
+                  </div>
+                  <p className="text-xs text-slate-500">Chọn một landing để tự điền tiêu đề và đường dẫn, hoặc nhập link thủ công.</p>
                 </div>
               </div>
 
@@ -463,16 +682,94 @@ const AdminBanners = () => {
 
               {error && <p className="text-sm text-red-500">{error}</p>}
 
-              <div>
+              <div className="flex flex-wrap gap-3">
                 <button
                   type="submit"
                   disabled={isSubmitting}
                   className="inline-flex items-center justify-center rounded-full bg-slate-900 px-6 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-70"
                 >
-                  {isSubmitting ? "Đang xử lý..." : "Thêm Banner"}
+                  {isSubmitting
+                    ? "Đang xử lý..."
+                    : editingBannerId
+                      ? "Lưu thay đổi"
+                      : "Thêm Banner"}
                 </button>
+                {editingBannerId && (
+                  <button
+                    type="button"
+                    onClick={handleCancelEdit}
+                    className="inline-flex items-center justify-center gap-2 rounded-full border border-slate-300 px-6 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
+                  >
+                    <X className="h-4 w-4" />
+                    Hủy chỉnh sửa
+                  </button>
+                )}
               </div>
             </form>
+          </section>
+
+          <section className="rounded-2xl bg-white p-6 shadow-sm">
+            <div className="border-b border-slate-100 pb-4">
+              <h2 className="text-lg font-semibold text-slate-900">
+                Cài đặt Sidebar Landing Banners
+              </h2>
+              <p className="mt-1 text-sm text-slate-500">
+                Chỉ các Landing Page được bật tại đây mới được phép xuất hiện ngẫu nhiên trong Sidebar Tin tức.
+              </p>
+              {!isSidebarConfigLoading && !hasSidebarLandingConfig && (
+                <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                  Chưa có cấu hình Firestore. Hãy kiểm tra lựa chọn bên dưới và bấm “Lưu cài đặt” để áp dụng.
+                </p>
+              )}
+            </div>
+
+            <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {landingOptions.map((landing) => {
+                const isEnabled = enabledSidebarLandingPaths.includes(landing.path);
+                return (
+                  <div
+                    key={landing.path}
+                    className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 p-4"
+                  >
+                    <div className="min-w-0">
+                      <h3 className="truncate text-sm font-semibold text-slate-900">{landing.title}</h3>
+                      <p className="mt-1 truncate text-xs text-slate-500" title={landing.path}>{landing.path}</p>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={isEnabled}
+                      aria-label={`${isEnabled ? "Tắt" : "Bật"} ${landing.title}`}
+                      disabled={isSidebarConfigLoading}
+                      onClick={() => handleToggleSidebarLanding(landing.path)}
+                      className={`relative h-7 w-12 flex-none rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                        isEnabled ? "bg-emerald-500" : "bg-slate-300"
+                      }`}
+                    >
+                      <span
+                        className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
+                          isEnabled ? "translate-x-6" : "translate-x-1"
+                        }`}
+                      />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="mt-5 flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={handleSaveSidebarLandingConfig}
+                disabled={isSidebarConfigLoading || isSavingSidebarConfig}
+                className="inline-flex items-center justify-center rounded-full bg-slate-900 px-6 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isSavingSidebarConfig ? "Đang lưu..." : "Lưu cài đặt"}
+              </button>
+              <span className="text-xs text-slate-500">
+                Đã bật {enabledSidebarLandingPaths.length}/{landingOptions.length} Landing Page
+              </span>
+            </div>
           </section>
 
           <section className="rounded-2xl bg-white p-6 shadow-sm">
@@ -485,29 +782,42 @@ const AdminBanners = () => {
                   Bật/tắt hiển thị và xem trước banner.
                 </p>
               </div>
-              <div className="flex bg-slate-100 rounded-lg p-1">
-                <button
-                  type="button"
-                  onClick={() => setPreviewDevice("desktop")}
-                  className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                    previewDevice === "desktop"
-                      ? "bg-white text-slate-900 shadow-sm"
-                      : "text-slate-500 hover:text-slate-700"
-                  }`}
+              <div className="flex flex-wrap items-center gap-3">
+                <select
+                  value={positionFilter}
+                  onChange={(event) => setPositionFilter(event.target.value)}
+                  className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700"
+                  aria-label="Lọc banner theo vị trí"
                 >
-                  Desktop Preview
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPreviewDevice("mobile")}
-                  className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                    previewDevice === "mobile"
-                      ? "bg-white text-slate-900 shadow-sm"
-                      : "text-slate-500 hover:text-slate-700"
-                  }`}
-                >
-                  Mobile Preview
-                </button>
+                  <option value="all">Tất cả vị trí</option>
+                  {BANNER_POSITIONS.map((position) => (
+                    <option key={position.value} value={position.value}>{position.label}</option>
+                  ))}
+                </select>
+                <div className="flex rounded-lg bg-slate-100 p-1">
+                  <button
+                    type="button"
+                    onClick={() => setPreviewDevice("desktop")}
+                    className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                      previewDevice === "desktop"
+                        ? "bg-white text-slate-900 shadow-sm"
+                        : "text-slate-500 hover:text-slate-700"
+                    }`}
+                  >
+                    Desktop Preview
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewDevice("mobile")}
+                    className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                      previewDevice === "mobile"
+                        ? "bg-white text-slate-900 shadow-sm"
+                        : "text-slate-500 hover:text-slate-700"
+                    }`}
+                  >
+                    Mobile Preview
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -516,48 +826,37 @@ const AdminBanners = () => {
                 ? "grid-cols-1 md:grid-cols-2" 
                 : "grid-cols-2 lg:grid-cols-4"
             }`}>
-              {banners.filter(banner => previewDevice === "desktop" ? banner.imageUrl : banner.mobileImageUrl).map((banner) => (
+              {displayedBanners.map((banner) => (
                 <div
                   key={banner.id}
                   className="flex flex-col rounded-xl border border-slate-100 p-4 shadow-sm bg-white"
                 >
                   <div className={`relative w-full overflow-hidden rounded-md bg-slate-100 flex items-center justify-center ${
-                    previewDevice === "desktop" ? "aspect-video" : "aspect-[4/5]"
+                    getBannerPosition(banner) === "news_sidebar" || previewDevice === "mobile"
+                      ? "aspect-[4/5]"
+                      : "aspect-video"
                   }`}>
-                    {previewDevice === "desktop" ? (
-                      banner.imageUrl ? (
-                        <img
-                          src={banner.imageUrl}
-                          alt={banner.title}
-                          className="h-full w-full object-contain p-2"
-                        />
-                      ) : (
-                        <div className="flex flex-col items-center justify-center text-slate-400">
-                          <span className="text-sm font-medium px-4 text-center">Chưa tải lên ảnh Desktop</span>
-                        </div>
-                      )
-                    ) : (
-                      banner.mobileImageUrl ? (
-                        <img
-                          src={banner.mobileImageUrl}
-                          alt={banner.title}
-                          className="h-full w-full object-contain p-2"
-                        />
-                      ) : (
-                        <div className="flex flex-col items-center justify-center text-slate-400">
-                          <span className="text-sm font-medium px-4 text-center">Chưa tải lên ảnh Mobile</span>
-                        </div>
-                      )
-                    )}
+                    <img
+                      src={getBannerPreviewImage(banner)}
+                      alt={banner.title}
+                      className="h-full w-full object-contain p-2"
+                    />
                   </div>
                   <div className="mt-4 space-y-3 flex-1 flex flex-col justify-end">
                     <div>
+                      <span className={`mb-2 inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                        getBannerPosition(banner) === "news_sidebar"
+                          ? "bg-blue-50 text-blue-700"
+                          : "bg-amber-50 text-amber-700"
+                      }`}>
+                        {getBannerPosition(banner) === "news_sidebar" ? "Sidebar Tin tức" : "Slide Trang chủ"}
+                      </span>
                       <h3 className="text-sm font-semibold text-slate-900">
                         {banner.title}
                       </h3>
                       <p className="text-xs text-slate-500">{banner.subtitle}</p>
                     </div>
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-2">
                       <button
                         type="button"
                         onClick={() => handleToggleActive(banner.id, banner.active)}
@@ -568,31 +867,45 @@ const AdminBanners = () => {
                       >
                         {banner.active ? "Đang bật" : "Đang tắt"}
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(banner.id, banner.deleteToken)}
-                        className="inline-flex items-center justify-center rounded-full p-2 text-red-500 hover:bg-red-50"
-                        aria-label="Xoa banner"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => handleEdit(banner)}
+                          className="inline-flex items-center justify-center rounded-full p-2 text-blue-600 hover:bg-blue-50"
+                          aria-label={`Sửa banner ${banner.title || ""}`}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(banner.id, banner.deleteToken)}
+                          className="inline-flex items-center justify-center rounded-full p-2 text-red-500 hover:bg-red-50"
+                          aria-label={`Xóa banner ${banner.title || ""}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
               ))}
-              {banners.length === 0 && (
+              {displayedBanners.length === 0 && (
                 <div className="col-span-full py-12 text-center flex flex-col items-center justify-center border-2 border-dashed border-slate-100 rounded-2xl bg-slate-50/50">
                   <p className="text-sm text-slate-500 mb-4">
-                    Chưa có banner nào. Hãy thêm banner mới hoặc khởi tạo dữ liệu mẫu.
+                    {banners.length === 0
+                      ? "Chưa có banner nào. Hãy thêm banner mới hoặc khởi tạo dữ liệu mẫu."
+                      : "Không có banner phù hợp với bộ lọc và chế độ xem hiện tại."}
                   </p>
-                  <button
-                    type="button"
-                    disabled={isSubmitting}
-                    onClick={handleImportSamples}
-                    className="inline-flex items-center justify-center rounded-full bg-slate-900 px-6 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50"
-                  >
-                    {isSubmitting ? "Đang xử lý..." : "Nhập ảnh banner slide mẫu"}
-                  </button>
+                  {banners.length === 0 && (
+                    <button
+                      type="button"
+                      disabled={isSubmitting}
+                      onClick={handleImportSamples}
+                      className="inline-flex items-center justify-center rounded-full bg-slate-900 px-6 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50"
+                    >
+                      {isSubmitting ? "Đang xử lý..." : "Nhập ảnh banner slide mẫu"}
+                    </button>
+                  )}
                 </div>
               )}
             </div>

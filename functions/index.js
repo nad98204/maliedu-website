@@ -5,18 +5,40 @@ import { Readable } from "node:stream";
 
 import { onRequest } from "firebase-functions/v2/https";
 import { onValueCreated } from "firebase-functions/v2/database";
+import { onSchedule } from "firebase-functions/v2/scheduler";
 import { initializeApp } from "firebase-admin/app";
 import { getDatabase } from "firebase-admin/database";
-import { getFirestore } from "firebase-admin/firestore";
+import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { hashData, normalizeNameForHash, sendMetaCapiEvent } from "./capi_helper.js";
 
-initializeApp();
-const firestore = getFirestore();
-const CRM_DATABASE_URL =
-  process.env.CRM_DATABASE_URL ||
-  "https://dangpkkzxy-default-rtdb.asia-southeast1.firebasedatabase.app";
-const crmAdminApp = initializeApp({ databaseURL: CRM_DATABASE_URL }, "crm-admin");
-const crmDatabase = getDatabase(crmAdminApp);
+let defaultApp = null;
+let firestoreDb = null;
+let crmDb = null;
+
+const getFirestoreDb = () => {
+  if (!defaultApp) {
+    defaultApp = initializeApp();
+  }
+  if (!firestoreDb) {
+    firestoreDb = getFirestore(defaultApp);
+  }
+  return firestoreDb;
+};
+
+const getCrmDatabase = () => {
+  if (!crmDb) {
+    if (!defaultApp) {
+      defaultApp = initializeApp();
+    }
+    const CRM_DATABASE_URL =
+      process.env.CRM_DATABASE_URL ||
+      "https://dangpkkzxy-default-rtdb.asia-southeast1.firebasedatabase.app";
+    const crmAdminApp = initializeApp({ databaseURL: CRM_DATABASE_URL }, "crm-admin");
+    crmDb = getDatabase(crmAdminApp);
+  }
+  return crmDb;
+};
+
 const STORAGE_MEDIA_TOKEN_TTL_SECONDS = 2 * 60 * 60;
 const STORAGE_MEDIA_MAX_RANGE_BYTES = 8 * 1024 * 1024;
 
@@ -65,7 +87,7 @@ const onCreateCrmLead = async ({ request }) => {
     return createJsonResponse({ error: "Invalid lead contact info" }, 400);
   }
 
-  const leadRef = crmDatabase.ref(nodePath).push();
+  const leadRef = getCrmDatabase().ref(nodePath).push();
   await leadRef.set({
     ...payload,
     name,
@@ -85,7 +107,7 @@ const onGetStorageShare = async ({ request }) => {
     return createJsonResponse({ error: "Media not found" }, 404);
   }
 
-  const fileSnapshot = await firestore.collection("storage_files").doc(fileId).get();
+  const fileSnapshot = await getFirestoreDb().collection("storage_files").doc(fileId).get();
 
   if (!fileSnapshot.exists) {
     return createJsonResponse({ error: "Media not found" }, 404);
@@ -128,8 +150,51 @@ const onGetStorageShare = async ({ request }) => {
   });
 };
 
+const onIncrementPostView = async ({ request }) => {
+  const body = await request.json();
+  const postId = String(body?.postId || "").trim();
+  const viewerId = String(body?.viewerId || "").trim();
+
+  if (!/^[A-Za-z0-9]{1,128}$/.test(postId) || !/^[A-Za-z0-9-]{16,64}$/.test(viewerId)) {
+    return createJsonResponse({ error: "Invalid view payload" }, 400);
+  }
+
+  const postRef = getFirestoreDb().collection("posts").doc(postId);
+  const viewRef = getFirestoreDb().collection("post_view_events").doc(`${postId}_${viewerId}`);
+
+  const result = await getFirestoreDb().runTransaction(async (transaction) => {
+    const [postSnapshot, viewSnapshot] = await Promise.all([
+      transaction.get(postRef),
+      transaction.get(viewRef),
+    ]);
+
+    if (!postSnapshot.exists) return { status: 404, body: { error: "Post not found" } };
+    const post = postSnapshot.data() || {};
+    const publishAt = post.publishAt?.toDate?.();
+    if (!post.isPublished || (publishAt && publishAt > new Date())) {
+      return { status: 404, body: { error: "Post not found" } };
+    }
+
+    const currentViews = Number(post.views || 0);
+    if (viewSnapshot.exists) {
+      return { status: 200, body: { counted: false, views: currentViews } };
+    }
+
+    transaction.set(viewRef, {
+      postId,
+      createdAt: FieldValue.serverTimestamp(),
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+    });
+    transaction.update(postRef, { views: FieldValue.increment(1) });
+    return { status: 200, body: { counted: true, views: currentViews + 1 } };
+  });
+
+  return createJsonResponse(result.body, result.status);
+};
+
 const ROUTES = new Map([
   ["POST /api/crm-leads", onCreateCrmLead],
+  ["POST /api/post-view", onIncrementPostView],
   ["GET /api/storage-share", onGetStorageShare],
   ["GET /api/s3-multipart/health", onHealth],
   ["POST /api/s3-multipart/abort", onAbort],
@@ -219,7 +284,7 @@ const handleStorageMediaRequest = async (request, response) => {
     return response.status(404).set("cache-control", "no-store").send("Media not found");
   }
 
-  const fileSnapshot = await firestore.collection("storage_files").doc(fileId).get();
+  const fileSnapshot = await getFirestoreDb().collection("storage_files").doc(fileId).get();
   const file = fileSnapshot.exists ? fileSnapshot.data() || {} : {};
   const type = String(file.type || "");
   const isVideo = type.startsWith("video/");
@@ -346,7 +411,7 @@ export const onCrmLeadCreated = onValueCreated(
 
       // Lấy cấu hình Pixel/Token từ Firestore
       if (landingPageId) {
-        const lpDoc = await firestore.collection("landing_pages").doc(landingPageId).get();
+        const lpDoc = await getFirestoreDb().collection("landing_pages").doc(landingPageId).get();
         if (lpDoc.exists) {
           const config = lpDoc.data();
           fbCapiToken = config.fbCapiToken;
@@ -356,7 +421,7 @@ export const onCrmLeadCreated = onValueCreated(
 
       // Nếu landing page không có token riêng, lấy ở config chung
       if (!fbCapiToken) {
-        const configDoc = await firestore.collection("public_settings").doc("landing_config").get();
+        const configDoc = await getFirestoreDb().collection("public_settings").doc("landing_config").get();
         if (configDoc.exists) {
           fbCapiToken = configDoc.data().fbCapiToken;
         }
@@ -490,5 +555,35 @@ export const uploadApi = onRequest(
         response,
       );
     }
+  },
+);
+
+export const publishScheduledPosts = onSchedule(
+  {
+    schedule: "every 1 minutes",
+    timeZone: "Asia/Bangkok",
+    region: "asia-southeast1",
+  },
+  async () => {
+    const dueSnapshot = await getFirestoreDb()
+      .collection("posts")
+      .where("isScheduled", "==", true)
+      .where("publishAt", "<=", new Date())
+      .orderBy("publishAt", "asc")
+      .limit(100)
+      .get();
+
+    if (dueSnapshot.empty) return;
+
+    const batch = getFirestoreDb().batch();
+    dueSnapshot.docs.forEach((postSnapshot) => {
+      batch.update(postSnapshot.ref, {
+        isPublished: true,
+        isScheduled: false,
+        publishedAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+    });
+    await batch.commit();
   },
 );

@@ -1,16 +1,17 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { addDoc, collection, deleteDoc, doc, getDocs, limit, orderBy, query, updateDoc, where } from 'firebase/firestore';
-import { Edit, Trash2, Plus, X, Image as ImageIcon, Upload, Eye, Search, Filter, ChevronDown, Globe, FileText, Video, Star } from 'lucide-react';
+import { addDoc, collection, deleteDoc, doc, getDocs, limit, orderBy, query, serverTimestamp, Timestamp, updateDoc, where } from 'firebase/firestore';
+import { CalendarClock, Edit, Trash2, Plus, X, Image as ImageIcon, Upload, Eye, Search, Filter, ChevronDown, Globe, FileText, Video, Star } from 'lucide-react';
 import { db } from '../../firebase';
 import RichTextEditor from '../../components/RichTextEditor';
 import { uploadFileToS3 } from '../../utils/s3UploadService';
+import { getYouTubeThumbnailUrl } from '../../utils/videoUtils';
 
 const defaultFormData = {
     title: '',
     slug: '',
     type: 'article',
-    category: 'Tin tức chung',
+    category: '',
     author: 'Mong Coaching',
     thumbnailUrl: '',
     thumbnailAlt: '',
@@ -21,21 +22,33 @@ const defaultFormData = {
     seoDescription: '',
     seoKeywords: '',
     isPublished: true,
+    isFeatured: false,
+    publishAt: '',
 };
 
-const CATEGORY_OPTIONS = [
-    'Tin tức chung',
-    'Sự kiện & Hoạt động',
-    'Thông báo Lịch học',
-    'Góc Báo chí',
-];
+const toDateTimeLocalValue = (value) => {
+    if (!value) return '';
+    const date = value?.toDate ? value.toDate() : new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+    return localDate.toISOString().slice(0, 16);
+};
+
+const isScheduledPost = (post) => {
+    if (post?.isScheduled) return true;
+    if (!post?.isPublished || !post.publishAt) return false;
+    const publishDate = post.publishAt?.toDate ? post.publishAt.toDate() : new Date(post.publishAt);
+    return !Number.isNaN(publishDate.getTime()) && publishDate > new Date();
+};
 
 const AdminPosts = () => {
     const [posts, setPosts] = useState([]);
+    const [categoryOptions, setCategoryOptions] = useState([]);
+    const [isLoadingCategories, setIsLoadingCategories] = useState(true);
     const [isFormOpen, setIsFormOpen] = useState(false);
-    const [isPreviewOpen, setIsPreviewOpen] = useState(false);
     const [editingPost, setEditingPost] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isSavingPreview, setIsSavingPreview] = useState(false);
     const [isUploadingImage, setIsUploadingImage] = useState(false);
     const [toast, setToast] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
@@ -48,7 +61,19 @@ const AdminPosts = () => {
 
     const headingId = editingPost ? 'edit-post-heading' : 'add-post-heading';
 
-    const fetchPosts = async () => {
+    const showToast = useCallback((message, type = 'success') => {
+        setToast({ message, type });
+        setTimeout(() => setToast(null), 3000);
+    }, []);
+
+    const availableCategoryOptions = useMemo(() => {
+        if (formData.category && !categoryOptions.includes(formData.category)) {
+            return [formData.category, ...categoryOptions];
+        }
+        return categoryOptions;
+    }, [categoryOptions, formData.category]);
+
+    const fetchPosts = useCallback(async () => {
         try {
             const postsQuery = query(collection(db, 'posts'), orderBy('createdAt', 'desc'));
             const snapshot = await getDocs(postsQuery);
@@ -72,11 +97,29 @@ const AdminPosts = () => {
             console.error('Error fetching posts:', error);
             showToast('Không thể tải bài viết', 'error');
         }
-    };
+    }, [showToast]);
+
+    const fetchCategories = useCallback(async () => {
+        setIsLoadingCategories(true);
+        try {
+            const categoriesQuery = query(collection(db, 'categories'), orderBy('name', 'asc'));
+            const snapshot = await getDocs(categoriesQuery);
+            const names = snapshot.docs
+                .map((categoryDoc) => categoryDoc.data().name?.trim())
+                .filter(Boolean);
+            setCategoryOptions([...new Set(names)]);
+        } catch (error) {
+            console.error('Error fetching categories:', error);
+            showToast('Không thể tải danh mục bài viết', 'error');
+        } finally {
+            setIsLoadingCategories(false);
+        }
+    }, [showToast]);
 
     useEffect(() => {
         fetchPosts();
-    }, []);
+        fetchCategories();
+    }, [fetchCategories, fetchPosts]);
 
     const generateSlug = (title) =>
         title
@@ -88,11 +131,6 @@ const AdminPosts = () => {
             .trim()
             .replace(/\s+/g, '-')
             .replace(/-+/g, '-');
-
-    const showToast = (message, type = 'success') => {
-        setToast({ message, type });
-        setTimeout(() => setToast(null), 3000);
-    };
 
     const stripHtmlContent = (html = '') =>
         html
@@ -123,18 +161,27 @@ const AdminPosts = () => {
 
     const handleInputChange = (event) => {
         const { name, value } = event.target;
-        setFormData((prev) => ({
-            ...prev,
-            [name]: value,
-            ...(name === 'title' && { slug: generateSlug(value) }),
-            ...(name === 'title' && !prev.seoTitle.trim() && { seoTitle: value }),
-            ...(name === 'excerpt' && !prev.seoDescription.trim() && { seoDescription: value }),
-            ...(name === 'title' && !prev.thumbnailAlt.trim() && { thumbnailAlt: value }),
-        }));
+        const youtubeThumbnail = getYouTubeThumbnailUrl(value);
+        setFormData((prev) => {
+            const shouldFillThumbnail = name === 'videoUrl' && !prev.thumbnailUrl.trim() && youtubeThumbnail;
+            const nextValue = name === 'thumbnailUrl' && youtubeThumbnail ? youtubeThumbnail : value;
+
+            return {
+                ...prev,
+                [name]: nextValue,
+                ...(shouldFillThumbnail && { thumbnailUrl: youtubeThumbnail }),
+                ...(name === 'title' && { slug: generateSlug(value) }),
+                ...(name === 'title' && !prev.seoTitle.trim() && { seoTitle: value }),
+                ...(name === 'excerpt' && !prev.seoDescription.trim() && { seoDescription: value }),
+                ...(name === 'title' && !prev.thumbnailAlt.trim() && { thumbnailAlt: value }),
+            };
+        });
         setFormErrors((prev) => {
-            if (!prev[name]) return prev;
+            const shouldClearThumbnailError = name === 'videoUrl' && youtubeThumbnail;
+            if (!prev[name] && !(shouldClearThumbnailError && prev.thumbnailUrl)) return prev;
             const next = { ...prev };
             delete next[name];
+            if (shouldClearThumbnailError) delete next.thumbnailUrl;
             return next;
         });
     };
@@ -170,7 +217,7 @@ const AdminPosts = () => {
 
     const handleAddNew = () => {
         setEditingPost(null);
-        const freshForm = { ...defaultFormData };
+        const freshForm = { ...defaultFormData, category: categoryOptions[0] || '' };
         setFormData(freshForm);
         setSeoKeywordDraft('');
         setFormErrors({});
@@ -185,7 +232,7 @@ const AdminPosts = () => {
             title: post.title || '',
             slug: post.slug || '',
             type: post.type || 'article',
-            category: post.category || 'Tin tức chung',
+            category: post.category || '',
             author: post.author || 'Mong Coaching',
             thumbnailUrl: post.thumbnailUrl || '',
             thumbnailAlt: post.thumbnailAlt || '',
@@ -195,7 +242,9 @@ const AdminPosts = () => {
             seoTitle: post.seoTitle || '',
             seoDescription: post.seoDescription || '',
             seoKeywords: post.seoKeywords || '',
-            isPublished: post.isPublished !== undefined ? post.isPublished : true,
+            isPublished: post.isScheduled ? true : (post.isPublished !== undefined ? post.isPublished : true),
+            isFeatured: Boolean(post.isFeatured),
+            publishAt: toDateTimeLocalValue(post.publishAt),
         };
         setFormData(preparedForm);
         setSeoKeywordDraft('');
@@ -241,7 +290,7 @@ const AdminPosts = () => {
     };
 
     const focusFirstErrorField = (errors) => {
-        const orderedKeys = ['title', 'slug', 'excerpt', 'content', 'thumbnailUrl', 'videoUrl', 'category'];
+        const orderedKeys = ['title', 'slug', 'excerpt', 'content', 'thumbnailUrl', 'videoUrl', 'category', 'publishAt'];
         const firstKey = orderedKeys.find((key) => errors[key]) || Object.keys(errors)[0];
         const targetField = fieldRefs.current[firstKey];
         if (targetField?.focus) {
@@ -260,15 +309,89 @@ const AdminPosts = () => {
     };
 
     const handlePreview = async () => {
-        const prepared = await validateAndPrepareContent();
-        if (prepared.error) {
-            showToast(prepared.error, 'error');
+        const generatedSlug = (formData.slug || generateSlug(formData.title)).trim();
+        const previewErrors = {};
+        if (!formData.title.trim()) previewErrors.title = 'Vui lòng nhập tiêu đề trước khi xem trước.';
+        if (!generatedSlug) previewErrors.slug = 'Vui lòng nhập tiêu đề hoặc slug hợp lệ.';
+        if (formData.publishAt && Number.isNaN(new Date(formData.publishAt).getTime())) previewErrors.publishAt = 'Ngày giờ xuất bản không hợp lệ.';
+
+        if (Object.keys(previewErrors).length > 0) {
+            setFormErrors((prev) => ({ ...prev, ...previewErrors }));
+            focusFirstErrorField(previewErrors);
+            showToast('Vui lòng nhập tiêu đề và slug trước khi xem trước.', 'error');
             return;
         }
-        if (prepared.content !== formData.content) {
-            setFormData((prev) => ({ ...prev, content: prepared.content }));
+
+        const previewWindow = window.open('about:blank', '_blank');
+        if (!previewWindow) {
+            showToast('Trình duyệt đã chặn tab xem trước. Vui lòng cho phép cửa sổ bật lên.', 'error');
+            return;
         }
-        setIsPreviewOpen(true);
+
+        setIsSavingPreview(true);
+        try {
+            const prepared = await validateAndPrepareContent();
+            if (prepared.error) {
+                previewWindow.close();
+                if (prepared.field) {
+                    const contentError = { [prepared.field]: prepared.error };
+                    setFormErrors((prev) => ({ ...prev, ...contentError }));
+                    focusFirstErrorField(contentError);
+                }
+                showToast(prepared.error, 'error');
+                return;
+            }
+
+            const slugTaken = await checkSlugExists(generatedSlug);
+            if (slugTaken) {
+                previewWindow.close();
+                const slugError = { slug: 'Slug đã tồn tại. Vui lòng chọn slug khác.' };
+                setFormErrors((prev) => ({ ...prev, ...slugError }));
+                focusFirstErrorField(slugError);
+                showToast(slugError.slug, 'error');
+                return;
+            }
+
+            const publishDate = formData.publishAt ? new Date(formData.publishAt) : null;
+            const draftFormData = {
+                ...formData,
+                slug: generatedSlug,
+                content: prepared.content,
+                isPublished: false,
+            };
+            const previewPostData = {
+                ...draftFormData,
+                isScheduled: false,
+                publishAt: publishDate ? Timestamp.fromDate(publishDate) : null,
+                updatedAt: serverTimestamp(),
+            };
+
+            let previewPostId = editingPost?.id;
+            if (previewPostId) {
+                await updateDoc(doc(db, 'posts', previewPostId), previewPostData);
+            } else {
+                const previewPostRef = await addDoc(collection(db, 'posts'), {
+                    ...previewPostData,
+                    createdAt: serverTimestamp(),
+                    views: 0,
+                });
+                previewPostId = previewPostRef.id;
+            }
+
+            setEditingPost((current) => ({ ...current, ...previewPostData, id: previewPostId }));
+            setFormData(draftFormData);
+            setInitialFormSnapshot(JSON.stringify(draftFormData));
+            setFormErrors({});
+            showToast('Đã lưu bản nháp để xem trước.');
+            fetchPosts();
+            previewWindow.location.replace(`${window.location.origin}/tin-tuc/${encodeURIComponent(generatedSlug)}?preview=true`);
+        } catch (error) {
+            previewWindow.close();
+            console.error('Error saving preview draft:', error);
+            showToast('Không thể lưu bản nháp để xem trước.', 'error');
+        } finally {
+            setIsSavingPreview(false);
+        }
     };
 
     const handleSubmit = async (event) => {
@@ -281,6 +404,7 @@ const AdminPosts = () => {
             if (!formData.thumbnailUrl.trim()) nextErrors.thumbnailUrl = 'Vui lòng thêm ảnh bìa.';
             if (!formData.category.trim()) nextErrors.category = 'Vui lòng chọn danh mục.';
             if (formData.type === 'video' && !formData.videoUrl.trim()) nextErrors.videoUrl = 'Vui lòng nhập URL video.';
+            if (formData.publishAt && Number.isNaN(new Date(formData.publishAt).getTime())) nextErrors.publishAt = 'Ngày giờ xuất bản không hợp lệ.';
 
             if (Object.keys(nextErrors).length > 0) {
                 setFormErrors(nextErrors);
@@ -323,18 +447,23 @@ const AdminPosts = () => {
                 setFormData((prev) => ({ ...prev, content: finalContent }));
             }
 
+            const publishDate = formData.publishAt ? new Date(formData.publishAt) : null;
+            const shouldSchedule = Boolean(formData.isPublished && publishDate && publishDate > new Date());
             const postData = {
                 ...formData,
                 slug: generatedSlug,
                 content: finalContent,
-                updatedAt: Date.now(),
+                isPublished: shouldSchedule ? false : formData.isPublished,
+                isScheduled: shouldSchedule,
+                publishAt: publishDate ? Timestamp.fromDate(publishDate) : null,
+                updatedAt: serverTimestamp(),
             };
 
             if (editingPost) {
                 await updateDoc(doc(db, 'posts', editingPost.id), postData);
                 showToast('Cập nhật bài viết thành công!');
             } else {
-                await addDoc(collection(db, 'posts'), { ...postData, createdAt: Date.now() });
+                await addDoc(collection(db, 'posts'), { ...postData, createdAt: serverTimestamp(), views: 0 });
                 showToast('Đăng bài viết thành công!');
             }
 
@@ -371,10 +500,12 @@ const AdminPosts = () => {
         return badges[type] || badges.article;
     };
 
-    const getStatusBadge = (isPublished) =>
-        isPublished
+    const getStatusBadge = (post) => {
+        if (isScheduledPost(post)) return { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Đã lên lịch' };
+        return post.isPublished
             ? { bg: 'bg-green-100', text: 'text-green-700', label: 'Đã xuất bản' }
             : { bg: 'bg-gray-100', text: 'text-gray-600', label: 'Bản nháp' };
+    };
 
     const filteredPosts = useMemo(() => {
         const keyword = searchTerm.trim().toLowerCase();
@@ -386,7 +517,8 @@ const AdminPosts = () => {
                 post.category?.toLowerCase().includes(keyword);
             const matchStatus =
                 statusFilter === 'all' ||
-                (statusFilter === 'published' && post.isPublished) ||
+                (statusFilter === 'published' && post.isPublished && !isScheduledPost(post)) ||
+                (statusFilter === 'scheduled' && isScheduledPost(post)) ||
                 (statusFilter === 'draft' && !post.isPublished);
             return matchKeyword && matchStatus;
         });
@@ -394,8 +526,9 @@ const AdminPosts = () => {
 
     const stats = useMemo(() => {
         const total = posts.length;
-        const published = posts.filter((post) => post.isPublished).length;
-        return { total, published, drafts: total - published };
+        const scheduled = posts.filter(isScheduledPost).length;
+        const published = posts.filter((post) => post.isPublished && !isScheduledPost(post)).length;
+        return { total, published, scheduled, drafts: total - published - scheduled };
     }, [posts]);
 
     const seoMetrics = useMemo(() => {
@@ -434,7 +567,11 @@ const AdminPosts = () => {
                 </button>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Đã lên lịch</p>
+                    <p className="mt-2 text-2xl font-bold text-blue-700">{stats.scheduled}</p>
+                </div>
                 <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
                     <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Tổng bài viết</p>
                     <p className="mt-2 text-2xl font-bold text-slate-900">{stats.total}</p>
@@ -478,6 +615,7 @@ const AdminPosts = () => {
                         >
                             <option value="all">Tất cả</option>
                             <option value="published">Đã xuất bản</option>
+                            <option value="scheduled">Đã lên lịch</option>
                             <option value="draft">Bản nháp</option>
                         </select>
                     </div>
@@ -492,13 +630,14 @@ const AdminPosts = () => {
                                 <th className="pb-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">Phân loại</th>
                                 <th className="pb-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">Trạng thái</th>
                                 <th className="pb-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">Danh mục</th>
+                                <th className="pb-3 text-center text-xs font-semibold uppercase tracking-wide text-slate-600">Lượt xem</th>
                                 <th className="pb-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-600">Hành động</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {filteredPosts.map((post) => {
                                 const typeBadge = getTypeBadge(post.type);
-                                const statusBadge = getStatusBadge(post.isPublished);
+                                const statusBadge = getStatusBadge(post);
                                 return (
                                     <tr key={post.id} className="hover:bg-slate-50">
                                         <td className="py-4">
@@ -520,6 +659,7 @@ const AdminPosts = () => {
                                                 title={post.title}
                                             >
                                                 {post.title}
+                                                {post.isFeatured && <Star className="ml-1 inline h-3.5 w-3.5 fill-amber-400 text-amber-400" aria-label="Bài viết nổi bật" />}
                                             </button>
                                         </td>
                                         <td className="py-4">
@@ -533,6 +673,7 @@ const AdminPosts = () => {
                                             </span>
                                         </td>
                                         <td className="py-4 text-sm text-slate-600">{post.category}</td>
+                                        <td className="py-4 text-center text-sm font-semibold text-slate-700">{Number(post.views || 0).toLocaleString('vi-VN')}</td>
                                         <td className="py-4 text-right">
                                             <div className="flex items-center justify-end gap-2">
                                                 <button
@@ -558,7 +699,7 @@ const AdminPosts = () => {
                             })}
                             {filteredPosts.length === 0 && (
                                 <tr>
-                                    <td colSpan="6" className="py-12 text-center text-sm text-slate-500">
+                                    <td colSpan="7" className="py-12 text-center text-sm text-slate-500">
                                         {posts.length === 0
                                             ? 'Chưa có bài viết nào. Hãy tạo bài viết đầu tiên!'
                                             : 'Không tìm thấy bài viết phù hợp với bộ lọc hiện tại.'}
@@ -602,10 +743,11 @@ const AdminPosts = () => {
                             <button
                                 type="button"
                                 onClick={handlePreview}
-                                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/50"
+                                disabled={isSavingPreview || isSubmitting}
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-wait disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/50"
                             >
                                 <Eye className="h-4 w-4" aria-hidden="true" />
-                                Xem trước
+                                {isSavingPreview ? 'Đang mở…' : 'Xem trước'}
                             </button>
                             <button
                                 type="button"
@@ -634,10 +776,10 @@ const AdminPosts = () => {
                     {/* ── Body ───────────────────────────────────────── */}
                     <form
                         onSubmit={handleSubmit}
-                        className="flex min-h-0 flex-1 overflow-hidden"
+                        className="flex min-h-0 flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden"
                     >
                         {/* ── LEFT: Content area ─────────────────────── */}
-                        <main className="flex-1 overflow-y-auto overscroll-contain px-6 py-8 lg:px-12">
+                        <main className="shrink-0 px-4 py-8 sm:px-6 lg:min-w-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain lg:px-12">
                             <div className="mx-auto max-w-3xl space-y-7">
 
                                 {/* Title */}
@@ -800,7 +942,7 @@ const AdminPosts = () => {
                         </main>
 
                         {/* ── RIGHT: Settings sidebar ─────────────────── */}
-                        <aside className="hidden w-72 shrink-0 overflow-y-auto overscroll-contain border-l border-slate-200 bg-white px-4 py-6 lg:flex lg:flex-col lg:gap-5 xl:w-80">
+                        <aside className="flex w-full shrink-0 flex-col gap-5 border-t border-slate-200 bg-white px-4 py-6 sm:px-6 lg:w-72 lg:overflow-y-auto lg:overscroll-contain lg:border-l lg:border-t-0 lg:px-4 xl:w-80">
 
                             {/* Type */}
                             <div className="space-y-1.5">
@@ -828,6 +970,44 @@ const AdminPosts = () => {
                                 </div>
                             </div>
 
+                            <div className="space-y-3 rounded-xl border border-amber-200 bg-amber-50 p-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setFormData((prev) => ({ ...prev, isFeatured: !prev.isFeatured }))}
+                                    className="flex w-full items-center justify-between gap-3 text-left"
+                                    aria-pressed={formData.isFeatured}
+                                >
+                                    <span>
+                                        <span className="block text-xs font-semibold uppercase tracking-wide text-amber-800">Ghim bài nổi bật</span>
+                                        <span className="mt-1 block text-[11px] text-amber-700">Đưa bài vào Spotlight trang tin tức</span>
+                                    </span>
+                                    <span className={`relative h-6 w-11 shrink-0 rounded-full transition ${formData.isFeatured ? 'bg-amber-500' : 'bg-slate-300'}`}>
+                                        <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${formData.isFeatured ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                                    </span>
+                                </button>
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <label htmlFor="post-publish-at" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                    Hẹn giờ xuất bản
+                                </label>
+                                <div className="relative">
+                                    <CalendarClock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+                                    <input
+                                        id="post-publish-at"
+                                        type="datetime-local"
+                                        name="publishAt"
+                                        ref={(el) => { fieldRefs.current.publishAt = el; }}
+                                        value={formData.publishAt}
+                                        onChange={handleInputChange}
+                                        aria-invalid={Boolean(formErrors.publishAt)}
+                                        className={`w-full rounded-lg border py-2 pl-9 pr-2 text-xs focus:outline-none focus:ring-2 ${formErrors.publishAt ? 'border-red-400 focus:ring-red-200' : 'border-slate-200 focus:border-secret-wax focus:ring-secret-wax/20'}`}
+                                    />
+                                </div>
+                                <p className="text-[11px] text-slate-400">Để trống nếu muốn xuất bản ngay. Công tắc “Xuất bản” phải được bật.</p>
+                                {formErrors.publishAt && <p className="text-xs text-red-600">{formErrors.publishAt}</p>}
+                            </div>
+
                             {/* Category */}
                             <div className="space-y-1.5">
                                 <label htmlFor="post-category" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -840,11 +1020,12 @@ const AdminPosts = () => {
                                         ref={(el) => { fieldRefs.current.category = el; }}
                                         value={formData.category}
                                         onChange={handleInputChange}
+                                        disabled={isLoadingCategories}
                                         aria-invalid={Boolean(formErrors.category)}
-                                        className={`w-full appearance-none rounded-lg border py-2 pl-3 pr-8 text-sm focus:outline-none focus:ring-2 ${formErrors.category ? 'border-red-400 focus:ring-red-200' : 'border-slate-200 focus:border-secret-wax focus:ring-secret-wax/20'}`}
+                                        className={`w-full appearance-none rounded-lg border py-2 pl-3 pr-8 text-sm focus:outline-none focus:ring-2 disabled:cursor-wait disabled:bg-slate-50 disabled:text-slate-400 ${formErrors.category ? 'border-red-400 focus:ring-red-200' : 'border-slate-200 focus:border-secret-wax focus:ring-secret-wax/20'}`}
                                     >
-                                        <option value="">-- Chọn danh mục --</option>
-                                        {CATEGORY_OPTIONS.map((cat) => (
+                                        <option value="">{isLoadingCategories ? 'Đang tải danh mục…' : '-- Chọn danh mục --'}</option>
+                                        {availableCategoryOptions.map((cat) => (
                                             <option key={cat} value={cat}>{cat}</option>
                                         ))}
                                     </select>
@@ -951,11 +1132,11 @@ const AdminPosts = () => {
                                 />
                             </div>
 
-                            {/* Video URL when type = video */}
-                            {formData.type === 'video' && (
+                            {/* Video URL for video and student-result posts */}
+                            {['video', 'case-study', 'case'].includes(formData.type) && (
                                 <div className="space-y-1.5">
                                     <label htmlFor="post-video-url" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                        URL Video <span className="text-red-500">*</span>
+                                        URL Video {formData.type === 'video' && <span className="text-red-500">*</span>}
                                     </label>
                                     <input
                                         id="post-video-url"
@@ -977,50 +1158,6 @@ const AdminPosts = () => {
                 document.body
             )}
 
-            {isPreviewOpen && createPortal(
-                <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/80 p-4">
-                    <div className="flex h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
-                        <div className="flex shrink-0 items-center justify-between border-b border-gray-100 bg-white px-6 py-4">
-                            <h3 className="flex items-center gap-2 text-base font-bold text-gray-800">
-                                <Eye className="h-4 w-4 text-secret-wax" aria-hidden="true" />
-                                Xem trước bài viết
-                            </h3>
-                            <button
-                                type="button"
-                                onClick={() => setIsPreviewOpen(false)}
-                                className="rounded-full p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/50"
-                                aria-label="Đóng xem trước"
-                            >
-                                <X className="h-5 w-5" aria-hidden="true" />
-                            </button>
-                        </div>
-                        <div className="flex-1 overflow-y-auto overscroll-contain bg-white p-6 md:p-10">
-                            <div className="mx-auto max-w-4xl">
-                                <div className="mb-10 text-center">
-                                    <span className="mb-4 inline-block border-b-2 border-secret-wax pb-1 text-sm font-bold uppercase tracking-widest text-secret-wax">
-                                        {formData.category || 'Tin tức'}
-                                    </span>
-                                    <h1 className="mb-6 font-serif text-3xl font-bold leading-tight text-gray-900 md:text-5xl">
-                                        {formData.title || 'Tiêu đề bài viết'}
-                                    </h1>
-                                    <p className="mb-6 italic text-gray-500">{formData.excerpt}</p>
-                                    {formData.thumbnailUrl && (
-                                        <div className="mb-8 overflow-hidden rounded-xl shadow-lg">
-                                            <img
-                                                src={formData.thumbnailUrl}
-                                                alt={formData.thumbnailAlt || formData.title || 'Ảnh bìa bài viết'}
-                                                className="h-auto w-full"
-                                            />
-                                        </div>
-                                    )}
-                                </div>
-                                <div className="prose prose-lg max-w-none" dangerouslySetInnerHTML={{ __html: formData.content }} />
-                            </div>
-                        </div>
-                    </div>
-                </div>,
-                document.body
-            )}
         </div>
     );
 };

@@ -1,6 +1,8 @@
 import React from 'react';
-import { getYouTubeEmbedUrl } from '../utils/videoUtils';
 import { AlertTriangle } from 'lucide-react';
+
+/* Each switch branch returns immediately; declarations are intentionally scoped by branch. */
+/* eslint-disable no-case-declarations */
 
 const BlockContentRenderer = ({ data }) => {
     if (!data || !data.blocks) return null;
@@ -14,7 +16,7 @@ const BlockContentRenderer = ({ data }) => {
                     case 'header':
                         const HeadingTag = `h${blockData.level}`;
                         return (
-                            <HeadingTag key={id} className={`font-serif font-bold text-gray-900 mt-8 mb-4 ${blockData.level === 1 ? 'text-4xl' :
+                            <HeadingTag id={blockData.anchorId} key={id} className={`scroll-mt-28 font-serif font-bold text-gray-900 mt-8 mb-4 ${blockData.level === 1 ? 'text-4xl' :
                                 blockData.level === 2 ? 'text-3xl' :
                                     blockData.level === 3 ? 'text-2xl' : 'text-xl'
                                 }`}>
@@ -57,7 +59,7 @@ const BlockContentRenderer = ({ data }) => {
                     case 'image':
                         return (
                             <figure key={id} className="my-8">
-                                <div className={`rounded-xl overflow-hidden shadow-lg ${blockData.withBackground ? 'bg-gray-100 p-4' : ''} ${blockData.withBorder ? 'border border-gray-200' : ''}`}>
+                                <div className={`rounded-xl overflow-hidden shadow-md ${blockData.withBackground ? 'bg-gray-100 p-4' : ''} ${blockData.withBorder ? 'border border-gray-200' : ''}`}>
                                     <img
                                         src={blockData.file.url}
                                         alt={blockData.caption || 'Hình ảnh bài viết'}

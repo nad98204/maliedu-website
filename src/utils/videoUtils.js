@@ -30,6 +30,14 @@ export const isYouTubeUrl = (url) => {
     return (match && match[2].length === 11);
 };
 
+export const getYouTubeThumbnailUrl = (url) => {
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+    const match = url?.match(regExp);
+    return (match && match[2].length === 11)
+        ? `https://img.youtube.com/vi/${match[2]}/maxresdefault.jpg`
+        : '';
+};
+
 export const isVideoFile = (url) => {
     if (!url) return false;
     return /\.(mp4|webm|ogg|mov)$/i.test(url);
