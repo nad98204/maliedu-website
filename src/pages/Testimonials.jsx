@@ -5,7 +5,7 @@ import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Helmet } from 'react-helmet-async';
 import Masonry from 'react-masonry-css';
-import { useParams } from 'react-router-dom';
+import { useParams } from 'react-router';
 import TestimonialCard from '../components/TestimonialCard';
 
 const CATEGORY_MAPPING = {
@@ -140,12 +140,6 @@ const Testimonials = () => {
                 staggerChildren: 0.1
             }
         }
-    };
-
-    const masonryBreakpoints = {
-        default: 3,
-        1100: 2,
-        700: 1
     };
 
     return (

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, Navigate, useParams } from "react-router-dom";
+import { Link, Navigate, useParams } from "react-router";
 import {
     collection,
     doc,
@@ -12,6 +12,7 @@ import { ChevronLeft, Download, Eye, FileText, FolderOpen } from "lucide-react";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "../firebase";
 import { resolveCourseAccess } from "../utils/courseAccess";
+import { loadFullCourse } from "../utils/courseContentService";
 
 const DEFAULT_SECTION_TITLE = "Nội dung khóa học";
 
@@ -79,7 +80,6 @@ const CourseTaiLieu = () => {
 
                 if (!courseData) return;
 
-                setCourse(courseData);
                 const access = currentUser
                     ? await resolveCourseAccess({
                           db,
@@ -90,11 +90,14 @@ const CourseTaiLieu = () => {
                 setHasFullAccess(access.hasFullAccess);
 
                 if (!access.hasFullAccess) {
+                    setCourse(courseData);
                     setSections([]);
                     return;
                 }
 
-                const normalizedSections = normalizeSections(courseData.curriculum);
+                const fullCourse = await loadFullCourse(db, courseData);
+                const normalizedSections = normalizeSections(fullCourse.curriculum);
+                setCourse(fullCourse);
                 setSections(normalizedSections);
 
                 // Mặc định mở tất cả chương

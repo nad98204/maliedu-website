@@ -1,5 +1,5 @@
 import { Home, Info, GraduationCap, PlayCircle, Newspaper, Layout, BookOpen, ShoppingCart } from "lucide-react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router";
 import { useState, useEffect } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, onSnapshot } from "firebase/firestore";

@@ -4,7 +4,7 @@ import { Swiper, SwiperSlide } from 'swiper/react';
 import { Autoplay, FreeMode } from 'swiper/modules';
 import 'swiper/css';
 import 'swiper/css/free-mode';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import CourseCard from './CourseCard';
@@ -34,21 +34,10 @@ export default function FeaturedCourses() {
                 );
 
                 const snapshot = await getDocs(q);
-                let data = snapshot.docs.map(doc => ({
+                const data = snapshot.docs.map(doc => ({
                     id: doc.id,
                     ...doc.data()
                 }));
-
-                // Batch-fetch enrollment counts (one query for all courses)
-                if (data.length > 0) {
-                    const enrollSnap = await getDocs(collection(db, 'enrollments'));
-                    const counts = {};
-                    enrollSnap.forEach(d => {
-                        const cId = d.data().courseId;
-                        if (cId) counts[cId] = (counts[cId] || 0) + 1;
-                    });
-                    data = data.map(c => ({ ...c, enrollmentCount: counts[c.id] || c.enrollmentCount || 0 }));
-                }
 
                 // Client-side sort to avoid Firestore index requirement
                 data.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));

@@ -1,17 +1,16 @@
-import { useEffect, useState } from "react";
-import { addDoc, collection, getDocs, orderBy, query, serverTimestamp, where, deleteDoc, doc } from "firebase/firestore";
-import { Star, User, Trash2 } from "lucide-react";
-import { auth, db } from "../firebase";
+import { useCallback, useEffect, useState } from "react";
+import { addDoc, collection, getDocs, orderBy, query, serverTimestamp, where } from "firebase/firestore";
+import { Star, User } from "lucide-react";
+import { db } from "../firebase";
 
 const CourseReviews = ({ courseId, currentUser }) => {
     const [reviews, setReviews] = useState([]);
-    const [loading, setLoading] = useState(true);
     const [rating, setRating] = useState(5);
     const [comment, setComment] = useState("");
     const [submitting, setSubmitting] = useState(false);
 
     // Fetch Reviews
-    const fetchReviews = async () => {
+    const fetchReviews = useCallback(async () => {
         try {
             const q = query(
                 collection(db, "reviews"),
@@ -20,25 +19,20 @@ const CourseReviews = ({ courseId, currentUser }) => {
             );
             const querySnapshot = await getDocs(q);
             const reviewData = [];
-            let totalRating = 0;
-
             querySnapshot.forEach((doc) => {
                 const data = doc.data();
                 reviewData.push({ id: doc.id, ...data });
-                totalRating += data.rating;
             });
 
             setReviews(reviewData);
         } catch (error) {
             console.error("Error fetching reviews:", error);
-        } finally {
-            setLoading(false);
         }
-    };
+    }, [courseId]);
 
     useEffect(() => {
         fetchReviews();
-    }, [courseId]);
+    }, [fetchReviews]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();

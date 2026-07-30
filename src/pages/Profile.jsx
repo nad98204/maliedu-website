@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { onAuthStateChanged, updateProfile, signOut, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from "firebase/auth";
 import { collection, query, where, getDocs, orderBy } from "firebase/firestore";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { Loader2, User, Camera, LogOut, Package, Check, Clock, XCircle, AlertCircle, Key, Eye, EyeOff, Lock, Monitor, Smartphone, Trash2, Layout } from "lucide-react";
 
 import { auth, db } from "../firebase";

@@ -60,10 +60,6 @@ export const resolveMetaEventData = (config = {}) => {
   };
 };
 
-const FB_API_VERSION = "v19.0";
-const GLOBAL_PIXEL_ID = "1526874981588150";
-const GLOBAL_CAPI_TOKEN = "EAAOUx21ZARaYBQ6jZAiffdq7ZCsCj7Xko24I8De60ufxpJ0ZBNGE1dbbJBI8MDDeZB8n37IhzpUPZAahSZA69WFnDiTAB9wwfriQIoeKQUjVj6pzIumRzDCXHLGATDxJOAlZAiz3wIdYhwo0aTwoZAEFNTBZCRVKDZC7OvjtZBfQ1TUHXAdWFAii06GZBGRRe5I8ZBSsm51QZDZD";
-
 export const hashData = async (input) => {
   if (!input) return "";
   const utf8 = new TextEncoder().encode(input.trim().toLowerCase());
@@ -350,34 +346,4 @@ export const getMetaBrowserData = (search = "") => {
   const fbc = isValidFbc(existingFbc) ? existingFbc : "";
 
   return { fbp, fbc };
-};
-
-export const sendCapiEvent = async (eventName, eventId, userData, customData) => {
-  try {
-    const eventTime = Math.floor(Date.now() / 1000);
-    const payload = {
-      data: [
-        {
-          event_name: eventName,
-          event_time: eventTime,
-          action_source: "website",
-          event_id: eventId,
-          event_source_url: window.location.href,
-          user_data: userData,
-          custom_data: customData,
-        },
-      ],
-    };
-
-    const fbCapiUrl = `https://graph.facebook.com/${FB_API_VERSION}/${GLOBAL_PIXEL_ID}/events?access_token=${GLOBAL_CAPI_TOKEN}`;
-    return fetch(fbCapiUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      keepalive: true,
-      body: JSON.stringify(payload),
-    });
-  } catch (error) {
-    console.error("CAPI Sending Error:", error);
-    return null;
-  }
 };

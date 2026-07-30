@@ -3,8 +3,8 @@ import { Swiper, SwiperSlide } from 'swiper/react';
 import { Autoplay, FreeMode } from 'swiper/modules';
 import 'swiper/css';
 import 'swiper/css/free-mode';
-import { Link } from "react-router-dom";
-import { collection, getDocs, query, where, orderBy, doc, getDoc } from "firebase/firestore";
+import { Link } from "react-router";
+import { doc, getDoc } from "firebase/firestore";
 import { db } from "../firebase";
 import styles from "./SuccessStories.module.css";
 
@@ -94,29 +94,12 @@ const SuccessStories = () => {
   const [dragOffset, setDragOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
 
-  // Auto-play logic
-  useEffect(() => {
-    let interval;
-    if (!isPaused && !selectedVideo) {
-      interval = setInterval(() => {
-        handleNext();
-      }, 5000);
-    }
-    return () => clearInterval(interval);
-  }, [isPaused, selectedVideo, activeIndex]); // activeIndex dependency ensures interval resets on manual change
-
   // Helper to extract YouTube ID
   const getYoutubeId = (url) => {
     if (!url) return "";
     const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
     const match = url.match(regExp);
     return (match && match[2].length === 11) ? match[2] : "";
-  };
-
-  // Helper to clean category name
-  const cleanCategory = (cat) => {
-    if (!cat) return "";
-    return cat.replace("Cảm nhận - ", "");
   };
 
   // Fetch data
@@ -129,8 +112,6 @@ const SuccessStories = () => {
           const data = contentDoc.data();
           setPageContent({
             label: data.label || "CÂU CHUYỆN THỰC TẾ",
-            title: data.title || "NHỮNG BƯỚC NGOẶT THAY ĐỔI",
-            description: data.description || "Từ những bế tắc trong cuộc sống đến khi tìm thấy lối đi đúng đắn. Lắng nghe hành trình học viên đã áp dụng kiến thức để làm chủ tư duy và gặt hái thành công.",
             title: data.title || "NHỮNG BƯỚC NGOẶT THAY ĐỔI",
             description: data.description || "Từ những bế tắc trong cuộc sống đến khi tìm thấy lối đi đúng đắn. Lắng nghe hành trình học viên đã áp dụng kiến thức để làm chủ tư duy và gặt hái thành công.",
             videoUrl: data.videoUrl || "", // Still keep just in case, but unused
@@ -222,6 +203,12 @@ const SuccessStories = () => {
     if (totalItems < 2) return;
     setActiveIndex((prev) => (prev + 1) % totalItems);
   }, [totalItems]);
+
+  useEffect(() => {
+    if (isPaused || selectedVideo) return undefined;
+    const interval = setInterval(handleNext, 5000);
+    return () => clearInterval(interval);
+  }, [handleNext, isPaused, selectedVideo]);
 
   // Handle keyboard navigation
   useEffect(() => {
@@ -491,7 +478,6 @@ const SuccessStories = () => {
                   {carouselItems.map((item) => {
                     const isCenter = item.offset === 0;
                     const isInner = Math.abs(item.offset) === 1;
-                    const isOuter = Math.abs(item.offset) === 2;
                     const tier = isCenter ? "center" : isInner ? "inner" : "outer";
 
                     const scaleValue =

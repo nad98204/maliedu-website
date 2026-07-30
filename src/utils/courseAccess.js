@@ -1,4 +1,8 @@
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore";
+import {
+  COURSE_ACCESS_COLLECTION,
+  getCourseAccessId,
+} from "./courseDataPrivacy";
 
 export const DEFAULT_SECTION_TITLE = "Nội dung khóa học";
 export const DEFAULT_FREE_LESSONS_COUNT = 3;
@@ -91,12 +95,24 @@ export const getPreferredPreviewLesson = (course, requestedLessonKey = null) => 
   return previewLessons[0];
 };
 
-export const userIsListedInCourse = ({ course, user }) => {
-  if (!user?.uid || !Array.isArray(course?.students)) {
-    return false;
+export const findCourseAccess = async ({ db, courseId, user }) => {
+  if (!courseId || !user?.uid) {
+    return null;
   }
 
-  return course.students.includes(user.uid);
+  const accessSnapshot = await getDoc(
+    doc(
+      db,
+      COURSE_ACCESS_COLLECTION,
+      getCourseAccessId(user.uid, courseId),
+    ),
+  );
+
+  if (!accessSnapshot.exists()) {
+    return null;
+  }
+
+  return { id: accessSnapshot.id, ...accessSnapshot.data() };
 };
 
 export const findCourseEnrollment = async ({ db, courseId, user }) => {
@@ -138,16 +154,22 @@ export const findCourseEnrollment = async ({ db, courseId, user }) => {
 };
 
 export const resolveCourseAccess = async ({ db, course, user }) => {
-  const enrollment = await findCourseEnrollment({
-    db,
-    courseId: course?.id,
-    user,
-  });
-  const listedInCourse = userIsListedInCourse({ course, user });
+  const [access, enrollment] = await Promise.all([
+    findCourseAccess({
+      db,
+      courseId: course?.id,
+      user,
+    }),
+    findCourseEnrollment({
+      db,
+      courseId: course?.id,
+      user,
+    }),
+  ]);
 
   return {
+    access,
     enrollment,
-    hasFullAccess: listedInCourse || Boolean(enrollment),
-    listedInCourse,
+    hasFullAccess: access?.status === "active",
   };
 };

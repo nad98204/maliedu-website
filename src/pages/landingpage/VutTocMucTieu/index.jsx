@@ -19,19 +19,13 @@ import {
   Video,
   X,
 } from "lucide-react";
-import { addDoc, collection } from "firebase/firestore";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router";
 import { toast } from "react-hot-toast";
 
 import SEO from "../../../components/SEO";
 import Footer from "../../../components/Footer";
-import { db } from "../../../firebase";
 import { submitToCRM } from "../../../services/crmService";
-import {
-  buildLeadSearchKeywords,
-  normalizeLeadPhoneDigits,
-  normalizeLeadSearchText,
-} from "../../../utils/leadSearch";
+import { normalizeLeadPhoneDigits } from "../../../utils/leadSearch";
 
 const COURSE_IMAGE =
   "https://s3-hn1-api.longvan.vn/video-khoa-hoc/files/1782120213116-146839060-Chinh-Ph-c-M-c-Ti-u-2026-3-2.jpg";
@@ -525,33 +519,6 @@ const RegistrationModal = ({ isOpen, onClose }) => {
         utm_term: searchParams.get("utm_term") || "",
         userAgent: navigator.userAgent,
       });
-
-      try {
-        await addDoc(collection(db, "leads"), {
-          name,
-          phone,
-          searchName: normalizeLeadSearchText(name),
-          searchPhone: phone,
-          searchKeywords: buildLeadSearchKeywords({ name, phone }),
-          source: "chinh-phuc-muc-tieu",
-          courseId: "chinh-phuc-muc-tieu",
-          courseName: "Chinh Phục Mục Tiêu",
-          landingPageId: "chinh-phuc-muc-tieu",
-          landingPageSlug: window.location.pathname,
-          referralCode,
-          utmSource:
-            searchParams.get("utm_source") ||
-            (referralCode === "cong-ty" ? "company_direct" : "employee_referral"),
-          utmMedium: searchParams.get("utm_medium") || "landing",
-          utmCampaign:
-            searchParams.get("utm_campaign") || "chinh_phuc_muc_tieu",
-          sourceUrl: window.location.href,
-          createdAt: Date.now(),
-          status: "new",
-        });
-      } catch (firestoreError) {
-        console.error("Không thể lưu bản sao lead vào Firestore:", firestoreError);
-      }
 
       setForm({ name: "", phone: "" });
       setIsSuccess(true);

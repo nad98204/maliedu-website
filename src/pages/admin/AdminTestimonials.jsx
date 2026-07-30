@@ -8,11 +8,8 @@ import {
     orderBy,
     query,
     updateDoc,
-    where,
 } from 'firebase/firestore';
 import { Edit, Trash2, Plus, X, Image as ImageIcon, Upload, MessageSquare } from 'lucide-react';
-import 'react-quill-new/dist/quill.snow.css';
-
 import { db } from '../../firebase';
 import RichTextEditor from '../../components/RichTextEditor';
 import { deleteFromCloudinary, uploadToCloudinary } from "../../utils/uploadService";
@@ -109,6 +106,8 @@ const AdminTestimonials = () => {
         } else {
             fetchBackgroundImages();
         }
+        // Refresh only when the selected admin tab changes.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeTab]);
 
 

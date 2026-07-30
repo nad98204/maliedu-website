@@ -53,6 +53,8 @@ const AdminReviews = () => {
 
     useEffect(() => {
         fetchReviews();
+        // Initial admin list load; subsequent mutations refresh explicitly.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const handleDelete = async (reviewId) => {

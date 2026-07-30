@@ -2,8 +2,6 @@ import {
     doc,
     getDoc,
     updateDoc,
-    arrayUnion,
-    arrayRemove,
     Timestamp
 } from "firebase/firestore";
 import { db } from "../firebase";

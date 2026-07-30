@@ -1,12 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useNavigate } from 'react-router';
 import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
 import { Search, Loader2, BookOpen, FileText, ChevronRight, X } from 'lucide-react';
 import { db } from '../firebase';
 
 const GlobalSearch = ({ className }) => {
     const [queryText, setQueryText] = useState('');
-    const [results, setResults] = useState({ courses: [], posts: [] });
     const [isOpen, setIsOpen] = useState(false);
     const searchRef = useRef(null);
     const navigate = useNavigate();
@@ -62,10 +61,9 @@ const GlobalSearch = ({ className }) => {
     }, [isOpen, dataLoaded]);
 
     // Search Filtering Logic
-    useEffect(() => {
+    const results = useMemo(() => {
         if (!queryText.trim()) {
-            setResults({ courses: [], posts: [] });
-            return;
+            return { courses: [], posts: [] };
         }
 
         const lowerQuery = queryText.toLowerCase();
@@ -79,7 +77,7 @@ const GlobalSearch = ({ className }) => {
             item.title?.toLowerCase().includes(lowerQuery)
         ).slice(0, 3);
 
-        setResults({ courses: filteredCourses, posts: filteredPosts });
+        return { courses: filteredCourses, posts: filteredPosts };
     }, [queryText, allCourses, allPosts]);
 
     // Click Outside
@@ -120,7 +118,7 @@ const GlobalSearch = ({ className }) => {
                 />
                 {queryText && (
                     <button
-                        onClick={() => { setQueryText(''); setResults({ courses: [], posts: [] }); }}
+                        onClick={() => setQueryText('')}
                         className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                     >
                         <X className="w-3.5 h-3.5" />

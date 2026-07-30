@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { ArrowRight, BookOpen, Download, Home, Image as ImageIcon, LoaderCircle, PlayCircle } from "lucide-react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router";
 import { doc, getDoc } from "firebase/firestore";
 
 import SEO from "../components/SEO";

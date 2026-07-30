@@ -215,7 +215,7 @@ class ScrollyBlock {
         this._renderStepsList();
     }
 
-    save(blockContent) {
+    save() {
         return this.data;
     }
 }

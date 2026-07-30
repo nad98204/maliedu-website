@@ -1,13 +1,12 @@
 import { useEffect, useState, useCallback } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link } from "react-router";
 import { Copy, CheckCircle, Home, Loader2, RefreshCw, Clock, AlertCircle, Zap, Smartphone, X, ChevronRight } from "lucide-react";
 
-import { getOrderById, formatPrice } from "../utils/orderService";
-import { getBankSettings, generateQrUrl, generateTransferContent } from "../utils/bankPaymentService";
+import { getOrderById, formatPrice, trackOrderPurchase } from "../utils/orderService";
+import { getPublicBankSettings, generateQrUrl, generateTransferContent } from "../utils/bankPaymentService";
 import { 
     trackMetaEvent, 
     getMetaBrowserData, 
-    sendCapiEvent, 
     hashData, 
     normalizeNameForHash,
     setMetaUserData
@@ -178,9 +177,17 @@ const BankSelectorModal = ({ isOpen, onClose, bankSettings, amount, transferCont
                                         src={bank.logo}
                                         alt={bank.name}
                                         className="w-10 h-10 object-contain"
-                                        onError={e => {
-                                            e.target.style.display = 'none';
-                                            e.target.parentElement.innerHTML = `<span class="font-black text-xs" style="color: ${bank.color}">${bank.name.slice(0, 3)}</span>`;
+                                        onError={(event) => {
+                                            const image = event.currentTarget;
+                                            const parent = image.parentElement;
+                                            image.remove();
+                                            if (!parent || parent.querySelector('[data-bank-fallback]')) return;
+                                            const fallback = document.createElement('span');
+                                            fallback.dataset.bankFallback = 'true';
+                                            fallback.className = 'font-black text-xs';
+                                            fallback.style.color = bank.color;
+                                            fallback.textContent = bank.name.slice(0, 3);
+                                            parent.appendChild(fallback);
                                         }}
                                     />
                                 </div>
@@ -238,24 +245,16 @@ const OrderSuccess = () => {
             setLoading(true);
             const [orderData, settings] = await Promise.all([
                 fetchOrder(),
-                getBankSettings()
+                getPublicBankSettings()
             ]);
             setBankSettings(settings);
             setLoading(false);
 
-            // TRACK PURCHASE (PIXEL + CAPI)
+            // Track Purchase in the browser and through the authenticated server endpoint.
             if (orderData && !sessionStorage.getItem(`mali_purchase_${orderData.orderCode}`)) {
                 const trackPurchase = async () => {
                     try {
                         const { fbp, fbc } = getMetaBrowserData(window.location.search);
-                        let clientIp = "";
-                        try {
-                            const ipRes = await fetch("https://api64.ipify.org?format=json");
-                            const ipData = await ipRes.json();
-                            clientIp = ipData.ip || "";
-                        } catch (ipErr) {
-                            console.error("IP Fetch error", ipErr);
-                        }
 
                         // Prepare PII
                         const email = orderData.customerEmail || "";
@@ -269,17 +268,6 @@ const OrderSuccess = () => {
                         const hashedPhone = await hashData(phone);
                         const hashedFn = await hashData(normalizeNameForHash(fn));
                         const hashedLn = await hashData(normalizeNameForHash(ln));
-
-                        const userData = {
-                            em: [hashedEmail],
-                            ph: [hashedPhone],
-                            fn: [hashedFn],
-                            ln: [hashedLn],
-                            client_ip_address: clientIp,
-                            client_user_agent: navigator.userAgent,
-                            fbp,
-                            fbc
-                        };
 
                         const customData = {
                             content_name: orderData.courseName,
@@ -311,8 +299,11 @@ const OrderSuccess = () => {
                             }, 300);
                         }
 
-                        // CAPI Track (Always fire immediately as it's a fetch call)
-                        await sendCapiEvent("Purchase", orderData.orderCode, userData, customData);
+                        await trackOrderPurchase(orderId, {
+                            fbp,
+                            fbc,
+                            sourceUrl: window.location.href,
+                        });
                         
                         sessionStorage.setItem(`mali_purchase_${orderData.orderCode}`, 'true');
                     } catch (err) {
@@ -334,7 +325,7 @@ const OrderSuccess = () => {
             }
         };
         init();
-    }, [fetchOrder]);
+    }, [fetchOrder, orderId]);
 
     const copyToClipboard = (text, key) => {
         navigator.clipboard.writeText(text);

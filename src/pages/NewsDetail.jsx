@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import '../styles/article-rich-text.css';
-import { useParams, Link, Navigate, useSearchParams } from 'react-router-dom';
+import { useParams, Link, Navigate, useSearchParams } from 'react-router';
 import { Calendar, User, Clock, ArrowRight, Facebook, Twitter, Link as LinkIcon, Eye, MessageCircle, ChevronDown } from 'lucide-react';
 import SEO from '../components/SEO';
 import { onAuthStateChanged } from 'firebase/auth';
-import { addDoc, collection, doc, getDoc, getDocs, limit, orderBy, query, serverTimestamp, where } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, limit, orderBy, query, where } from 'firebase/firestore';
 import { auth, crmFirestore, db } from '../firebase';
 import { getYouTubeEmbedUrl } from '../utils/videoUtils';
 import BlockContentRenderer from '../components/BlockContentRenderer';
@@ -257,17 +257,17 @@ const NewsDetail = () => {
 
         setIsSubmittingFeedback(true);
         try {
-            await addDoc(collection(db, 'post_feedback'), {
-                postId: post.id,
-                postSlug: slug,
-                postTitle: post.title,
-                name: feedbackName.trim() || 'Ẩn danh',
-                message: feedbackMessage.trim(),
-                source: 'news_detail',
-                isApproved: false,
-                status: 'pending',
-                createdAt: serverTimestamp(),
+            const response = await fetch('/api/post-feedback', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({
+                    postId: post.id,
+                    name: feedbackName.trim() || 'Ẩn danh',
+                    message: feedbackMessage.trim(),
+                }),
             });
+            if (!response.ok) throw new Error(`Feedback API error (${response.status})`);
             setFeedbackState({ type: 'success', message: 'Cảm ơn bạn đã chia sẻ. Nội dung sẽ hiển thị sau khi được duyệt.' });
             setFeedbackName('');
             setFeedbackMessage('');
@@ -290,12 +290,13 @@ const NewsDetail = () => {
 
         setIsSubmittingNewsletter(true);
         try {
-            await addDoc(collection(db, 'newsletter_subscribers'), {
-                email,
-                source: 'news_detail',
-                sourceSlug: slug,
-                createdAt: serverTimestamp(),
+            const response = await fetch('/api/newsletter', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ email, sourceSlug: slug }),
             });
+            if (!response.ok) throw new Error(`Newsletter API error (${response.status})`);
             setNewsletterState({ type: 'success', message: 'Đăng ký nhận bản tin thành công.' });
             setNewsletterEmail('');
         } catch (error) {

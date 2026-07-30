@@ -80,11 +80,12 @@ export const resolveKhoiThongLandingConfig = async ({ path, sourceKey, landingPa
 
 export const useKhoiThongLandingConfig = (options = {}) => {
   const [config, setConfig] = useState(KHOI_THONG_DONG_TIEN_CONFIG);
+  const { path, sourceKey, landingPageId } = options;
 
   useEffect(() => {
     let cancelled = false;
 
-    resolveKhoiThongLandingConfig(options)
+    resolveKhoiThongLandingConfig({ path, sourceKey, landingPageId })
       .then((nextConfig) => {
         if (!cancelled) setConfig(nextConfig);
       })
@@ -95,7 +96,7 @@ export const useKhoiThongLandingConfig = (options = {}) => {
     return () => {
       cancelled = true;
     };
-  }, [options.path, options.sourceKey, options.landingPageId]);
+  }, [path, sourceKey, landingPageId]);
 
   return config;
 };

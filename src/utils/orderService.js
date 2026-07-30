@@ -1,9 +1,9 @@
 import {
-    addDoc,
     collection,
     doc,
     getDoc,
     getDocs,
+    increment,
     orderBy,
     query,
     serverTimestamp,
@@ -11,26 +11,54 @@ import {
     where,
     writeBatch
 } from "firebase/firestore";
-import { db } from "../firebase";
+import { auth, db } from "../firebase";
+import {
+    COURSE_ACCESS_COLLECTION,
+    getCourseAccessId,
+} from "./courseDataPrivacy";
 
 const COLLECTION_NAME = "orders";
+const ORDER_API_PATH = "/api/orders";
+const ORDER_ACCESS_TOKEN_PREFIX = "mali_order_access:";
+
+const getOrderAccessToken = (orderId) => {
+    try {
+        return sessionStorage.getItem(`${ORDER_ACCESS_TOKEN_PREFIX}${orderId}`) || "";
+    } catch {
+        return "";
+    }
+};
+
+const getAuthHeader = async () => {
+    const currentUser = auth.currentUser;
+    return currentUser
+        ? { authorization: `Bearer ${await currentUser.getIdToken()}` }
+        : {};
+};
 
 export const createOrder = async (orderData) => {
     try {
-        const orderCode = `MALI-${Math.floor(100000 + Math.random() * 900000)}`;
-        const docRef = await addDoc(collection(db, COLLECTION_NAME), {
-            ...orderData,
-            orderCode,
-            items: orderData.items || [{
-                id: orderData.courseId,
-                name: orderData.courseName,
-                price: orderData.coursePrice
-            }],
-            status: 'pending',
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp()
+        const response = await fetch(ORDER_API_PATH, {
+            method: "POST",
+            credentials: "same-origin",
+            headers: {
+                "content-type": "application/json",
+                ...await getAuthHeader(),
+            },
+            body: JSON.stringify(orderData),
         });
-        return { id: docRef.id, orderCode };
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || !result.id || !result.orderCode) {
+            throw new Error(result.error || `Order API error (${response.status})`);
+        }
+
+        if (result.accessToken) {
+            sessionStorage.setItem(
+                `${ORDER_ACCESS_TOKEN_PREFIX}${result.id}`,
+                result.accessToken,
+            );
+        }
+        return { id: result.id, orderCode: result.orderCode };
     } catch (error) {
         console.error("Error creating order:", error);
         throw error;
@@ -39,16 +67,51 @@ export const createOrder = async (orderData) => {
 
 export const getOrderById = async (orderId) => {
     try {
-        const docRef = doc(db, COLLECTION_NAME, orderId);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-            return { id: docSnap.id, ...docSnap.data() };
+        const response = await fetch(`${ORDER_API_PATH}/${encodeURIComponent(orderId)}`, {
+            credentials: "same-origin",
+            headers: {
+                ...await getAuthHeader(),
+                "x-order-access-token": getOrderAccessToken(orderId),
+            },
+        });
+        if (response.status === 404) {
+            return null;
         }
-        return null;
+
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(result.error || `Order API error (${response.status})`);
+        }
+        return result;
     } catch (error) {
         console.error("Error fetching order:", error);
         throw error;
     }
+};
+
+export const trackOrderPurchase = async (orderId, browserData = {}) => {
+    const response = await fetch(
+        `${ORDER_API_PATH}/${encodeURIComponent(orderId)}/meta-purchase`,
+        {
+            method: "POST",
+            credentials: "same-origin",
+            headers: {
+                "content-type": "application/json",
+                ...await getAuthHeader(),
+                "x-order-access-token": getOrderAccessToken(orderId),
+            },
+            body: JSON.stringify({
+                fbc: browserData.fbc || "",
+                fbp: browserData.fbp || "",
+                sourceUrl: browserData.sourceUrl || "",
+            }),
+        },
+    );
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(result.error || `Purchase tracking error (${response.status})`);
+    }
+    return result;
 };
 
 export const getAllOrders = async () => {
@@ -95,7 +158,8 @@ export const approveOrder = async (orderId, orderData = null) => {
                     item,
                     cId,
                     cName: item.name || item.courseName,
-                    alreadyEnrolled: !snap.empty
+                    alreadyEnrolled: !snap.empty,
+                    enrollmentId: snap.docs[0]?.id || null,
                 }));
             })
         );
@@ -114,9 +178,11 @@ export const approveOrder = async (orderId, orderData = null) => {
 
         // Tạo enrollment cho những khóa chưa được enroll
         let enrolledCount = 0;
-        checkResults.forEach(({ item, cId, cName, alreadyEnrolled }) => {
+        checkResults.forEach(({ cId, cName, alreadyEnrolled, enrollmentId }) => {
+            let activeEnrollmentId = enrollmentId;
             if (!alreadyEnrolled) {
                 const newEnrollRef = doc(enrollmentsRef); // auto ID
+                activeEnrollmentId = newEnrollRef.id;
                 batch.set(newEnrollRef, {
                     userId: order.userId,
                     userEmail: order.userEmail,
@@ -126,7 +192,29 @@ export const approveOrder = async (orderId, orderData = null) => {
                     orderId: orderId,
                     status: 'active'
                 });
+                batch.update(doc(db, "courses", cId), {
+                    enrollmentCount: increment(1),
+                });
                 enrolledCount++;
+            }
+
+            if (order.userId) {
+                batch.set(
+                    doc(
+                        db,
+                        COURSE_ACCESS_COLLECTION,
+                        getCourseAccessId(order.userId, cId),
+                    ),
+                    {
+                        userId: order.userId,
+                        userEmail: order.userEmail || "",
+                        courseId: cId,
+                        enrollmentId: activeEnrollmentId,
+                        orderId,
+                        status: "active",
+                        grantedAt: now,
+                    },
+                );
             }
         });
 

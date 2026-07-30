@@ -5,6 +5,22 @@ const DEFAULT_PART_SIZE = 10 * 1024 * 1024;
 const MIN_PART_SIZE = 5 * 1024 * 1024;
 const MAX_PARTS = 10000;
 const MAX_PRESIGN_EXPIRY_SECONDS = 900;
+const DEFAULT_MAX_UPLOAD_BYTES = 20 * 1024 * 1024 * 1024;
+const MAX_FILE_NAME_LENGTH = 180;
+const MAX_OBJECT_KEY_LENGTH = 1024;
+const ALLOWED_FOLDER_PATTERN =
+  /^(?:files(?:\/[a-zA-Z0-9_-]+){0,4}|videos|thumbnails|instructors|posts(?:\/content)?|banners\/(?:news-sidebar|home-hero))$/;
+const DANGEROUS_FILE_EXTENSION =
+  /\.(?:css|htm|html|js|mjs|svg|xht|xhtml|xml)$/i;
+const DANGEROUS_CONTENT_TYPES = new Set([
+  "application/javascript",
+  "application/xhtml+xml",
+  "image/svg+xml",
+  "text/css",
+  "text/html",
+  "text/javascript",
+  "text/xml",
+]);
 
 const trimString = (value) =>
   typeof value === "string" ? value.trim() : "";
@@ -176,23 +192,53 @@ const sanitizeFileName = (fileName) => {
     "-",
   );
 
-  return normalized || "upload.bin";
+  return (normalized || "upload.bin").slice(0, MAX_FILE_NAME_LENGTH);
+};
+
+const validateFolder = (folder) => {
+  const normalized = sanitizeFolder(folder);
+  if (!ALLOWED_FOLDER_PATTERN.test(normalized)) {
+    throw createHttpError(400, "Upload folder is not allowed");
+  }
+  return normalized;
+};
+
+const validateObjectKey = (value) => {
+  const key = trimString(value);
+  if (
+    !key ||
+    key.length > MAX_OBJECT_KEY_LENGTH ||
+    key.includes("\\") ||
+    key.split("/").some((segment) => !segment || segment === "." || segment === "..")
+  ) {
+    throw createHttpError(400, "Invalid upload object key");
+  }
+
+  validateFolder(key.split("/").slice(0, -1).join("/"));
+  return key;
+};
+
+const getMaxUploadBytes = (env) => {
+  const configured = Number(env.S3_MAX_UPLOAD_BYTES);
+  return Number.isSafeInteger(configured) && configured > 0
+    ? Math.min(configured, 100 * 1024 * 1024 * 1024)
+    : DEFAULT_MAX_UPLOAD_BYTES;
 };
 
 const getS3Env = (env) => {
   const config = {
-    region: trimString(env.VITE_S3_REGION) || DEFAULT_REGION,
-    endpoint: trimString(env.VITE_S3_ENDPOINT),
-    accessKeyId: trimString(env.VITE_S3_ACCESS_KEY),
-    secretAccessKey: trimString(env.VITE_S3_SECRET_KEY),
-    bucket: trimString(env.VITE_S3_BUCKET),
+    region: trimString(env.S3_REGION || env.VITE_S3_REGION) || DEFAULT_REGION,
+    endpoint: trimString(env.S3_ENDPOINT || env.VITE_S3_ENDPOINT),
+    accessKeyId: trimString(env.S3_ACCESS_KEY),
+    secretAccessKey: trimString(env.S3_SECRET_KEY),
+    bucket: trimString(env.S3_BUCKET || env.VITE_S3_BUCKET),
   };
 
   const missingKeys = [
-    ["VITE_S3_ENDPOINT", config.endpoint],
-    ["VITE_S3_ACCESS_KEY", config.accessKeyId],
-    ["VITE_S3_SECRET_KEY", config.secretAccessKey],
-    ["VITE_S3_BUCKET", config.bucket],
+    ["S3_ENDPOINT", config.endpoint],
+    ["S3_ACCESS_KEY", config.accessKeyId],
+    ["S3_SECRET_KEY", config.secretAccessKey],
+    ["S3_BUCKET", config.bucket],
   ]
     .filter(([, value]) => !value)
     .map(([name]) => name);
@@ -202,6 +248,19 @@ const getS3Env = (env) => {
       500,
       `Missing S3 server configuration: ${missingKeys.join(", ")}`,
     );
+  }
+
+  try {
+    const endpointUrl = new URL(config.endpoint);
+    if (endpointUrl.protocol !== "https:") {
+      throw new Error("S3 endpoint must use HTTPS");
+    }
+  } catch {
+    throw createHttpError(500, "Invalid S3 server endpoint");
+  }
+
+  if (!/^[a-zA-Z0-9._-]{3,128}$/.test(config.bucket)) {
+    throw createHttpError(500, "Invalid S3 bucket configuration");
   }
 
   return config;
@@ -354,7 +413,10 @@ export const createJsonResponse = (data, status = 200) =>
 
 export const createErrorResponse = (error) => {
   const status = error?.status || 500;
-  const message = error?.message || "Unexpected upload error";
+  const message =
+    status >= 500
+      ? "Upload service is temporarily unavailable"
+      : error?.message || "Unexpected upload error";
 
   return createJsonResponse({ error: message }, status);
 };
@@ -368,13 +430,31 @@ export const createMultipartUpload = async (env, payload = {}) => {
   const { region, endpoint, accessKeyId, secretAccessKey, bucket } = getS3Env(
     env,
   );
-  const folder = sanitizeFolder(payload.folder);
+  const folder = validateFolder(payload.folder);
   const fileName = sanitizeFileName(payload.fileName);
   const contentType =
     trimString(payload.contentType) || "application/octet-stream";
+  const fileSize = Number(payload.fileSize);
+
+  if (
+    !Number.isSafeInteger(fileSize) ||
+    fileSize <= 0 ||
+    fileSize > getMaxUploadBytes(env)
+  ) {
+    throw createHttpError(400, "Invalid or oversized upload");
+  }
+  if (
+    !fileName ||
+    DANGEROUS_FILE_EXTENSION.test(fileName) ||
+    contentType.length > 128 ||
+    DANGEROUS_CONTENT_TYPES.has(contentType.toLowerCase())
+  ) {
+    throw createHttpError(400, "File type is not allowed");
+  }
+
   const uniqueId = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
   const key = `${folder}/${uniqueId}-${fileName}`;
-  const partSize = getPartSize(payload.fileSize);
+  const partSize = getPartSize(fileSize);
   const response = await sendSignedS3Request({
     method: "POST",
     endpoint,
@@ -411,7 +491,7 @@ export const signMultipartUploadPart = async (env, payload = {}) => {
   const { region, endpoint, accessKeyId, secretAccessKey, bucket } = getS3Env(
     env,
   );
-  const key = trimString(payload.key);
+  const key = validateObjectKey(payload.key);
   const uploadId = trimString(payload.uploadId);
   const partNumber = Number(payload.partNumber);
 
@@ -440,11 +520,11 @@ export const completeMultipartUpload = async (env, payload = {}) => {
   const { region, endpoint, accessKeyId, secretAccessKey, bucket } = getS3Env(
     env,
   );
-  const key = trimString(payload.key);
+  const key = validateObjectKey(payload.key);
   const uploadId = trimString(payload.uploadId);
   const parts = Array.isArray(payload.parts) ? payload.parts : [];
 
-  if (!key || !uploadId || parts.length === 0) {
+  if (!uploadId || parts.length === 0 || parts.length > MAX_PARTS) {
     throw createHttpError(400, "Missing multipart complete parameters");
   }
 
@@ -461,7 +541,11 @@ export const completeMultipartUpload = async (env, payload = {}) => {
     )
     .sort((left, right) => left.PartNumber - right.PartNumber);
 
-  if (normalizedParts.length !== parts.length) {
+  if (
+    normalizedParts.length !== parts.length ||
+    new Set(normalizedParts.map((part) => part.PartNumber)).size !== normalizedParts.length ||
+    normalizedParts.some((part) => part.PartNumber > MAX_PARTS || part.ETag.length > 256)
+  ) {
     throw createHttpError(400, "Invalid multipart complete parts payload");
   }
 
@@ -502,10 +586,10 @@ export const abortMultipartUpload = async (env, payload = {}) => {
   const { region, endpoint, accessKeyId, secretAccessKey, bucket } = getS3Env(
     env,
   );
-  const key = trimString(payload.key);
+  const key = validateObjectKey(payload.key);
   const uploadId = trimString(payload.uploadId);
 
-  if (!key || !uploadId) {
+  if (!uploadId) {
     throw createHttpError(400, "Missing multipart abort parameters");
   }
 

@@ -20,7 +20,12 @@ import {
     X,
 } from 'lucide-react';
 import { uploadFileToS3 } from '../utils/s3UploadService';
+import { sanitizeRichHtml } from '../utils/sanitizeHtml';
 import { marked } from 'marked';
+
+const ToolbarSeparator = () => (
+    <span className="mx-1 h-5 w-px shrink-0 bg-slate-200" aria-hidden="true" />
+);
 
 const RichTextEditor = ({ value, onChange, placeholder }) => {
     const [isFullScreen, setIsFullScreen] = useState(false);
@@ -30,6 +35,10 @@ const RichTextEditor = ({ value, onChange, placeholder }) => {
     const [linkInputValue, setLinkInputValue] = useState('');
     const [charCount, setCharCount] = useState(0);
     const linkInputRef = useRef(null);
+    const cancelLink = () => {
+        setIsLinkInputOpen(false);
+        setLinkInputValue('');
+    };
 
     // Mirrors the HTML currently inside the editor.
     // Prevents setContent being called after the user's own keystrokes (avoids focus loss).
@@ -93,7 +102,7 @@ const RichTextEditor = ({ value, onChange, placeholder }) => {
     const handleMarkdownConvert = async () => {
         if (!editor || !markdownInput.trim()) return;
         try {
-            const html = await marked.parse(markdownInput);
+            const html = sanitizeRichHtml(await marked.parse(markdownInput));
             editor.chain().focus().insertContent(html).run();
             setIsMarkdownModalOpen(false);
             setMarkdownInput('');
@@ -121,8 +130,6 @@ const RichTextEditor = ({ value, onChange, placeholder }) => {
         setIsLinkInputOpen(false);
         setLinkInputValue('');
     };
-    const cancelLink = () => { setIsLinkInputOpen(false); setLinkInputValue(''); };
-
     /* ── Image ─────────────────────────────────────── */
     const handleImageUpload = () => {
         if (!editor) return;
@@ -149,8 +156,6 @@ const RichTextEditor = ({ value, onChange, placeholder }) => {
                 ? 'bg-secret-wax/10 text-secret-wax'
                 : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
         }`;
-    const Sep = () => <span className="mx-1 h-5 w-px shrink-0 bg-slate-200" aria-hidden="true" />;
-
     /* ── Toolbar JSX (used as variable, NOT as <Component />) ── */
     const toolbarJsx = (
         <div className="flex flex-wrap items-center gap-0.5 border-b border-slate-200 bg-slate-50/80 px-3 py-2">
@@ -163,20 +168,20 @@ const RichTextEditor = ({ value, onChange, placeholder }) => {
             <button type="button" onClick={() => editor?.chain().focus().toggleUnderline().run()} className={btn(editor?.isActive('underline'))} aria-label="Gạch chân" title="Gạch chân">
                 <UnderlineIcon className="h-4 w-4" />
             </button>
-            <Sep />
+            <ToolbarSeparator />
             {[1, 2, 3].map((level) => (
                 <button key={level} type="button" onClick={() => editor?.chain().focus().toggleHeading({ level }).run()} className={btn(editor?.isActive('heading', { level }))} aria-label={`Heading ${level}`} title={`Heading ${level}`}>
                     <span className="text-[11px] font-bold">H{level}</span>
                 </button>
             ))}
-            <Sep />
+            <ToolbarSeparator />
             <button type="button" onClick={() => editor?.chain().focus().toggleBulletList().run()} className={btn(editor?.isActive('bulletList'))} aria-label="Danh sách chấm" title="Danh sách chấm">
                 <List className="h-4 w-4" />
             </button>
             <button type="button" onClick={() => editor?.chain().focus().toggleOrderedList().run()} className={btn(editor?.isActive('orderedList'))} aria-label="Danh sách số" title="Danh sách số">
                 <ListOrdered className="h-4 w-4" />
             </button>
-            <Sep />
+            <ToolbarSeparator />
             <button type="button" onClick={() => editor?.chain().focus().setTextAlign('left').run()} className={btn(editor?.isActive({ textAlign: 'left' }))} aria-label="Canh trái" title="Canh trái">
                 <AlignLeft className="h-4 w-4" />
             </button>
@@ -186,7 +191,7 @@ const RichTextEditor = ({ value, onChange, placeholder }) => {
             <button type="button" onClick={() => editor?.chain().focus().setTextAlign('right').run()} className={btn(editor?.isActive({ textAlign: 'right' }))} aria-label="Canh phải" title="Canh phải">
                 <AlignRight className="h-4 w-4" />
             </button>
-            <Sep />
+            <ToolbarSeparator />
             {/* Link popover */}
             <div className="relative">
                 <button type="button" onClick={openLinkInput} className={btn(editor?.isActive('link'))} aria-label="Thêm liên kết" title="Thêm liên kết">
@@ -219,7 +224,7 @@ const RichTextEditor = ({ value, onChange, placeholder }) => {
             <button type="button" onClick={handleImageUpload} className={btn(false)} aria-label="Chèn ảnh" title="Chèn ảnh">
                 <ImageIcon className="h-4 w-4" />
             </button>
-            <Sep />
+            <ToolbarSeparator />
             <button
                 type="button"
                 onClick={() => setIsMarkdownModalOpen(true)}

@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { Filter, Search as SearchIcon, ChevronLeft, ChevronRight, Flame, Sparkles, LayoutGrid, Gift, BadgeDollarSign, ArrowUpDown, X as XIcon, ChevronDown, Clock } from 'lucide-react';
 import { db } from '../firebase';
@@ -10,7 +10,7 @@ import SEO from '../components/SEO';
 
 // --- MINI COURSE CARD for sliders ---
 const MiniCourseCard = ({ course }) => {
-    const studentCount = course.fakeStudentCount || course.enrollmentCount || (Array.isArray(course.students) ? course.students.length : 0);
+    const studentCount = course.fakeStudentCount || course.enrollmentCount || 0;
     const finalPrice = course.salePrice || course.price || 0;
     const originalPrice = course.price || 0;
     const hasDiscount = course.salePrice && course.salePrice < course.price;
@@ -206,18 +206,7 @@ const CourseList = () => {
                     where('isForSale', '==', true)
                 );
                 const snapshot = await getDocs(q);
-                let data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-                // Batch-fetch enrollment counts
-                if (data.length > 0) {
-                    const enrollSnap = await getDocs(collection(db, 'enrollments'));
-                    const counts = {};
-                    enrollSnap.forEach(d => {
-                        const cId = d.data().courseId;
-                        if (cId) counts[cId] = (counts[cId] || 0) + 1;
-                    });
-                    data = data.map(c => ({ ...c, enrollmentCount: counts[c.id] || c.enrollmentCount || 0 }));
-                }
+                const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
                 setCourses(data);
             } catch (error) {

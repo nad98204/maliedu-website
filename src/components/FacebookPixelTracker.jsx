@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation } from "react-router";
 
 import { isFunnelLandingPath } from "../utils/funnelLandingPaths";
 import { ensureMetaPixel, getMetaBrowserData, initMetaPixel, trackMetaEventForPixel } from "../utils/metaPixel";

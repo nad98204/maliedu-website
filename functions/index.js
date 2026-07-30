@@ -1,12 +1,20 @@
 import { Buffer } from "node:buffer";
-import { createHmac, timingSafeEqual } from "node:crypto";
+import {
+  createHash,
+  createHmac,
+  randomBytes,
+  randomInt,
+  timingSafeEqual,
+} from "node:crypto";
 import process from "node:process";
 import { Readable } from "node:stream";
 
 import { onRequest } from "firebase-functions/v2/https";
 import { onValueCreated } from "firebase-functions/v2/database";
 import { onSchedule } from "firebase-functions/v2/scheduler";
+import { defineSecret } from "firebase-functions/params";
 import { initializeApp } from "firebase-admin/app";
+import { getAuth as getAdminAuth } from "firebase-admin/auth";
 import { getDatabase } from "firebase-admin/database";
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { hashData, normalizeNameForHash, sendMetaCapiEvent } from "./capi_helper.js";
@@ -15,21 +23,27 @@ let defaultApp = null;
 let firestoreDb = null;
 let crmDb = null;
 
-const getFirestoreDb = () => {
+const META_CAPI_ACCESS_TOKEN_SECRET = defineSecret("META_CAPI_ACCESS_TOKEN");
+const S3_ACCESS_KEY_SECRET = defineSecret("S3_ACCESS_KEY");
+const S3_SECRET_KEY_SECRET = defineSecret("S3_SECRET_KEY");
+const STORAGE_MEDIA_TOKEN_SECRET = defineSecret("STORAGE_MEDIA_TOKEN_SECRET");
+
+const getDefaultApp = () => {
   if (!defaultApp) {
     defaultApp = initializeApp();
   }
+  return defaultApp;
+};
+
+const getFirestoreDb = () => {
   if (!firestoreDb) {
-    firestoreDb = getFirestore(defaultApp);
+    firestoreDb = getFirestore(getDefaultApp());
   }
   return firestoreDb;
 };
 
 const getCrmDatabase = () => {
   if (!crmDb) {
-    if (!defaultApp) {
-      defaultApp = initializeApp();
-    }
     const CRM_DATABASE_URL =
       process.env.CRM_DATABASE_URL ||
       "https://dangpkkzxy-default-rtdb.asia-southeast1.firebasedatabase.app";
@@ -41,6 +55,108 @@ const getCrmDatabase = () => {
 
 const STORAGE_MEDIA_TOKEN_TTL_SECONDS = 2 * 60 * 60;
 const STORAGE_MEDIA_MAX_RANGE_BYTES = 8 * 1024 * 1024;
+const MAX_JSON_BODY_BYTES = 1024 * 1024;
+const SUPER_ADMIN_EMAILS = new Set(["mongcoaching@gmail.com"]);
+const PROTECTED_MULTIPART_PATHS = new Set([
+  "/api/s3-multipart/abort",
+  "/api/s3-multipart/complete",
+  "/api/s3-multipart/init",
+  "/api/s3-multipart/sign-part",
+]);
+const PUBLIC_BANK_SETTING_FIELDS = [
+  "accountName",
+  "accountNo",
+  "bankId",
+  "bankName",
+  "branch",
+  "isEnabled",
+  "qrTemplate",
+  "transferPrefix",
+];
+const RATE_LIMIT_POLICIES = new Map([
+  ["/api/crm-leads", { limit: 8, windowMs: 10 * 60 * 1000 }],
+  ["/api/newsletter", { limit: 5, windowMs: 60 * 60 * 1000 }],
+  ["/api/orders", { limit: 10, windowMs: 10 * 60 * 1000 }],
+  ["/api/post-feedback", { limit: 5, windowMs: 10 * 60 * 1000 }],
+  ["/api/post-view", { limit: 120, windowMs: 60 * 1000 }],
+  ["/api/storage-share", { limit: 120, windowMs: 60 * 1000 }],
+]);
+const rateLimitBuckets = new Map();
+
+const getHeader = (headers, name) => {
+  if (!headers) return "";
+  if (typeof headers.get === "function") {
+    return String(headers.get(name) || "");
+  }
+
+  const normalizedName = name.toLowerCase();
+  const value = headers[normalizedName] ?? headers[name];
+  return Array.isArray(value) ? String(value[0] || "") : String(value || "");
+};
+
+const getClientIp = (request) => {
+  const forwardedFor = getHeader(request?.headers, "x-forwarded-for")
+    .split(",")[0]
+    .trim();
+  return forwardedFor || String(request?.ip || "unknown").trim() || "unknown";
+};
+
+const createHttpError = (status, message) => {
+  const error = new Error(message);
+  error.status = status;
+  return error;
+};
+
+const verifyRequestUser = async (request, { required = true } = {}) => {
+  const authorization = getHeader(request?.headers, "authorization").trim();
+  const match = /^Bearer\s+([A-Za-z0-9._~-]+)$/i.exec(authorization);
+  if (!match) {
+    if (!required) return null;
+    throw createHttpError(401, "Authentication required");
+  }
+
+  try {
+    return await getAdminAuth(getDefaultApp()).verifyIdToken(match[1]);
+  } catch {
+    throw createHttpError(401, "Invalid or expired authentication");
+  }
+};
+
+const requireAdminRequest = async (request) => {
+  const user = await verifyRequestUser(request);
+  const email = String(user.email || "").trim().toLowerCase();
+  if (SUPER_ADMIN_EMAILS.has(email) && user.email_verified === true) return user;
+
+  const profile = await getFirestoreDb().collection("users").doc(user.uid).get();
+  if (!profile.exists || String(profile.data()?.role || "").toLowerCase() !== "admin") {
+    throw createHttpError(403, "Administrator access required");
+  }
+
+  return user;
+};
+
+const enforceRateLimit = (request, path) => {
+  const policy = RATE_LIMIT_POLICIES.get(path);
+  if (!policy) return;
+
+  const now = Date.now();
+  const key = `${path}:${getClientIp(request)}`;
+  const current = rateLimitBuckets.get(key);
+  if (!current || current.resetAt <= now) {
+    rateLimitBuckets.set(key, { count: 1, resetAt: now + policy.windowMs });
+    return;
+  }
+  if (current.count >= policy.limit) {
+    throw createHttpError(429, "Too many requests. Please try again later.");
+  }
+  current.count += 1;
+
+  if (rateLimitBuckets.size > 5000) {
+    for (const [bucketKey, bucket] of rateLimitBuckets) {
+      if (bucket.resetAt <= now) rateLimitBuckets.delete(bucketKey);
+    }
+  }
+};
 
 import { onRequestPost as onAbort } from "./api/s3-multipart/abort.js";
 import { onRequestPost as onComplete } from "./api/s3-multipart/complete.js";
@@ -54,6 +170,63 @@ const ALLOWED_CRM_FUNNEL_PATHS = new Set([
   "funnels/leader",
   "funnels/thuonghieu",
 ]);
+const CRM_ALLOWED_FIELDS = new Set([
+  "assignedName",
+  "assigned_to",
+  "batchName",
+  "batch_id",
+  "courseName",
+  "course_k",
+  "cpCampaign",
+  "cpContent",
+  "cpMedium",
+  "cpSource",
+  "cpTerm",
+  "customerNote",
+  "email",
+  "fbCurrency",
+  "fbEventValue",
+  "fbc",
+  "fbp",
+  "funnel_channel",
+  "funnel_type",
+  "ghiChu",
+  "ghi_chu",
+  "hasRegisteredLHD",
+  "is_learned_loa",
+  "landingPageId",
+  "landingPageSlug",
+  "lead_event_id",
+  "leaderName",
+  "leaderSlug",
+  "leaderUtm",
+  "leader_utm",
+  "meta_event_id",
+  "name",
+  "note",
+  "other_referrer_name",
+  "phone",
+  "referrer",
+  "referrer_type",
+  "registered_loa",
+  "remarks",
+  "sourceUrl",
+  "source_key",
+  "source_type",
+  "staff_in_charge",
+  "targetFunnel",
+  "test_event_code",
+  "utm_owner",
+  "utm_owner_slug",
+]);
+const CRM_LONG_TEXT_FIELDS = new Set([
+  "customerNote",
+  "ghiChu",
+  "ghi_chu",
+  "note",
+  "remarks",
+  "sourceUrl",
+]);
 
 const normalizeCrmNodePath = (value) =>
   String(value || "")
@@ -65,6 +238,47 @@ const normalizeLeadPhone = (value) =>
   String(value || "")
     .trim()
     .replace(/\s+/g, "");
+
+const sanitizeCrmPayload = (payload) => {
+  const sanitized = {};
+  for (const [key, rawValue] of Object.entries(payload)) {
+    if (!CRM_ALLOWED_FIELDS.has(key)) continue;
+
+    if (typeof rawValue === "boolean") {
+      sanitized[key] = rawValue;
+      continue;
+    }
+    if (typeof rawValue === "number" && Number.isFinite(rawValue)) {
+      sanitized[key] = rawValue;
+      continue;
+    }
+
+    const maxLength = CRM_LONG_TEXT_FIELDS.has(key) ? 2000 : 300;
+    sanitized[key] = String(rawValue ?? "").trim().slice(0, maxLength);
+  }
+  return sanitized;
+};
+
+const normalizeSearchText = (value) =>
+  String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/gi, "d")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const buildSearchKeywords = ({ name, phone }) => {
+  const words = normalizeSearchText(name).split(" ").filter(Boolean);
+  const digits = String(phone || "").replace(/\D/g, "");
+  return [...new Set([
+    ...words,
+    words.join(" "),
+    digits,
+    digits.slice(-9),
+  ].filter(Boolean))].slice(0, 30);
+};
 
 const onCreateCrmLead = async ({ request }) => {
   const body = await request.json();
@@ -79,21 +293,66 @@ const onCreateCrmLead = async ({ request }) => {
     return createJsonResponse({ error: "Invalid CRM payload" }, 400);
   }
 
-  const name = String(payload.name || "").trim();
+  const sanitizedPayload = sanitizeCrmPayload(payload);
+  const name = String(sanitizedPayload.name || "").trim();
   const phone = normalizeLeadPhone(payload.phone);
   const phoneDigits = phone.replace(/\D/g, "");
+  const email = String(sanitizedPayload.email || "").trim().toLowerCase();
+  const sourceKey = String(sanitizedPayload.source_key || "").trim();
 
-  if (name.length < 2 || phoneDigits.length < 9 || phoneDigits.length > 15) {
+  if (
+    name.length < 2 ||
+    name.length > 120 ||
+    phoneDigits.length < 9 ||
+    phoneDigits.length > 15 ||
+    !/^[0-9+ ().-]{9,20}$/.test(phone) ||
+    (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) ||
+    !/^[a-zA-Z0-9_-]{2,100}$/.test(sourceKey)
+  ) {
     return createJsonResponse({ error: "Invalid lead contact info" }, 400);
   }
 
-  const leadRef = getCrmDatabase().ref(nodePath).push();
-  await leadRef.set({
-    ...payload,
+  const now = new Date().toISOString();
+  const normalizedPayload = {
+    ...sanitizedPayload,
+    clientIp: getClientIp(request),
+    createdAt: now,
+    createdVia: "landing",
+    email,
     name,
     phone,
-    createdAt: payload.createdAt || new Date().toISOString(),
-    receivedAt: new Date().toISOString(),
+    receivedAt: now,
+    source_key: sourceKey,
+    status: "NEW",
+    userAgent: getHeader(request.headers, "user-agent").slice(0, 500),
+  };
+  const leadRef = getCrmDatabase().ref(nodePath).push();
+  await leadRef.set(normalizedPayload);
+
+  const leadSource = sourceKey === "chinh_phuc_muc_tieu_web"
+    ? "chinh-phuc-muc-tieu"
+    : sourceKey.startsWith("khoi_thong_dong_tien")
+      ? "khoi-thong-dong-tien"
+      : sourceKey;
+  await getFirestoreDb().collection("leads").add({
+    courseId: String(normalizedPayload.landingPageId || ""),
+    courseName: String(normalizedPayload.courseName || ""),
+    createdAt: Date.now(),
+    crmLeadId: leadRef.key,
+    landingPageId: String(normalizedPayload.landingPageId || ""),
+    landingPageSlug: String(normalizedPayload.landingPageSlug || ""),
+    name,
+    phone,
+    referralCode: String(normalizedPayload.referrer || ""),
+    searchKeywords: buildSearchKeywords({ name, phone }),
+    searchName: normalizeSearchText(name),
+    searchPhone: phoneDigits,
+    source: leadSource,
+    sourceUrl: String(normalizedPayload.sourceUrl || ""),
+    status: "new",
+    utmCampaign: String(normalizedPayload.cpCampaign || ""),
+    utmMedium: String(normalizedPayload.cpMedium || ""),
+    utmSource: String(normalizedPayload.cpSource || ""),
   });
 
   return createJsonResponse({ success: true, id: leadRef.key });
@@ -117,7 +376,12 @@ const onGetStorageShare = async ({ request }) => {
   const type = String(file.type || "");
   const isShareableMedia = type.startsWith("image/") || type.startsWith("video/");
 
-  if (!file.isPublic || file.isDeleted || !isShareableMedia || !file.url) {
+  if (
+    !file.isPublic ||
+    file.isDeleted ||
+    !isShareableMedia ||
+    !isAllowedStorageUrl(file.url)
+  ) {
     return createJsonResponse({ error: "Media not found" }, 404);
   }
 
@@ -192,8 +456,391 @@ const onIncrementPostView = async ({ request }) => {
   return createJsonResponse(result.body, result.status);
 };
 
+const onGetPublicBankSettings = async () => {
+  const snapshot = await getFirestoreDb()
+    .collection("system_settings")
+    .doc("bank_payment_settings")
+    .get();
+  const source = snapshot.exists ? snapshot.data() || {} : {};
+  const settings = Object.fromEntries(
+    PUBLIC_BANK_SETTING_FIELDS.map((field) => [field, source[field] ?? null]),
+  );
+
+  return createJsonResponse(settings);
+};
+
+const onCreatePostFeedback = async ({ request }) => {
+  const body = await request.json();
+  const postId = String(body?.postId || "").trim();
+  const name = String(body?.name || "Ẩn danh").trim().slice(0, 100);
+  const message = String(body?.message || "").trim();
+
+  if (
+    !/^[A-Za-z0-9]{1,128}$/.test(postId) ||
+    name.length < 1 ||
+    message.length < 20 ||
+    message.length > 3000
+  ) {
+    return createJsonResponse({ error: "Invalid feedback" }, 400);
+  }
+
+  const postSnapshot = await getFirestoreDb().collection("posts").doc(postId).get();
+  const post = postSnapshot.exists ? postSnapshot.data() || {} : {};
+  const publishAt = post.publishAt?.toDate?.();
+  if (!postSnapshot.exists || !post.isPublished || (publishAt && publishAt > new Date())) {
+    return createJsonResponse({ error: "Post not found" }, 404);
+  }
+
+  await getFirestoreDb().collection("post_feedback").add({
+    createdAt: FieldValue.serverTimestamp(),
+    isApproved: false,
+    message,
+    name,
+    postId,
+    postSlug: String(post.slug || "").slice(0, 200),
+    postTitle: String(post.title || "").slice(0, 300),
+    source: "news_detail",
+    status: "pending",
+  });
+
+  return createJsonResponse({ success: true }, 201);
+};
+
+const onCreateNewsletterSubscription = async ({ request }) => {
+  const body = await request.json();
+  const email = String(body?.email || "").trim().toLowerCase();
+  const sourceSlug = String(body?.sourceSlug || "").trim().slice(0, 200);
+  if (
+    email.length > 254 ||
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
+    !/^[a-zA-Z0-9/_-]{0,200}$/.test(sourceSlug)
+  ) {
+    return createJsonResponse({ error: "Invalid email" }, 400);
+  }
+
+  const subscriberId = createHash("sha256").update(email).digest("hex");
+  await getFirestoreDb().collection("newsletter_subscribers").doc(subscriberId).set(
+    {
+      email,
+      lastSubscribedAt: FieldValue.serverTimestamp(),
+      source: "news_detail",
+      sourceSlug,
+    },
+    { merge: true },
+  );
+
+  return createJsonResponse({ success: true }, 201);
+};
+
+const toSerializableValue = (value) => {
+  if (value?.toDate) return value.toDate().toISOString();
+  if (Array.isArray(value)) return value.map(toSerializableValue);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, child]) => [key, toSerializableValue(child)]),
+    );
+  }
+  return value;
+};
+
+const hashOrderAccessToken = (token) =>
+  createHash("sha256").update(String(token || "")).digest("hex");
+
+const isValidOrderAccessToken = (token, expectedHash) => {
+  if (!token || !/^[a-f0-9]{64}$/i.test(String(expectedHash || ""))) return false;
+  const actual = Buffer.from(hashOrderAccessToken(token), "hex");
+  const expected = Buffer.from(expectedHash, "hex");
+  return actual.length === expected.length && timingSafeEqual(actual, expected);
+};
+
+const getAuthorizedOrder = async ({ request, orderId }) => {
+  if (!/^[A-Za-z0-9]{20}$/.test(orderId)) {
+    throw createHttpError(404, "Order not found");
+  }
+
+  const reference = getFirestoreDb().collection("orders").doc(orderId);
+  const snapshot = await reference.get();
+  if (!snapshot.exists) {
+    throw createHttpError(404, "Order not found");
+  }
+
+  const order = snapshot.data() || {};
+  const user = await verifyRequestUser(request, { required: false });
+  const token = getHeader(request.headers, "x-order-access-token").trim();
+  const email = String(user?.email || "").trim().toLowerCase();
+  const isAdmin = user
+    ? (SUPER_ADMIN_EMAILS.has(email) && user.email_verified === true) || (
+      await getFirestoreDb().collection("users").doc(user.uid).get()
+    ).data()?.role === "admin"
+    : false;
+  const canRead =
+    isAdmin ||
+    (user && order.userId === user.uid) ||
+    isValidOrderAccessToken(token, order.guestAccessTokenHash);
+  if (!canRead) {
+    throw createHttpError(404, "Order not found");
+  }
+
+  return { order, reference, snapshot };
+};
+
+const getCoursePrice = (course) => {
+  const hasSalePrice = course.salePrice !== null
+    && course.salePrice !== undefined
+    && course.salePrice !== "";
+  const salePrice = hasSalePrice ? Number(course.salePrice) : Number.NaN;
+  const regularPrice = Number(course.price);
+  const resolved = Number.isFinite(salePrice) && salePrice >= 0
+    ? salePrice
+    : regularPrice;
+  if (!Number.isFinite(resolved) || resolved < 0 || resolved > 1_000_000_000) {
+    throw createHttpError(400, "Invalid course price");
+  }
+  return Math.round(resolved);
+};
+
+const onCreateOrder = async ({ request }) => {
+  const body = await request.json();
+  const requestedItems = Array.isArray(body?.items) ? body.items : [];
+  const customerName = String(body?.customerName || "").trim();
+  const customerPhone = String(body?.customerPhone || "").trim();
+  const customerEmail = String(body?.customerEmail || "").trim().toLowerCase();
+  const customerNote = String(body?.customerNote || "").trim().slice(0, 2000);
+
+  if (
+    requestedItems.length < 1 ||
+    requestedItems.length > 20 ||
+    customerName.length < 2 ||
+    customerName.length > 120 ||
+    !/^[0-9+ ().-]{9,20}$/.test(customerPhone) ||
+    customerEmail.length > 254 ||
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail)
+  ) {
+    return createJsonResponse({ error: "Invalid order information" }, 400);
+  }
+
+  const itemIds = requestedItems.map((item) => String(item?.id || item?.courseId || "").trim());
+  if (itemIds.some((id) => !/^[A-Za-z0-9_-]{1,128}$/.test(id))) {
+    return createJsonResponse({ error: "Invalid course selection" }, 400);
+  }
+
+  const uniqueItemIds = [...new Set(itemIds)];
+  if (uniqueItemIds.length !== itemIds.length) {
+    return createJsonResponse({ error: "Duplicate course selection" }, 400);
+  }
+
+  const courseRefs = uniqueItemIds.map((id) =>
+    getFirestoreDb().collection("courses").doc(id),
+  );
+  const courseSnapshots = await getFirestoreDb().getAll(...courseRefs);
+  if (courseSnapshots.some((snapshot) => !snapshot.exists)) {
+    return createJsonResponse({ error: "Course not found" }, 404);
+  }
+
+  const items = courseSnapshots.map((snapshot) => {
+    const course = snapshot.data() || {};
+    return {
+      id: snapshot.id,
+      name: String(course.name || "Khóa học").slice(0, 300),
+      price: getCoursePrice(course),
+      thumbnailUrl: String(course.thumbnailUrl || "").slice(0, 2048),
+    };
+  });
+  const originalAmount = items.reduce((total, item) => total + item.price, 0);
+
+  let couponCode = String(body?.couponCode || "").trim().toUpperCase();
+  let discountPercent = 0;
+  if (couponCode) {
+    if (!/^[A-Z0-9_-]{2,40}$/.test(couponCode)) {
+      return createJsonResponse({ error: "Invalid coupon" }, 400);
+    }
+    const couponSnapshot = await getFirestoreDb()
+      .collection("coupons")
+      .where("code", "==", couponCode)
+      .where("isActive", "==", true)
+      .limit(1)
+      .get();
+    const coupon = couponSnapshot.empty ? null : couponSnapshot.docs[0].data();
+    const expiry = coupon?.expiryDate?.toDate?.() || (
+      coupon?.expiryDate ? new Date(coupon.expiryDate) : null
+    );
+    const percentage = Number(coupon?.discountPercent);
+    if (
+      !coupon ||
+      (expiry && (!Number.isFinite(expiry.getTime()) || expiry < new Date())) ||
+      !Number.isFinite(percentage) ||
+      percentage < 0 ||
+      percentage > 100
+    ) {
+      return createJsonResponse({ error: "Coupon is invalid or expired" }, 400);
+    }
+    discountPercent = percentage;
+  } else {
+    couponCode = null;
+  }
+
+  const user = await verifyRequestUser(request, { required: false });
+  const guestAccessToken = user ? null : randomBytes(32).toString("base64url");
+  const amount = Math.max(
+    0,
+    Math.round(originalAmount * (1 - discountPercent / 100)),
+  );
+  const orderCode = `MALI-${String(Date.now()).slice(-6)}${randomInt(10, 100)}`;
+  const order = {
+    amount,
+    couponCode,
+    courseId: items.length === 1 ? items[0].id : "cart-order",
+    courseName: items.length === 1
+      ? items[0].name
+      : `Đơn hàng gồm ${items.length} khóa học`,
+    createdAt: FieldValue.serverTimestamp(),
+    customerEmail,
+    customerName,
+    customerNote,
+    customerPhone,
+    discountPercent,
+    items,
+    orderCode,
+    originalAmount,
+    status: "pending",
+    updatedAt: FieldValue.serverTimestamp(),
+    userEmail: String(user?.email || customerEmail).toLowerCase(),
+    userId: user?.uid || null,
+    ...(guestAccessToken
+      ? { guestAccessTokenHash: hashOrderAccessToken(guestAccessToken) }
+      : {}),
+  };
+  const orderRef = await getFirestoreDb().collection("orders").add(order);
+
+  return createJsonResponse(
+    {
+      accessToken: guestAccessToken,
+      id: orderRef.id,
+      orderCode,
+    },
+    201,
+  );
+};
+
+const onGetOrder = async ({ request, orderId }) => {
+  const { order, snapshot } = await getAuthorizedOrder({ request, orderId });
+
+  const safeOrder = { ...order };
+  delete safeOrder.guestAccessTokenHash;
+  return createJsonResponse({
+    id: snapshot.id,
+    ...toSerializableValue(safeOrder),
+  });
+};
+
+const sanitizeMetaCookie = (value) => {
+  const normalized = String(value || "").trim();
+  return /^fb\.\d+\.\d{10,13}\.[A-Za-z0-9._-]{1,200}$/.test(normalized)
+    ? normalized
+    : "";
+};
+
+const sanitizeEventSourceUrl = (value) => {
+  const normalized = String(value || "").trim().slice(0, 2048);
+  try {
+    const parsed = new URL(normalized);
+    return parsed.protocol === "https:" ? parsed.toString() : "";
+  } catch {
+    return "";
+  }
+};
+
+const onTrackOrderPurchase = async ({ request, orderId }) => {
+  const { order, reference } = await getAuthorizedOrder({ request, orderId });
+  const accessToken = String(META_CAPI_ACCESS_TOKEN_SECRET.value() || "").trim();
+  const pixelId = String(process.env.META_PIXEL_ID || "1526874981588150").trim();
+  if (!accessToken || !/^\d{5,30}$/.test(pixelId)) {
+    throw createHttpError(503, "Purchase tracking is not configured");
+  }
+
+  const body = await request.json();
+  const claimed = await getFirestoreDb().runTransaction(async (transaction) => {
+    const currentSnapshot = await transaction.get(reference);
+    const current = currentSnapshot.data() || {};
+    const startedAt = current.metaPurchaseTrackingStartedAt?.toDate?.();
+    const claimIsFresh = startedAt
+      && Date.now() - startedAt.getTime() < 10 * 60 * 1000;
+    if (current.metaPurchaseTrackedAt || claimIsFresh) {
+      return false;
+    }
+    transaction.update(reference, {
+      metaPurchaseTrackingStartedAt: FieldValue.serverTimestamp(),
+    });
+    return true;
+  });
+  if (!claimed) {
+    return createJsonResponse({ success: true, alreadyTracked: true });
+  }
+
+  const phone = String(order.customerPhone || "")
+    .replace(/\D/g, "")
+    .replace(/^0/, "84");
+  const nameParts = String(order.customerName || "").trim().split(/\s+/).filter(Boolean);
+  const firstName = nameParts.at(-1) || "";
+  const lastName = nameParts.slice(0, -1).join(" ");
+  const hashedEmail = hashData(String(order.customerEmail || ""));
+  const hashedPhone = hashData(phone);
+  const hashedFirstName = hashData(normalizeNameForHash(firstName));
+  const hashedLastName = hashData(normalizeNameForHash(lastName));
+  const userData = {
+    ...(hashedEmail ? { em: [hashedEmail] } : {}),
+    ...(hashedPhone ? { ph: [hashedPhone] } : {}),
+    ...(hashedFirstName ? { fn: [hashedFirstName] } : {}),
+    ...(hashedLastName ? { ln: [hashedLastName] } : {}),
+    client_ip_address: getClientIp(request),
+    client_user_agent: getHeader(request.headers, "user-agent").slice(0, 500),
+    ...(sanitizeMetaCookie(body?.fbp) ? { fbp: sanitizeMetaCookie(body.fbp) } : {}),
+    ...(sanitizeMetaCookie(body?.fbc) ? { fbc: sanitizeMetaCookie(body.fbc) } : {}),
+  };
+  const items = Array.isArray(order.items) ? order.items : [];
+  const customData = {
+    content_name: String(order.courseName || "").slice(0, 300),
+    content_ids: items.map((item) => String(item.id || "")).filter(Boolean).slice(0, 20),
+    content_type: "product",
+    currency: "VND",
+    num_items: items.length || 1,
+    value: Number(order.amount) || 0,
+  };
+
+  try {
+    const result = await sendMetaCapiEvent({
+      accessToken,
+      customData,
+      eventId: String(order.orderCode || orderId),
+      eventName: "Purchase",
+      pixelId,
+      sourceUrl: sanitizeEventSourceUrl(body?.sourceUrl),
+      userData,
+    });
+    if (!result || result.error) {
+      throw new Error("Meta rejected the purchase event");
+    }
+    await reference.update({
+      metaPurchaseTrackedAt: FieldValue.serverTimestamp(),
+      metaPurchaseTrackingStartedAt: FieldValue.delete(),
+    });
+    return createJsonResponse({ success: true });
+  } catch (error) {
+    await reference.update({
+      metaPurchaseTrackingErrorAt: FieldValue.serverTimestamp(),
+      metaPurchaseTrackingStartedAt: FieldValue.delete(),
+    });
+    console.error("[CAPI] Purchase tracking failed:", error);
+    throw createHttpError(502, "Purchase tracking failed");
+  }
+};
+
 const ROUTES = new Map([
+  ["GET /api/bank-settings", onGetPublicBankSettings],
   ["POST /api/crm-leads", onCreateCrmLead],
+  ["POST /api/newsletter", onCreateNewsletterSubscription],
+  ["POST /api/orders", onCreateOrder],
+  ["POST /api/post-feedback", onCreatePostFeedback],
   ["POST /api/post-view", onIncrementPostView],
   ["GET /api/storage-share", onGetStorageShare],
   ["GET /api/s3-multipart/health", onHealth],
@@ -219,10 +866,33 @@ const normalizeRequestPath = (request) => {
 };
 
 const getStorageMediaTokenSecret = () =>
-  process.env.STORAGE_MEDIA_TOKEN_SECRET ||
-  process.env.VITE_S3_SECRET_KEY ||
-  process.env.S3_SECRET_KEY ||
-  "";
+  STORAGE_MEDIA_TOKEN_SECRET.value() || "";
+
+const isAllowedStorageUrl = (value) => {
+  const endpoint = String(
+    process.env.S3_ENDPOINT || process.env.VITE_S3_ENDPOINT || "",
+  ).trim();
+  const bucket = String(
+    process.env.S3_BUCKET || process.env.VITE_S3_BUCKET || "",
+  ).trim();
+  if (!endpoint || !bucket) return false;
+
+  try {
+    const endpointUrl = new URL(endpoint);
+    const candidateUrl = new URL(String(value || ""));
+    const endpointPath = endpointUrl.pathname.replace(/\/+$/, "");
+    const allowedPathPrefix = `${endpointPath}/${encodeURIComponent(bucket)}/`
+      .replace(/\/{2,}/g, "/");
+    return (
+      endpointUrl.protocol === "https:" &&
+      candidateUrl.protocol === "https:" &&
+      candidateUrl.origin === endpointUrl.origin &&
+      candidateUrl.pathname.startsWith(allowedPathPrefix)
+    );
+  } catch {
+    return false;
+  }
+};
 
 const createStorageMediaToken = ({ fileId, expires, mode }) => {
   const secret = getStorageMediaTokenSecret();
@@ -289,7 +959,13 @@ const handleStorageMediaRequest = async (request, response) => {
   const type = String(file.type || "");
   const isVideo = type.startsWith("video/");
 
-  if (!fileSnapshot.exists || !file.isPublic || file.isDeleted || !isVideo || !file.url) {
+  if (
+    !fileSnapshot.exists ||
+    !file.isPublic ||
+    file.isDeleted ||
+    !isVideo ||
+    !isAllowedStorageUrl(file.url)
+  ) {
     return response.status(404).set("cache-control", "no-store").send("Media not found");
   }
 
@@ -389,6 +1065,7 @@ export const onCrmLeadCreated = onValueCreated(
   {
     ref: "funnels/{funnelType}/{leadId}",
     region: "asia-southeast1",
+    secrets: [META_CAPI_ACCESS_TOKEN_SECRET],
   },
   async (event) => {
     const leadData = event.data.val();
@@ -406,30 +1083,16 @@ export const onCrmLeadCreated = onValueCreated(
       const pixelId = leadData.fbPixel || "1526874981588150"; // Fallback to default
       const landingPageId = leadData.landingPageId;
       
-      let fbCapiToken = "";
+      const fbCapiToken = String(META_CAPI_ACCESS_TOKEN_SECRET.value() || "").trim();
       let fbPixel = pixelId;
 
-      // Lấy cấu hình Pixel/Token từ Firestore
+      // Pixel ID may be public per landing page. The CAPI token must remain server-only.
       if (landingPageId) {
         const lpDoc = await getFirestoreDb().collection("landing_pages").doc(landingPageId).get();
         if (lpDoc.exists) {
           const config = lpDoc.data();
-          fbCapiToken = config.fbCapiToken;
           fbPixel = config.fbPixel || pixelId;
         }
-      }
-
-      // Nếu landing page không có token riêng, lấy ở config chung
-      if (!fbCapiToken) {
-        const configDoc = await getFirestoreDb().collection("public_settings").doc("landing_config").get();
-        if (configDoc.exists) {
-          fbCapiToken = configDoc.data().fbCapiToken;
-        }
-      }
-
-      if (!fbCapiToken) {
-        console.log(`[CAPI] No Capi Token found in Firestore, using hardcoded fallback.`);
-        fbCapiToken = "EAAOUx21ZARaYBQ6jZAiffdq7ZCsCj7Xko24I8De60ufxpJ0ZBNGE1dbbJBI8MDDeZB8n37IhzpUPZAahSZA69WFnDiTAB9wwfriQIoeKQUjVj6pzIumRzDCXHLGATDxJOAlZAiz3wIdYhwo0aTwoZAEFNTBZCRVKDZC7OvjtZBfQ1TUHXAdWFAii06GZBGRRe5I8ZBSsm51QZDZD";
       }
 
       if (!fbCapiToken) {
@@ -510,47 +1173,100 @@ export const onCrmLeadCreated = onValueCreated(
 export const uploadApi = onRequest(
   {
     region: "asia-southeast1",
+    secrets: [
+      META_CAPI_ACCESS_TOKEN_SECRET,
+      S3_ACCESS_KEY_SECRET,
+      S3_SECRET_KEY_SECRET,
+      STORAGE_MEDIA_TOKEN_SECRET,
+    ],
   },
   async (request, response) => {
     const normalizedPath = normalizeRequestPath(request);
-    if (request.method.toUpperCase() === "GET" && normalizedPath === "/api/storage-media") {
-      try {
-        return await handleStorageMediaRequest(request, response);
-      } catch (error) {
-        console.error("Storage media proxy error:", error);
-        return response.status(500).set("cache-control", "no-store").send("Unable to load media");
-      }
-    }
+    const method = request.method.toUpperCase();
+    const routeKey = `${method} ${normalizedPath}`;
 
-    const routeKey = `${request.method.toUpperCase()} ${normalizedPath}`;
-    const handler = ROUTES.get(routeKey);
-
-    if (!handler) {
-      return sendWebResponse(
-        createJsonResponse(
-          { error: `Upload route not found: ${routeKey}` },
-          404,
-        ),
-        response,
-      );
-    }
+    response.set({
+      "referrer-policy": "no-referrer",
+      "x-content-type-options": "nosniff",
+    });
 
     try {
+      const contentLength = Number(getHeader(request.headers, "content-length"));
+      const rawBodyLength = Buffer.isBuffer(request.rawBody)
+        ? request.rawBody.length
+        : 0;
+      if (
+        (Number.isFinite(contentLength) && contentLength > MAX_JSON_BODY_BYTES) ||
+        rawBodyLength > MAX_JSON_BODY_BYTES
+      ) {
+        throw createHttpError(413, "Request body is too large");
+      }
+
+      const orderMatch = /^\/api\/orders\/([A-Za-z0-9]{20})$/.exec(normalizedPath);
+      const purchaseMatch =
+        /^\/api\/orders\/([A-Za-z0-9]{20})\/meta-purchase$/.exec(normalizedPath);
+      enforceRateLimit(
+        request,
+        orderMatch || purchaseMatch ? "/api/orders" : normalizedPath,
+      );
+
+      if (method === "GET" && normalizedPath === "/api/storage-media") {
+        return await handleStorageMediaRequest(request, response);
+      }
+
+      const adaptedRequest = createRequestAdapter(request);
+      if (method === "GET" && orderMatch) {
+        const result = await onGetOrder({
+          orderId: orderMatch[1],
+          request: adaptedRequest,
+        });
+        return sendWebResponse(result, response);
+      }
+      if (method === "POST" && purchaseMatch) {
+        const result = await onTrackOrderPurchase({
+          orderId: purchaseMatch[1],
+          request: adaptedRequest,
+        });
+        return sendWebResponse(result, response);
+      }
+
+      const handler = ROUTES.get(routeKey);
+      if (!handler) {
+        return sendWebResponse(
+          createJsonResponse({ error: "API route not found" }, 404),
+          response,
+        );
+      }
+
+      if (PROTECTED_MULTIPART_PATHS.has(normalizedPath)) {
+        await requireAdminRequest(request);
+      }
       const result = await handler({
-        request: createRequestAdapter(request),
+        request: adaptedRequest,
         env: process.env,
       });
 
       return sendWebResponse(result, response);
     } catch (error) {
+      const status = Number(error?.status) || 500;
+      if (status >= 500) {
+        console.error(`API error for ${routeKey}:`, error);
+      }
+      if (normalizedPath === "/api/storage-media") {
+        return response
+          .status(status >= 400 && status < 500 ? status : 500)
+          .set("cache-control", "no-store")
+          .send(status >= 400 && status < 500 ? error.message : "Unable to load media");
+      }
+
       return sendWebResponse(
         createJsonResponse(
           {
-            error:
-              error?.message ||
-              "Unexpected upload API error",
+            error: status >= 500
+              ? "Service is temporarily unavailable"
+              : error?.message || "Request failed",
           },
-          error?.status || 500,
+          status,
         ),
         response,
       );

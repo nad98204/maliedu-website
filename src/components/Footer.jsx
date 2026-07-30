@@ -1,5 +1,5 @@
 import React from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router";
 import { MALI_LOGO_KHOI_THONG_ADS_URL, MALI_LOGO_URL } from "../constants/brandAssets.js";
 
 const Footer = () => {

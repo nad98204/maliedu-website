@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useNavigate } from "react-router";
 import { signOut } from "firebase/auth";
 import { BookOpen, GraduationCap, Users } from "lucide-react";
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router";
 import { Briefcase, CheckCircle, ChevronDown, Clock, MapPin, Send, Upload, User, Users } from "lucide-react";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { collection, getDocs, query } from "firebase/firestore";
 import { db } from "../firebase";
 import SEO from "../components/SEO";
 
@@ -11,7 +11,6 @@ const Recruitment = () => {
 
     const [jobs, setJobs] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [selectedPosition, setSelectedPosition] = useState("");
     const [filterLevel, setFilterLevel] = useState("");
     const [filterDept, setFilterDept] = useState("");
 
@@ -50,14 +49,6 @@ const Recruitment = () => {
     // Derived list of all available job titles for dropdown
     const allJobs = jobs.map(j => j.title);
 
-    // Group jobs by category for the list view
-    const groupedJobs = jobs.reduce((acc, job) => {
-        const cat = job.category || "Khác";
-        if (!acc[cat]) acc[cat] = [];
-        acc[cat].push(job);
-        return acc;
-    }, {});
-
     // Sort function: HOT first -> Available -> Full
     const sortJobs = (jobList) => {
         return [...jobList].sort((a, b) => {
@@ -87,23 +78,12 @@ const Recruitment = () => {
         const roleParam = params.get("role");
         // We only pre-fill if we have jobs loaded and the role exists
         if (roleParam && jobs.length > 0 && jobs.some(j => j.title === roleParam)) {
-            setSelectedPosition(roleParam);
             setFormData((prev) => ({ ...prev, position: roleParam }));
             if (formRef.current) {
                 formRef.current.scrollIntoView({ behavior: "smooth" });
             }
         }
     }, [location.search, jobs]);
-
-    // Handle position change from Hero or Job List
-    const handlePositionSelect = (position) => {
-        // Only select if not full? The UI button prevents clicking if full.
-        setSelectedPosition(position);
-        setFormData((prev) => ({ ...prev, position }));
-        if (formRef.current) {
-            formRef.current.scrollIntoView({ behavior: "smooth" });
-        }
-    };
 
     const handleHeroSubmit = () => {
         // If user selected a position in Hero, use it

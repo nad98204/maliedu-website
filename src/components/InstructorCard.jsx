@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import { User, PlayCircle, Users, BookOpen } from 'lucide-react';
@@ -7,7 +7,7 @@ import { User, PlayCircle, Users, BookOpen } from 'lucide-react';
 const InstructorCard = ({ instructorId, instructorData, showLink = true }) => {
     const [stats, setStats] = useState({ courses: 0, students: 0 });
     const [loading, setLoading] = useState(true);
-    const [data, setData] = useState(instructorData || null);
+    const [data] = useState(instructorData || null);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -23,8 +23,7 @@ const InstructorCard = ({ instructorId, instructorData, showLink = true }) => {
                 let totalS = 0;
                 snapshot.forEach(doc => {
                     const course = doc.data();
-                    // Calculate based on real students array length
-                    totalS += (course.students?.length || 0);
+                    totalS += Number(course.enrollmentCount || 0);
                 });
 
                 setStats({

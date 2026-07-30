@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, useParams, useSearchParams } from 'react-router';
 import {
     arrayRemove,
     arrayUnion,
@@ -23,6 +23,7 @@ import {
     getPreviewSections,
     resolveCourseAccess,
 } from '../utils/courseAccess';
+import { loadFullCourse } from '../utils/courseContentService';
 
 const DEFAULT_SECTION_TITLE = 'Nội dung khóa học';
 const getSectionIdentifier = (section, fallbackId = '') => section?.id || fallbackId;
@@ -168,9 +169,6 @@ const CoursePlayer = () => {
 
                 if (!courseData) return;
 
-                setCourse(courseData);
-
-                const normalizedSections = normalizeSections(courseData.curriculum);
                 const previewSections = getPreviewSections(courseData);
                 let completedIds = {};
                 const previewLesson = getPreferredPreviewLesson(
@@ -189,6 +187,12 @@ const CoursePlayer = () => {
                 const enrollmentData = access.enrollment || null;
                 const canPreview = previewRequested && previewSections.length > 0;
                 const canOpenCourse = access.hasFullAccess || canPreview;
+                const visibleCourse = access.hasFullAccess
+                    ? await loadFullCourse(db, courseData)
+                    : courseData;
+                const normalizedSections = normalizeSections(visibleCourse.curriculum);
+
+                setCourse(visibleCourse);
 
                 setHasFullAccess(access.hasFullAccess);
                 setAccessDenied(!canOpenCourse);

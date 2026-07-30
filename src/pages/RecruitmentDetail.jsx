@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
 import "../styles/article-rich-text.css";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link } from "react-router";
 import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore";
 import { db } from "../firebase";
 import SEO from "../components/SEO";
 import { Briefcase, Clock, MapPin, DollarSign, Calendar, Upload, Send, CheckCircle, ArrowLeft, Info } from "lucide-react";
+import { sanitizeRichHtml } from "../utils/sanitizeHtml";
 
 const RecruitmentDetail = () => {
     const { slug } = useParams();
@@ -150,7 +151,7 @@ const RecruitmentDetail = () => {
                             </h2>
                             <div
                                 className="content-display"
-                                dangerouslySetInnerHTML={{ __html: job.description || "<p>Chưa có nội dung mô tả chi tiết.</p>" }}
+                                dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(job.description || "<p>Chưa có nội dung mô tả chi tiết.</p>") }}
                             />
                         </div>
 

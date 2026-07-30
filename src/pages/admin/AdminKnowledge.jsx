@@ -8,7 +8,6 @@ import {
     orderBy,
     query,
     updateDoc,
-    where,
 } from 'firebase/firestore';
 import { Edit, Trash2, Plus, X, BookOpen, Image as ImageIcon, Upload } from 'lucide-react';
 
@@ -72,6 +71,8 @@ const AdminKnowledge = () => {
 
     useEffect(() => {
         fetchPosts();
+        // Initial admin list load; subsequent mutations refresh explicitly.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     // Auto-generate slug from title
@@ -230,16 +231,6 @@ const AdminKnowledge = () => {
         }
     };
 
-    // Get type badge styling
-    const getTypeBadge = (type) => {
-        const badges = {
-            video: { bg: 'bg-red-100', text: 'text-red-700', label: 'Video' },
-            'case-study': { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'Success Story' },
-            article: { bg: 'bg-indigo-100', text: 'text-indigo-700', label: 'Bài viết' },
-        };
-        return badges[type] || badges.article;
-    };
-
     // Get status badge styling
     const getStatusBadge = (isPublished) => {
         return isPublished
@@ -301,7 +292,6 @@ const AdminKnowledge = () => {
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {posts.map((post) => {
-                                const typeBadge = getTypeBadge(post.type);
                                 const statusBadge = getStatusBadge(post.isPublished);
 
                                 return (

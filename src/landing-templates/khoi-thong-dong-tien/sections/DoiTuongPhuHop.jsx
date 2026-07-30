@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowRight,
   BriefcaseBusiness,
@@ -12,19 +12,19 @@ import { trackCtaClick } from "../ctaTracking";
 import { scrollToRegistrationForm } from "../scrollToRegistration";
 
 /* ─── Floating Gold Particles ───────────────────────────── */
-const GoldParticles = () => {
-  const particles = useMemo(() => Array.from({ length: 18 }, (_, i) => ({
+const GOLD_PARTICLES = Array.from({ length: 18 }, (_, i) => ({
     id: i,
-    left: `${Math.random() * 100}%`,
-    top: `${Math.random() * 100}%`,
-    size: 2 + Math.random() * 4,
-    delay: Math.random() * 6,
-    duration: 3 + Math.random() * 4,
-  })), []);
+    left: `${(i * 37) % 100}%`,
+    top: `${(i * 53) % 100}%`,
+    size: 2 + (i % 5),
+    delay: (i % 7) * 0.8,
+    duration: 3 + (i % 5),
+}));
 
+const GoldParticles = () => {
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none">
-      {particles.map((p) => (
+      {GOLD_PARTICLES.map((p) => (
         <div
           key={p.id}
           className="absolute rounded-full"

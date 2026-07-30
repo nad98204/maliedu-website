@@ -1,5 +1,5 @@
 import { ArrowRight, ChevronRight, Brain, Compass, Heart, TrendingUp, Leaf, CheckCircle, Users, BookOpen, Award } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 
 const ecosystemCards = [
   {

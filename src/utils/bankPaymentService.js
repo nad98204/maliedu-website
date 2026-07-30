@@ -125,6 +125,41 @@ export const getBankSettings = async () => {
     }
 };
 
+export const getPublicBankSettings = async () => {
+    try {
+        const response = await fetch("/api/bank-settings", {
+            credentials: "same-origin",
+        });
+        const settings = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(settings.error || `Bank settings API error (${response.status})`);
+        }
+
+        return {
+            bankId: settings.bankId || DEFAULT_BANK_SETTINGS.bankId,
+            bankName: settings.bankName || DEFAULT_BANK_SETTINGS.bankName,
+            accountNo: settings.accountNo || "",
+            accountName: settings.accountName || "",
+            branch: settings.branch || "",
+            transferPrefix: settings.transferPrefix || DEFAULT_BANK_SETTINGS.transferPrefix,
+            qrTemplate: settings.qrTemplate || DEFAULT_BANK_SETTINGS.qrTemplate,
+            isEnabled: settings.isEnabled !== false,
+        };
+    } catch (error) {
+        console.error("Error getting public bank settings:", error);
+        return {
+            bankId: DEFAULT_BANK_SETTINGS.bankId,
+            bankName: DEFAULT_BANK_SETTINGS.bankName,
+            accountNo: "",
+            accountName: "",
+            branch: "",
+            transferPrefix: DEFAULT_BANK_SETTINGS.transferPrefix,
+            qrTemplate: DEFAULT_BANK_SETTINGS.qrTemplate,
+            isEnabled: false,
+        };
+    }
+};
+
 export const saveBankSettings = async (settings) => {
     try {
         const docRef = doc(db, SETTINGS_COLLECTION, BANK_SETTINGS_DOC);

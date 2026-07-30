@@ -52,7 +52,10 @@ const PlayerSidebar = ({
     const [resourceSearchTerm, setResourceSearchTerm] = useState('');
     const [openSections, setOpenSections] = useState({});
     const [openResourceGroups, setOpenResourceGroups] = useState({});
-    const availableTabs = hasResourceAccess ? ['curriculum', 'resources'] : ['curriculum'];
+    const availableTabs = useMemo(
+        () => hasResourceAccess ? ['curriculum', 'resources'] : ['curriculum'],
+        [hasResourceAccess]
+    );
 
     const totalLessons = useMemo(
         () => sections.reduce((total, section) => total + (section.lessons?.length || 0), 0),

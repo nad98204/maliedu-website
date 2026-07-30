@@ -1,5 +1,6 @@
 import React from 'react';
 import { AlertTriangle } from 'lucide-react';
+import { sanitizeEmbedUrl, sanitizeInlineHtml } from '../utils/sanitizeHtml';
 
 /* Each switch branch returns immediately; declarations are intentionally scoped by branch. */
 /* eslint-disable no-case-declarations */
@@ -20,7 +21,7 @@ const BlockContentRenderer = ({ data }) => {
                                 blockData.level === 2 ? 'text-3xl' :
                                     blockData.level === 3 ? 'text-2xl' : 'text-xl'
                                 }`}>
-                                <span dangerouslySetInnerHTML={{ __html: blockData.text }} />
+                                <span dangerouslySetInnerHTML={{ __html: sanitizeInlineHtml(blockData.text) }} />
                             </HeadingTag>
                         );
 
@@ -38,7 +39,7 @@ const BlockContentRenderer = ({ data }) => {
                             <p
                                 key={id}
                                 className={`font-sans text-gray-700 leading-relaxed text-lg mb-4 ${blockData.className || ''}`}
-                                dangerouslySetInnerHTML={{ __html: blockData.text }}
+                                dangerouslySetInnerHTML={{ __html: sanitizeInlineHtml(blockData.text) }}
                             />
                         );
 
@@ -50,7 +51,7 @@ const BlockContentRenderer = ({ data }) => {
                                     // Handle case where item might be an object (nested or rich text)
                                     const itemContent = typeof item === 'string' ? item : (item.content || item.text || JSON.stringify(item));
                                     return (
-                                        <li key={`${id}-${index}`} className="mb-2 pl-2" dangerouslySetInnerHTML={{ __html: itemContent }} />
+                                        <li key={`${id}-${index}`} className="mb-2 pl-2" dangerouslySetInnerHTML={{ __html: sanitizeInlineHtml(itemContent) }} />
                                     )
                                 })}
                             </ListTag>
@@ -69,7 +70,7 @@ const BlockContentRenderer = ({ data }) => {
                                 </div>
                                 {blockData.caption && (
                                     <figcaption className="text-center text-sm text-gray-500 italic mt-3">
-                                        <span dangerouslySetInnerHTML={{ __html: blockData.caption }} />
+                                        <span dangerouslySetInnerHTML={{ __html: sanitizeInlineHtml(blockData.caption) }} />
                                     </figcaption>
                                 )}
                             </figure>
@@ -79,20 +80,24 @@ const BlockContentRenderer = ({ data }) => {
                         return (
                             <figure key={id} className="my-8">
                                 <blockquote className={`border-l-4 border-secret-wax pl-6 py-2 bg-gray-50 italic text-xl text-gray-800 font-serif ${blockData.alignment === 'center' ? 'text-center border-l-0 border-t-4 pt-6' : ''}`}>
-                                    <div dangerouslySetInnerHTML={{ __html: blockData.text }} />
+                                    <div dangerouslySetInnerHTML={{ __html: sanitizeInlineHtml(blockData.text) }} />
                                 </blockquote>
                                 {blockData.caption && (
                                     <figcaption className={`mt-2 text-sm font-bold text-gray-600 ${blockData.alignment === 'center' ? 'text-center' : 'pl-6'}`}>
-                                        — <span dangerouslySetInnerHTML={{ __html: blockData.caption }} />
+                                        — <span dangerouslySetInnerHTML={{ __html: sanitizeInlineHtml(blockData.caption) }} />
                                     </figcaption>
                                 )}
                             </figure>
                         );
 
                     case 'embed':
-                        let embedUrl = blockData.embed;
+                        const embedUrl = sanitizeEmbedUrl(blockData.embed);
                         if (blockData.service === 'youtube') {
                             // handled by editor.js output usually
+                        }
+
+                        if (!embedUrl) {
+                            return null;
                         }
 
                         return (
@@ -102,6 +107,8 @@ const BlockContentRenderer = ({ data }) => {
                                     title={blockData.caption || 'Video núng trong bài viết'}
                                     className="w-full h-full"
                                     loading="lazy"
+                                    referrerPolicy="strict-origin-when-cross-origin"
+                                    sandbox="allow-scripts allow-same-origin allow-presentation"
                                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                                     allowFullScreen
                                 />
@@ -120,8 +127,8 @@ const BlockContentRenderer = ({ data }) => {
                                         <AlertTriangle className="w-6 h-6 text-yellow-600" />
                                     </div>
                                     <div>
-                                        <h4 className="font-bold text-yellow-800 mb-1 text-lg" dangerouslySetInnerHTML={{ __html: blockData.title }} />
-                                        <p className="text-yellow-700 text-base" dangerouslySetInnerHTML={{ __html: blockData.message }} />
+                                        <h4 className="font-bold text-yellow-800 mb-1 text-lg" dangerouslySetInnerHTML={{ __html: sanitizeInlineHtml(blockData.title) }} />
+                                        <p className="text-yellow-700 text-base" dangerouslySetInnerHTML={{ __html: sanitizeInlineHtml(blockData.message) }} />
                                     </div>
                                 </div>
                             </div>
@@ -162,7 +169,7 @@ const BlockContentRenderer = ({ data }) => {
                                         {content.map((row, rowIndex) => (
                                             <tr key={rowIndex} className={rowIndex === 0 && withHeadings ? "bg-gray-100 font-bold" : "bg-white"}>
                                                 {row.map((cell, cellIndex) => (
-                                                    <td key={cellIndex} className="border border-gray-200 p-3 text-sm" dangerouslySetInnerHTML={{ __html: cell }} />
+                                                    <td key={cellIndex} className="border border-gray-200 p-3 text-sm" dangerouslySetInnerHTML={{ __html: sanitizeInlineHtml(cell) }} />
                                                 ))}
                                             </tr>
                                         ))}

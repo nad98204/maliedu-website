@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
-import { formatPrice } from '../utils/orderService';
 import { Star, Users, Clock } from 'lucide-react';
 import CourseCard from './CourseCard';
 
@@ -20,23 +19,13 @@ const RelatedCourses = ({ currentCourseId }) => {
                 );
                 const querySnapshot = await getDocs(q);
 
-                let fetchedCourses = [];
+                const fetchedCourses = [];
                 querySnapshot.forEach((doc) => {
                     if (doc.id !== currentCourseId) {
                         fetchedCourses.push({ id: doc.id, ...doc.data() });
                     }
                 });
 
-                // Batch-fetch enrollment counts
-                if (fetchedCourses.length > 0) {
-                    const enrollSnap = await getDocs(collection(db, 'enrollments'));
-                    const counts = {};
-                    enrollSnap.forEach(d => {
-                        const cId = d.data().courseId;
-                        if (cId) counts[cId] = (counts[cId] || 0) + 1;
-                    });
-                    fetchedCourses = fetchedCourses.map(c => ({ ...c, enrollmentCount: counts[c.id] || c.enrollmentCount || 0 }));
-                }
 
                 // Sort by createdAt desc in memory
                 fetchedCourses.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));

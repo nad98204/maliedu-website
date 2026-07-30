@@ -1,10 +1,12 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation } from "react-router";
 import toast from "react-hot-toast";
 import { isFunnelLandingPath } from "../utils/funnelLandingPaths";
 
 const CartContext = createContext();
 
+// This hook intentionally lives next to its provider so they share one context instance.
+// eslint-disable-next-line react-refresh/only-export-components
 export const useCart = () => useContext(CartContext);
 
 export const CartProvider = ({ children }) => {

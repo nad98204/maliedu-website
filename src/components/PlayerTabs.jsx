@@ -22,6 +22,7 @@ import {
 } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 import { db } from '../firebase';
+import { sanitizeRichHtml } from '../utils/sanitizeHtml';
 
 // Tự detect loại file: PDF mở thẳng, Office files dùng Google Docs Viewer
 const getViewerUrl = (url = '') => {
@@ -66,39 +67,7 @@ const escapeHtml = (value = '') =>
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
 
-const sanitizeHtml = (value = '') => {
-    if (!value || typeof DOMParser === 'undefined') {
-        return value;
-    }
-
-    const parser = new DOMParser();
-    const documentNode = parser.parseFromString(value, 'text/html');
-
-    documentNode
-        .querySelectorAll('script, style, iframe, object, embed')
-        .forEach((node) => node.remove());
-
-    documentNode.querySelectorAll('*').forEach((node) => {
-        Array.from(node.attributes).forEach((attribute) => {
-            const attributeName = attribute.name.toLowerCase();
-            const attributeValue = attribute.value.trim().toLowerCase();
-
-            if (attributeName.startsWith('on')) {
-                node.removeAttribute(attribute.name);
-                return;
-            }
-
-            if (
-                (attributeName === 'href' || attributeName === 'src') &&
-                attributeValue.startsWith('javascript:')
-            ) {
-                node.removeAttribute(attribute.name);
-            }
-        });
-    });
-
-    return documentNode.body.innerHTML;
-};
+const sanitizeHtml = (value = '') => sanitizeRichHtml(value);
 
 const formatDescriptionContent = (value = '') => {
     const trimmedValue = typeof value === 'string' ? value.trim() : '';

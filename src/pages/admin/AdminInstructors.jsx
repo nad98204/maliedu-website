@@ -7,8 +7,7 @@ import {
     getDocs,
     orderBy,
     query,
-    updateDoc,
-    where
+    updateDoc
 } from 'firebase/firestore';
 import { Edit, Trash2, Plus, X, Search, Save, User, Mail, ImageIcon, FileText } from 'lucide-react';
 import { db } from '../../firebase';
@@ -48,6 +47,8 @@ const AdminInstructors = ({ hideHeader = false, searchQuery: externalSearchQuery
 
     useEffect(() => {
         fetchInstructors();
+        // Initial admin list load; subsequent mutations refresh explicitly.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     // Helpers

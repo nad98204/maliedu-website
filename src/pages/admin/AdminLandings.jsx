@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { crmFirestore, crmRealtimeDB } from "../../firebase";
-import { doc, getDoc, setDoc, serverTimestamp, collection, getDocs, onSnapshot, deleteDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, serverTimestamp, collection, getDocs, onSnapshot, deleteDoc, deleteField } from "firebase/firestore";
 import { ref, onValue } from "firebase/database";
 import { toast } from "react-hot-toast";
 import { normalizeMetaCurrency } from "../../utils/metaPixel";
@@ -44,7 +44,6 @@ const AdminLandings = () => {
         zaloLink: "",
         thankYouZaloLink: "",
         fbPixel: "",
-        fbCapiToken: "",
         fbCurrency: "VND",
         fbEventValue: "0",
         course_k: "K41"
@@ -69,12 +68,6 @@ const AdminLandings = () => {
         if (title.includes("LEADER") && !title.includes("SALE")) return true;
         return false;
     };
-    const isSalesOwner = (user = {}) => {
-        const role = String(user.role || "").toUpperCase();
-        const team = String(user.team || "").toUpperCase();
-        return role === "SALE" || role === "SALE_MANAGER" || role === "SALE_LEADER" || team.includes("SALE");
-    };
-    const crmSaleUsers = crmUsers.filter(isSalesOwner);
     const crmLeaderUsers = crmUsers.filter(isLeaderOwner);
 
     const FUNNEL_OPTIONS = [
@@ -183,7 +176,6 @@ const AdminLandings = () => {
         funnelType,
         targetCourseId,
         targetK,
-        assignedSale,
         targetZalo,
         previousSourceKey,
     }) => {
@@ -301,6 +293,8 @@ const AdminLandings = () => {
             unsubLandings();
             unsubUsers();
         };
+    // Firestore subscriptions are intentionally established once on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     // Manual Re-fetch when switching tabs (User Requirement)
@@ -342,7 +336,6 @@ const AdminLandings = () => {
             zaloLink: mappingData.targetZalo || landing.zaloLink || "",
             thankYouZaloLink: landing.thankYouZaloLink || landing.zaloLink || "",
             fbPixel: landing.fbPixel || "",
-            fbCapiToken: landing.fbCapiToken || "",
             fbCurrency: landing.fbCurrency || "VND",
             fbEventValue: String(landing.fbEventValue ?? 0),
             course_k: landing.course_k || "K41"
@@ -368,7 +361,6 @@ const AdminLandings = () => {
             zaloLink: "",
             thankYouZaloLink: "",
             fbPixel: "",
-            fbCapiToken: "",
             fbCurrency: "VND",
             fbEventValue: "0",
             course_k: "K41"
@@ -446,7 +438,7 @@ const AdminLandings = () => {
                 zaloLink: form.zaloLink || "",
                 thankYouZaloLink: form.thankYouZaloLink || form.zaloLink || "",
                 fbPixel: form.fbPixel || "",
-                fbCapiToken: form.fbCapiToken || "",
+                fbCapiToken: deleteField(),
                 fbCurrency,
                 fbEventValue,
                 course_k: form.course_k || "K41",
@@ -937,17 +929,6 @@ const AdminLandings = () => {
                                     placeholder="VD: 123456789012345"
                                     value={form.fbPixel || ""}
                                     onChange={e => setForm({ ...form, fbPixel: e.target.value })}
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-xs font-semibold text-slate-600 mb-2">Facebook Conversions API (Access Token)</label>
-                                <input
-                                    type="text"
-                                    className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 outline-none transition-all text-sm"
-                                    placeholder="Điền Meta Conversions API Access Token..."
-                                    value={form.fbCapiToken || ""}
-                                    onChange={e => setForm({ ...form, fbCapiToken: e.target.value })}
                                 />
                             </div>
 

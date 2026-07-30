@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { PlayCircle, FileText, Lock, ChevronDown, ChevronUp, Clock } from 'lucide-react';
 import { getLessonKey, getPreviewableLessonKeys } from '../utils/courseAccess';
 

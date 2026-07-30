@@ -1,21 +1,21 @@
 import React, { useEffect, useState } from 'react';
 import '../styles/article-rich-text.css';
-import { useParams, Link, Navigate } from 'react-router-dom';
+import { useParams, Link, Navigate } from 'react-router';
 import { motion } from 'framer-motion';
 import { ChevronRight, Calendar, User, ArrowLeft, Play } from 'lucide-react';
 import SEO from '../components/SEO';
-import { collection, query, where, getDocs, limit, orderBy } from 'firebase/firestore';
+import { collection, query, where, getDocs, limit } from 'firebase/firestore';
 import { db } from '../firebase';
 import PostSidebar from '../components/PostSidebar';
 
 import { getYouTubeEmbedUrl } from '../utils/videoUtils';
+import { sanitizeRichHtml } from '../utils/sanitizeHtml';
 import { MALI_LOGO_URL } from '../constants/brandAssets.js';
 
 const PostDetail = () => {
     const [notFound, setNotFound] = useState(false);
     const { slug } = useParams();
     const [post, setPost] = useState(null);
-    const [relatedPosts, setRelatedPosts] = useState([]);
     const [loading, setLoading] = useState(true);
 
     // Fetch post by slug and related posts
@@ -247,7 +247,7 @@ const PostDetail = () => {
                                 >
                                     <div
                                         className="content-display"
-                                        dangerouslySetInnerHTML={{ __html: post.content }}
+                                        dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(post.content) }}
                                     />
                                 </motion.div>
                             </motion.div>

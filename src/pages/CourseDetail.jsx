@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router';
 import { doc, getDoc, query, collection, where, getDocs, updateDoc, increment } from 'firebase/firestore';
 import { ArrowRight, Globe, Star, Users, Check, Home, ChevronRight, PlayCircle, ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react';
 import { onAuthStateChanged } from "firebase/auth";
@@ -15,6 +15,7 @@ import AuthModal from '../components/AuthModal';
 import { getLessonKey, getPreferredPreviewLesson, resolveCourseAccess } from '../utils/courseAccess';
 import { normalizeCloudinaryImage } from '../utils/imageUtils';
 import { trackMetaEvent } from '../utils/metaPixel';
+import { sanitizeRichHtml } from '../utils/sanitizeHtml';
 
 const CourseDetail = () => {
     const { slug } = useParams();
@@ -175,7 +176,7 @@ const CourseDetail = () => {
                 currency: 'VND'
             });
         }
-    }, [course?.id]);
+    }, [course]);
 
     useEffect(() => {
         const checkEnrollment = async () => {
@@ -205,27 +206,16 @@ const CourseDetail = () => {
             if (!course?.id) return;
 
             try {
-                // Fetch REAL enrollment count from enrollments collection (source of truth)
-                const enrollQ = query(collection(db, 'enrollments'), where('courseId', '==', course.id));
-                const enrollSnap = await getDocs(enrollQ);
-                setRealStudentCount(enrollSnap.size);
+                setRealStudentCount(Number(course.enrollmentCount || 0));
 
-                // Fetch instructor stats using REAL enrollments from all instructor's courses
                 if (course?.authorId) {
                     const q = query(collection(db, 'courses'), where('authorId', '==', course.authorId));
                     const snapshot = await getDocs(q);
                     const totalC = snapshot.size;
-
-                    // Batch-fetch real enrollment counts for all instructor courses
-                    const courseIds = snapshot.docs.map(d => d.id);
-                    let totalS = 0;
-
-                    await Promise.all(
-                        courseIds.map(async (cId) => {
-                            const eQ = query(collection(db, 'enrollments'), where('courseId', '==', cId));
-                            const eSnap = await getDocs(eQ);
-                            totalS += eSnap.size;
-                        })
+                    const totalS = snapshot.docs.reduce(
+                        (total, courseSnapshot) =>
+                            total + Number(courseSnapshot.data().enrollmentCount || 0),
+                        0
                     );
 
                     setInstructorStats({ courses: totalC, students: totalS });
@@ -388,7 +378,7 @@ const CourseDetail = () => {
 
                             <div 
                                 className="text-sm sm:text-base font-light text-white/80 mb-8 leading-relaxed max-w-2xl break-words prose-invert line-clamp-3 md:line-clamp-none opacity-90"
-                                dangerouslySetInnerHTML={{ __html: course?.description ? course.description.replace(/&nbsp;/g, ' ') : '' }}
+                                dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(course?.description ? course.description.replace(/&nbsp;/g, ' ') : '') }}
                             ></div>
 
                             <div className="flex flex-wrap items-center gap-3 sm:gap-6 text-sm font-medium">
@@ -404,7 +394,7 @@ const CourseDetail = () => {
                                             ? course.fakeStudentCount
                                             : (realStudentCount !== null
                                                 ? realStudentCount
-                                                : (Array.isArray(course.students) ? course.students.length : (course.students || 0)))
+                                                : (course.enrollmentCount || 0))
                                         } học viên
                                     </span>
                                 </div>
@@ -480,7 +470,7 @@ const CourseDetail = () => {
                             <h2 className="text-2xl font-bold font-sans text-slate-900 mb-4">Giới thiệu khóa học</h2>
                             <div
                                 className={`text-slate-600 leading-relaxed text-sm break-words [&_p]:mb-4 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 overflow-hidden transition-all duration-500 ease-in-out ${isDescExpanded ? 'max-h-full' : 'max-h-60'}`}
-                                dangerouslySetInnerHTML={{ __html: course?.content ? course.content.replace(/&nbsp;/g, ' ') : (course?.description ? course.description.replace(/&nbsp;/g, ' ') : '') }}
+                                dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(course?.content ? course.content.replace(/&nbsp;/g, ' ') : (course?.description ? course.description.replace(/&nbsp;/g, ' ') : '')) }}
                             />
 
                             {!isDescExpanded && (

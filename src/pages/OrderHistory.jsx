@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { collection, query, where, getDocs, orderBy } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router";
 import { db, auth } from "../firebase"; // Adjust path if needed
 import { formatPrice } from "../utils/orderService";
 import { Loader2, Package, Check, Clock, XCircle, ArrowRight } from "lucide-react";

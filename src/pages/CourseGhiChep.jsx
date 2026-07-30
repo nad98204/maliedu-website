@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, Navigate, useParams } from "react-router-dom";
+import { Link, Navigate, useParams } from "react-router";
 import {
     collection,
     doc,
@@ -12,6 +12,7 @@ import { ChevronLeft, PenTool, BookOpen } from "lucide-react";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "../firebase";
 import { resolveCourseAccess } from "../utils/courseAccess";
+import { loadFullCourse } from "../utils/courseContentService";
 
 const DEFAULT_SECTION_TITLE = "Nội dung khóa học";
 
@@ -69,7 +70,6 @@ const CourseGhiChep = () => {
                 }
 
                 if (!courseData) return;
-                setCourse(courseData);
                 const access = currentUser
                     ? await resolveCourseAccess({
                           db,
@@ -80,11 +80,14 @@ const CourseGhiChep = () => {
                 setHasFullAccess(access.hasFullAccess);
 
                 if (!access.hasFullAccess) {
+                    setCourse(courseData);
                     setSections([]);
                     return;
                 }
 
-                setSections(normalizeSections(courseData.curriculum));
+                const fullCourse = await loadFullCourse(db, courseData);
+                setCourse(fullCourse);
+                setSections(normalizeSections(fullCourse.curriculum));
             } catch (err) {
                 console.error("Error fetching course:", err);
             } finally {

@@ -82,6 +82,8 @@ const AdminRecruitment = () => {
 
     useEffect(() => {
         fetchJobs();
+        // Initial admin list load; subsequent mutations refresh explicitly.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     // Show toast notification

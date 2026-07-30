@@ -97,6 +97,7 @@ const AuthModal = ({ isOpen, onClose }) => {
                 const user = userCredential.user;
 
                 await setDoc(doc(db, 'users', user.uid), {
+                    uid: user.uid,
                     email: user.email,
                     displayName: fullName,
                     role: 'student',

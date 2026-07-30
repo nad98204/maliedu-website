@@ -1,21 +1,15 @@
 import { X, ChevronRight, Info, User, Building2 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { createElement, useEffect, useState } from "react";
 
 const MobileActionSheet = ({ isOpen, onClose, title, items }) => {
     const [isVisible, setIsVisible] = useState(false);
 
     useEffect(() => {
-        if (isOpen) {
-            setIsVisible(true);
-            // Prevent body scrolling when sheet is open
-            document.body.style.overflow = "hidden";
-        } else {
-            const timer = setTimeout(() => setIsVisible(false), 300); // Wait for animation
-            document.body.style.overflow = "";
-            return () => clearTimeout(timer);
-        }
+        const timer = setTimeout(() => setIsVisible(isOpen), isOpen ? 0 : 300);
+        document.body.style.overflow = isOpen ? "hidden" : "";
         return () => {
+            clearTimeout(timer);
             document.body.style.overflow = "";
         };
     }, [isOpen]);

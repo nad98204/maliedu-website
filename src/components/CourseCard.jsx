@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { Users, BookOpen, Eye } from 'lucide-react';
 import { formatPrice } from '../utils/orderService';
 import { normalizeCloudinaryImage } from '../utils/imageUtils';
@@ -17,7 +17,7 @@ const CourseCard = ({ course }) => {
     // Calculate Metrics
     const studentCount = course.fakeStudentCount
         || course.enrollmentCount
-        || (Array.isArray(course.students) ? course.students.length : (course.students || 0));
+        || 0;
 
     const calculateTotalLessons = () => {
         if (course.totalLessons) return course.totalLessons;

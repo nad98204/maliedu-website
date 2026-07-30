@@ -1,3 +1,5 @@
+import { sanitizeRichHtml } from './sanitizeHtml';
+
 const WORDS_PER_MINUTE = 220;
 
 export const firestoreValueToDate = (value) => {
@@ -92,13 +94,14 @@ export const prepareArticleContent = (post) => {
             });
             return { blockData: { ...blockData, blocks }, html: '', toc };
         } catch {
-            return { blockData: null, html: post.content, toc: [] };
+            return { blockData: null, html: sanitizeRichHtml(post.content), toc: [] };
         }
     }
 
-    if (typeof DOMParser === 'undefined') return { blockData: null, html: post.content, toc: [] };
+    const sanitizedContent = sanitizeRichHtml(post.content);
+    if (typeof DOMParser === 'undefined') return { blockData: null, html: sanitizedContent, toc: [] };
 
-    const documentNode = new DOMParser().parseFromString(`<div id="article-content-root">${post.content}</div>`, 'text/html');
+    const documentNode = new DOMParser().parseFromString(`<div id="article-content-root">${sanitizedContent}</div>`, 'text/html');
     const root = documentNode.getElementById('article-content-root');
     root?.querySelectorAll('h2, h3').forEach((heading) => {
         const id = createHeadingId(heading.textContent, usedIds);
@@ -107,5 +110,5 @@ export const prepareArticleContent = (post) => {
         toc.push({ id, level: Number(heading.tagName.substring(1)), text: heading.textContent.trim() });
     });
 
-    return { blockData: null, html: root?.innerHTML || post.content, toc };
+    return { blockData: null, html: root?.innerHTML || sanitizedContent, toc };
 };

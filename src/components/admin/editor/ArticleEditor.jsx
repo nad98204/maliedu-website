@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import EditorJS from '@editorjs/editorjs';
 import Header from '@editorjs/header';
 import Paragraph from '@editorjs/paragraph';
@@ -14,7 +14,7 @@ import ScrollyBlock from './tools/ScrollyBlock';
 import Spacer from './tools/Spacer';
 import { uploadToCloudinary } from '../../../utils/uploadService';
 
-const ArticleEditor = React.forwardRef(({ onSave, initialData }, ref) => {
+const ArticleEditor = React.forwardRef(({ initialData }, ref) => {
     const editorInstance = useRef(null);
     const editorContainerRef = useRef(null);
 
@@ -34,20 +34,7 @@ const ArticleEditor = React.forwardRef(({ onSave, initialData }, ref) => {
         }
     }));
 
-    useEffect(() => {
-        if (!editorInstance.current) {
-            initEditor();
-        }
-
-        return () => {
-            if (editorInstance.current && editorInstance.current.destroy) {
-                editorInstance.current.destroy();
-                editorInstance.current = null;
-            }
-        };
-    }, []);
-
-    const initEditor = () => {
+    const initEditor = useCallback(() => {
         const editor = new EditorJS({
             holder: editorContainerRef.current,
             data: initialData || {},
@@ -160,7 +147,20 @@ const ArticleEditor = React.forwardRef(({ onSave, initialData }, ref) => {
         });
 
         editorInstance.current = editor;
-    };
+    }, [initialData]);
+
+    useEffect(() => {
+        if (!editorInstance.current) {
+            initEditor();
+        }
+
+        return () => {
+            if (editorInstance.current && editorInstance.current.destroy) {
+                editorInstance.current.destroy();
+                editorInstance.current = null;
+            }
+        };
+    }, [initEditor]);
 
     return (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">

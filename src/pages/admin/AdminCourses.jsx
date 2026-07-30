@@ -1,13 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  addDoc,
   collection,
-  deleteDoc,
   doc,
   getDocs,
   orderBy,
   query,
-  updateDoc,
+  writeBatch,
 } from "firebase/firestore";
 import {
   Edit,
@@ -44,12 +42,17 @@ import {
 
 import { db } from "../../firebase";
 import RichTextEditor from "../../components/RichTextEditor";
-import { uploadToCloudinary } from "../../utils/uploadService";
 import { uploadFileToS3, uploadVideoToS3 } from "../../utils/s3UploadService";
 import AdminCategories from "./AdminCategories";
 import AdminCoupons from "./AdminCoupons";
 import AdminInstructors from "./AdminInstructors"; // NEW IMPORT
 import S3VideoUploader from "../../components/S3VideoUploader";
+import {
+  COURSE_CONTENT_COLLECTION,
+  mergeCourseWithContent,
+  splitCourseForStorage,
+} from "../../utils/courseDataPrivacy";
+import { getPrivateCourseContent } from "../../utils/courseContentService";
 
 // --- CẤU HÌNH THÔNG TIN GIẢNG VIÊN MẶC ĐỊNH ---
 // Anh/chị có thể sửa nội dung mặc định tại đây:
@@ -122,6 +125,30 @@ const reindexCourseResources = (courseResources = []) =>
     sortOrder: index,
   }));
 
+const fetchVideoDuration = (url) =>
+  new Promise((resolve) => {
+    const video = document.createElement("video");
+    video.preload = "metadata";
+    video.onloadedmetadata = () => {
+      const duration = video.duration;
+      if (!duration || Number.isNaN(duration)) {
+        resolve(null);
+        return;
+      }
+
+      const hours = Math.floor(duration / 3600);
+      const minutes = Math.floor((duration % 3600) / 60);
+      const seconds = Math.floor(duration % 60);
+      resolve(
+        hours > 0
+          ? `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`
+          : `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`,
+      );
+    };
+    video.onerror = () => resolve(null);
+    video.src = url;
+  });
+
 const AdminCourses = () => {
   const [courses, setCourses] = useState([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -137,7 +164,6 @@ const AdminCourses = () => {
   const [activeTab, setActiveTab] = useState("info");
   const [expandedLessons, setExpandedLessons] = useState({}); // Key: `${sIdx}-${lIdx}`, Value: boolean
   const [expandedSections, setExpandedSections] = useState({}); // Key: sectionId, Value: boolean
-  const [expandedSectionsLoaded, setExpandedSectionsLoaded] = useState(false);
   const [quickAddExpanded, setQuickAddExpanded] = useState({}); // Key: sIdx, Value: boolean
   const [expandedResources, setExpandedResources] = useState({}); // Key: resource.id || idx, Value: boolean
   const [uploadTasks, setUploadTasks] = useState({}); // { 'key': { fileName, progress, status, error } }
@@ -195,8 +221,6 @@ const AdminCourses = () => {
   };
   const [uploadingDocumentKey, setUploadingDocumentKey] = useState(null);
   const [documentUploadProgress, setDocumentUploadProgress] = useState(null);
-  const [draggedCourseResourceIndex, setDraggedCourseResourceIndex] =
-    useState(null);
   const [draggedLessonLocation, setDraggedLessonLocation] = useState(null);
   const [lessonDropTarget, setLessonDropTarget] = useState(null);
 
@@ -223,8 +247,6 @@ const AdminCourses = () => {
       }
     } catch (error) {
       console.error("Error loading expanded sections from localStorage:", error);
-    } finally {
-      setExpandedSectionsLoaded(true);
     }
   };
 
@@ -306,20 +328,24 @@ const AdminCourses = () => {
   });
 
   // Fetch courses from Firebase
-  const fetchCourses = async () => {
+  const fetchCourses = useCallback(async () => {
     try {
       const q = query(collection(db, "courses"), orderBy("createdAt", "desc"));
       const snapshot = await getDocs(q);
-      const data = snapshot.docs.map((docItem) => ({
-        id: docItem.id,
-        ...docItem.data(),
-      }));
+      const data = await Promise.all(
+        snapshot.docs.map(async (docItem) => {
+          const publicCourse = { id: docItem.id, ...docItem.data() };
+          const privateCourse = await getPrivateCourseContent(db, docItem.id);
+          return mergeCourseWithContent(publicCourse, privateCourse);
+        }),
+      );
       setCourses(data);
     } catch (error) {
       console.error("Error fetching courses:", error);
-      showToast("Không thể tải danh sách khóa học", "error");
+      setToast({ message: "Không thể tải danh sách khóa học", type: "error" });
+      setTimeout(() => setToast(null), 3000);
     }
-  };
+  }, []);
 
   // Fetch Categories for Dropdown
   const [categories, setCategories] = useState([]);
@@ -351,7 +377,7 @@ const AdminCourses = () => {
 
   useEffect(() => {
     fetchCourses();
-  }, []);
+  }, [fetchCourses]);
 
   // Load expanded sections state from localStorage on mount
   useEffect(() => {
@@ -567,72 +593,6 @@ const AdminCourses = () => {
         ),
       ),
     }));
-  };
-
-  const handleMoveCourseResource = (index, direction) => {
-    setFormData((prev) => {
-      const nextResources = [...(prev.courseResources || [])];
-      const nextIndex = index + direction;
-
-      if (nextIndex < 0 || nextIndex >= nextResources.length) {
-        return prev;
-      }
-
-      [nextResources[index], nextResources[nextIndex]] = [
-        nextResources[nextIndex],
-        nextResources[index],
-      ];
-
-      return {
-        ...prev,
-        courseResources: reindexCourseResources(nextResources),
-      };
-    });
-  };
-
-  const reorderCourseResources = (fromIndex, toIndex) => {
-    if (
-      fromIndex === toIndex ||
-      fromIndex < 0 ||
-      toIndex < 0 ||
-      fromIndex >= (formData.courseResources || []).length ||
-      toIndex >= (formData.courseResources || []).length
-    ) {
-      return;
-    }
-
-    setFormData((prev) => {
-      const nextResources = [...(prev.courseResources || [])];
-      const [movedResource] = nextResources.splice(fromIndex, 1);
-      nextResources.splice(toIndex, 0, movedResource);
-
-      return {
-        ...prev,
-        courseResources: reindexCourseResources(nextResources),
-      };
-    });
-  };
-
-  const handleCourseResourceDragStart = (event, index) => {
-    setDraggedCourseResourceIndex(index);
-    event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData("text/plain", String(index));
-  };
-
-  const handleCourseResourceDrop = (event, targetIndex) => {
-    event.preventDefault();
-
-    const sourceIndex =
-      draggedCourseResourceIndex ??
-      Number.parseInt(event.dataTransfer.getData("text/plain"), 10);
-
-    if (Number.isNaN(sourceIndex)) {
-      setDraggedCourseResourceIndex(null);
-      return;
-    }
-
-    reorderCourseResources(sourceIndex, targetIndex);
-    setDraggedCourseResourceIndex(null);
   };
 
   const parseDraggedLessonLocation = (event) => {
@@ -885,9 +845,6 @@ const AdminCourses = () => {
     }
   };
 
-  const [isAutoSaving, setIsAutoSaving] = useState(false);
-  const [lastAutoSave, setLastAutoSave] = useState(null);
-
   // Auto-save to LocalStorage whenever formData changes (Fast backup)
   useEffect(() => {
     if (!isFormOpen) return;
@@ -904,23 +861,31 @@ const AdminCourses = () => {
     if (!isFormOpen || !editingCourse?.id || isSubmitting) return;
 
     const timer = setTimeout(async () => {
-      setIsAutoSaving(true);
       try {
-        const courseData = getNormalizedCourseData(formData);
-        await updateDoc(doc(db, "courses", editingCourse.id), {
-          ...courseData,
+        const courseData = {
+          ...getNormalizedCourseData(formData),
           isDraft: true,
-          updatedAt: Date.now(), // Consistently using Date.now()
-        });
-        setLastAutoSave(new Date());
+          updatedAt: Date.now(),
+        };
+        const { publicCourse, privateCourse } = splitCourseForStorage(
+          editingCourse.id,
+          courseData,
+        );
+        const batch = writeBatch(db);
+        batch.set(doc(db, "courses", editingCourse.id), publicCourse);
+        batch.set(
+          doc(db, COURSE_CONTENT_COLLECTION, editingCourse.id),
+          privateCourse,
+        );
+        await batch.commit();
       } catch (err) {
         console.error("Auto-save to cloud failed:", err);
-      } finally {
-        setIsAutoSaving(false);
       }
     }, 10000);
 
     return () => clearTimeout(timer);
+  // The normalization helper is pure; form state is the actual autosave trigger.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData, isFormOpen, editingCourse, isSubmitting]);
 
   const handleCloseForm = () => {
@@ -937,85 +902,6 @@ const AdminCourses = () => {
     }
     setIsFormOpen(false);
   };
-
-  const handleMoveLesson = (sIdx, lIdx, direction) => {
-    setFormData((prev) => {
-      const nextCurriculum = [...(prev.curriculum || [])];
-      const section = nextCurriculum[sIdx];
-
-      if (!section) {
-        return prev;
-      }
-
-      const nextLessons = [...(section.lessons || [])];
-      const newIndex = lIdx + direction;
-
-      if (newIndex < 0 || newIndex >= nextLessons.length) {
-        return prev;
-      }
-
-      [nextLessons[lIdx], nextLessons[newIndex]] = [
-        nextLessons[newIndex],
-        nextLessons[lIdx],
-      ];
-
-      nextCurriculum[sIdx] = {
-        ...section,
-        lessons: nextLessons,
-      };
-
-      return {
-        ...prev,
-        curriculum: nextCurriculum,
-      };
-    });
-  };
-
-  // Auto-scan video duration
-  const fetchVideoDuration = (url) => {
-    return new Promise((resolve) => {
-      const video = document.createElement("video");
-      video.preload = "metadata";
-      video.onloadedmetadata = () => {
-        const duration = video.duration;
-        if (!duration || isNaN(duration)) {
-          resolve(null);
-          return;
-        }
-        const h = Math.floor(duration / 3600);
-        const m = Math.floor((duration % 3600) / 60);
-        const s = Math.floor(duration % 60);
-        // Format: HH:MM:SS or MM:SS
-        const fmt =
-          h > 0
-            ? `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
-            : `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
-        resolve(fmt);
-      };
-      video.onerror = () => resolve(null);
-      video.src = url;
-    });
-  };
-
-  const handleVideoScan = async (sIdx, lIdx, url) => {
-    if (!url) return;
-
-    // Check if YouTube
-    if (url.includes("youtube.com") || url.includes("youtu.be")) {
-      showToast(
-        "Video YouTube không hỗ trợ tự lấy thời lượng (vui lòng nhập tay)",
-        "info",
-      );
-      return;
-    }
-
-    const duration = await fetchVideoDuration(url);
-    if (duration) {
-      handleUpdateLesson(sIdx, lIdx, "duration", duration);
-      showToast(`Đã cập nhật thời lượng: ${duration}`);
-    }
-  };
-  // ----------------------
 
   // Auto-generate slug from name
   const generateSlug = (name) => {
@@ -1044,11 +930,6 @@ const AdminCourses = () => {
       [name]: type === "checkbox" ? checked : value,
       ...(name === "name" && { slug: generateSlug(value) }),
     }));
-  };
-
-  // Handle Rich Text Editor change
-  const handleContentChange = (value) => {
-    setFormData((prev) => ({ ...prev, content: value }));
   };
 
   const handleCategoryChange = (slug) => {
@@ -1343,14 +1224,27 @@ const AdminCourses = () => {
         updatedAt: Date.now(),
       };
 
+      const courseRef = editingCourse
+        ? doc(db, "courses", editingCourse.id)
+        : doc(collection(db, "courses"));
+      const dataToStore = editingCourse
+        ? courseData
+        : { ...courseData, createdAt: Date.now() };
+      const { publicCourse, privateCourse } = splitCourseForStorage(
+        courseRef.id,
+        dataToStore,
+      );
+      const batch = writeBatch(db);
+      batch.set(courseRef, publicCourse);
+      batch.set(
+        doc(db, COURSE_CONTENT_COLLECTION, courseRef.id),
+        privateCourse,
+      );
+      await batch.commit();
+
       if (editingCourse) {
-        await updateDoc(doc(db, "courses", editingCourse.id), courseData);
         showToast("Cập nhật khóa học thành công!");
       } else {
-        await addDoc(collection(db, "courses"), {
-          ...courseData,
-          createdAt: Date.now(),
-        });
         showToast("Tạo khóa học thành công!");
       }
       setIsFormOpen(false);
@@ -1369,7 +1263,10 @@ const AdminCourses = () => {
     }
 
     try {
-      await deleteDoc(doc(db, "courses", courseId));
+      const batch = writeBatch(db);
+      batch.delete(doc(db, "courses", courseId));
+      batch.delete(doc(db, COURSE_CONTENT_COLLECTION, courseId));
+      await batch.commit();
       setCourses((prev) => prev.filter((c) => c.id !== courseId));
       showToast("Xóa khóa học thành công!");
     } catch (error) {
@@ -1393,28 +1290,6 @@ const AdminCourses = () => {
           ? `Chương ${sectionIndex + 1}: ${section.title}`
           : `Buổi học lẻ (Phần ${sectionIndex + 1})`,
       })),
-    [formData.curriculum],
-  );
-
-  const lessonToSectionMap = useMemo(
-    () =>
-      (formData.curriculum || []).reduce((accumulator, section, sectionIndex) => {
-        const sectionId = getSectionIdentifier(section, `section-${sectionIndex}`);
-
-        (section.lessons || []).forEach((lesson) => {
-          const lessonId = getLessonIdentifier(lesson);
-
-          if (lessonId) {
-            accumulator[lessonId] = sectionId;
-          }
-
-          if (lesson.videoId) {
-            accumulator[lesson.videoId] = sectionId;
-          }
-        });
-
-        return accumulator;
-      }, {}),
     [formData.curriculum],
   );
 

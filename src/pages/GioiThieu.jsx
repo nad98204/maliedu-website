@@ -1,5 +1,5 @@
-import { useEffect, useRef } from "react";
-import { useLocation } from "react-router-dom";
+import { useEffect } from "react";
+import { useLocation } from "react-router";
 import SEO from "../components/SEO";
 import {
   BookOpenCheck,
@@ -16,19 +16,6 @@ import {
 } from "lucide-react";
 
 // --- DỮ LIỆU CẬP NHẬT THEO YÊU CẦU ---
-
-const missionPoints = [
-  "Giúp mỗi người nhìn lại gốc rễ bên trong: niềm tin, cảm xúc, tư duy và thói quen đang chi phối cuộc sống hiện tại.",
-  "Hướng dẫn cách làm việc với tiềm thức và nội tâm một cách tỉnh thức, thực tế và có hệ thống.",
-  "Đồng hành cùng học viên trong quá trình chuyển hóa từ bên trong để tạo ra thay đổi bên ngoài, đặc biệt trong lĩnh vực tài chính, công việc và các mối quan hệ.",
-  "Mali Edu tin rằng: Khi bên trong thay đổi đúng cách, kết quả bên ngoài sẽ tự nhiên thay đổi theo.",
-];
-
-const visionHighlights = [
-  "Sự rõ ràng trong nhận thức",
-  "Sự vững vàng trong nội tâm",
-  "Sự bền vững trong tài chính và cuộc sống",
-];
 
 const coreValues = [
   {

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router";
 import { Trash2, ArrowRight, ShoppingCart, Clock, ExternalLink, AlertCircle, CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { useCart } from "../context/CartContext";

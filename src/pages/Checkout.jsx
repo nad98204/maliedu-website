@@ -1,12 +1,11 @@
-import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { doc, getDoc } from "firebase/firestore";
+import { useEffect, useMemo, useState } from "react";
+import { useParams, useNavigate } from "react-router";
+import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { Loader2, ArrowLeft, ShieldCheck, CreditCard } from "lucide-react";
 
 import { db, auth } from "../firebase";
 import { createOrder, formatPrice } from "../utils/orderService";
-import { collection, query, where, getDocs, addDoc, serverTimestamp } from "firebase/firestore";
 import { useCart } from "../context/CartContext";
 import { trackMetaEvent } from "../utils/metaPixel";
 
@@ -30,6 +29,13 @@ const Checkout = () => {
     const [couponCode, setCouponCode] = useState("");
     const [couponApplied, setCouponApplied] = useState(null); // { code: 'MALI20', discountPercent: 20 }
     const [checkingCoupon, setCheckingCoupon] = useState(false);
+    const finalPrice = useMemo(() => {
+        if (!course) return 0;
+        const basePrice = course.salePrice || course.price || 0;
+        if (!couponApplied) return basePrice;
+        const discountAmount = basePrice * (couponApplied.discountPercent / 100);
+        return Math.max(0, basePrice - discountAmount);
+    }, [course, couponApplied]);
 
     useEffect(() => {
         // Fetch Course Info or Load Cart
@@ -91,11 +97,11 @@ const Checkout = () => {
                 content_ids: course.id === 'cart' ? cartItems.map(i => i.id) : [course.id],
                 content_type: 'product',
                 num_items: course.id === 'cart' ? cartItems.length : 1,
-                value: calculateFinalPrice(),
+                value: finalPrice,
                 currency: 'VND'
             });
         }
-    }, [course?.id]);
+    }, [cartItems, course, finalPrice]);
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -149,47 +155,15 @@ const Checkout = () => {
     };
 
     const calculateFinalPrice = () => {
-        if (!course) return 0;
-        const basePrice = course.salePrice || course.price || 0;
-        if (!couponApplied) return basePrice;
-        const discountAmount = basePrice * (couponApplied.discountPercent / 100);
-        return Math.max(0, basePrice - discountAmount);
+        return finalPrice;
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setSubmitting(true);
         try {
-            let finalUserId = user?.uid;
+            const finalUserId = user?.uid || null;
             const customerEmail = user?.email || formData.email;
-
-            // 1. If user is NOT logged in, find or create a user in Firestore
-            if (!finalUserId) {
-                // Check if user exists with this email
-                const usersRef = collection(db, "users");
-                const q = query(usersRef, where("email", "==", customerEmail));
-                const querySnapshot = await getDocs(q);
-
-                if (!querySnapshot.empty) {
-                    // Start using existing user
-                    const foundUser = querySnapshot.docs[0];
-                    finalUserId = foundUser.id;
-                    // Optional: Update phone/name if missing? 
-                    // For now, respect existing data to avoid overwrites
-                } else {
-                    // Create NEW Shadow User
-                    const newUserRef = await addDoc(usersRef, {
-                        email: customerEmail,
-                        displayName: formData.fullName,
-                        phoneNumber: formData.phone || "",
-                        role: 'student',
-                        createdAt: serverTimestamp(),
-                        photoURL: null,
-                        isShadow: true
-                    });
-                    finalUserId = newUserRef.id;
-                }
-            }
 
             const isCartOrder = courseId === 'cart';
             // Prepare items array

@@ -30,8 +30,6 @@ const s3Config = {
 
 const missingBuildKeys = [
   ["VITE_S3_ENDPOINT", s3Config.endpoint],
-  ["VITE_S3_ACCESS_KEY", getTrimmedValue(env.VITE_S3_ACCESS_KEY)],
-  ["VITE_S3_SECRET_KEY", getTrimmedValue(env.VITE_S3_SECRET_KEY)],
   ["VITE_S3_BUCKET", s3Config.bucket],
 ]
   .filter(([, value]) => !value)
@@ -41,7 +39,7 @@ const allowEmptyRuntimeConfig = isTruthy(env.ALLOW_EMPTY_RUNTIME_CONFIG);
 
 if (missingBuildKeys.length && !allowEmptyRuntimeConfig) {
   throw new Error(
-    `[runtime-config] Missing S3 values: ${missingBuildKeys.join(
+    `[runtime-config] Missing public S3 values: ${missingBuildKeys.join(
       ", ",
     )}. Set VITE_S3_* in the production build environment before deploy. ` +
       "Use ALLOW_EMPTY_RUNTIME_CONFIG=true only if you intentionally plan to hotfix /runtime-config.js after deploy."
@@ -50,7 +48,7 @@ if (missingBuildKeys.length && !allowEmptyRuntimeConfig) {
 
 if (missingBuildKeys.length) {
   console.warn(
-    `[runtime-config] Missing S3 values: ${missingBuildKeys.join(
+    `[runtime-config] Missing public S3 values: ${missingBuildKeys.join(
       ", ",
     )}. dist/runtime-config.js will still be generated because ALLOW_EMPTY_RUNTIME_CONFIG=true.`,
   );

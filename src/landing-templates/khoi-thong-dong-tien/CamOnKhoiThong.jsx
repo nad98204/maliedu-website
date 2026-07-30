@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { ArrowRight, CheckCircle2, Clock, ShieldAlert, Loader2 } from "lucide-react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router";
 import { KHOI_THONG_DONG_TIEN_CONFIG, useKhoiThongLandingConfig } from "./landingConfig";
 import { initMetaPixel, trackMetaEventForPixel } from "../../utils/metaPixel";
 
@@ -19,7 +19,11 @@ const CamOnKhoiThong = () => {
   const pixelIdRef = useRef("");
 
   useEffect(() => {
-    setTimeLeft(landingConfig.thankYouCountdownSeconds);
+    const timer = window.setTimeout(
+      () => setTimeLeft(landingConfig.thankYouCountdownSeconds),
+      0,
+    );
+    return () => window.clearTimeout(timer);
   }, [landingConfig.thankYouCountdownSeconds]);
 
   useEffect(() => {

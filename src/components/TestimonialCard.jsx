@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Quote, Facebook, Youtube } from 'lucide-react';
 
 import { getYouTubeEmbedUrl } from '../utils/videoUtils';
+import { sanitizeRichHtml } from '../utils/sanitizeHtml';
 
 const TestimonialCard = ({ article }) => {
     const [isExpanded, setIsExpanded] = useState(false);
@@ -65,7 +66,7 @@ const TestimonialCard = ({ article }) => {
                 // Expanded State: Show Full Content (HTML) or Fallback to Excerpt
                 <div className="font-sans text-[15px] text-gray-600 leading-[1.75] mb-4 space-y-4">
                     {hasContent ? (
-                        <div dangerouslySetInnerHTML={{ __html: article.content }} className="prose prose-sm max-w-none text-gray-600 font-sans leading-[1.75]" />
+                        <div dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(article.content) }} className="prose prose-sm max-w-none text-gray-600 font-sans leading-[1.75]" />
                     ) : (
                         <div className="whitespace-pre-line">"{article.excerpt}"</div>
                     )}

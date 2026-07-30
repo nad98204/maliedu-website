@@ -1,9 +1,8 @@
 import { ArrowRight, Phone, Sparkles, User, UserPlus, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router";
 import { submitToCRM } from "../../../services/crmService";
-import { buildLeadSearchKeywords, normalizeLeadPhoneDigits, normalizeLeadSearchText } from "../../../utils/leadSearch";
 import {
   createMetaEventId,
   getMetaBrowserData,
@@ -20,8 +19,6 @@ const BANNER_URL =
 
 const DEFAULT_REMOTE_CONFIG = {
   fbPixel: "1526874981588150",
-  fbCapiToken:
-    "EAAOUx21ZARaYBQ6jZAiffdq7ZCsCj7Xko24I8De60ufxpJ0ZBNGE1dbbJBI8MDDeZB8n37IhzpUPZAahSZA69WFnDiTAB9wwfriQIoeKQUjVj6pzIumRzDCXHLGATDxJOAlZAiz3wIdYhwo0aTwoZAEFNTBZCRVKDZC7OvjtZBfQ1TUHXAdWFAii06GZBGRRe5I8ZBSsm51QZDZD",
   active_source_key: "",
   targetFunnel: "ADS",
   funnel_type: "ads",
@@ -625,26 +622,6 @@ const FormDangKy = ({
         userAgent: navigator.userAgent,
         clientIp: clientIp,
       });
-
-      // --- LƯU VÀO FIRESTORE LEADS COLLECTION ---
-      try {
-        const [{ db }, { collection, addDoc }] = await Promise.all([
-          import("../../../firebase"),
-          import("firebase/firestore"),
-        ]);
-        await addDoc(collection(db, "leads"), {
-          name: nameTrim,
-          phone: formState.phone.replace(/\s/g, ""),
-          searchName: normalizeLeadSearchText(nameTrim),
-          searchPhone: normalizeLeadPhoneDigits(formState.phone),
-          searchKeywords: buildLeadSearchKeywords({ name: nameTrim, phone: formState.phone }),
-          source: "khoi-thong-dong-tien",
-          createdAt: Date.now(),
-          status: "new"
-        });
-      } catch (firestoreErr) {
-        console.error("Lỗi lưu vào Firestore leads:", firestoreErr);
-      }
 
       // --- PHẦN 4: XỬ LÝ HASH DATA CHO FB ---
       const normalizedPhone = formState.phone.replace(/\D/g, "").replace(/^0/, "84");

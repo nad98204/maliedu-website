@@ -28,7 +28,6 @@ const VideoPlayer = () => {
 
     v.volume = 0.7;
     v.muted = true;
-    setMuted(true);
 
     const p = v.play();
     if (p?.catch) {
@@ -238,14 +237,20 @@ const VideoPlayer = () => {
 const Countdown = ({ eventStart }) => {
   const target = useMemo(() => {
     const value = new Date(eventStart).getTime();
-    return Number.isFinite(value) ? value : Date.now();
+    return Number.isFinite(value) ? value : 0;
   }, [eventStart]);
   const [left, setLeft] = useState(() => Math.max(0, target - Date.now()));
 
   useEffect(() => {
-    setLeft(Math.max(0, target - Date.now()));
+    const initialUpdate = setTimeout(
+      () => setLeft(Math.max(0, target - Date.now())),
+      0,
+    );
     const id = setInterval(() => setLeft(Math.max(0, target - Date.now())), 1000);
-    return () => clearInterval(id);
+    return () => {
+      clearTimeout(initialUpdate);
+      clearInterval(id);
+    };
   }, [target]);
 
   const s = Math.floor(left / 1000);

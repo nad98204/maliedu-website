@@ -1,14 +1,14 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
-    addDoc,
     collection,
-    deleteDoc,
     doc,
     getDocs,
+    increment,
     query,
     where,
     setDoc,
-    serverTimestamp
+    serverTimestamp,
+    writeBatch
 } from 'firebase/firestore';
 import { initializeApp, deleteApp } from "firebase/app";
 import { getAuth, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail } from "firebase/auth";
@@ -19,6 +19,10 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth, firebaseConfig } from '../../firebase';
 import { removeSession } from "../../utils/sessionService";
 import { isSuperAdminEmail } from '../../utils/adminAccess';
+import {
+    COURSE_ACCESS_COLLECTION,
+    getCourseAccessId
+} from '../../utils/courseDataPrivacy';
 
 const AdminStudents = () => {
     // TABS: 'list' (Users), 'enrollments' (Active Courses), 'create' (New Account), 'audit' (Super Admin only)
@@ -200,27 +204,46 @@ const AdminStudents = () => {
                 where('courseId', '==', activateData.courseId)
             );
             const snap = await getDocs(q);
-            if (!snap.empty) {
-                showToast("Học viên này đã có khóa học này rồi!", "error");
-                return;
+            const alreadyEnrolled = !snap.empty;
+            const enrollmentRef = alreadyEnrolled
+                ? snap.docs[0].ref
+                : doc(collection(db, 'enrollments'));
+            const batch = writeBatch(db);
+
+            if (!alreadyEnrolled) {
+                batch.set(enrollmentRef, {
+                    userId: activateData.userId,
+                    userEmail: activateData.email,
+                    courseId: activateData.courseId,
+                    courseName: selectedCourse.name,
+                    createdAt: Date.now(),
+                    status: 'active',
+                    progress: 0,
+                    grantedByEmail: currentAdminUser?.email || 'unknown',
+                    grantedByName: currentAdminUser?.displayName || currentAdminUser?.email || 'Admin'
+                });
+                batch.update(doc(db, 'courses', activateData.courseId), {
+                    enrollmentCount: increment(1)
+                });
             }
 
-            await addDoc(collection(db, 'enrollments'), {
-                userId: activateData.userId,
-                userEmail: activateData.email,
-                courseId: activateData.courseId,
-                courseName: selectedCourse.name,
-                createdAt: Date.now(),
-                status: 'active',
-                progress: 0,
-                grantedByEmail: currentAdminUser?.email || 'unknown',
-                grantedByName: currentAdminUser?.displayName || currentAdminUser?.email || 'Admin'
-            });
-
-            const { arrayUnion } = await import('firebase/firestore');
-            await setDoc(doc(db, 'courses', activateData.courseId), {
-                students: arrayUnion(activateData.userId)
-            }, { merge: true });
+            batch.set(
+                doc(
+                    db,
+                    COURSE_ACCESS_COLLECTION,
+                    getCourseAccessId(activateData.userId, activateData.courseId)
+                ),
+                {
+                    userId: activateData.userId,
+                    userEmail: activateData.email,
+                    courseId: activateData.courseId,
+                    enrollmentId: enrollmentRef.id,
+                    status: 'active',
+                    grantedAt: serverTimestamp(),
+                    grantedByEmail: currentAdminUser?.email || 'unknown'
+                }
+            );
+            await batch.commit();
 
             showToast("Kích hoạt khóa học thành công!");
             setIsActivateModalOpen(false);
@@ -238,13 +261,20 @@ const AdminStudents = () => {
         if (!window.confirm("Hủy kích hoạt khóa học này?")) return;
         try {
             const enrollment = enrollments.find(e => e.id === id);
-            await deleteDoc(doc(db, 'enrollments', id));
-
             if (enrollment) {
-                const { arrayRemove } = await import('firebase/firestore');
-                await setDoc(doc(db, 'courses', enrollment.courseId), {
-                    students: arrayRemove(enrollment.userId)
-                }, { merge: true });
+                const batch = writeBatch(db);
+                batch.delete(doc(db, 'enrollments', id));
+                batch.delete(
+                    doc(
+                        db,
+                        COURSE_ACCESS_COLLECTION,
+                        getCourseAccessId(enrollment.userId, enrollment.courseId)
+                    )
+                );
+                batch.update(doc(db, 'courses', enrollment.courseId), {
+                    enrollmentCount: increment(-1)
+                });
+                await batch.commit();
             }
 
             showToast("Đã hủy kích hoạt");

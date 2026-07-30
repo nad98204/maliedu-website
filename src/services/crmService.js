@@ -6,8 +6,8 @@ const isLocalhost = () => {
     return ["localhost", "127.0.0.1", ""].includes(window.location.hostname);
 };
 
-const shouldFallbackToDirectWrite = (error) =>
-    isLocalhost() || [404, 405, 501].includes(error?.status);
+const shouldFallbackToDirectWrite = () =>
+    import.meta.env.DEV && isLocalhost();
 
 const submitLeadViaApi = async ({ nodePath, payload }) => {
     const response = await fetch(CRM_LEAD_API_PATH, {
@@ -52,8 +52,6 @@ const submitLeadDirectly = async ({ nodePath, payload }) => {
  */
 export const submitToCRM = async (formData) => {
     try {
-        console.log("Đang gửi dữ liệu về CRM (Realtime DB)...", formData);
-
         // 1. Xác định bắn vào phễu nào (Mặc định là ADS)
         let funnelType = (formData.targetFunnel || "ads").toLowerCase();
         
@@ -167,15 +165,11 @@ export const submitToCRM = async (formData) => {
         };
 
         // 3. Ghi vào kho
-        console.log("------------------------------------------");
-        console.log("PAYLOAD GỬI CRM:", payload);
-        console.log("------------------------------------------");
-
         let result;
         try {
             result = await submitLeadViaApi({ nodePath, payload });
         } catch (apiError) {
-            if (!shouldFallbackToDirectWrite(apiError)) {
+            if (!shouldFallbackToDirectWrite()) {
                 throw apiError;
             }
 
@@ -183,7 +177,6 @@ export const submitToCRM = async (formData) => {
             result = await submitLeadDirectly({ nodePath, payload });
         }
 
-        console.log("Đã gửi xong! ID:", result.id);
         return result;
 
     } catch (error) {
