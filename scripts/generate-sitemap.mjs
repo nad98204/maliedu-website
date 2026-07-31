@@ -93,7 +93,72 @@ const decodeBasicEntities = (value) =>
     .replace(/&quot;/gi, '"')
     .replace(/&#39;|&apos;/gi, "'")
     .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">");
+    .replace(/&gt;/gi, ">")
+    .replace(/&#(\d+);/g, (_, value) => String.fromCodePoint(Number(value)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, value) =>
+      String.fromCodePoint(Number.parseInt(value, 16)),
+    );
+
+const escapeHtml = (value) =>
+  String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+const htmlToTextBlocks = (value, maxLength = 12000) => {
+  const text = decodeBasicEntities(value || "")
+    .replace(/<\s*br\s*\/?>/gi, "\n")
+    .replace(/<\/(?:p|div|h[1-6]|li|blockquote|section|article)>/gi, "\n")
+    .replace(/<li\b[^>]*>/gi, "• ")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\r/g, "")
+    .split(/\n+/)
+    .map((line) => line.replace(/\s+/g, " ").trim())
+    .filter(Boolean)
+    .join("\n")
+    .slice(0, maxLength)
+    .trim();
+
+  return text
+    .split("\n")
+    .filter(Boolean)
+    .map((paragraph) => `      <p>${escapeHtml(paragraph)}</p>`)
+    .join("\n");
+};
+
+const createPrerenderBodyHtml = ({
+  title,
+  description,
+  content,
+  links = [],
+  statusMessage,
+}) => {
+  const contentHtml = htmlToTextBlocks(content);
+  const linksHtml = links.length
+    ? [
+        '      <nav aria-label="Nội dung liên quan">',
+        ...links.map(
+          ({ href, label }) =>
+            `        <a href="${escapeHtml(href)}">${escapeHtml(label)}</a>`,
+        ),
+        "      </nav>",
+      ].join("\n")
+    : "";
+
+  return [
+    '    <main data-seo-prerender-body="true" style="max-width:960px;margin:0 auto;padding:48px 20px;font-family:Arial,sans-serif;line-height:1.7;color:#173e35">',
+    `      <h1>${escapeHtml(title)}</h1>`,
+    `      <p>${escapeHtml(description)}</p>`,
+    statusMessage ? `      <p><strong>${escapeHtml(statusMessage)}</strong></p>` : "",
+    contentHtml,
+    linksHtml,
+    "    </main>",
+  ]
+    .filter(Boolean)
+    .join("\n");
+};
 
 const toPlainText = (value, maxLength = 160) => {
   const text = decodeBasicEntities(value || "")
@@ -148,6 +213,54 @@ const createBreadcrumbSchema = (items) => ({
   })),
 });
 
+const isExpiredDeadline = (value) => {
+  if (!value) return false;
+  const deadline = new Date(`${value}T23:59:59+07:00`);
+  return !Number.isNaN(deadline.getTime()) && deadline.getTime() < Date.now();
+};
+
+const toEmploymentType = (value) => {
+  const normalized = String(value || "").toLowerCase();
+  if (normalized.includes("part") || normalized.includes("bán thời gian")) {
+    return "PART_TIME";
+  }
+  if (normalized.includes("contract") || normalized.includes("hợp đồng")) {
+    return "CONTRACTOR";
+  }
+  if (normalized.includes("intern") || normalized.includes("thực tập")) {
+    return "INTERN";
+  }
+  return "FULL_TIME";
+};
+
+const parseSalaryRange = (value) => {
+  const amounts = String(value || "")
+    .match(/\d[\d.,]*/g)
+    ?.map((amount) => Number(amount.replace(/[.,]/g, "")))
+    .filter((amount) => Number.isFinite(amount) && amount > 0);
+  if (!amounts?.length) return undefined;
+  const [minValue, maxValue = minValue] = amounts;
+  return {
+    "@type": "MonetaryAmount",
+    currency: "VND",
+    value: {
+      "@type": "QuantitativeValue",
+      minValue,
+      maxValue,
+      unitText: "MONTH",
+    },
+  };
+};
+
+const formatCurrencyVnd = (value) => {
+  const amount = Number(value);
+  return Number.isFinite(amount) && amount > 0
+    ? `${new Intl.NumberFormat("vi-VN").format(amount)} ₫`
+    : "";
+};
+
+const dynamicLinks = { courses: [], posts: [], jobs: [] };
+
 const addManifestRoute = (routePath, input = {}) => {
   const normalizedPath = normalizeRoutePath(routePath);
   const resolved = getResolvedSeo({
@@ -163,7 +276,16 @@ const addManifestRoute = (routePath, input = {}) => {
     type: resolved.type,
     robots: resolved.robots,
     sitemap: input.sitemap ?? resolved.sitemap ?? false,
+    prerenderBodyHtml:
+      input.prerenderBodyHtml ||
+      createPrerenderBodyHtml({
+        title: resolved.title,
+        description: resolved.description,
+      }),
   };
+  if (Array.isArray(input.preloadImages) && input.preloadImages.length > 0) {
+    manifestRoute.preloadImages = input.preloadImages;
+  }
   if (Array.isArray(input.jsonLd) && input.jsonLd.length > 0) {
     manifestRoute.jsonLd = input.jsonLd;
   }
@@ -203,25 +325,31 @@ const addDynamicRoute = ({
   type = "article",
   lastmod,
   createJsonLd,
+  prerenderBodyHtml,
+  robots =
+    "index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1",
+  sitemap = true,
 }) => {
   const seo = addManifestRoute(routePath, {
     title,
     description: toPlainText(description) || undefined,
     image,
     type,
-    robots:
-      "index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1",
-    sitemap: true,
+    robots,
+    sitemap,
+    prerenderBodyHtml,
   });
   const jsonLd = createJsonLd?.(seo);
   if (Array.isArray(jsonLd) && jsonLd.length > 0) {
     seo.jsonLd = jsonLd;
   }
-  addSitemapEntry({
-    path: routePath,
-    seo,
-    lastmod,
-  });
+  if (sitemap) {
+    addSitemapEntry({
+      path: routePath,
+      seo,
+      lastmod,
+    });
+  }
 };
 
 const decodeFirestoreValue = (value = {}) => {
@@ -345,17 +473,25 @@ if (db || usePublicFirestore) {
     const slug = String(data.slug || document.id || "").trim();
     if (!slug) return;
     const routePath = `/khoa-hoc/${slug}`;
+    const courseTitle = data.seoTitle || data.name || data.title || "Khóa học";
+    const courseDescription =
+      data.seoDescription ||
+      data.shortDescription ||
+      data.description ||
+      "Khóa học trực tuyến tại Mali Edu.";
     addDynamicRoute({
       path: routePath,
-      title: data.seoTitle || data.name || data.title || "Khóa học",
-      description:
-        data.seoDescription ||
-        data.shortDescription ||
-        data.description ||
-        "Khóa học trực tuyến tại Mali Edu.",
+      title: courseTitle,
+      description: courseDescription,
       image: data.thumbnailUrl || data.imageUrl,
       type: "product",
       lastmod: toDateString(data.updatedAt || data.createdAt),
+      prerenderBodyHtml: createPrerenderBodyHtml({
+        title: courseTitle,
+        description: toPlainText(courseDescription),
+        content: [data.description, data.content].filter(Boolean).join("\n"),
+        links: [{ href: routePath, label: "Xem thông tin và đăng ký khóa học" }],
+      }),
       createJsonLd: (seo) => [
         {
           "@context": "https://schema.org",
@@ -381,6 +517,11 @@ if (db || usePublicFirestore) {
         ]),
       ],
     });
+    const displayedPrice = formatCurrencyVnd(data.salePrice || data.price);
+    dynamicLinks.courses.push({
+      href: routePath,
+      label: displayedPrice ? `${courseTitle} – ${displayedPrice}` : courseTitle,
+    });
     counters.courses += 1;
   });
 
@@ -389,19 +530,27 @@ if (db || usePublicFirestore) {
     const slug = String(data.slug || document.id || "").trim();
     if (!slug) return;
     const routePath = `/tin-tuc/${slug}`;
+    const postTitle = data.seoTitle || data.title || "Bài viết";
+    const postDescription =
+      data.seoDescription ||
+      data.excerpt ||
+      data.summary ||
+      "Bài viết mới từ Mali Edu.";
     const publishedAt = toDateString(data.createdAt);
     const modifiedAt = toDateString(data.updatedAt || data.createdAt);
     addDynamicRoute({
       path: routePath,
-      title: data.seoTitle || data.title || "Bài viết",
-      description:
-        data.seoDescription ||
-        data.excerpt ||
-        data.summary ||
-        "Bài viết mới từ Mali Edu.",
+      title: postTitle,
+      description: postDescription,
       image: data.thumbnailUrl || data.imageUrl,
       type: "article",
       lastmod: modifiedAt,
+      prerenderBodyHtml: createPrerenderBodyHtml({
+        title: postTitle,
+        description: toPlainText(postDescription),
+        content: data.content,
+        links: [{ href: "/tin-tuc", label: "Xem thêm bài viết từ Mali Edu" }],
+      }),
       createJsonLd: (seo) => [
         {
           "@context": "https://schema.org",
@@ -428,6 +577,7 @@ if (db || usePublicFirestore) {
         ]),
       ],
     });
+    dynamicLinks.posts.push({ href: routePath, label: postTitle });
     counters.posts += 1;
   });
 
@@ -436,20 +586,128 @@ if (db || usePublicFirestore) {
     if (data.isPublished === false) return;
     const slug = String(data.slug || document.id || "").trim();
     if (!slug) return;
+    const routePath = `/tuyen-dung/${slug}`;
+    const jobTitle = data.title || "Cơ hội nghề nghiệp";
+    const jobDescription =
+      data.seoDescription ||
+      data.excerpt ||
+      data.description ||
+      `Khám phá cơ hội nghề nghiệp ${jobTitle} tại Mali Edu.`;
+    const expired = isExpiredDeadline(data.deadline);
+    const datePosted = toDateString(data.createdAt) || generatedOn;
+    const baseSalary = parseSalaryRange(data.salary);
     addDynamicRoute({
-      path: `/tuyen-dung/${slug}`,
-      title: `${data.title || "Cơ hội nghề nghiệp"} - Tuyển dụng Mali Edu`,
-      description:
-        data.seoDescription ||
-        data.excerpt ||
-        data.description ||
-        `Khám phá cơ hội nghề nghiệp ${data.title || ""} tại Mali Edu.`,
+      path: routePath,
+      title: `${jobTitle} - Tuyển dụng Mali Edu`,
+      description: jobDescription,
       image: data.thumbnailUrl || data.imageUrl,
       type: "article",
       lastmod: toDateString(data.updatedAt || data.createdAt),
+      robots: expired
+        ? "noindex,nofollow"
+        : "index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1",
+      sitemap: !expired,
+      prerenderBodyHtml: createPrerenderBodyHtml({
+        title: jobTitle,
+        description: toPlainText(jobDescription),
+        content: data.description,
+        statusMessage: expired
+          ? "Vị trí tuyển dụng này đã hết hạn nhận hồ sơ."
+          : `Hạn nhận hồ sơ: ${data.deadline || "đang mở"}`,
+        links: [{ href: "/tuyen-dung", label: "Xem các vị trí tuyển dụng khác" }],
+      }),
+      createJsonLd: expired
+        ? undefined
+        : (seo) => [
+            {
+              "@context": "https://schema.org",
+              "@type": "JobPosting",
+              title: jobTitle,
+              description: data.description || seo.description,
+              datePosted,
+              ...(data.deadline
+                ? { validThrough: `${data.deadline}T23:59:59+07:00` }
+                : {}),
+              employmentType: toEmploymentType(data.jobType),
+              hiringOrganization: organizationSchema,
+              jobLocation: {
+                "@type": "Place",
+                address: {
+                  "@type": "PostalAddress",
+                  addressLocality: "Hà Nội",
+                  addressCountry: "VN",
+                },
+              },
+              ...(baseSalary ? { baseSalary } : {}),
+              directApply: true,
+              url: seo.url,
+            },
+            createBreadcrumbSchema([
+              { name: "Trang chủ", url: `${SITE_URL}/` },
+              { name: "Tuyển dụng", url: `${SITE_URL}/tuyen-dung` },
+              { name: jobTitle, url: seo.url },
+            ]),
+          ],
     });
-    counters.jobs += 1;
+    if (!expired) {
+      dynamicLinks.jobs.push({ href: routePath, label: jobTitle });
+      counters.jobs += 1;
+    }
   });
+}
+
+const setPrerenderBody = (routePath, { content, links = [] }) => {
+  const route = routeManifest.get(routePath);
+  if (!route) return;
+  route.prerenderBodyHtml = createPrerenderBodyHtml({
+    title: route.title,
+    description: route.description,
+    content,
+    links,
+  });
+};
+
+setPrerenderBody("/", {
+  content:
+    "Mali Edu là hệ sinh thái đào tạo về Luật Hấp Dẫn, khai mở tiềm thức, chữa lành nội tâm và phát triển thịnh vượng. Các chương trình trọng tâm gồm Luật Hấp Dẫn, Khơi Thông Dòng Tiền và Vút Tốc Mục Tiêu. Học viên có thể học trực tuyến hoặc đăng ký tư vấn lộ trình phù hợp.",
+  links: [
+    { href: "/dao-tao/luat-hap-dan", label: "Chương trình Luật Hấp Dẫn" },
+    { href: "/dao-tao/khoi-thong-dong-tien", label: "Chương trình Khơi Thông Dòng Tiền" },
+    { href: "/dao-tao/vut-toc-muc-tieu", label: "Chương trình Vút Tốc Mục Tiêu" },
+    ...dynamicLinks.courses,
+    ...dynamicLinks.posts,
+    { href: "/lien-he", label: "Đăng ký tư vấn cùng Mali Edu" },
+  ],
+});
+setPrerenderBody("/khoa-hoc", {
+  content: "Danh sách khóa học trực tuyến đang được xuất bản tại Mali Edu.",
+  links: dynamicLinks.courses,
+});
+setPrerenderBody("/tin-tuc", {
+  content: "Các bài viết, câu chuyện học viên và kiến thức chuyển hóa mới nhất từ Mali Edu.",
+  links: dynamicLinks.posts,
+});
+setPrerenderBody("/tuyen-dung", {
+  content:
+    dynamicLinks.jobs.length > 0
+      ? "Các vị trí đang nhận hồ sơ tại Mali Edu."
+      : "Hiện chưa có vị trí tuyển dụng nào còn hạn nhận hồ sơ.",
+  links: dynamicLinks.jobs,
+});
+
+if (dynamicLinks.courses.length >= 3) {
+  const courseListRoute = routeManifest.get("/khoa-hoc");
+  courseListRoute.jsonLd = [
+    {
+      "@context": "https://schema.org",
+      "@type": "ItemList",
+      itemListElement: dynamicLinks.courses.map((course, index) => ({
+        "@type": "ListItem",
+        position: index + 1,
+        url: `${SITE_URL}${course.href}`,
+      })),
+    },
+  ];
 }
 
 const urlEntry = ({ loc, lastmod }) =>

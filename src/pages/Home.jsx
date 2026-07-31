@@ -9,12 +9,12 @@ import ProgramsSection from "../components/ProgramsSection";
 import SupportJourney from "../components/SupportJourney";
 import SuccessStories from "../components/SuccessStories";
 import SupportTeamSection from "../components/SupportTeamSection";
+import { ORGANIZATION_SCHEMA, WEBSITE_SCHEMA } from "../seo/routeSeo";
 
 const Home = () => {
   return (
     <>
-      <SEO />
-      <h1 className="sr-only">Mali Edu - Luật Hấp Dẫn, Phát Triển Bản Thân & Khai Phá Tiềm Thức</h1>
+      <SEO jsonLd={[ORGANIZATION_SCHEMA, WEBSITE_SCHEMA]} />
       <HeroCarousel />
 
       <MaliEcosystemSection />

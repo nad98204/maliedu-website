@@ -3,15 +3,17 @@ import { motion } from 'framer-motion';
 import { Play, Quote, Star, Users, Heart, Award } from 'lucide-react';
 import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
-import { Helmet } from 'react-helmet-async';
 import Masonry from 'react-masonry-css';
 import { useParams } from 'react-router';
 import TestimonialCard from '../components/TestimonialCard';
 import NotFound from './NotFound';
+import SEO from '../components/SEO';
+import { ROUTE_SEO } from '../seo/routeSeo';
 
 const CATEGORY_MAPPING = {
     'vut-toc-muc-tieu': 'Cảm nhận - Vút tốc mục tiêu',
-    'luat-hap-dan': 'Cảm nhận - Luật hấp dẫn'
+    'luat-hap-dan': 'Cảm nhận - Luật hấp dẫn',
+    'khoi-thong-dong-tien': 'Cảm nhận - Khơi thông dòng tiền'
 };
 
 const HARDCODED_HERO_IMAGES = [
@@ -30,7 +32,6 @@ const Testimonials = () => {
     const [videos, setVideos] = useState([]);
     const [articles, setArticles] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [pageTitle, setPageTitle] = useState('Người thật - Việc thật - Kết quả thật');
     const [activeTab, setActiveTab] = useState('photos');
 
     // Fetch Data
@@ -70,15 +71,6 @@ const Testimonials = () => {
                 // ------------------------------------
 
                 // Update Page Title
-
-                // Update Page Title
-                if (targetCategory === 'Cảm nhận - Vút tốc mục tiêu') {
-                    setPageTitle('Câu chuyện thành công: Vút Tốc Mục Tiêu');
-                } else if (targetCategory === 'Cảm nhận - Luật hấp dẫn') {
-                    setPageTitle('Câu chuyện thành công: Luật Hấp Dẫn');
-                } else {
-                    setPageTitle('Người thật - Việc thật - Kết quả thật');
-                }
 
                 // Fetch all published posts
                 const postsQuery = query(
@@ -148,11 +140,12 @@ const Testimonials = () => {
         return <NotFound />;
     }
 
+    const canonicalPath = category ? `/cam-nhan/${category}` : '/cam-nhan';
+    const seo = ROUTE_SEO[canonicalPath] || ROUTE_SEO['/cam-nhan'];
+
     return (
         <div className="bg-[#FAF9F6] font-sans overflow-hidden min-h-screen">
-            <Helmet>
-                <title>{pageTitle} | MaliEdu</title>
-            </Helmet>
+            <SEO {...seo} url={canonicalPath} />
 
             {/* HERO SECTION */}
             <header className="relative h-[60vh] min-h-[500px] bg-slate-900 overflow-hidden">

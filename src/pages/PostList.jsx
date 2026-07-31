@@ -291,7 +291,7 @@ const PostCard = ({ post }) => {
                 </p>
 
                 <Link
-                    to={`/bai-viet/${post.slug}`}
+                    to={`/tin-tuc/${post.slug}`}
                     className="inline-flex items-center gap-2 font-sans font-semibold text-sm text-secret-wax/80 hover:text-secret-wax transition-colors self-start"
                 >
                     <span>Đọc tiếp</span>

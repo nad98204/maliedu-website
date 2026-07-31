@@ -90,6 +90,13 @@ assert(
   "spa.html không được chứa prerender route marker.",
 );
 assert(
+  countMatches(
+    spaHtml,
+    /<main\b[^>]*\bdata-seo-prerender-body=["']true["']/gi,
+  ) === 0,
+  "spa.html không được chứa nội dung prerender của route.",
+);
+assert(
   !/^\s*\/\*\s+\/index\.html\s+200\s*$/m.test(redirects),
   "_redirects vẫn còn wildcard SPA rewrite gây soft 404.",
 );
@@ -147,6 +154,32 @@ for (const route of manifest.routes) {
       encodeURIComponent(normalizeRoutePath(route.path)),
     `${route.path}: prerender route marker không khớp route.`,
   );
+  assert(
+    countMatches(
+      html,
+      /<main\b[^>]*\bdata-seo-prerender-body=["']true["']/gi,
+    ) === 1,
+    `${route.path}: phải có đúng một khối nội dung prerender.`,
+  );
+  const prerenderBodyHtml =
+    html.match(
+      /(<main\b[^>]*\bdata-seo-prerender-body=["']true["'][^>]*>[\s\S]*?<\/main>)/i,
+    )?.[1] || "";
+  const rootText = prerenderBodyHtml
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&[^;]+;/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  assert(
+    countMatches(prerenderBodyHtml, /<h1\b[^>]*>/gi) === 1,
+    `${route.path}: nội dung prerender phải có đúng một H1.`,
+  );
+  if (!String(route.robots || "").toLowerCase().includes("noindex")) {
+    assert(
+      rootText.length >= 80,
+      `${route.path}: nội dung prerender quá ngắn.`,
+    );
+  }
   for (const property of [
     "og:type",
     "og:url",
@@ -185,12 +218,68 @@ for (const route of manifest.routes) {
     jsonLdBlocks.length === expectedJsonLd.length,
     `${route.path}: số JSON-LD không khớp route manifest.`,
   );
+  const parsedJsonLd = [];
   for (const block of jsonLdBlocks) {
     try {
-      JSON.parse(block);
+      parsedJsonLd.push(JSON.parse(block));
     } catch {
       errors.push(`${route.path}: JSON-LD không phải JSON hợp lệ.`);
     }
+  }
+
+  const schemaTypes = new Set(parsedJsonLd.map((schema) => schema?.["@type"]));
+  if (route.path === "/") {
+    assert(
+      schemaTypes.has("Organization") && schemaTypes.has("WebSite"),
+      "Trang chủ phải có Organization và WebSite schema.",
+    );
+  }
+
+  const courseSchema = parsedJsonLd.find(
+    (schema) => schema?.["@type"] === "Course",
+  );
+  if (courseSchema) {
+    assert(
+      Boolean(
+        courseSchema.name &&
+          courseSchema.description &&
+          courseSchema.provider?.name,
+      ),
+      `${route.path}: Course schema thiếu name, description hoặc provider.`,
+    );
+    assert(
+      schemaTypes.has("BreadcrumbList"),
+      `${route.path}: Course schema thiếu BreadcrumbList.`,
+    );
+  }
+
+  const articleSchema = parsedJsonLd.find(
+    (schema) => schema?.["@type"] === "NewsArticle",
+  );
+  if (articleSchema) {
+    assert(
+      Boolean(
+        articleSchema.headline &&
+          articleSchema.image &&
+          articleSchema.datePublished &&
+          articleSchema.dateModified &&
+          articleSchema.author &&
+          articleSchema.publisher &&
+          articleSchema.mainEntityOfPage,
+      ),
+      `${route.path}: NewsArticle schema thiếu trường bắt buộc.`,
+    );
+    assert(
+      schemaTypes.has("BreadcrumbList"),
+      `${route.path}: NewsArticle schema thiếu BreadcrumbList.`,
+    );
+  }
+
+  if (String(route.robots || "").toLowerCase().includes("noindex")) {
+    assert(
+      !schemaTypes.has("JobPosting"),
+      `${route.path}: route noindex không được xuất JobPosting schema.`,
+    );
   }
 }
 
@@ -208,6 +297,22 @@ assert(
   new Set(sitemapUrls).size === sitemapUrls.length,
   "Sitemap có URL trùng lặp.",
 );
+const sitemapUrlSet = new Set(sitemapUrls);
+for (const route of manifest.routes) {
+  const isInSitemap = sitemapUrlSet.has(route.url);
+  if (route.sitemap) {
+    assert(
+      isInSitemap,
+      `${route.path}: route được đánh dấu sitemap nhưng đang bị thiếu.`,
+    );
+  }
+  if (String(route.robots || "").toLowerCase().includes("noindex")) {
+    assert(
+      !route.sitemap,
+      `${route.path}: route noindex không được đánh dấu đưa vào sitemap.`,
+    );
+  }
+}
 
 const sitemapUrlBlocks = Array.from(
   sitemap.matchAll(/<url>([\s\S]*?)<\/url>/g),

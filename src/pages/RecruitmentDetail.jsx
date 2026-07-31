@@ -7,6 +7,28 @@ import SEO from "../components/SEO";
 import { Briefcase, Clock, MapPin, DollarSign, Calendar, Upload, Send, CheckCircle, ArrowLeft, Info } from "lucide-react";
 import { sanitizeRichHtml } from "../utils/sanitizeHtml";
 import NotFound from "./NotFound";
+import { MALI_LOGO_URL } from "../constants/brandAssets";
+import { NOINDEX_ROBOTS, SITE_URL } from "../seo/routeSeo";
+
+const toIsoDate = (value) => {
+    if (!value) return undefined;
+    const date = typeof value.toDate === "function" ? value.toDate() : new Date(value);
+    return Number.isNaN(date.getTime()) ? undefined : date.toISOString().split("T")[0];
+};
+
+const isExpiredJob = (deadline) => {
+    if (!deadline) return false;
+    const deadlineDate = new Date(`${deadline}T23:59:59+07:00`);
+    return !Number.isNaN(deadlineDate.getTime()) && deadlineDate.getTime() < Date.now();
+};
+
+const toEmploymentType = (value) => {
+    const normalized = String(value || "").toLowerCase();
+    if (normalized.includes("part") || normalized.includes("bán thời gian")) return "PART_TIME";
+    if (normalized.includes("contract") || normalized.includes("hợp đồng")) return "CONTRACTOR";
+    if (normalized.includes("intern") || normalized.includes("thực tập")) return "INTERN";
+    return "FULL_TIME";
+};
 
 const RecruitmentDetail = () => {
     const { slug } = useParams();
@@ -63,6 +85,10 @@ const RecruitmentDetail = () => {
 
     const handleSubmit = (e) => {
         e.preventDefault();
+        if (isExpiredJob(job?.deadline)) {
+            alert("Vị trí này đã hết hạn nhận hồ sơ.");
+            return;
+        }
         // Here you would implement the actual submission logic (e.g., upload file to storage, save application to Firestore)
         console.log("Application Submitted:", { jobTitle: job?.title, ...formData });
         alert("Cảm ơn bạn đã nộp hồ sơ! Chúng tôi sẽ liên hệ sớm.");
@@ -76,12 +102,55 @@ const RecruitmentDetail = () => {
         return <NotFound />;
     }
 
+    const canonicalPath = `/tuyen-dung/${job.slug || job.id}`;
+    const expired = isExpiredJob(job.deadline);
+    const jobJsonLd = expired
+        ? undefined
+        : [
+            {
+                "@context": "https://schema.org",
+                "@type": "JobPosting",
+                title: job.title,
+                description: sanitizeRichHtml(job.description || ""),
+                datePosted: toIsoDate(job.createdAt),
+                ...(job.deadline ? { validThrough: `${job.deadline}T23:59:59+07:00` } : {}),
+                employmentType: toEmploymentType(job.jobType),
+                hiringOrganization: {
+                    "@type": "Organization",
+                    name: "Mali Edu",
+                    url: `${SITE_URL}/`,
+                    logo: MALI_LOGO_URL,
+                },
+                jobLocation: {
+                    "@type": "Place",
+                    address: {
+                        "@type": "PostalAddress",
+                        addressLocality: "Hà Nội",
+                        addressCountry: "VN",
+                    },
+                },
+                directApply: true,
+                url: `${SITE_URL}${canonicalPath}`,
+            },
+            {
+                "@context": "https://schema.org",
+                "@type": "BreadcrumbList",
+                itemListElement: [
+                    { "@type": "ListItem", position: 1, name: "Trang chủ", item: `${SITE_URL}/` },
+                    { "@type": "ListItem", position: 2, name: "Tuyển dụng", item: `${SITE_URL}/tuyen-dung` },
+                    { "@type": "ListItem", position: 3, name: job.title, item: `${SITE_URL}${canonicalPath}` },
+                ],
+            },
+        ];
+
     return (
         <div className="min-h-screen bg-[#FFFBF0] font-inter text-slate-800 pb-20">
             <SEO 
                 title={`${job.title} - Tuyển dụng Mali Edu`}
                 description={`Tuyển dụng ${job.title} tại Mali Edu. Mức lương: ${job.salary || 'Thỏa thuận'}. Tham gia đội ngũ chúng tôi ngay!`}
-                url={`/tuyen-dung/${job.slug || job.id}`}
+                url={canonicalPath}
+                robots={expired ? NOINDEX_ROBOTS : undefined}
+                jsonLd={jobJsonLd}
             />
             {/* 1. HEADER - BRAND GRADIENT */}
             <div className="bg-gradient-to-br from-[#B91C1C] to-[#991B1B] text-white py-16 px-4 relative overflow-hidden">
@@ -112,6 +181,11 @@ const RecruitmentDetail = () => {
                         <h1 className="text-4xl md:text-5xl font-bold font-serif text-yellow-50 drop-shadow-md leading-tight">
                             {job.title}
                         </h1>
+                        {expired ? (
+                            <p className="w-fit rounded-lg bg-white/95 px-4 py-2 font-semibold text-[#991B1B]">
+                                Vị trí này đã hết hạn nhận hồ sơ.
+                            </p>
+                        ) : null}
 
                         <div className="flex flex-wrap items-center gap-x-8 gap-y-4 text-white/90 font-medium text-base">
                             <div className="flex items-center gap-2">
@@ -262,10 +336,11 @@ const RecruitmentDetail = () => {
 
                                     <button
                                         type="submit"
-                                        className="w-full py-4 rounded-xl bg-[#B91C1C] text-white font-bold text-lg shadow-lg shadow-red-900/20 hover:bg-[#991B1B] transition-all transform hover:-translate-y-1 mt-2 flex items-center justify-center gap-2"
+                                        disabled={expired}
+                                        className="w-full py-4 rounded-xl bg-[#B91C1C] text-white font-bold text-lg shadow-lg shadow-red-900/20 hover:bg-[#991B1B] transition-all transform hover:-translate-y-1 mt-2 flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:bg-slate-400 disabled:shadow-none disabled:hover:translate-y-0"
                                     >
                                         <Send className="w-5 h-5" />
-                                        GỬI HỒ SƠ NGAY
+                                        {expired ? "ĐÃ HẾT HẠN NHẬN HỒ SƠ" : "GỬI HỒ SƠ NGAY"}
                                     </button>
                                     <p className="text-center text-xs text-slate-400 mt-3">
                                         Bằng việc gửi thông tin, bạn đồng ý với chính sách tuyển dụng của Mali Edu.

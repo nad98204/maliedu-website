@@ -3,10 +3,12 @@ import {
   DEFAULT_SEO,
   INDEX_ROBOTS,
   NOINDEX_ROBOTS,
+  ORGANIZATION_SCHEMA,
   ROUTE_SEO,
   SITE_NAME,
   SITE_URL,
   STATIC_LASTMOD,
+  WEBSITE_SCHEMA,
 } from "./siteRoutes.js";
 
 export {
@@ -14,10 +16,12 @@ export {
   DEFAULT_SEO,
   INDEX_ROBOTS,
   NOINDEX_ROBOTS,
+  ORGANIZATION_SCHEMA,
   ROUTE_SEO,
   SITE_NAME,
   SITE_URL,
   STATIC_LASTMOD,
+  WEBSITE_SCHEMA,
 };
 
 export const normalizeRoutePath = (path = "/") => {

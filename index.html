@@ -19,7 +19,9 @@
       html { line-height: 1.5; -webkit-text-size-adjust: 100%; }
       body { margin: 0; min-height: 100vh; background: #fff; color: #1a1a1a; }
       #root { min-height: 100vh; }
+      .js [data-seo-prerender-body="true"] { display: none !important; }
     </style>
+    <script>document.documentElement.classList.add("js");</script>
     <!-- Preconnect ≤4: CSS font, file woff2 trên gstatic, ảnh LCP/video S3, Meta Pixel -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

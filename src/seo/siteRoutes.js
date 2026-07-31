@@ -2,12 +2,47 @@ export const SITE_NAME = "Mali Edu";
 export const SITE_URL = "https://luathapdan.vn";
 export const DEFAULT_IMAGE =
   "https://s3-hn1-api.longvan.vn/video-khoa-hoc/videos/1776223771769-356869318-FULL-SIZE.png";
+export const HOME_HERO_DESKTOP_IMAGE =
+  "https://s3-hn1-api.longvan.vn/video-khoa-hoc/files/1774348111011-393495537-Kh-i-Th-ng-D-ng-Ti-n.jpg";
+export const HOME_HERO_MOBILE_IMAGE =
+  "https://s3-hn1-api.longvan.vn/video-khoa-hoc/files/1774348127595-758266429-Kh-i-Th-ng-D-ng-Ti-n-Mobile.jpg";
 
 export const INDEX_ROBOTS =
   "index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1";
 export const NOINDEX_ROBOTS = "noindex,nofollow";
 // Chỉ cập nhật ngày này khi nội dung hoặc metadata của nhóm trang tĩnh thay đổi.
 export const STATIC_LASTMOD = "2026-07-31";
+
+export const ORGANIZATION_SCHEMA = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "@id": `${SITE_URL}/#organization`,
+  name: SITE_NAME,
+  legalName: "CÔNG TY TNHH TƯ VẤN MAGIC LIFE",
+  url: `${SITE_URL}/`,
+  logo: {
+    "@type": "ImageObject",
+    url: DEFAULT_IMAGE,
+  },
+  sameAs: [
+    "https://www.facebook.com/mong.coaching",
+    "https://www.tiktok.com/@nguyenuocmong53",
+    "https://www.youtube.com/@nguyenuocmong53",
+  ],
+};
+
+export const WEBSITE_SCHEMA = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "@id": `${SITE_URL}/#website`,
+  name: SITE_NAME,
+  alternateName: "MaliEdu",
+  url: `${SITE_URL}/`,
+  publisher: {
+    "@id": `${SITE_URL}/#organization`,
+  },
+  inLanguage: "vi-VN",
+};
 
 export const DEFAULT_SEO = {
   title: `${SITE_NAME} - Đánh thức tiềm năng thịnh vượng`,
@@ -19,6 +54,11 @@ export const DEFAULT_SEO = {
   robots: INDEX_ROBOTS,
   lastmod: STATIC_LASTMOD,
   sitemap: true,
+  jsonLd: [ORGANIZATION_SCHEMA, WEBSITE_SCHEMA],
+  preloadImages: [
+    { href: HOME_HERO_MOBILE_IMAGE, media: "(max-width: 768px)" },
+    { href: HOME_HERO_DESKTOP_IMAGE, media: "(min-width: 769px)" },
+  ],
 };
 
 const indexable = (seo) => ({
@@ -150,6 +190,12 @@ export const ROUTE_SEO = {
     description:
       "Lắng nghe những chia sẻ và kết quả chuyển hóa thực tế của học viên sau khi đồng hành cùng Mali Edu.",
     url: "/cam-nhan",
+  }),
+  "/cam-nhan/khoi-thong-dong-tien": indexable({
+    title: "Cảm Nhận Khóa Khơi Thông Dòng Tiền",
+    description:
+      "Câu chuyện chuyển hóa mối quan hệ với tiền và kết quả thực tế từ học viên chương trình Khơi Thông Dòng Tiền.",
+    url: "/cam-nhan/khoi-thong-dong-tien",
   }),
   "/cam-nhan/vut-toc-muc-tieu": indexable(
     {

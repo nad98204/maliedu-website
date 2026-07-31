@@ -142,3 +142,10 @@ html {
     scroll-padding-top: 80px;
     /* Offset for sticky header */
 }
+
+/* Skip layout/paint work for below-the-fold homepage sections while reserving
+   stable space. This reduces initial main-thread work without hiding content. */
+.section {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 800px;
+}

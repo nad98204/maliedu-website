@@ -9,7 +9,7 @@ const teamMembers = [
     photo:
       "https://s3-hn1-api.longvan.vn/video-khoa-hoc/files/1779205465221-26736724-Th-nh-Seven.jpg",
     facebook: "https://facebook.com/thanhseven",
-    zalo: "https://zalo.me/0123456789",
+    zalo: "https://zalo.me/0355067656",
   },
   {
     id: "van-truong",
@@ -19,7 +19,7 @@ const teamMembers = [
     photo:
       "https://s3-hn1-api.longvan.vn/video-khoa-hoc/files/1779205465942-91679980-V-n-Tr--ng.jpg",
     facebook: "https://facebook.com/vantruong",
-    zalo: "https://zalo.me/0123456789",
+    zalo: "https://zalo.me/0355067656",
   },
   {
     id: "duc-tue",
@@ -29,7 +29,7 @@ const teamMembers = [
     photo:
       "https://s3-hn1-api.longvan.vn/video-khoa-hoc/files/1779205466365-83289387---c-Tu-.jpg",
     facebook: "https://facebook.com/ductue",
-    zalo: "https://zalo.me/0123456789",
+    zalo: "https://zalo.me/0355067656",
   },
 ];
 

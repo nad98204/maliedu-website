@@ -57,6 +57,37 @@ const injectJsonLd = (html, schemas = []) => {
   );
 };
 
+const injectPreloadImages = (html, images = []) => {
+  if (!Array.isArray(images) || images.length === 0) return html;
+
+  const links = images
+    .filter((image) => image?.href)
+    .map(
+      (image) =>
+        `    <link rel="preload" as="image" href="${escapeAttribute(image.href)}" fetchpriority="high"${
+          image.media ? ` media="${escapeAttribute(image.media)}"` : ""
+        } />`,
+    )
+    .join("\n");
+
+  return replaceOrThrow(
+    html,
+    /<\/head>/i,
+    `${links}\n  </head>`,
+    "đóng head để chèn preload ảnh",
+  );
+};
+
+const injectPrerenderBody = (html, bodyHtml) => {
+  if (!bodyHtml) return html;
+  return replaceOrThrow(
+    html,
+    /<div\s+id=["']root["']>\s*<\/div>/i,
+    `<div id="root">\n${bodyHtml}\n  </div>`,
+    "root để chèn nội dung prerender",
+  );
+};
+
 const applySeoToHtml = (html, seo) => {
   let nextHtml = html;
 
@@ -138,6 +169,8 @@ const applySeoToHtml = (html, seo) => {
   }
 
   nextHtml = injectJsonLd(nextHtml, seo.jsonLd);
+  nextHtml = injectPreloadImages(nextHtml, seo.preloadImages);
+  nextHtml = injectPrerenderBody(nextHtml, seo.prerenderBodyHtml);
   return injectPrerenderRouteMarker(nextHtml, seo.path);
 };
 

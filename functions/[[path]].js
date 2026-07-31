@@ -5,6 +5,7 @@ import {
   PRIVATE_SPA_PREFIXES,
   PUBLIC_SPA_PREFIXES,
   ROUTE_SEO,
+  SITE_URL,
 } from "../src/seo/siteRoutes.js";
 
 const exactRoutes = new Set(Object.keys(ROUTE_SEO));
@@ -302,7 +303,20 @@ export async function onRequest(context) {
   const { request } = context;
   if (!["GET", "HEAD"].includes(request.method)) return context.next();
 
-  const pathname = normalizePath(new URL(request.url).pathname);
+  const requestUrl = new URL(request.url);
+  if (requestUrl.hostname === "www.luathapdan.vn") {
+    const canonicalHost = new URL(SITE_URL);
+    requestUrl.protocol = canonicalHost.protocol;
+    requestUrl.host = canonicalHost.host;
+    return Response.redirect(requestUrl.toString(), 301);
+  }
+
+  if (requestUrl.pathname !== "/" && /\/$/.test(requestUrl.pathname)) {
+    requestUrl.pathname = requestUrl.pathname.replace(/\/+$/, "");
+    return Response.redirect(requestUrl.toString(), 308);
+  }
+
+  const pathname = normalizePath(requestUrl.pathname);
   if (pathname.startsWith("/api/")) {
     return context.next();
   }

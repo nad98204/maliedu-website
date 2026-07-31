@@ -5,6 +5,7 @@ import {
   Route,
   Routes,
   useLocation,
+  useParams,
 } from "react-router";
 import { Toaster } from 'react-hot-toast';
 import ScrollToTop from "./components/ScrollToTop";
@@ -27,7 +28,6 @@ const GioiThieu = lazy(() => import("./pages/GioiThieu"));
 const DaoTao = lazy(() => import("./pages/DaoTao"));
 const News = lazy(() => import("./pages/News"));
 const NewsDetail = lazy(() => import("./pages/NewsDetail"));
-const PostDetail = lazy(() => import("./pages/PostDetail"));
 const PostList = lazy(() => import("./pages/PostList"));
 const Testimonials = lazy(() => import("./pages/Testimonials"));
 const Recruitment = lazy(() => import("./pages/Recruitment"));
@@ -66,6 +66,11 @@ const MongCoaching = lazy(() => import("./pages/about/MongCoaching"));
 const LinkBio = lazy(() => import("./pages/LinkBio"));
 const MediaShare = lazy(() => import("./pages/MediaShare"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+
+const LegacyPostRedirect = () => {
+  const { slug } = useParams();
+  return <Navigate to={slug ? `/tin-tuc/${slug}` : "/tin-tuc"} replace />;
+};
 
 // Admin Pages
 const AdminLogin = lazy(() => import("./pages/admin/Login"));
@@ -151,7 +156,7 @@ const AppShell = () => {
             <Route path="/gioi-thieu/mong-coaching" element={<MongCoaching />} />
             <Route path="/tin-tuc" element={<News />} />
             <Route path="/tin-tuc/:slug" element={<NewsDetail />} />
-            <Route path="/bai-viet/:slug" element={<PostDetail />} />
+            <Route path="/bai-viet/:slug" element={<LegacyPostRedirect />} />
             <Route path="/kien-thuc/:slug" element={<PostList />} />
             <Route path="/cam-nhan/:category?" element={<Testimonials />} />
             <Route path="/tuyen-dung" element={<Recruitment />} />

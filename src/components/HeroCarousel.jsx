@@ -5,10 +5,24 @@ import { collection, getDocs, query } from "firebase/firestore";
 import { db } from "../firebase";
 import { readHomeBannerCache, writeHomeBannerCache } from "../utils/homeBannerCache";
 import { normalizeCloudinaryImage } from "../utils/imageUtils";
+import {
+  HOME_HERO_DESKTOP_IMAGE,
+  HOME_HERO_MOBILE_IMAGE,
+} from "../seo/siteRoutes";
 
 const MOBILE_MEDIA_QUERY = "(max-width: 768px)";
 const DEFAULT_DESKTOP_ASPECT_RATIO = 16 / 9;
 const DEFAULT_MOBILE_ASPECT_RATIO = 4 / 5;
+const FALLBACK_SLIDES = [
+  {
+    id: "home-hero-khoi-thong-dong-tien",
+    image: HOME_HERO_DESKTOP_IMAGE,
+    mobileImage: HOME_HERO_MOBILE_IMAGE,
+    title: "Khơi Thông Dòng Tiền",
+    ctaText: "Tìm hiểu thêm",
+    ctaLink: "/dao-tao/khoi-thong-dong-tien",
+  },
+];
 
 
 const toPositiveNumber = (value) => {
@@ -21,6 +35,28 @@ const getAspectRatioFromDimensions = (width, height) => {
   const safeHeight = toPositiveNumber(height);
   if (!safeWidth || !safeHeight) return null;
   return safeWidth / safeHeight;
+};
+
+const normalizeCtaLink = (value) => {
+  const rawValue = String(value || "").trim();
+  if (!rawValue || rawValue === "#") return "/lien-he";
+
+  try {
+    const url = new URL(rawValue, "https://luathapdan.vn");
+    if (!["http:", "https:"].includes(url.protocol)) return "/lien-he";
+    if (
+      ["luathapdan.edu.vn", "www.luathapdan.edu.vn", "localhost", "127.0.0.1"].includes(
+        url.hostname,
+      )
+    ) {
+      return `${url.pathname}${url.search}${url.hash}` || "/";
+    }
+    return url.origin === "https://luathapdan.vn"
+      ? `${url.pathname}${url.search}${url.hash}` || "/"
+      : url.toString();
+  } catch {
+    return "/lien-he";
+  }
 };
 
 const normalizeSlide = (slide, index) => ({
@@ -37,7 +73,7 @@ const normalizeSlide = (slide, index) => ({
   title: slide.title ?? "",
   subtitle: slide.subtitle ?? "",
   ctaText: slide.ctaText ?? "",
-  ctaLink: slide.ctaLink ?? "#",
+  ctaLink: normalizeCtaLink(slide.ctaLink),
   imageWidth: toPositiveNumber(slide.imageWidth),
   imageHeight: toPositiveNumber(slide.imageHeight),
   mobileImageWidth: toPositiveNumber(slide.mobileImageWidth),
@@ -61,12 +97,17 @@ const buildSlides = (items) =>
 const preloadedUrls = new Set();
 const preloadImage = (url, isMobile) => {
   if (!url || preloadedUrls.has(url)) return;
-  preloadedUrls.add(url);
   try {
+    const alreadyInHead = Array.from(
+      document.querySelectorAll('link[rel="preload"][as="image"]'),
+    ).some((link) => link.href === url);
+    preloadedUrls.add(url);
+    if (alreadyInHead) return;
     const link = document.createElement("link");
     link.rel = "preload";
     link.as = "image";
     link.href = url;
+    link.fetchPriority = "high";
     if (isMobile) link.media = "(max-width: 768px)";
     document.head.appendChild(link);
   } catch {
@@ -98,23 +139,24 @@ const HeroCarousel = () => {
   const [slides, setSlides] = useState(() => {
     const items = readHomeBannerCache();
     const built = buildSlides(items.filter((it) => it.active !== false));
+    const initialSlides = built.length > 0 ? built : FALLBACK_SLIDES;
     // Preload first slide immediately from cache
-    if (built.length > 0) {
-      const first = built[0];
+    if (initialSlides.length > 0) {
+      const first = initialSlides[0];
       if (isMobileNow && first.mobileImage) {
         preloadImage(first.mobileImage, true);
+      } else if (first.image) {
+        preloadImage(first.image, false);
       }
-      if (first.image) preloadImage(first.image, false);
     }
-    return built;
+    return initialSlides;
   });
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [dragStartX, setDragStartX] = useState(null);
   const [dragging, setDragging] = useState(false);
-  const [loadingFresh, setLoadingFresh] = useState(slides.length === 0);
+  const [loadingFresh, setLoadingFresh] = useState(false);
   const [isMobileViewport, setIsMobileViewport] = useState(isMobileNow);
-  const [slideAspectRatios, setSlideAspectRatios] = useState({});
   const prefetchedRef = useRef(false);
 
   const filteredSlides = useMemo(() => {
@@ -165,8 +207,12 @@ const HeroCarousel = () => {
         // Preload first slide from fresh data
         if (newSlides.length > 0) {
           const first = newSlides[0];
-          if (first.mobileImage) preloadImage(first.mobileImage, true);
-          if (first.image) preloadImage(first.image, false);
+          const shouldUseMobile = window.matchMedia?.(MOBILE_MEDIA_QUERY).matches;
+          if (shouldUseMobile && first.mobileImage) {
+            preloadImage(first.mobileImage, true);
+          } else if (first.image) {
+            preloadImage(first.image, false);
+          }
         }
       } catch (err) {
         console.error("HeroCarousel: Error fetching banners:", err);
@@ -210,15 +256,6 @@ const HeroCarousel = () => {
   const handleNext = () => goToSlide(currentIndex + 1);
   const handlePrev = () => goToSlide(currentIndex - 1);
 
-  useEffect(() => {
-    if (slideCount <= 1) return;
-    const intervalId = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % slideCount);
-    }, 5000);
-    return () => clearInterval(intervalId);
-  }, [slideCount]);
-
-
   const getClientX = (event) => {
     if ("touches" in event) {
       const touch = event.touches[0] || event.changedTouches?.[0];
@@ -252,25 +289,12 @@ const HeroCarousel = () => {
     setDragStartX(null);
   };
 
-  const setSlideAspectRatio = (slideId, type, width, height) => {
-    const ratio = getAspectRatioFromDimensions(width, height);
-    if (!slideId || !type || !ratio) return;
-
-    setSlideAspectRatios((prev) => {
-      if (prev[slideId]?.[type] === ratio) return prev;
-      return { ...prev, [slideId]: { ...prev[slideId], [type]: ratio } };
-    });
-  };
-
   const getDesktopAspectRatio = (slide) =>
     getAspectRatioFromDimensions(slide?.imageWidth, slide?.imageHeight) ??
-    slideAspectRatios[slide?.id]?.desktop ??
     DEFAULT_DESKTOP_ASPECT_RATIO;
 
   const getMobileAspectRatio = (slide) =>
     getAspectRatioFromDimensions(slide?.mobileImageWidth, slide?.mobileImageHeight) ??
-    slideAspectRatios[slide?.id]?.mobile ??
-    getDesktopAspectRatio(slide) ??
     DEFAULT_MOBILE_ASPECT_RATIO;
 
   // While freshly loading and no cache data, show a branded skeleton
@@ -327,26 +351,6 @@ const HeroCarousel = () => {
                 : "opacity-0 z-0 scale-[1.04] pointer-events-none"
             }`}
           >
-            {/* Blurred background layer */}
-            {slide.image && (
-              <img
-                src={slide.image}
-                alt=""
-                aria-hidden="true"
-                className="absolute inset-0 h-full w-full object-cover object-center scale-105 blur-xl opacity-25"
-                loading={isActive ? "eager" : "lazy"}
-                fetchPriority={isActive ? "high" : "auto"}
-                draggable={false}
-                onLoad={(event) => {
-                  setSlideAspectRatio(
-                    slide.id,
-                    "desktop",
-                    event.currentTarget.naturalWidth,
-                    event.currentTarget.naturalHeight
-                  );
-                }}
-              />
-            )}
             <picture className="absolute inset-0 block h-full w-full">
               {slide.mobileImage && (
                 <source media="(max-width: 768px)" srcSet={slide.mobileImage} />
@@ -358,16 +362,6 @@ const HeroCarousel = () => {
                 loading={isActive ? "eager" : "lazy"}
                 fetchPriority={isActive ? "high" : "auto"}
                 draggable={false}
-                onLoad={(event) => {
-                  const isMobileImg =
-                    event.currentTarget.currentSrc === (slide.mobileImage || slide.image);
-                  setSlideAspectRatio(
-                    slide.id,
-                    isMobileImg ? "mobile" : "desktop",
-                    event.currentTarget.naturalWidth,
-                    event.currentTarget.naturalHeight
-                  );
-                }}
               />
             </picture>
             <div className="absolute inset-0 z-0 bg-gradient-to-t from-black/30 via-transparent to-black/10" />
@@ -386,6 +380,12 @@ const HeroCarousel = () => {
           </div>
         );
       })}
+
+      <div className="pointer-events-none absolute inset-x-4 top-5 z-20 flex justify-center sm:top-7 md:top-9">
+        <h1 className="max-w-4xl rounded-2xl bg-black/35 px-4 py-3 text-center font-serif text-xl font-bold leading-tight text-white shadow-lg backdrop-blur-sm sm:px-6 sm:text-3xl md:text-4xl lg:text-5xl">
+          Mali Edu – Khai mở tiềm thức, kiến tạo cuộc sống thịnh vượng
+        </h1>
+      </div>
 
       {slideCount > 1 && (
         <>

@@ -99,12 +99,12 @@ const PostDetail = () => {
                 title={post ? post.title : 'Đang tải...'}
                 description={post?.excerpt || 'Chi tiết bài viết tại MaliEdu'}
                 image={post?.thumbnailUrl}
-                url={`/bai-viet/${slug}`}
+                url={`/tin-tuc/${slug}`}
                 type="article"
                 jsonLd={[
                     {
                         "@context": "https://schema.org",
-                        "@type": "Article",
+                        "@type": "NewsArticle",
                         "headline": post.title,
                         "description": post.excerpt || '',
                         "image": post.thumbnailUrl
@@ -126,7 +126,7 @@ const PostDetail = () => {
                         },
                         "mainEntityOfPage": {
                             "@type": "WebPage",
-                            "@id": `${SITE_URL}/bai-viet/${slug}`
+                            "@id": `${SITE_URL}/tin-tuc/${slug}`
                         }
                     },
                     {
@@ -135,7 +135,7 @@ const PostDetail = () => {
                         "itemListElement": [
                             { "@type": "ListItem", "position": 1, "name": "Trang chủ", "item": `${SITE_URL}/` },
                             { "@type": "ListItem", "position": 2, "name": "Tin tức", "item": `${SITE_URL}/tin-tuc` },
-                            { "@type": "ListItem", "position": 3, "name": post.title, "item": `${SITE_URL}/bai-viet/${slug}` }
+                            { "@type": "ListItem", "position": 3, "name": post.title, "item": `${SITE_URL}/tin-tuc/${slug}` }
                         ]
                     }
                 ]}
