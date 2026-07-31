@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Sitemap tự động sinh lúc build – 2026-07-31 -->
-<!-- Tổng URL: 27 (tĩnh: 24, khóa học: 1, bài viết: 2, tuyển dụng: 0) -->
+<!-- Tổng URL: 29 (tĩnh: 24, khóa học: 1, bài viết: 2, tuyển dụng: 2) -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9
@@ -112,5 +112,13 @@
   <url>
     <loc>https://luathapdan.vn/tin-tuc/nho-luat-hap-dan-tu-he-thong-suyt-gay-den-gan-40-nguoi-tu-nguyen-xin-lam-si</loc>
     <lastmod>2026-07-31</lastmod>
+  </url>
+  <url>
+    <loc>https://luathapdan.vn/tuyen-dung/VPEjV5Ad6I0z1k8rdvAe</loc>
+    <lastmod>2026-01-15</lastmod>
+  </url>
+  <url>
+    <loc>https://luathapdan.vn/tuyen-dung/olq7fFi3PrSWgP6nXI70</loc>
+    <lastmod>2026-01-15</lastmod>
   </url>
 </urlset>

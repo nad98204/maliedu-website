@@ -1,3 +1,4 @@
+import { Firestore } from "@google-cloud/firestore";
 import { applicationDefault, initializeApp } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 import {
@@ -12,6 +13,9 @@ const COPY_ONLY = process.argv.includes("--copy-only");
 const SHOW_HELP = process.argv.includes("--help") || process.argv.includes("-h");
 const PROJECT_ID = process.env.FIREBASE_PROJECT_ID || "maliedu-web";
 const MAX_BATCH_OPERATIONS = 400;
+const CLI_ACCESS_TOKEN = String(
+  process.env.FIREBASE_CLI_ACCESS_TOKEN || "",
+).trim();
 
 if (SHOW_HELP) {
   console.log(`Usage: npm run migrate:course-content -- [--apply] [--copy-only]
@@ -24,12 +28,32 @@ legacy public course documents unchanged for a zero-downtime rollout.`);
   process.exit(0);
 }
 
-initializeApp({
-  credential: applicationDefault(),
-  projectId: PROJECT_ID,
-});
+const createFirebaseCliFirestore = () => {
+  const authClient = {
+    getRequestHeaders: async () =>
+      new Headers({
+        authorization: `Bearer ${CLI_ACCESS_TOKEN}`,
+      }),
+  };
+  const auth = {
+    getClient: async () => authClient,
+    getProjectId: async () => PROJECT_ID,
+    getUniverseDomain: async () => "googleapis.com",
+  };
 
-const db = getFirestore();
+  return new Firestore({ auth, projectId: PROJECT_ID });
+};
+
+let db;
+if (CLI_ACCESS_TOKEN) {
+  db = createFirebaseCliFirestore();
+} else {
+  initializeApp({
+    credential: applicationDefault(),
+    projectId: PROJECT_ID,
+  });
+  db = getFirestore();
+}
 const [coursesSnapshot, enrollmentsSnapshot, contentSnapshot] =
   await Promise.all([
     db.collection("courses").get(),
@@ -156,6 +180,7 @@ console.log(
 );
 
 if (!APPLY_CHANGES) {
+  await db.terminate();
   console.log("Dry-run complete. Re-run with --apply to write these changes.");
   process.exit(0);
 }
@@ -196,3 +221,4 @@ console.log(
     ? "Private course content/access copy complete; public documents were not changed."
     : "Course privacy migration complete.",
 );
+await db.terminate();

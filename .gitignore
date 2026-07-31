@@ -35,3 +35,14 @@ dist-ssr
 serviceAccountKey*.json
 *.pem
 *.private-key
+
+# Local customer exports and API test payloads
+.private-data/
+/ads.json
+/test_final.json
+/test_lead.json
+/test_lead_2.json
+/test_lead_real.json
+/test_proof.json
+/test_server_only.json
+/test_vn.json

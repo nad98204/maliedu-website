@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { addDoc, collection, getDocs, orderBy, query, serverTimestamp, where } from "firebase/firestore";
+import { addDoc, collection, getDocs, query, serverTimestamp, where } from "firebase/firestore";
 import { Star, User } from "lucide-react";
 import { db } from "../firebase";
 
@@ -14,8 +14,7 @@ const CourseReviews = ({ courseId, currentUser }) => {
         try {
             const q = query(
                 collection(db, "reviews"),
-                where("courseId", "==", courseId),
-                orderBy("createdAt", "desc")
+                where("courseId", "==", courseId)
             );
             const querySnapshot = await getDocs(q);
             const reviewData = [];
@@ -23,6 +22,11 @@ const CourseReviews = ({ courseId, currentUser }) => {
                 const data = doc.data();
                 reviewData.push({ id: doc.id, ...data });
             });
+            reviewData.sort(
+                (left, right) =>
+                    (right.createdAt?.toMillis?.() || 0) -
+                    (left.createdAt?.toMillis?.() || 0)
+            );
 
             setReviews(reviewData);
         } catch (error) {

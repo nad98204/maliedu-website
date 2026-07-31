@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router';
-import { doc, getDoc, query, collection, where, getDocs, updateDoc, increment } from 'firebase/firestore';
+import { doc, getDoc, query, collection, where, getDocs } from 'firebase/firestore';
 import { ArrowRight, Globe, Star, Users, Check, Home, ChevronRight, PlayCircle, ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react';
 import { onAuthStateChanged } from "firebase/auth";
 
@@ -18,6 +18,37 @@ import { trackMetaEvent } from '../utils/metaPixel';
 import { sanitizeRichHtml } from '../utils/sanitizeHtml';
 import NotFound from './NotFound';
 import { SITE_URL } from '../seo/routeSeo';
+
+const recordCourseView = async (courseId) => {
+    const viewKey = `mali_view_${courseId}`;
+    if (sessionStorage.getItem(viewKey)) {
+        return null;
+    }
+
+    sessionStorage.setItem(viewKey, 'true');
+    const viewerStorageKey = 'mali-course-viewer-id';
+    let viewerId = sessionStorage.getItem(viewerStorageKey);
+    if (!viewerId) {
+        viewerId = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        sessionStorage.setItem(viewerStorageKey, viewerId);
+    }
+
+    try {
+        const response = await fetch('/api/course-view', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ courseId, viewerId }),
+        });
+        if (!response.ok) {
+            return null;
+        }
+
+        const result = await response.json();
+        return Number.isFinite(Number(result.views)) ? Number(result.views) : null;
+    } catch {
+        return null;
+    }
+};
 
 const CourseDetail = () => {
     const { slug } = useParams();
@@ -125,13 +156,11 @@ const CourseDetail = () => {
 
                 if (docSnap.exists()) {
                     setCourse({ id: docSnap.id, ...docSnap.data() });
-
-                    // Increment Views (Once per session)
-                    const viewKey = `mali_view_${docSnap.id}`;
-                    if (!sessionStorage.getItem(viewKey)) {
-                        updateDoc(docRef, { views: increment(1) }).catch(err => console.error("Error incr views:", err));
-                        sessionStorage.setItem(viewKey, 'true');
-                    }
+                    recordCourseView(docSnap.id).then((views) => {
+                        if (views !== null) {
+                            setCourse((current) => current ? { ...current, views } : current);
+                        }
+                    });
                 } else {
                     // Fallback: Query by "slug" field
                     const q = query(collection(db, 'courses'), where('slug', '==', slug));
@@ -141,14 +170,11 @@ const CourseDetail = () => {
                         const courseData = querySnapshot.docs[0].data();
                         const courseId = querySnapshot.docs[0].id;
                         setCourse({ id: courseId, ...courseData });
-
-                        // Increment Views (Once per session)
-                        const viewKey = `mali_view_${courseId}`;
-                        if (!sessionStorage.getItem(viewKey)) {
-                            const ref = doc(db, 'courses', courseId);
-                            updateDoc(ref, { views: increment(1) }).catch(err => console.error("Error incr views:", err));
-                            sessionStorage.setItem(viewKey, 'true');
-                        }
+                        recordCourseView(courseId).then((views) => {
+                            if (views !== null) {
+                                setCourse((current) => current ? { ...current, views } : current);
+                            }
+                        });
                     }
                 }
             } catch (error) {

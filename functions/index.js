@@ -27,6 +27,12 @@ const META_CAPI_ACCESS_TOKEN_SECRET = defineSecret("META_CAPI_ACCESS_TOKEN");
 const S3_ACCESS_KEY_SECRET = defineSecret("S3_ACCESS_KEY");
 const S3_SECRET_KEY_SECRET = defineSecret("S3_SECRET_KEY");
 const STORAGE_MEDIA_TOKEN_SECRET = defineSecret("STORAGE_MEDIA_TOKEN_SECRET");
+const DISABLED_SECRET_VALUE = "__DISABLED__";
+
+const getMetaCapiAccessToken = () => {
+  const accessToken = String(META_CAPI_ACCESS_TOKEN_SECRET.value() || "").trim();
+  return accessToken === DISABLED_SECRET_VALUE ? "" : accessToken;
+};
 
 const getDefaultApp = () => {
   if (!defaultApp) {
@@ -79,6 +85,7 @@ const RATE_LIMIT_POLICIES = new Map([
   ["/api/orders", { limit: 10, windowMs: 10 * 60 * 1000 }],
   ["/api/post-feedback", { limit: 5, windowMs: 10 * 60 * 1000 }],
   ["/api/post-view", { limit: 120, windowMs: 60 * 1000 }],
+  ["/api/course-view", { limit: 120, windowMs: 60 * 1000 }],
   ["/api/storage-share", { limit: 120, windowMs: 60 * 1000 }],
 ]);
 const rateLimitBuckets = new Map();
@@ -456,6 +463,50 @@ const onIncrementPostView = async ({ request }) => {
   return createJsonResponse(result.body, result.status);
 };
 
+const onIncrementCourseView = async ({ request }) => {
+  const body = await request.json();
+  const courseId = String(body?.courseId || "").trim();
+  const viewerId = String(body?.viewerId || "").trim();
+
+  if (
+    !/^[A-Za-z0-9_-]{1,128}$/.test(courseId) ||
+    !/^[A-Za-z0-9-]{16,64}$/.test(viewerId)
+  ) {
+    return createJsonResponse({ error: "Invalid view payload" }, 400);
+  }
+
+  const courseRef = getFirestoreDb().collection("courses").doc(courseId);
+  const viewRef = getFirestoreDb()
+    .collection("course_view_events")
+    .doc(`${courseId}_${viewerId}`);
+
+  const result = await getFirestoreDb().runTransaction(async (transaction) => {
+    const [courseSnapshot, viewSnapshot] = await Promise.all([
+      transaction.get(courseRef),
+      transaction.get(viewRef),
+    ]);
+
+    if (!courseSnapshot.exists) {
+      return { status: 404, body: { error: "Course not found" } };
+    }
+
+    const currentViews = Number(courseSnapshot.data()?.views || 0);
+    if (viewSnapshot.exists) {
+      return { status: 200, body: { counted: false, views: currentViews } };
+    }
+
+    transaction.set(viewRef, {
+      courseId,
+      createdAt: FieldValue.serverTimestamp(),
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+    });
+    transaction.update(courseRef, { views: FieldValue.increment(1) });
+    return { status: 200, body: { counted: true, views: currentViews + 1 } };
+  });
+
+  return createJsonResponse(result.body, result.status);
+};
+
 const onGetPublicBankSettings = async () => {
   const snapshot = await getFirestoreDb()
     .collection("system_settings")
@@ -752,7 +803,7 @@ const sanitizeEventSourceUrl = (value) => {
 
 const onTrackOrderPurchase = async ({ request, orderId }) => {
   const { order, reference } = await getAuthorizedOrder({ request, orderId });
-  const accessToken = String(META_CAPI_ACCESS_TOKEN_SECRET.value() || "").trim();
+  const accessToken = getMetaCapiAccessToken();
   const pixelId = String(process.env.META_PIXEL_ID || "1526874981588150").trim();
   if (!accessToken || !/^\d{5,30}$/.test(pixelId)) {
     throw createHttpError(503, "Purchase tracking is not configured");
@@ -840,6 +891,7 @@ const ROUTES = new Map([
   ["POST /api/crm-leads", onCreateCrmLead],
   ["POST /api/newsletter", onCreateNewsletterSubscription],
   ["POST /api/orders", onCreateOrder],
+  ["POST /api/course-view", onIncrementCourseView],
   ["POST /api/post-feedback", onCreatePostFeedback],
   ["POST /api/post-view", onIncrementPostView],
   ["GET /api/storage-share", onGetStorageShare],
@@ -1083,7 +1135,7 @@ export const onCrmLeadCreated = onValueCreated(
       const pixelId = leadData.fbPixel || "1526874981588150"; // Fallback to default
       const landingPageId = leadData.landingPageId;
       
-      const fbCapiToken = String(META_CAPI_ACCESS_TOKEN_SECRET.value() || "").trim();
+      const fbCapiToken = getMetaCapiAccessToken();
       let fbPixel = pixelId;
 
       // Pixel ID may be public per landing page. The CAPI token must remain server-only.
@@ -1172,6 +1224,7 @@ export const onCrmLeadCreated = onValueCreated(
 
 export const uploadApi = onRequest(
   {
+    invoker: "public",
     region: "asia-southeast1",
     secrets: [
       META_CAPI_ACCESS_TOKEN_SECRET,
