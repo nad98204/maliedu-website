@@ -9,6 +9,7 @@ import {
   normalizeRoutePath,
   ROUTE_SEO,
   SITE_URL,
+  STATIC_LASTMOD,
 } from "../src/seo/routeSeo.js";
 import { FIREBASE_PUBLIC_CONFIG } from "../src/constants/firebasePublicConfig.js";
 
@@ -117,6 +118,7 @@ const toDateString = (value) => {
 
 const sitemapEntries = new Map();
 const routeManifest = new Map();
+const generatedOn = new Date().toISOString().split("T")[0];
 const counters = {
   static: 0,
   courses: 0,
@@ -147,15 +149,11 @@ const addSitemapEntry = ({
   path: routePath,
   seo,
   lastmod,
-  priority = "0.7",
-  changefreq = "monthly",
 }) => {
   const normalizedPath = normalizeRoutePath(routePath);
   sitemapEntries.set(normalizedPath, {
     loc: seo.url,
-    lastmod,
-    priority,
-    changefreq,
+    lastmod: lastmod || generatedOn,
   });
 };
 
@@ -165,8 +163,7 @@ for (const [routePath, routeConfig] of Object.entries(ROUTE_SEO)) {
     addSitemapEntry({
       path: routePath,
       seo,
-      priority: routeConfig.sitemap.priority,
-      changefreq: routeConfig.sitemap.changefreq,
+      lastmod: routeConfig.lastmod || STATIC_LASTMOD,
     });
     counters.static += 1;
   }
@@ -179,8 +176,6 @@ const addDynamicRoute = ({
   image,
   type = "article",
   lastmod,
-  priority,
-  changefreq,
 }) => {
   const seo = addManifestRoute(routePath, {
     title,
@@ -189,14 +184,12 @@ const addDynamicRoute = ({
     type,
     robots:
       "index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1",
-    sitemap: { priority, changefreq },
+    sitemap: true,
   });
   addSitemapEntry({
     path: routePath,
     seo,
     lastmod,
-    priority,
-    changefreq,
   });
 };
 
@@ -331,8 +324,6 @@ if (db || usePublicFirestore) {
       image: data.thumbnailUrl || data.imageUrl,
       type: "product",
       lastmod: toDateString(data.updatedAt || data.createdAt),
-      priority: "0.9",
-      changefreq: "monthly",
     });
     counters.courses += 1;
   });
@@ -352,8 +343,6 @@ if (db || usePublicFirestore) {
       image: data.thumbnailUrl || data.imageUrl,
       type: "article",
       lastmod: toDateString(data.updatedAt || data.createdAt),
-      priority: "0.7",
-      changefreq: "monthly",
     });
     counters.posts += 1;
   });
@@ -374,29 +363,23 @@ if (db || usePublicFirestore) {
       image: data.thumbnailUrl || data.imageUrl,
       type: "article",
       lastmod: toDateString(data.updatedAt || data.createdAt),
-      priority: "0.6",
-      changefreq: "monthly",
     });
     counters.jobs += 1;
   });
 }
 
-const urlEntry = ({ loc, lastmod, changefreq, priority }) =>
+const urlEntry = ({ loc, lastmod }) =>
   [
     "  <url>",
     `    <loc>${escapeXml(loc)}</loc>`,
-    lastmod ? `    <lastmod>${lastmod}</lastmod>` : null,
-    `    <changefreq>${changefreq}</changefreq>`,
-    `    <priority>${priority}</priority>`,
+    `    <lastmod>${lastmod}</lastmod>`,
     "  </url>",
   ]
-    .filter(Boolean)
     .join("\n");
 
-const today = new Date().toISOString().split("T")[0];
 const sitemapXml = [
   '<?xml version="1.0" encoding="UTF-8"?>',
-  `<!-- Sitemap tự động sinh lúc build – ${today} -->`,
+  `<!-- Sitemap tự động sinh lúc build – ${generatedOn} -->`,
   `<!-- Tổng URL: ${sitemapEntries.size} (tĩnh: ${counters.static}, khóa học: ${counters.courses}, bài viết: ${counters.posts}, tuyển dụng: ${counters.jobs}) -->`,
   '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"',
   '  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"',

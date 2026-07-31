@@ -6,6 +6,8 @@ export const DEFAULT_IMAGE =
 export const INDEX_ROBOTS =
   "index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1";
 export const NOINDEX_ROBOTS = "noindex,nofollow";
+// Chỉ cập nhật ngày này khi nội dung hoặc metadata của nhóm trang tĩnh thay đổi.
+export const STATIC_LASTMOD = "2026-07-31";
 
 export const DEFAULT_SEO = {
   title: `${SITE_NAME} - Đánh thức tiềm năng thịnh vượng`,
@@ -15,16 +17,15 @@ export const DEFAULT_SEO = {
   url: "/",
   type: "website",
   robots: INDEX_ROBOTS,
-  sitemap: {
-    priority: "1.0",
-    changefreq: "daily",
-  },
+  lastmod: STATIC_LASTMOD,
+  sitemap: true,
 };
 
-const indexable = (seo, priority = "0.7", changefreq = "monthly") => ({
+const indexable = (seo) => ({
   ...seo,
   robots: INDEX_ROBOTS,
-  sitemap: { priority, changefreq },
+  lastmod: seo.lastmod || STATIC_LASTMOD,
+  sitemap: true,
 });
 
 const noindex = (seo) => ({

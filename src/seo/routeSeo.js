@@ -6,6 +6,7 @@ import {
   ROUTE_SEO,
   SITE_NAME,
   SITE_URL,
+  STATIC_LASTMOD,
 } from "./siteRoutes.js";
 
 export {
@@ -16,6 +17,7 @@ export {
   ROUTE_SEO,
   SITE_NAME,
   SITE_URL,
+  STATIC_LASTMOD,
 };
 
 export const normalizeRoutePath = (path = "/") => {

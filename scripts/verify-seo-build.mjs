@@ -23,6 +23,17 @@ const routeFilePath = (routePath) => {
 };
 
 const countMatches = (value, pattern) => (value.match(pattern) || []).length;
+const escapeRegExp = (value) =>
+  String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const metaContentFromHtml = (html, attributeName, attributeValue) => {
+  const tag = html.match(
+    new RegExp(
+      `<meta\\b[^>]*\\b${escapeRegExp(attributeName)}=["']${escapeRegExp(attributeValue)}["'][^>]*>`,
+      "i",
+    ),
+  )?.[0];
+  return tag?.match(/\bcontent=["']([^"']*)["']/i)?.[1] || "";
+};
 const canonicalFromHtml = (html) =>
   html.match(
     /<link\b[^>]*\brel=["']canonical["'][^>]*\bhref=["']([^"']+)["'][^>]*>/i,
@@ -87,6 +98,28 @@ for (const route of manifest.routes) {
     canonicalFromHtml(html) === route.url,
     `${route.path}: canonical không khớp ${route.url}.`,
   );
+  for (const property of [
+    "og:type",
+    "og:url",
+    "og:title",
+    "og:description",
+    "og:image",
+  ]) {
+    assert(
+      countMatches(
+        html,
+        new RegExp(
+          `<meta\\b[^>]*\\bproperty=["']${escapeRegExp(property)}["'][^>]*>`,
+          "gi",
+        ),
+      ) === 1,
+      `${route.path}: phải có đúng một thẻ ${property}.`,
+    );
+  }
+  assert(
+    metaContentFromHtml(html, "property", "og:url") === route.url,
+    `${route.path}: og:url không khớp canonical.`,
+  );
   assert(
     !html.includes("https://maliedu.vn"),
     `${route.path}: còn sót domain maliedu.vn trong HTML.`,
@@ -100,9 +133,28 @@ const sitemapUrls = Array.from(
 
 assert(sitemapUrls.length > 0, "Sitemap không có URL.");
 assert(
+  !/<changefreq>|<priority>/i.test(sitemap),
+  "Sitemap không nên chứa changefreq hoặc priority.",
+);
+assert(
   new Set(sitemapUrls).size === sitemapUrls.length,
   "Sitemap có URL trùng lặp.",
 );
+
+const sitemapUrlBlocks = Array.from(
+  sitemap.matchAll(/<url>([\s\S]*?)<\/url>/g),
+  (match) => match[1],
+);
+assert(
+  sitemapUrlBlocks.length === sitemapUrls.length,
+  "Không đọc được đầy đủ các khối URL trong sitemap.",
+);
+for (const block of sitemapUrlBlocks) {
+  assert(
+    countMatches(block, /<lastmod>\d{4}-\d{2}-\d{2}<\/lastmod>/g) === 1,
+    "Mỗi URL sitemap phải có đúng một lastmod dạng YYYY-MM-DD.",
+  );
+}
 
 for (const urlValue of sitemapUrls) {
   const url = new URL(urlValue);
