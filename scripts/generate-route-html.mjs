@@ -25,6 +25,24 @@ const replaceOrThrow = (html, pattern, replacement, label) => {
   return html.replace(pattern, replacement);
 };
 
+const injectJsonLd = (html, schemas = []) => {
+  if (!Array.isArray(schemas) || schemas.length === 0) return html;
+
+  const scripts = schemas
+    .map(
+      (schema) =>
+        `    <script data-rh="true" data-seo-json-ld="true" type="application/ld+json">${JSON.stringify(schema).replace(/</g, "\\u003c")}</script>`,
+    )
+    .join("\n");
+
+  return replaceOrThrow(
+    html,
+    /<\/head>/i,
+    `${scripts}\n  </head>`,
+    "đóng head để chèn JSON-LD",
+  );
+};
+
 const applySeoToHtml = (html, seo) => {
   let nextHtml = html;
 
@@ -105,7 +123,7 @@ const applySeoToHtml = (html, seo) => {
     nextHtml = replaceOrThrow(nextHtml, pattern, replacement, label);
   }
 
-  return nextHtml;
+  return injectJsonLd(nextHtml, seo.jsonLd);
 };
 
 const createSpaShell = (html) =>

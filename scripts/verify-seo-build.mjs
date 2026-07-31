@@ -154,6 +154,25 @@ for (const route of manifest.routes) {
     !html.includes("https://maliedu.vn"),
     `${route.path}: còn sót domain maliedu.vn trong HTML.`,
   );
+
+  const jsonLdBlocks = Array.from(
+    html.matchAll(
+      /<script\b[^>]*\bdata-seo-json-ld=["']true["'][^>]*>([\s\S]*?)<\/script>/gi,
+    ),
+    (match) => match[1],
+  );
+  const expectedJsonLd = Array.isArray(route.jsonLd) ? route.jsonLd : [];
+  assert(
+    jsonLdBlocks.length === expectedJsonLd.length,
+    `${route.path}: số JSON-LD không khớp route manifest.`,
+  );
+  for (const block of jsonLdBlocks) {
+    try {
+      JSON.parse(block);
+    } catch {
+      errors.push(`${route.path}: JSON-LD không phải JSON hợp lệ.`);
+    }
+  }
 }
 
 const sitemapUrls = Array.from(

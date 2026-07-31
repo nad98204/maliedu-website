@@ -94,6 +94,36 @@ const serveSpaShell = async (context, { noindex = false } = {}) => {
   );
 };
 
+const servePrerenderedRoute = async (context, pathname) => {
+  if (!context.env?.ASSETS) return null;
+
+  const assetUrl = new URL(context.request.url);
+  // Cloudflare Pages resolves this pretty path to the generated `<path>.html`.
+  assetUrl.pathname = pathname;
+  assetUrl.search = "";
+
+  const assetRequest = new Request(assetUrl, {
+    method: context.request.method === "HEAD" ? "HEAD" : "GET",
+    headers: context.request.headers,
+  });
+  const response = await context.env.ASSETS.fetch(assetRequest);
+  const contentType = response.headers.get("Content-Type") || "";
+
+  if (!response.ok || !/text\/html/i.test(contentType)) return null;
+
+  const nextResponse = cloneWithHeaders(response, {
+    "Cache-Control": "public, max-age=0, must-revalidate",
+  });
+  return new Response(
+    context.request.method === "HEAD" ? null : nextResponse.body,
+    {
+      status: nextResponse.status,
+      statusText: nextResponse.statusText,
+      headers: nextResponse.headers,
+    },
+  );
+};
+
 const renderNotFound = (request) => {
   const body = `<!doctype html>
 <html lang="vi">
@@ -256,6 +286,10 @@ export async function onRequest(context) {
     if (!slug || slug.includes("/")) return renderNotFound(request);
     const exists = await dynamicDocumentExists(context, dynamicRule, slug);
     if (exists === false) return renderNotFound(request);
+
+    const prerenderedResponse = await servePrerenderedRoute(context, pathname);
+    if (prerenderedResponse) return prerenderedResponse;
+
     // Fail open if Firestore is temporarily unavailable; existing pages remain usable.
     return serveSpaShell(context);
   }

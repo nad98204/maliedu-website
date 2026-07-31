@@ -11,6 +11,7 @@ import {
   SITE_URL,
   STATIC_LASTMOD,
 } from "../src/seo/routeSeo.js";
+import { MALI_LOGO_URL } from "../src/constants/brandAssets.js";
 import { FIREBASE_PUBLIC_CONFIG } from "../src/constants/firebasePublicConfig.js";
 
 const require = createRequire(import.meta.url);
@@ -126,13 +127,34 @@ const counters = {
   jobs: 0,
 };
 
+const organizationSchema = {
+  "@type": "Organization",
+  name: "Mali Edu",
+  url: SITE_URL,
+  logo: {
+    "@type": "ImageObject",
+    url: MALI_LOGO_URL,
+  },
+};
+
+const createBreadcrumbSchema = (items) => ({
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: items.map((item, index) => ({
+    "@type": "ListItem",
+    position: index + 1,
+    name: item.name,
+    item: item.url,
+  })),
+});
+
 const addManifestRoute = (routePath, input = {}) => {
   const normalizedPath = normalizeRoutePath(routePath);
   const resolved = getResolvedSeo({
     ...input,
     url: input.url || normalizedPath,
   });
-  routeManifest.set(normalizedPath, {
+  const manifestRoute = {
     path: normalizedPath,
     title: resolved.title,
     description: resolved.description,
@@ -141,7 +163,11 @@ const addManifestRoute = (routePath, input = {}) => {
     type: resolved.type,
     robots: resolved.robots,
     sitemap: input.sitemap ?? resolved.sitemap ?? false,
-  });
+  };
+  if (Array.isArray(input.jsonLd) && input.jsonLd.length > 0) {
+    manifestRoute.jsonLd = input.jsonLd;
+  }
+  routeManifest.set(normalizedPath, manifestRoute);
   return routeManifest.get(normalizedPath);
 };
 
@@ -176,6 +202,7 @@ const addDynamicRoute = ({
   image,
   type = "article",
   lastmod,
+  createJsonLd,
 }) => {
   const seo = addManifestRoute(routePath, {
     title,
@@ -186,6 +213,10 @@ const addDynamicRoute = ({
       "index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1",
     sitemap: true,
   });
+  const jsonLd = createJsonLd?.(seo);
+  if (Array.isArray(jsonLd) && jsonLd.length > 0) {
+    seo.jsonLd = jsonLd;
+  }
   addSitemapEntry({
     path: routePath,
     seo,
@@ -313,8 +344,9 @@ if (db || usePublicFirestore) {
     const data = document.data;
     const slug = String(data.slug || document.id || "").trim();
     if (!slug) return;
+    const routePath = `/khoa-hoc/${slug}`;
     addDynamicRoute({
-      path: `/khoa-hoc/${slug}`,
+      path: routePath,
       title: data.seoTitle || data.name || data.title || "Khóa học",
       description:
         data.seoDescription ||
@@ -324,6 +356,30 @@ if (db || usePublicFirestore) {
       image: data.thumbnailUrl || data.imageUrl,
       type: "product",
       lastmod: toDateString(data.updatedAt || data.createdAt),
+      createJsonLd: (seo) => [
+        {
+          "@context": "https://schema.org",
+          "@type": "Course",
+          name: seo.title,
+          description: seo.description,
+          url: seo.url,
+          image: seo.image,
+          provider: organizationSchema,
+          ...(data.instructorName
+            ? {
+                instructor: {
+                  "@type": "Person",
+                  name: data.instructorName,
+                },
+              }
+            : {}),
+        },
+        createBreadcrumbSchema([
+          { name: "Trang chủ", url: `${SITE_URL}/` },
+          { name: "Khóa học", url: `${SITE_URL}/khoa-hoc` },
+          { name: seo.title, url: seo.url },
+        ]),
+      ],
     });
     counters.courses += 1;
   });
@@ -332,8 +388,11 @@ if (db || usePublicFirestore) {
     const data = document.data;
     const slug = String(data.slug || document.id || "").trim();
     if (!slug) return;
+    const routePath = `/tin-tuc/${slug}`;
+    const publishedAt = toDateString(data.createdAt);
+    const modifiedAt = toDateString(data.updatedAt || data.createdAt);
     addDynamicRoute({
-      path: `/tin-tuc/${slug}`,
+      path: routePath,
       title: data.seoTitle || data.title || "Bài viết",
       description:
         data.seoDescription ||
@@ -342,7 +401,32 @@ if (db || usePublicFirestore) {
         "Bài viết mới từ Mali Edu.",
       image: data.thumbnailUrl || data.imageUrl,
       type: "article",
-      lastmod: toDateString(data.updatedAt || data.createdAt),
+      lastmod: modifiedAt,
+      createJsonLd: (seo) => [
+        {
+          "@context": "https://schema.org",
+          "@type": "NewsArticle",
+          headline: seo.title,
+          description: seo.description,
+          image: [seo.image],
+          ...(publishedAt ? { datePublished: publishedAt } : {}),
+          ...(modifiedAt ? { dateModified: modifiedAt } : {}),
+          author: {
+            "@type": "Person",
+            name: data.author || "Mali Edu",
+          },
+          publisher: organizationSchema,
+          mainEntityOfPage: {
+            "@type": "WebPage",
+            "@id": seo.url,
+          },
+        },
+        createBreadcrumbSchema([
+          { name: "Trang chủ", url: `${SITE_URL}/` },
+          { name: "Tin tức", url: `${SITE_URL}/tin-tuc` },
+          { name: seo.title, url: seo.url },
+        ]),
+      ],
     });
     counters.posts += 1;
   });
