@@ -65,6 +65,7 @@ const VutTocMucTieu = lazy(() => import("./pages/landingpage/VutTocMucTieu"));
 const MongCoaching = lazy(() => import("./pages/about/MongCoaching"));
 const LinkBio = lazy(() => import("./pages/LinkBio"));
 const MediaShare = lazy(() => import("./pages/MediaShare"));
+const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Admin Pages
 const AdminLogin = lazy(() => import("./pages/admin/Login"));
@@ -210,7 +211,7 @@ const AppShell = () => {
               <Route path="storage" element={<AdminStorage />} />
             </Route>
 
-            <Route path="*" element={<Navigate to="/" replace />} />
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>
       </main>

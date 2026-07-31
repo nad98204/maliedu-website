@@ -1,136 +1,390 @@
-/**
- * generate-sitemap.mjs
- * ---------------------
- * Script Node.js sinh file public/sitemap.xml động bằng cách kết nối
- * thẳng vào Firebase Firestore qua firebase-admin SDK.
- *
- * Biến môi trường cần thiết (đặt trong .env hoặc CI/CD):
- *   FIREBASE_PROJECT_ID       – Project ID của Firebase
- *   FIREBASE_CLIENT_EMAIL     – Service account email
- *   FIREBASE_PRIVATE_KEY      – Private key (có thể có \n literal)
- *   SITE_URL (tuỳ chọn)       – Base URL của trang, mặc định: https://luathapdan.vn
- *
- * Ngoài ra, nếu có file serviceAccountKey.json (không commit lên git),
- * script cũng có thể đọc từ biến GOOGLE_APPLICATION_CREDENTIALS.
- */
+import { createRequire } from "node:module";
+import fs from "node:fs";
+import path from "node:path";
+import process from "node:process";
+import { fileURLToPath } from "node:url";
 
-import { createRequire } from "module";
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
+import {
+  getResolvedSeo,
+  normalizeRoutePath,
+  ROUTE_SEO,
+  SITE_URL,
+} from "../src/seo/routeSeo.js";
+import { FIREBASE_PUBLIC_CONFIG } from "../src/constants/firebasePublicConfig.js";
 
 const require = createRequire(import.meta.url);
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const projectRoot = path.resolve(__dirname, "..");
 
-// ---------------------------------------------------------------------------
-// 1. Khởi tạo firebase-admin
-// ---------------------------------------------------------------------------
-let admin;
-try {
-  admin = require("firebase-admin");
-} catch {
-  console.error(
-    "❌  firebase-admin chưa được cài đặt.\n" +
-      "   Chạy: npm install --save-dev firebase-admin\n" +
-      "   hoặc:  npm install firebase-admin"
-  );
-  process.exit(1);
+const localEnvPath = path.join(projectRoot, ".env");
+if (fs.existsSync(localEnvPath) && typeof process.loadEnvFile === "function") {
+  process.loadEnvFile(localEnvPath);
 }
 
-const SITE_URL = (process.env.SITE_URL || "https://luathapdan.vn").replace(/\/$/, "");
-const PROJECT_ID = process.env.FIREBASE_PROJECT_ID;
-const CLIENT_EMAIL = process.env.FIREBASE_CLIENT_EMAIL;
-const RAW_PRIVATE_KEY = process.env.FIREBASE_PRIVATE_KEY;
+const isTruthy = (value) =>
+  ["1", "true", "yes", "on"].includes(String(value || "").trim().toLowerCase());
 
-let firebaseInitialized = false;
+const allowStaticOnly = isTruthy(process.env.ALLOW_STATIC_SITEMAP);
+const projectId = process.env.FIREBASE_PROJECT_ID;
+const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+const rawPrivateKey = process.env.FIREBASE_PRIVATE_KEY;
 
-// Nếu có đủ biến môi trường inline → dùng service account trực tiếp
-if (PROJECT_ID && CLIENT_EMAIL && RAW_PRIVATE_KEY) {
-  // "\n" literal trong .env → thay thành ký tự newline thật
-  const privateKey = RAW_PRIVATE_KEY.replace(/\\n/g, "\n");
-
-  admin.initializeApp({
-    credential: admin.credential.cert({
-      projectId: PROJECT_ID,
-      clientEmail: CLIENT_EMAIL,
-      privateKey,
-    }),
-  });
-  firebaseInitialized = true;
-  console.log(`🔐 Dùng service account: ${CLIENT_EMAIL} (project: ${PROJECT_ID})`);
-} else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-  // Dùng file serviceAccountKey.json qua biến môi trường chuẩn của Google
-  admin.initializeApp({
-    credential: admin.credential.applicationDefault(),
-  });
-  firebaseInitialized = true;
-  console.log(`🔐 Dùng Application Default Credentials (GOOGLE_APPLICATION_CREDENTIALS)`);
-} else {
-  console.warn(
-    "⚠️  Không có thông tin xác thực Firebase Admin.\n" +
-      "   Sitemap sẽ chỉ chứa các route tĩnh (không có dữ liệu động từ Firestore).\n" +
-      "   Để có đầy đủ dữ liệu, cung cấp một trong hai:\n" +
-      "   (A) Ba biến môi trường: FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY\n" +
-      "   (B) Biến GOOGLE_APPLICATION_CREDENTIALS trỏ đến file serviceAccountKey.json"
-  );
-}
-
-// Only get Firestore if Firebase was initialized
-const db = firebaseInitialized ? admin.firestore() : null;
-
-// ---------------------------------------------------------------------------
-// 2. Định nghĩa các route tĩnh (public, có thể index bởi search engine)
-// ---------------------------------------------------------------------------
-const STATIC_ROUTES = [
-  { path: "/",                              priority: "1.0", changefreq: "daily"   },
-  { path: "/gioi-thieu",                   priority: "0.8", changefreq: "monthly" },
-  { path: "/gioi-thieu/mong-coaching",     priority: "0.7", changefreq: "monthly" },
-  { path: "/dao-tao",                      priority: "0.9", changefreq: "weekly"  },
-  { path: "/dao-tao/luat-hap-dan",         priority: "0.8", changefreq: "monthly" },
-  { path: "/dao-tao/khoi-thong-dong-tien", priority: "0.8", changefreq: "monthly" },
-  { path: "/dao-tao/vut-toc-muc-tieu",     priority: "0.8", changefreq: "monthly" },
-  { path: "/dao-tao/chinh-phuc-muc-tieu",  priority: "0.8", changefreq: "monthly" },
-  { path: "/tin-tuc",                      priority: "0.8", changefreq: "daily"   },
-  { path: "/khoa-hoc",                     priority: "0.9", changefreq: "weekly"  },
-  { path: "/cam-nhan",                     priority: "0.7", changefreq: "monthly" },
-  { path: "/tuyen-dung",                   priority: "0.7", changefreq: "weekly"  },
-  { path: "/lien-he",                      priority: "0.6", changefreq: "monthly" },
-  { path: "/chinh-sach-bao-mat",           priority: "0.5", changefreq: "yearly"  },
-  // Trang kiến thức tĩnh
-  { path: "/kien-thuc/luat-nhan-qua-hap-dan",  priority: "0.7", changefreq: "monthly" },
-  { path: "/kien-thuc/tiem-thuc-niem-tin",      priority: "0.7", changefreq: "monthly" },
-  { path: "/kien-thuc/chua-lanh-noi-tam",       priority: "0.7", changefreq: "monthly" },
-  { path: "/kien-thuc/thien-thuc-hanh",         priority: "0.7", changefreq: "monthly" },
-  { path: "/kien-thuc/nang-luong-tien",         priority: "0.7", changefreq: "monthly" },
-  { path: "/kien-thuc/muc-tieu-hieu-suat",      priority: "0.7", changefreq: "monthly" },
-  { path: "/kien-thuc/kinh-doanh-tinh-thuc",    priority: "0.7", changefreq: "monthly" },
-  { path: "/kien-thuc/video-podcast",           priority: "0.7", changefreq: "weekly"  },
-];
-
-// ---------------------------------------------------------------------------
-// 3. Hàm tiện ích
-// ---------------------------------------------------------------------------
-
-/**
- * Định dạng timestamp thành YYYY-MM-DD cho <lastmod>.
- * Chấp nhận Firestore Timestamp, JS Date, epoch ms hoặc chuỗi ISO.
- */
-function toDateString(value) {
-  if (!value) return new Date().toISOString().split("T")[0];
-  // Firestore Timestamp object
-  if (typeof value.toDate === "function") {
-    return value.toDate().toISOString().split("T")[0];
+let db = null;
+let usePublicFirestore = false;
+if (projectId && clientEmail && rawPrivateKey) {
+  let admin;
+  try {
+    admin = require("firebase-admin");
+  } catch {
+    throw new Error(
+      "firebase-admin chưa được cài đặt. Chạy npm install trước khi sinh sitemap.",
+    );
   }
-  return new Date(value).toISOString().split("T")[0];
+  const privateKey = rawPrivateKey.replace(/\\n/g, "\n");
+  if (!admin.apps.length) {
+    admin.initializeApp({
+      credential: admin.credential.cert({
+        projectId,
+        clientEmail,
+        privateKey,
+      }),
+    });
+  }
+  db = admin.firestore();
+  console.log(`[sitemap] Đã kết nối Firestore project ${projectId}.`);
+} else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+  let admin;
+  try {
+    admin = require("firebase-admin");
+  } catch {
+    throw new Error(
+      "firebase-admin chưa được cài đặt. Chạy npm install trước khi sinh sitemap.",
+    );
+  }
+  if (!admin.apps.length) {
+    admin.initializeApp({
+      credential: admin.credential.applicationDefault(),
+    });
+  }
+  db = admin.firestore();
+  console.log("[sitemap] Đã kết nối Firestore bằng Application Default Credentials.");
+} else {
+  usePublicFirestore = true;
+  console.log(
+    "[sitemap] Không có Firebase Admin credentials; dùng Firestore REST công khai cho nội dung đã xuất bản.",
+  );
 }
 
-/** Trả về một <url> block XML đầy đủ. */
-function urlEntry({ loc, lastmod, changefreq = "monthly", priority = "0.7" }) {
-  return [
+const escapeXml = (value) =>
+  String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/'/g, "&apos;")
+    .replace(/"/g, "&quot;")
+    .replace(/>/g, "&gt;")
+    .replace(/</g, "&lt;");
+
+const decodeBasicEntities = (value) =>
+  String(value)
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">");
+
+const toPlainText = (value, maxLength = 160) => {
+  const text = decodeBasicEntities(value || "")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`;
+};
+
+const toDateString = (value) => {
+  if (!value) return undefined;
+  const date =
+    typeof value.toDate === "function"
+      ? value.toDate()
+      : value instanceof Date
+        ? value
+        : new Date(value);
+  return Number.isNaN(date.getTime())
+    ? undefined
+    : date.toISOString().split("T")[0];
+};
+
+const sitemapEntries = new Map();
+const routeManifest = new Map();
+const counters = {
+  static: 0,
+  courses: 0,
+  posts: 0,
+  jobs: 0,
+};
+
+const addManifestRoute = (routePath, input = {}) => {
+  const normalizedPath = normalizeRoutePath(routePath);
+  const resolved = getResolvedSeo({
+    ...input,
+    url: input.url || normalizedPath,
+  });
+  routeManifest.set(normalizedPath, {
+    path: normalizedPath,
+    title: resolved.title,
+    description: resolved.description,
+    image: resolved.image,
+    url: resolved.url,
+    type: resolved.type,
+    robots: resolved.robots,
+    sitemap: input.sitemap ?? resolved.sitemap ?? false,
+  });
+  return routeManifest.get(normalizedPath);
+};
+
+const addSitemapEntry = ({
+  path: routePath,
+  seo,
+  lastmod,
+  priority = "0.7",
+  changefreq = "monthly",
+}) => {
+  const normalizedPath = normalizeRoutePath(routePath);
+  sitemapEntries.set(normalizedPath, {
+    loc: seo.url,
+    lastmod,
+    priority,
+    changefreq,
+  });
+};
+
+for (const [routePath, routeConfig] of Object.entries(ROUTE_SEO)) {
+  const seo = addManifestRoute(routePath, routeConfig);
+  if (routeConfig.sitemap) {
+    addSitemapEntry({
+      path: routePath,
+      seo,
+      priority: routeConfig.sitemap.priority,
+      changefreq: routeConfig.sitemap.changefreq,
+    });
+    counters.static += 1;
+  }
+}
+
+const addDynamicRoute = ({
+  path: routePath,
+  title,
+  description,
+  image,
+  type = "article",
+  lastmod,
+  priority,
+  changefreq,
+}) => {
+  const seo = addManifestRoute(routePath, {
+    title,
+    description: toPlainText(description) || undefined,
+    image,
+    type,
+    robots:
+      "index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1",
+    sitemap: { priority, changefreq },
+  });
+  addSitemapEntry({
+    path: routePath,
+    seo,
+    lastmod,
+    priority,
+    changefreq,
+  });
+};
+
+const decodeFirestoreValue = (value = {}) => {
+  if ("stringValue" in value) return value.stringValue;
+  if ("booleanValue" in value) return value.booleanValue;
+  if ("integerValue" in value) return Number(value.integerValue);
+  if ("doubleValue" in value) return Number(value.doubleValue);
+  if ("timestampValue" in value) return value.timestampValue;
+  if ("nullValue" in value) return null;
+  if ("arrayValue" in value) {
+    return (value.arrayValue.values || []).map(decodeFirestoreValue);
+  }
+  if ("mapValue" in value) {
+    return Object.fromEntries(
+      Object.entries(value.mapValue.fields || {}).map(([key, nestedValue]) => [
+        key,
+        decodeFirestoreValue(nestedValue),
+      ]),
+    );
+  }
+  return undefined;
+};
+
+const decodeRestDocument = (document) => ({
+  id: String(document.name || "").split("/").pop(),
+  data: Object.fromEntries(
+    Object.entries(document.fields || {}).map(([key, value]) => [
+      key,
+      decodeFirestoreValue(value),
+    ]),
+  ),
+});
+
+const fetchPublicCollection = async (collectionName, { publishedOnly }) => {
+  const { apiKey, projectId: publicProjectId } = FIREBASE_PUBLIC_CONFIG;
+  const response = await fetch(
+    `https://firestore.googleapis.com/v1/projects/${publicProjectId}/databases/(default)/documents:runQuery?key=${encodeURIComponent(apiKey)}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Referer: `${SITE_URL}/`,
+      },
+      body: JSON.stringify({
+        structuredQuery: {
+          from: [{ collectionId: collectionName }],
+          ...(publishedOnly
+            ? {
+                where: {
+                  fieldFilter: {
+                    field: { fieldPath: "isPublished" },
+                    op: "EQUAL",
+                    value: { booleanValue: true },
+                  },
+                },
+              }
+            : {}),
+          limit: 1000,
+        },
+      }),
+    },
+  );
+  if (!response.ok) {
+    throw new Error(
+      `Firestore REST không đọc được collection ${collectionName} (HTTP ${response.status}).`,
+    );
+  }
+  const results = await response.json();
+  return results
+    .map((item) => item.document)
+    .filter(Boolean)
+    .map(decodeRestDocument);
+};
+
+const fetchAdminCollection = async (collectionName, { publishedOnly }) => {
+  let query = db.collection(collectionName);
+  if (publishedOnly) query = query.where("isPublished", "==", true);
+  const snapshot = await query.get();
+  return snapshot.docs.map((document) => ({
+    id: document.id,
+    data: document.data(),
+  }));
+};
+
+const fetchCollection = (collectionName, options) =>
+  db
+    ? fetchAdminCollection(collectionName, options)
+    : fetchPublicCollection(collectionName, options);
+
+if (db || usePublicFirestore) {
+  let courseDocuments = [];
+  let postDocuments = [];
+  let jobDocuments = [];
+
+  try {
+    [courseDocuments, postDocuments] = await Promise.all([
+      fetchCollection("courses", { publishedOnly: true }),
+      fetchCollection("posts", { publishedOnly: true }),
+    ]);
+  } catch (error) {
+    if (!allowStaticOnly) {
+      throw new Error(
+        `[sitemap] Không thể lấy dữ liệu động; build dừng để tránh sitemap thiếu nội dung. ${error.message}`,
+      );
+    }
+    console.warn(
+      `[sitemap] ALLOW_STATIC_SITEMAP=true: bỏ qua dữ liệu động. ${error.message}`,
+    );
+  }
+
+  try {
+    jobDocuments = await fetchCollection("jobs", { publishedOnly: false });
+  } catch (error) {
+    console.warn(
+      `[sitemap] Không thể đọc tuyển dụng công khai; bỏ qua URL tuyển dụng động. ${error.message}`,
+    );
+  }
+
+  courseDocuments.forEach((document) => {
+    const data = document.data;
+    const slug = String(data.slug || document.id || "").trim();
+    if (!slug) return;
+    addDynamicRoute({
+      path: `/khoa-hoc/${slug}`,
+      title: data.seoTitle || data.name || data.title || "Khóa học",
+      description:
+        data.seoDescription ||
+        data.shortDescription ||
+        data.description ||
+        "Khóa học trực tuyến tại Mali Edu.",
+      image: data.thumbnailUrl || data.imageUrl,
+      type: "product",
+      lastmod: toDateString(data.updatedAt || data.createdAt),
+      priority: "0.9",
+      changefreq: "monthly",
+    });
+    counters.courses += 1;
+  });
+
+  postDocuments.forEach((document) => {
+    const data = document.data;
+    const slug = String(data.slug || document.id || "").trim();
+    if (!slug) return;
+    addDynamicRoute({
+      path: `/tin-tuc/${slug}`,
+      title: data.seoTitle || data.title || "Bài viết",
+      description:
+        data.seoDescription ||
+        data.excerpt ||
+        data.summary ||
+        "Bài viết mới từ Mali Edu.",
+      image: data.thumbnailUrl || data.imageUrl,
+      type: "article",
+      lastmod: toDateString(data.updatedAt || data.createdAt),
+      priority: "0.7",
+      changefreq: "monthly",
+    });
+    counters.posts += 1;
+  });
+
+  jobDocuments.forEach((document) => {
+    const data = document.data;
+    if (data.isPublished === false) return;
+    const slug = String(data.slug || document.id || "").trim();
+    if (!slug) return;
+    addDynamicRoute({
+      path: `/tuyen-dung/${slug}`,
+      title: `${data.title || "Cơ hội nghề nghiệp"} - Tuyển dụng Mali Edu`,
+      description:
+        data.seoDescription ||
+        data.excerpt ||
+        data.description ||
+        `Khám phá cơ hội nghề nghiệp ${data.title || ""} tại Mali Edu.`,
+      image: data.thumbnailUrl || data.imageUrl,
+      type: "article",
+      lastmod: toDateString(data.updatedAt || data.createdAt),
+      priority: "0.6",
+      changefreq: "monthly",
+    });
+    counters.jobs += 1;
+  });
+}
+
+const urlEntry = ({ loc, lastmod, changefreq, priority }) =>
+  [
     "  <url>",
-    `    <loc>${loc}</loc>`,
+    `    <loc>${escapeXml(loc)}</loc>`,
     lastmod ? `    <lastmod>${lastmod}</lastmod>` : null,
     `    <changefreq>${changefreq}</changefreq>`,
     `    <priority>${priority}</priority>`,
@@ -138,214 +392,43 @@ function urlEntry({ loc, lastmod, changefreq = "monthly", priority = "0.7" }) {
   ]
     .filter(Boolean)
     .join("\n");
-}
 
-/** Escape ký tự đặc biệt trong XML URL. */
-function escapeXml(str) {
-  return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/'/g, "&apos;")
-    .replace(/"/g, "&quot;")
-    .replace(/>/g, "&gt;")
-    .replace(/</g, "&lt;");
-}
+const today = new Date().toISOString().split("T")[0];
+const sitemapXml = [
+  '<?xml version="1.0" encoding="UTF-8"?>',
+  `<!-- Sitemap tự động sinh lúc build – ${today} -->`,
+  `<!-- Tổng URL: ${sitemapEntries.size} (tĩnh: ${counters.static}, khóa học: ${counters.courses}, bài viết: ${counters.posts}, tuyển dụng: ${counters.jobs}) -->`,
+  '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"',
+  '  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"',
+  '  xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9',
+  '  http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">',
+  ...Array.from(sitemapEntries.values(), urlEntry),
+  "</urlset>",
+].join("\n");
 
-// ---------------------------------------------------------------------------
-// 4. Hàm chính
-// ---------------------------------------------------------------------------
-async function generateSitemap() {
-  console.log("🚀 Bắt đầu sinh sitemap...");
-  console.log(`   Base URL: ${SITE_URL}`);
+const publicDir = path.join(projectRoot, "public");
+const manifestDir = path.join(projectRoot, ".seo-build");
+const sitemapPath = path.join(publicDir, "sitemap.xml");
+const manifestPath = path.join(manifestDir, "routes.json");
 
-  const entries = [];
+fs.mkdirSync(publicDir, { recursive: true });
+fs.mkdirSync(manifestDir, { recursive: true });
+fs.writeFileSync(sitemapPath, `${sitemapXml}\n`, "utf8");
+fs.writeFileSync(
+  manifestPath,
+  `${JSON.stringify(
+    {
+      generatedAt: new Date().toISOString(),
+      siteUrl: SITE_URL,
+      counters,
+      routes: Array.from(routeManifest.values()),
+    },
+    null,
+    2,
+  )}\n`,
+  "utf8",
+);
 
-  // ── 4a. Route tĩnh ──────────────────────────────────────────────────────
-  console.log(`📄 Thêm ${STATIC_ROUTES.length} route tĩnh...`);
-  for (const route of STATIC_ROUTES) {
-    entries.push(
-      urlEntry({
-        loc: escapeXml(`${SITE_URL}${route.path}`),
-        changefreq: route.changefreq,
-        priority: route.priority,
-      })
-    );
-  }
-
-  // ── 4b. Courses (Khóa học) ───────────────────────────────────────────────
-  // Skip if Firebase not initialized (db is undefined)
-  if (!db) {
-    console.log("📦 Bỏ qua danh sách khóa học (không có kết nối Firebase)");
-  } else {
-    console.log("📦 Đang lấy danh sách khóa học (courses)...");
-  }
-  let courseCount = 0;
-  try {
-    if (!db) throw new Error("Firebase not initialized");
-    const snapshot = await db
-      .collection("courses")
-      .where("isPublished", "==", true)
-      .get();
-
-    snapshot.forEach((doc) => {
-      const data = doc.data();
-      const slug = data.slug || doc.id;
-      entries.push(
-        urlEntry({
-          loc: escapeXml(`${SITE_URL}/khoa-hoc/${slug}`),
-          lastmod: toDateString(data.updatedAt || data.createdAt),
-          changefreq: "monthly",
-          priority: "0.9",
-        })
-      );
-      courseCount++;
-    });
-    console.log(`   ✅ ${courseCount} khóa học`);
-  } catch (err) {
-    console.warn("   ⚠️  Không thể lấy courses:", err.message);
-  }
-
-  // ── 4c. Posts / Tin tức ──────────────────────────────────────────────────
-  // Toàn bộ bài viết trong collection "posts" dùng route công khai /tin-tuc/:slug.
-  if (!db) {
-    console.log("📝 Bỏ qua bài viết (không có kết nối Firebase)");
-  } else {
-    console.log("📝 Đang lấy bài viết (posts)...");
-  }
-  let postCount = 0;
-  try {
-    if (!db) throw new Error("Firebase not initialized");
-    const snapshot = await db
-      .collection("posts")
-      .where("isPublished", "==", true)
-      .get();
-
-    snapshot.forEach((doc) => {
-      const data = doc.data();
-      const slug = data.slug || doc.id;
-      const routePrefix = "tin-tuc";
-
-      entries.push(
-        urlEntry({
-          loc: escapeXml(`${SITE_URL}/${routePrefix}/${slug}`),
-          lastmod: toDateString(data.updatedAt || data.createdAt),
-          changefreq: "monthly",
-          priority: "0.7",
-        })
-      );
-      postCount++;
-    });
-    console.log(`   ✅ ${postCount} bài viết`);
-  } catch (err) {
-    console.warn("   ⚠️  Không thể lấy posts:", err.message);
-  }
-
-  // ── 4d. News (nếu có collection riêng) ───────────────────────────────────
-  // Một số dự án tách riêng collection "news". Kiểm tra thêm để không bỏ sót.
-  if (!db) {
-    console.log("📰 Bỏ qua collection 'news' (không có kết nối Firebase)");
-  } else {
-    console.log("📰 Đang kiểm tra collection 'news'...");
-  }
-  let newsCount = 0;
-  try {
-    if (!db) throw new Error("Firebase not initialized");
-    const snapshot = await db
-      .collection("news")
-      .where("isPublished", "==", true)
-      .get();
-
-    if (!snapshot.empty) {
-      snapshot.forEach((doc) => {
-        const data = doc.data();
-        const slug = data.slug || doc.id;
-        entries.push(
-          urlEntry({
-            loc: escapeXml(`${SITE_URL}/tin-tuc/${slug}`),
-            lastmod: toDateString(data.updatedAt || data.createdAt),
-            changefreq: "weekly",
-            priority: "0.7",
-          })
-        );
-        newsCount++;
-      });
-      console.log(`   ✅ ${newsCount} tin tức từ collection 'news'`);
-    } else {
-      console.log("   ℹ️  Collection 'news' trống hoặc không tồn tại, bỏ qua.");
-    }
-  } catch (err) {
-    // Lỗi "NOT_FOUND" là bình thường nếu collection chưa tồn tại
-    if (!err.message?.includes("NOT_FOUND")) {
-      console.warn("   ⚠️  Không thể lấy news:", err.message);
-    } else {
-      console.log("   ℹ️  Collection 'news' chưa tồn tại, bỏ qua.");
-    }
-  }
-
-  // ── 4e. Recruitment (Tuyển dụng) ─────────────────────────────────────────
-  if (!db) {
-    console.log("👔 Bỏ qua tin tuyển dụng (không có kết nối Firebase)");
-  } else {
-    console.log("👔 Đang lấy tin tuyển dụng (recruitment)...");
-  }
-  let recruitCount = 0;
-  try {
-    if (!db) throw new Error("Firebase not initialized");
-    const snapshot = await db
-      .collection("recruitment")
-      .where("isPublished", "==", true)
-      .get();
-
-    snapshot.forEach((doc) => {
-      const data = doc.data();
-      const slug = data.slug || doc.id;
-      entries.push(
-        urlEntry({
-          loc: escapeXml(`${SITE_URL}/tuyen-dung/${slug}`),
-          lastmod: toDateString(data.updatedAt || data.createdAt),
-          changefreq: "monthly",
-          priority: "0.6",
-        })
-      );
-      recruitCount++;
-    });
-    console.log(`   ✅ ${recruitCount} tin tuyển dụng`);
-  } catch (err) {
-    if (!err.message?.includes("NOT_FOUND")) {
-      console.warn("   ⚠️  Không thể lấy recruitment:", err.message);
-    }
-  }
-
-  // ---------------------------------------------------------------------------
-  // 5. Ghép XML và ghi file
-  // ---------------------------------------------------------------------------
-  const today = new Date().toISOString().split("T")[0];
-  const xml = [
-    `<?xml version="1.0" encoding="UTF-8"?>`,
-    `<!-- Sitemap tự động sinh lúc build – ${today} -->`,
-    `<!-- Tổng URL: ${entries.length} (tĩnh: ${STATIC_ROUTES.length}, khóa học: ${courseCount}, bài viết: ${postCount}, news: ${newsCount}, tuyển dụng: ${recruitCount}) -->`,
-    `<urlset`,
-    `  xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"`,
-    `  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"`,
-    `  xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9`,
-    `  http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">`,
-    ...entries,
-    `</urlset>`,
-  ].join("\n");
-
-  const PUBLIC_DIR = path.resolve(__dirname, "../public");
-  const OUTPUT_PATH = path.join(PUBLIC_DIR, "sitemap.xml");
-
-  fs.mkdirSync(PUBLIC_DIR, { recursive: true });
-  fs.writeFileSync(OUTPUT_PATH, xml, "utf8");
-
-  const relativePath = path.relative(path.resolve(__dirname, ".."), OUTPUT_PATH);
-  console.log(`\n✅ Sitemap đã lưu tại: ${relativePath}`);
-  console.log(`   Tổng ${entries.length} URL (tĩnh: ${STATIC_ROUTES.length}, khóa học: ${courseCount}, bài viết: ${postCount + newsCount}, tuyển dụng: ${recruitCount})`);
-}
-
-generateSitemap()
-  .then(() => process.exit(0))
-  .catch((err) => {
-    console.error("❌ Lỗi sinh sitemap:", err);
-    process.exit(1);
-  });
+console.log(
+  `[sitemap] Đã sinh ${sitemapEntries.size} URL và ${routeManifest.size} cấu hình HTML SEO.`,
+);

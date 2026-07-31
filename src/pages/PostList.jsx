@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Play, Calendar, ArrowLeft } from 'lucide-react';
-import { Link, useParams, Navigate } from 'react-router';
+import { Link, useParams } from 'react-router';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import SEO from '../components/SEO';
+import NotFound from './NotFound';
 
 const CATEGORY_DATA = {
     "luat-nhan-qua-hap-dan": {
@@ -90,7 +91,7 @@ const PostList = () => {
     }, [slug, categoryInfo]);
 
     if (!categoryInfo) {
-        return <Navigate to="/tin-tuc" replace />;
+        return <NotFound />;
     }
 
     // Animation variants

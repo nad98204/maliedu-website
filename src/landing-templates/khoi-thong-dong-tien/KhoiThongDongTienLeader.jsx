@@ -16,7 +16,7 @@ const FormDangKy = lazy(() => import("./sections/FormDangKy"));
 const Footer = lazy(() => import("../../components/Footer"));
 
 const KhoiThongDongTienLeader = () => {
-  const seo = getRouteSeo("/dao-tao/khoi-thong-dong-tien");
+  const seo = getRouteSeo("/dao-tao/khoi-thong-dong-tien-leader");
 
   return (
     <div

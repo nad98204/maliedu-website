@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import '../styles/article-rich-text.css';
-import { useParams, Link, Navigate } from 'react-router';
+import { useParams, Link } from 'react-router';
 import { motion } from 'framer-motion';
 import { ChevronRight, Calendar, User, ArrowLeft, Play } from 'lucide-react';
 import SEO from '../components/SEO';
@@ -11,6 +11,8 @@ import PostSidebar from '../components/PostSidebar';
 import { getYouTubeEmbedUrl } from '../utils/videoUtils';
 import { sanitizeRichHtml } from '../utils/sanitizeHtml';
 import { MALI_LOGO_URL } from '../constants/brandAssets.js';
+import NotFound from './NotFound';
+import { DEFAULT_IMAGE, SITE_URL } from '../seo/routeSeo';
 
 const PostDetail = () => {
     const [notFound, setNotFound] = useState(false);
@@ -88,7 +90,7 @@ const PostDetail = () => {
 
     // Redirect if not found
     if (notFound || !post) {
-        return <Navigate to="/tin-tuc" replace />;
+        return <NotFound />;
     }
 
     return (
@@ -107,7 +109,7 @@ const PostDetail = () => {
                         "description": post.excerpt || '',
                         "image": post.thumbnailUrl
                             ? [post.thumbnailUrl]
-                            : ["https://maliedu.vn/og-default.jpg"],
+                            : [DEFAULT_IMAGE],
                         "datePublished": post.createdAtISO || post.createdAt || new Date().toISOString(),
                         "dateModified": post.updatedAtISO || post.createdAtISO || post.createdAt || new Date().toISOString(),
                         "author": {
@@ -124,16 +126,16 @@ const PostDetail = () => {
                         },
                         "mainEntityOfPage": {
                             "@type": "WebPage",
-                            "@id": `https://maliedu.vn/bai-viet/${slug}`
+                            "@id": `${SITE_URL}/bai-viet/${slug}`
                         }
                     },
                     {
                         "@context": "https://schema.org",
                         "@type": "BreadcrumbList",
                         "itemListElement": [
-                            { "@type": "ListItem", "position": 1, "name": "Trang chủ", "item": "https://maliedu.vn/" },
-                            { "@type": "ListItem", "position": 2, "name": "Tin tức", "item": "https://maliedu.vn/tin-tuc" },
-                            { "@type": "ListItem", "position": 3, "name": post.title, "item": `https://maliedu.vn/bai-viet/${slug}` }
+                            { "@type": "ListItem", "position": 1, "name": "Trang chủ", "item": `${SITE_URL}/` },
+                            { "@type": "ListItem", "position": 2, "name": "Tin tức", "item": `${SITE_URL}/tin-tuc` },
+                            { "@type": "ListItem", "position": 3, "name": post.title, "item": `${SITE_URL}/bai-viet/${slug}` }
                         ]
                     }
                 ]}

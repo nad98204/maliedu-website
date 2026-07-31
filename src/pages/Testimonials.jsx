@@ -7,6 +7,7 @@ import { Helmet } from 'react-helmet-async';
 import Masonry from 'react-masonry-css';
 import { useParams } from 'react-router';
 import TestimonialCard from '../components/TestimonialCard';
+import NotFound from './NotFound';
 
 const CATEGORY_MAPPING = {
     'vut-toc-muc-tieu': 'Cảm nhận - Vút tốc mục tiêu',
@@ -24,6 +25,7 @@ const HARDCODED_HERO_IMAGES = [
 
 const Testimonials = () => {
     const { category } = useParams();
+    const invalidCategory = Boolean(category && !CATEGORY_MAPPING[category]);
     const [heroImages, setHeroImages] = useState(HARDCODED_HERO_IMAGES);
     const [videos, setVideos] = useState([]);
     const [articles, setArticles] = useState([]);
@@ -141,6 +143,10 @@ const Testimonials = () => {
             }
         }
     };
+
+    if (invalidCategory) {
+        return <NotFound />;
+    }
 
     return (
         <div className="bg-[#FAF9F6] font-sans overflow-hidden min-h-screen">

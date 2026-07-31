@@ -3,17 +3,10 @@ import { initializeApp, getApps, getApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { getDatabase } from "firebase/database";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
+import { FIREBASE_PUBLIC_CONFIG } from "./constants/firebasePublicConfig";
 
 // --- 1. APP CHÍNH (Web MaliEdu) ---
-export const firebaseConfig = {
-  apiKey: "AIzaSyCv_IliVnri6Iv6WEO3D4pwTGn_QFEEEnw",
-  authDomain: "maliedu-web.firebaseapp.com",
-  projectId: "maliedu-web",
-  storageBucket: "maliedu-web.firebasestorage.app",
-  messagingSenderId: "996301842926",
-  appId: "1:996301842926:web:46c694a592b17412e486ff",
-  measurementId: "G-YP9W6Y2EFJ"
-};
+export const firebaseConfig = FIREBASE_PUBLIC_CONFIG;
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 export const db = getFirestore(app); // Database của Web

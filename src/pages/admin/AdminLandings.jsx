@@ -110,7 +110,7 @@ const AdminLandings = () => {
         const slug = getLeaderUtmSlug();
         if (!slug || !form.slug) return "";
 
-        const url = new URL(form.slug.startsWith("/") ? form.slug : `/${form.slug}`, "https://maliedu.vn");
+        const url = new URL(form.slug.startsWith("/") ? form.slug : `/${form.slug}`, "https://luathapdan.vn");
         url.searchParams.set("utm_source", slug);
         url.searchParams.set("utm_medium", "leader");
         url.searchParams.set("utm_campaign", `${form.active_source_key || "leader"}_${slug}`);
@@ -737,7 +737,7 @@ const AdminLandings = () => {
                                     value={form.slug}
                                     onChange={e => setForm({ ...form, slug: e.target.value })}
                                 />
-                                <p className="text-xs text-slate-400 mt-1">URL: https://maliedu.vn{form.slug}</p>
+                                <p className="text-xs text-slate-400 mt-1">URL: https://luathapdan.vn{form.slug}</p>
                             </div>
                         </div>
 
@@ -879,7 +879,7 @@ const AdminLandings = () => {
                                             readOnly
                                             className="min-w-0 flex-1 px-3 py-2 rounded-lg border border-emerald-200 bg-white text-[11px] font-mono text-slate-600"
                                             value={getLeaderUtmLink()}
-                                            placeholder="https://maliedu.vn/..."
+                                            placeholder="https://luathapdan.vn/..."
                                         />
                                         <button
                                             type="button"
@@ -1210,7 +1210,7 @@ const AdminLandings = () => {
                                                 <div className="min-w-0 flex-1">
                                                     <h4 className="font-extrabold text-slate-800 text-sm md:text-base truncate">{landing.name}</h4>
                                                     <p className="text-xs text-slate-400 mt-1 truncate font-medium">
-                                                        maliedu.vn{landing.slug}
+                                                        luathapdan.vn{landing.slug}
                                                     </p>
                                                 </div>
                                             </div>
@@ -1240,7 +1240,7 @@ const AdminLandings = () => {
                                                             </button>
                                                             <button
                                                                 onClick={() => {
-                                                                    navigator.clipboard.writeText(`https://maliedu.vn${landing.slug}`);
+                                                                    navigator.clipboard.writeText(`https://luathapdan.vn${landing.slug}`);
                                                                     toast.success("Đã copy link!");
                                                                     setActiveMenuId(null);
                                                                 }}

@@ -1,6 +1,7 @@
 import React from 'react';
-import { useParams, Navigate } from 'react-router';
+import { useParams } from 'react-router';
 import * as LandingTemplates from '../landing-templates';
+import NotFound from './NotFound';
 
 /**
  * LandingPageViewer Component
@@ -25,7 +26,7 @@ const LandingPageViewer = () => {
   // Nếu không tìm thấy template, redirect về home
   if (!LandingComponent) {
     console.error(`Template "${componentName}" not found`);
-    return <Navigate to="/" replace />;
+    return <NotFound />;
   }
 
   // Render landing page (full screen, không có header/footer)

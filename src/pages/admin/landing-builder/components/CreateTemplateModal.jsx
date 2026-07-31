@@ -145,7 +145,7 @@ const CreateTemplateModal = ({ isOpen, onClose, onCreateSuccess, folders = [] })
                   />
                 </div>
                 <p className="text-xs text-slate-500 mt-1">
-                  Preview: <span className="font-mono text-indigo-600">maliedu.vn/landing/{formData.slug || '...'}</span>
+                  Preview: <span className="font-mono text-indigo-600">luathapdan.vn/landing/{formData.slug || '...'}</span>
                 </p>
               </div>
 
@@ -224,7 +224,7 @@ const CreateTemplateModal = ({ isOpen, onClose, onCreateSuccess, folders = [] })
 
                   <div className="bg-white rounded-xl p-4">
                     <div className="text-xs text-slate-500 mb-1">URL</div>
-                    <div className="font-mono text-sm text-indigo-600">maliedu.vn/landing/{formData.slug}</div>
+                    <div className="font-mono text-sm text-indigo-600">luathapdan.vn/landing/{formData.slug}</div>
                   </div>
 
                   <div className="bg-white rounded-xl p-4">

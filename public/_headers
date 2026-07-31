@@ -1,0 +1,36 @@
+/*
+  Content-Security-Policy: base-uri 'self'; object-src 'none'; frame-ancestors 'self'; form-action 'self'; upgrade-insecure-requests
+  Cross-Origin-Opener-Policy: same-origin-allow-popups
+  Permissions-Policy: camera=(), geolocation=(), microphone=(), payment=()
+  Referrer-Policy: strict-origin-when-cross-origin
+  Strict-Transport-Security: max-age=31536000
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: SAMEORIGIN
+
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/runtime-config.js
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/admin/*
+  X-Robots-Tag: noindex, nofollow
+
+/thanh-toan/*
+  X-Robots-Tag: noindex, nofollow
+
+/bai-giang/*
+  X-Robots-Tag: noindex, nofollow
+
+/tai-lieu/*
+  X-Robots-Tag: noindex, nofollow
+
+/ghi-chep/*
+  X-Robots-Tag: noindex, nofollow
+
+/dat-hang-thanh-cong/*
+  X-Robots-Tag: noindex, nofollow
+
+/xem/*
+  X-Robots-Tag: noindex, nofollow
+

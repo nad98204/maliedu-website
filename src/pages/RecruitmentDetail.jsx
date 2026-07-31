@@ -6,6 +6,7 @@ import { db } from "../firebase";
 import SEO from "../components/SEO";
 import { Briefcase, Clock, MapPin, DollarSign, Calendar, Upload, Send, CheckCircle, ArrowLeft, Info } from "lucide-react";
 import { sanitizeRichHtml } from "../utils/sanitizeHtml";
+import NotFound from "./NotFound";
 
 const RecruitmentDetail = () => {
     const { slug } = useParams();
@@ -72,12 +73,7 @@ const RecruitmentDetail = () => {
     }
 
     if (!job) {
-        return (
-            <div className="min-h-screen flex flex-col items-center justify-center gap-4">
-                <p className="text-xl text-slate-600">Không tìm thấy vị trí tuyển dụng này.</p>
-                <Link to="/tuyen-dung" className="text-secret-wax hover:underline">Quay lại danh sách</Link>
-            </div>
-        );
+        return <NotFound />;
     }
 
     return (

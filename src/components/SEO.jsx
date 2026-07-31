@@ -1,5 +1,5 @@
 import { Helmet } from "react-helmet-async";
-import { getResolvedSeo, SITE_NAME } from "../seo/routeSeo";
+import { getResolvedSeo, INDEX_ROBOTS, SITE_NAME } from "../seo/routeSeo";
 
 /**
  * SEO Component — Tái sử dụng cho mọi trang
@@ -17,7 +17,17 @@ import { getResolvedSeo, SITE_NAME } from "../seo/routeSeo";
  * Nếu prop bị rỗng (null/undefined), giá trị mặc định từ routeSeo.js sẽ được dùng,
  * liên quan đến thông điệp: "Mali Edu - Đánh thức tiềm năng, làm chủ luật hấp dẫn".
  */
-const SEO = ({ title, description, image, url, type = "website", keywords, jsonLd, preloadLcpImage }) => {
+const SEO = ({
+  title,
+  description,
+  image,
+  url,
+  type = "website",
+  keywords,
+  jsonLd,
+  preloadLcpImage,
+  robots,
+}) => {
   // Chuẩn hoá og:type — Facebook/Zalo chỉ nhận 'article' cho nội dung cụ thể
   const ogType = type === "product" || type === "article" ? "article" : "website";
 
@@ -36,6 +46,7 @@ const SEO = ({ title, description, image, url, type = "website", keywords, jsonL
       {/* ===== Primary Tags ===== */}
       <title>{seo.title}</title>
       <meta name="description" content={seo.description} />
+      <meta name="robots" content={robots || seo.robots || INDEX_ROBOTS} />
       {keywords ? <meta name="keywords" content={keywords} /> : null}
       <link rel="canonical" href={seo.url} />
 

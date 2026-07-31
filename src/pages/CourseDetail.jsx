@@ -16,6 +16,8 @@ import { getLessonKey, getPreferredPreviewLesson, resolveCourseAccess } from '..
 import { normalizeCloudinaryImage } from '../utils/imageUtils';
 import { trackMetaEvent } from '../utils/metaPixel';
 import { sanitizeRichHtml } from '../utils/sanitizeHtml';
+import NotFound from './NotFound';
+import { SITE_URL } from '../seo/routeSeo';
 
 const CourseDetail = () => {
     const { slug } = useParams();
@@ -269,14 +271,7 @@ const CourseDetail = () => {
     }
 
     if (!course) {
-        return (
-            <div className="min-h-screen flex flex-col items-center justify-center">
-                <h2 className="text-2xl font-bold mb-4">Không tìm thấy khóa học</h2>
-                <Link to="/khoa-hoc" className="text-secret-wax hover:underline">
-                    Quay lại danh sách
-                </Link>
-            </div>
-        );
+        return <NotFound />;
     }
 
     const whatYouWillLearn = Array.isArray(course?.whatYouWillLearn)
@@ -315,19 +310,19 @@ const CourseDetail = () => {
                                 .trim()
                                 .substring(0, 500);
                         })(),
-                        "url": `https://maliedu.vn/khoa-hoc/${course.slug || course.id}`,
+                        "url": `${SITE_URL}/khoa-hoc/${course.slug || course.id}`,
                         "image": normalizeCloudinaryImage(course.thumbnailUrl || '', 'f_auto,q_auto,w_1200'),
                         "provider": {
                             "@type": "Organization",
                             "name": course.instructorName || "Mali Edu",
-                            "sameAs": "https://maliedu.vn"
+                            "sameAs": SITE_URL
                         },
                         "offers": {
                             "@type": "Offer",
                             "priceCurrency": "VND",
                             "price": course.salePrice || course.price || 0,
                             "availability": "https://schema.org/InStock",
-                            "url": `https://maliedu.vn/khoa-hoc/${course.slug || course.id}`
+                            "url": `${SITE_URL}/khoa-hoc/${course.slug || course.id}`
                         },
                         ...(course.instructorName ? {
                             "instructor": {
@@ -340,9 +335,9 @@ const CourseDetail = () => {
                         "@context": "https://schema.org",
                         "@type": "BreadcrumbList",
                         "itemListElement": [
-                            { "@type": "ListItem", "position": 1, "name": "Trang chủ", "item": "https://maliedu.vn/" },
-                            { "@type": "ListItem", "position": 2, "name": "Khóa học", "item": "https://maliedu.vn/khoa-hoc" },
-                            { "@type": "ListItem", "position": 3, "name": course.name, "item": `https://maliedu.vn/khoa-hoc/${course.slug || course.id}` }
+                            { "@type": "ListItem", "position": 1, "name": "Trang chủ", "item": `${SITE_URL}/` },
+                            { "@type": "ListItem", "position": 2, "name": "Khóa học", "item": `${SITE_URL}/khoa-hoc` },
+                            { "@type": "ListItem", "position": 3, "name": course.name, "item": `${SITE_URL}/khoa-hoc/${course.slug || course.id}` }
                         ]
                     }
                 ]}

@@ -19,7 +19,7 @@ const KhoiThongDongTienThuongHieu = ({
   targetFunnel = "thuonghieu",
   source_key = "thuonghieu_web",
 }) => {
-  const seo = getRouteSeo("/dao-tao/khoi-thong-dong-tien");
+  const seo = getRouteSeo("/dao-tao/khoi-thong-dong-tien-thuonghieu");
 
   return (
     <div

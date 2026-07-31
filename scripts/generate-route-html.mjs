@@ -2,16 +2,17 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { ROUTE_SEO, getResolvedSeo, normalizeRoutePath } from "../src/seo/routeSeo.js";
+import { normalizeRoutePath } from "../src/seo/routeSeo.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, "..");
 const distDir = path.join(projectRoot, "dist");
 const distIndexPath = path.join(distDir, "index.html");
+const manifestPath = path.join(projectRoot, ".seo-build", "routes.json");
 
 const escapeAttribute = (value = "") =>
-  value
+  String(value)
     .replace(/&/g, "&amp;")
     .replace(/"/g, "&quot;")
     .replace(/</g, "&lt;")
@@ -19,9 +20,8 @@ const escapeAttribute = (value = "") =>
 
 const replaceOrThrow = (html, pattern, replacement, label) => {
   if (!pattern.test(html)) {
-    throw new Error(`Khong tim thay the ${label} trong dist/index.html`);
+    throw new Error(`Không tìm thấy thẻ ${label} trong dist/index.html`);
   }
-
   return html.replace(pattern, replacement);
 };
 
@@ -30,98 +30,121 @@ const applySeoToHtml = (html, seo) => {
 
   nextHtml = replaceOrThrow(
     nextHtml,
-    /<title>[\s\S]*?<\/title>/i,
-    `<title>${escapeAttribute(seo.title)}</title>`,
-    "title"
+    /<title\b[^>]*>[\s\S]*?<\/title>/i,
+    `<title data-rh="true">${escapeAttribute(seo.title)}</title>`,
+    "title",
   );
   nextHtml = replaceOrThrow(
     nextHtml,
-    /<meta\b[^>]*\bname="description"[^>]*>/i,
-    `<meta name="description" content="${escapeAttribute(seo.description)}" />`,
-    "meta description"
+    /<meta\b[^>]*\bname=["']description["'][^>]*>/i,
+    `<meta data-rh="true" name="description" content="${escapeAttribute(seo.description)}" />`,
+    "meta description",
   );
   nextHtml = replaceOrThrow(
     nextHtml,
-    /<link rel="canonical" href="[^"]*"\s*\/?>/i,
-    `<link rel="canonical" href="${escapeAttribute(seo.url)}" />`,
-    "canonical"
+    /<meta\b[^>]*\bname=["']robots["'][^>]*>/i,
+    `<meta data-rh="true" name="robots" content="${escapeAttribute(seo.robots)}" />`,
+    "meta robots",
   );
   nextHtml = replaceOrThrow(
     nextHtml,
-    /<meta\b[^>]*\bproperty="og:type"[^>]*>/i,
-    `<meta property="og:type" content="${escapeAttribute(seo.type)}" />`,
-    "og:type"
+    /<link\b[^>]*\brel=["']canonical["'][^>]*>/i,
+    `<link data-rh="true" rel="canonical" href="${escapeAttribute(seo.url)}" />`,
+    "canonical",
   );
-  nextHtml = replaceOrThrow(
-    nextHtml,
-    /<meta\b[^>]*\bproperty="og:url"[^>]*>/i,
-    `<meta property="og:url" content="${escapeAttribute(seo.url)}" />`,
-    "og:url"
-  );
-  nextHtml = replaceOrThrow(
-    nextHtml,
-    /<meta\b[^>]*\bproperty="og:title"[^>]*>/i,
-    `<meta property="og:title" content="${escapeAttribute(seo.title)}" />`,
-    "og:title"
-  );
-  nextHtml = replaceOrThrow(
-    nextHtml,
-    /<meta\b[^>]*\bproperty="og:description"[^>]*>/i,
-    `<meta property="og:description" content="${escapeAttribute(seo.description)}" />`,
-    "og:description"
-  );
-  nextHtml = replaceOrThrow(
-    nextHtml,
-    /<meta\b[^>]*\bproperty="og:image"[^>]*>/i,
-    `<meta property="og:image" content="${escapeAttribute(seo.image)}" />`,
-    "og:image"
-  );
-  nextHtml = replaceOrThrow(
-    nextHtml,
-    /<meta\b[^>]*\bproperty="twitter:url"[^>]*>/i,
-    `<meta property="twitter:url" content="${escapeAttribute(seo.url)}" />`,
-    "twitter:url"
-  );
-  nextHtml = replaceOrThrow(
-    nextHtml,
-    /<meta\b[^>]*\bproperty="twitter:title"[^>]*>/i,
-    `<meta property="twitter:title" content="${escapeAttribute(seo.title)}" />`,
-    "twitter:title"
-  );
-  nextHtml = replaceOrThrow(
-    nextHtml,
-    /<meta\b[^>]*\bproperty="twitter:description"[^>]*>/i,
-    `<meta property="twitter:description" content="${escapeAttribute(seo.description)}" />`,
-    "twitter:description"
-  );
-  nextHtml = replaceOrThrow(
-    nextHtml,
-    /<meta\b[^>]*\bproperty="twitter:image"[^>]*>/i,
-    `<meta property="twitter:image" content="${escapeAttribute(seo.image)}" />`,
-    "twitter:image"
-  );
+
+  const replacements = [
+    [
+      /<meta\b[^>]*\bproperty=["']og:type["'][^>]*>/i,
+      `<meta data-rh="true" property="og:type" content="${escapeAttribute(seo.type)}" />`,
+      "og:type",
+    ],
+    [
+      /<meta\b[^>]*\bproperty=["']og:url["'][^>]*>/i,
+      `<meta data-rh="true" property="og:url" content="${escapeAttribute(seo.url)}" />`,
+      "og:url",
+    ],
+    [
+      /<meta\b[^>]*\bproperty=["']og:title["'][^>]*>/i,
+      `<meta data-rh="true" property="og:title" content="${escapeAttribute(seo.title)}" />`,
+      "og:title",
+    ],
+    [
+      /<meta\b[^>]*\bproperty=["']og:description["'][^>]*>/i,
+      `<meta data-rh="true" property="og:description" content="${escapeAttribute(seo.description)}" />`,
+      "og:description",
+    ],
+    [
+      /<meta\b[^>]*\bproperty=["']og:image["'][^>]*>/i,
+      `<meta data-rh="true" property="og:image" content="${escapeAttribute(seo.image)}" />`,
+      "og:image",
+    ],
+    [
+      /<meta\b[^>]*\b(?:name|property)=["']twitter:url["'][^>]*>/i,
+      `<meta data-rh="true" name="twitter:url" content="${escapeAttribute(seo.url)}" />`,
+      "twitter:url",
+    ],
+    [
+      /<meta\b[^>]*\b(?:name|property)=["']twitter:title["'][^>]*>/i,
+      `<meta data-rh="true" name="twitter:title" content="${escapeAttribute(seo.title)}" />`,
+      "twitter:title",
+    ],
+    [
+      /<meta\b[^>]*\b(?:name|property)=["']twitter:description["'][^>]*>/i,
+      `<meta data-rh="true" name="twitter:description" content="${escapeAttribute(seo.description)}" />`,
+      "twitter:description",
+    ],
+    [
+      /<meta\b[^>]*\b(?:name|property)=["']twitter:image["'][^>]*>/i,
+      `<meta data-rh="true" name="twitter:image" content="${escapeAttribute(seo.image)}" />`,
+      "twitter:image",
+    ],
+  ];
+
+  for (const [pattern, replacement, label] of replacements) {
+    nextHtml = replaceOrThrow(nextHtml, pattern, replacement, label);
+  }
 
   return nextHtml;
 };
 
-const generateRouteHtml = async () => {
-  const baseHtml = await readFile(distIndexPath, "utf8");
+const createSpaShell = (html) =>
+  html
+    .replace(/<link\b[^>]*\brel=["']canonical["'][^>]*>\s*/i, "")
+    .replace(/<meta\b[^>]*\bname=["']robots["'][^>]*>\s*/i, "");
 
-  for (const routePath of Object.keys(ROUTE_SEO)) {
-    const normalizedPath = normalizeRoutePath(routePath);
-    const outputDir = path.join(distDir, normalizedPath.replace(/^\//, ""));
-    const outputPath = path.join(outputDir, "index.html");
-    const seo = getResolvedSeo(normalizedPath);
-    const html = applySeoToHtml(baseHtml, seo);
+const outputPathForRoute = (routePath) => {
+  const normalizedPath = normalizeRoutePath(routePath);
+  if (normalizedPath === "/") return distIndexPath;
 
-    await mkdir(outputDir, { recursive: true });
-    await writeFile(outputPath, html, "utf8");
-
-    console.log(`Generated SEO HTML for ${normalizedPath}`);
+  const relativePath = normalizedPath.replace(/^\//, "");
+  if (
+    !relativePath ||
+    relativePath.includes("..") ||
+    /[<>:"|?*\\]/.test(relativePath)
+  ) {
+    throw new Error(`Route không an toàn để sinh HTML: ${routePath}`);
   }
+
+  return path.join(distDir, `${relativePath}.html`);
 };
 
-generateRouteHtml().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
-});
+const baseHtml = await readFile(distIndexPath, "utf8");
+const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
+
+if (!Array.isArray(manifest.routes) || manifest.routes.length === 0) {
+  throw new Error("SEO route manifest trống hoặc không hợp lệ.");
+}
+
+await writeFile(path.join(distDir, "spa.html"), createSpaShell(baseHtml), "utf8");
+
+for (const route of manifest.routes) {
+  const outputPath = outputPathForRoute(route.path);
+  const html = applySeoToHtml(baseHtml, route);
+  await mkdir(path.dirname(outputPath), { recursive: true });
+  await writeFile(outputPath, html, "utf8");
+}
+
+console.log(
+  `[route-html] Đã sinh ${manifest.routes.length} HTML route-specific và SPA shell.`,
+);

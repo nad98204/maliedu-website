@@ -1,1 +1,2 @@
-/*    /index.html   200
+# Route-specific HTML and 404 handling are implemented by the Pages routing layer.
+# Do not add a wildcard `/* /index.html 200` rule: it turns missing URLs into soft 404s.

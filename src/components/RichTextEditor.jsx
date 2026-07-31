@@ -206,7 +206,7 @@ const RichTextEditor = ({ value, onChange, placeholder }) => {
                             value={linkInputValue}
                             onChange={(e) => setLinkInputValue(e.target.value)}
                             onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); confirmLink(); } }}
-                            placeholder="https://maliedu.vn/..."
+                            placeholder="https://luathapdan.vn/..."
                             className="min-w-0 flex-1 bg-transparent px-1.5 py-1 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none"
                             autoComplete="off"
                             spellCheck={false}

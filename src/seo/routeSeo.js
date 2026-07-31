@@ -1,73 +1,21 @@
-import { MALI_LOGO_URL } from "../constants/brandAssets.js";
-import { KHOI_THONG_HERO_BANNER_URL } from "../landing-templates/khoi-thong-dong-tien/landingConfig.js";
+import {
+  DEFAULT_IMAGE,
+  DEFAULT_SEO,
+  INDEX_ROBOTS,
+  NOINDEX_ROBOTS,
+  ROUTE_SEO,
+  SITE_NAME,
+  SITE_URL,
+} from "./siteRoutes.js";
 
-export const SITE_NAME = "Mali Edu";
-export const SITE_URL = "https://luathapdan.vn";
-export const DEFAULT_IMAGE = MALI_LOGO_URL;
-
-export const DEFAULT_SEO = {
-  title: `${SITE_NAME} - Đánh thức tiềm năng thịnh vượng`,
-  description:
-    "Mali Edu đồng hành cùng bạn trên hành trình khai mở tiềm thức, chữa lành nội tâm và kiến tạo cuộc sống thịnh vượng.",
-  image: DEFAULT_IMAGE,
-  url: "/",
-  type: "website",
-};
-
-export const ROUTE_SEO = {
-  "/dao-tao/khoi-thong-dong-tien": {
-    title: "Khơi Thông Dòng Tiền",
-    description:
-      "Khám phá bí mật thu hút tài chính và giải phóng tắc nghẽn năng lượng tiền bạc cùng Mali Edu.",
-    image: KHOI_THONG_HERO_BANNER_URL,
-    url: "/dao-tao/khoi-thong-dong-tien",
-  },
-  "/dao-tao/luat-hap-dan": {
-    title: "Luật Hấp Dẫn",
-    description:
-      "Tiếp cận Luật Hấp Dẫn như một hệ thống làm việc với tiềm thức, cảm xúc và niềm tin gốc rễ để thay đổi cuộc sống từ bên trong.",
-    image:
-      "https://res.cloudinary.com/dstukyjzd/image/upload/v1767682596/LU%E1%BA%ACT_H%E1%BA%A4P_D%E1%BA%AAN_dnrvn0.jpg",
-    url: "/dao-tao/luat-hap-dan",
-  },
-  "/dao-tao/vut-toc-muc-tieu": {
-    title: "Vút Tốc Mục Tiêu",
-    description:
-      "Kết nối mục tiêu với tiềm thức và hành động thực tế để tăng tốc kết quả trong công việc và cuộc sống.",
-    image:
-      "https://res.cloudinary.com/dstukyjzd/image/upload/v1767682425/V%C3%BAt_T%E1%BB%91c_M%E1%BB%A5c_Ti%C3%AAu_2024_b%E1%BA%A3n_2_d6mhn3.jpg",
-    url: "/dao-tao/vut-toc-muc-tieu",
-  },
-  "/dao-tao/chinh-phuc-muc-tieu": {
-    title: "Chinh Phục Mục Tiêu - Khóa Học 3 Buổi Miễn Phí",
-    description:
-      "Đăng ký miễn phí khóa học 3 buổi Chinh Phục Mục Tiêu tại Mali Edu để biến mục tiêu thành kế hoạch rõ ràng và hành động thực tế.",
-    image:
-      "https://res.cloudinary.com/dstukyjzd/image/upload/v1767682425/V%C3%BAt_T%E1%BB%91c_M%E1%BB%A5c_Ti%C3%AAu_2024_b%E1%BA%A3n_2_d6mhn3.jpg",
-    url: "/dao-tao/chinh-phuc-muc-tieu",
-  },
-  "/landing/dong-tien-thinh-vuong-tu-ban-the": {
-    title: "Dòng Tiền Thịnh Vượng Từ Bản Thể",
-    description:
-      "Khai mở tư duy, hoá giải nghẽn tắc và thiết lập sự thông tuệ tài chính từ gốc rễ nội lực, mang lại sự thịnh vượng bền vững.",
-    image:
-      "https://s3-hn1-api.longvan.vn/video-khoa-hoc/videos/1773736864490-976832550-D-ng-Ti-n-Th-nh-V--ng-T--B-n-Th-.png",
-    url: "/landing/dong-tien-thinh-vuong-tu-ban-the",
-  },
-  "/landing/thien-giao-thua": {
-    title: "Thiền Giao Thừa",
-    description:
-      "Tham gia hành trình chuyển hóa tâm thức và thu hút tài lộc để kiến tạo năm mới rực rỡ cùng Mali Edu.",
-    image:
-      "https://res.cloudinary.com/dstukyjzd/image/upload/v1770190950/Gemini_Generated_Image_6h5i7y6h5i7y6h5i_w1qnrr.png",
-    url: "/landing/thien-giao-thua",
-  },
-  "/chinh-sach-bao-mat": {
-    title: "Chính sách bảo mật",
-    description:
-      "Chính sách bảo mật thông tin cá nhân của CÔNG TY TNHH TƯ VẤN MAGIC LIFE trên website luathapdan.vn.",
-    url: "/chinh-sach-bao-mat",
-  },
+export {
+  DEFAULT_IMAGE,
+  DEFAULT_SEO,
+  INDEX_ROBOTS,
+  NOINDEX_ROBOTS,
+  ROUTE_SEO,
+  SITE_NAME,
+  SITE_URL,
 };
 
 export const normalizeRoutePath = (path = "/") => {
@@ -121,6 +69,8 @@ export const getResolvedSeo = (input = {}) => {
     image: toAbsoluteUrl(baseSeo.image || DEFAULT_SEO.image),
     url: toAbsoluteUrl(normalizedUrl),
     type: baseSeo.type || DEFAULT_SEO.type,
+    robots: baseSeo.robots || DEFAULT_SEO.robots,
+    sitemap: baseSeo.sitemap ?? false,
   };
 };
 

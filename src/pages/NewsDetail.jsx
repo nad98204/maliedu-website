@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import '../styles/article-rich-text.css';
-import { useParams, Link, Navigate, useSearchParams } from 'react-router';
+import { useParams, Link, useSearchParams } from 'react-router';
 import { Calendar, User, Clock, ArrowRight, Facebook, Twitter, Link as LinkIcon, Eye, MessageCircle, ChevronDown } from 'lucide-react';
 import SEO from '../components/SEO';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -11,6 +11,8 @@ import BlockContentRenderer from '../components/BlockContentRenderer';
 import { MALI_LOGO_URL } from '../constants/brandAssets.js';
 import { firestoreValueToDate, formatArticleDate, getReadingTime, isPostPubliclyVisible, prepareArticleContent } from '../utils/articleContent';
 import { isAdminUser, isSuperAdminEmail } from '../utils/adminAccess';
+import NotFound from './NotFound';
+import { DEFAULT_IMAGE, SITE_URL } from '../seo/routeSeo';
 
 const getAdminPreviewAccess = () => new Promise((resolve) => {
     let unsubscribe = () => {};
@@ -240,7 +242,7 @@ const NewsDetail = () => {
     }
 
     if (notFound || !post) {
-        return <Navigate to="/tin-tuc" replace />;
+        return <NotFound />;
     }
 
     const seoTitle = post.seoTitle?.trim() || post.title;
@@ -325,7 +327,7 @@ const NewsDetail = () => {
                         ...(seoKeywords ? { "keywords": seoKeywords } : {}),
                         "image": post.thumbnailUrl
                             ? [post.thumbnailUrl]
-                            : ["https://maliedu.vn/og-default.jpg"],
+                            : [DEFAULT_IMAGE],
                         "datePublished": post.createdAtISO || post.createdAt || new Date().toISOString(),
                         "dateModified": post.updatedAtISO || post.createdAtISO || post.createdAt || new Date().toISOString(),
                         "author": {
@@ -342,16 +344,16 @@ const NewsDetail = () => {
                         },
                         "mainEntityOfPage": {
                             "@type": "WebPage",
-                            "@id": `https://maliedu.vn/tin-tuc/${slug}`
+                            "@id": `${SITE_URL}/tin-tuc/${slug}`
                         }
                     },
                     {
                         "@context": "https://schema.org",
                         "@type": "BreadcrumbList",
                         "itemListElement": [
-                            { "@type": "ListItem", "position": 1, "name": "Trang chủ", "item": "https://maliedu.vn/" },
-                            { "@type": "ListItem", "position": 2, "name": "Tin tức", "item": "https://maliedu.vn/tin-tuc" },
-                            { "@type": "ListItem", "position": 3, "name": post.title, "item": `https://maliedu.vn/tin-tuc/${slug}` }
+                            { "@type": "ListItem", "position": 1, "name": "Trang chủ", "item": `${SITE_URL}/` },
+                            { "@type": "ListItem", "position": 2, "name": "Tin tức", "item": `${SITE_URL}/tin-tuc` },
+                            { "@type": "ListItem", "position": 3, "name": post.title, "item": `${SITE_URL}/tin-tuc/${slug}` }
                         ]
                     }
                 ]}
