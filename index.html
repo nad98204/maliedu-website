@@ -89,8 +89,9 @@
     <script>
       (() => {
         const RETRY_KEY = "mali_asset_retry_v1";
-        const MAX_RETRIES = 2;
-        const RETRY_WINDOW_MS = 60_000;
+        const MAX_RETRIES = 4;
+        const RETRY_WINDOW_MS = 120_000;
+        const RETRY_DELAYS_MS = [1_500, 3_000, 6_000, 12_000];
         let recovering = false;
 
         const readRetryState = () => {
@@ -185,14 +186,31 @@
           const attempt = state.attempts + 1;
           recovering = true;
           saveRetryState(attempt);
+          await new Promise((resolve) =>
+            window.setTimeout(resolve, RETRY_DELAYS_MS[state.attempts]),
+          );
 
+          let assetResponse;
           try {
-            await fetch(entry.src, {
+            assetResponse = await fetch(entry.src, {
               cache: "reload",
               credentials: "same-origin",
             });
           } catch {
-            // The cache-busted module request below is the actual recovery path.
+            recovering = false;
+            window.setTimeout(recoverEntryModule, 250);
+            return;
+          }
+
+          const contentType =
+            assetResponse.headers.get("Content-Type") || "";
+          if (
+            !assetResponse.ok ||
+            !/(?:java|ecma)script/i.test(contentType)
+          ) {
+            recovering = false;
+            window.setTimeout(recoverEntryModule, 250);
+            return;
           }
 
           const retryUrl = new URL(entry.src, window.location.href);
@@ -211,7 +229,7 @@
           });
           retryScript.addEventListener("error", () => {
             recovering = false;
-            window.setTimeout(recoverEntryModule, 500);
+            window.setTimeout(recoverEntryModule, 250);
           });
           document.head.appendChild(retryScript);
         };

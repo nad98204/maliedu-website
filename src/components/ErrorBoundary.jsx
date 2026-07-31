@@ -1,7 +1,8 @@
 import React from 'react';
 
 const DYNAMIC_IMPORT_RETRY_KEY = "mali_dynamic_import_retry_v1";
-const MAX_DYNAMIC_IMPORT_RETRIES = 2;
+const MAX_DYNAMIC_IMPORT_RETRIES = 4;
+const DYNAMIC_IMPORT_RETRY_DELAYS_MS = [1_500, 3_000, 6_000, 12_000];
 
 const isDynamicImportFetchError = (error) =>
     /dynamically imported module|importing a module script failed/i.test(
@@ -60,6 +61,7 @@ class ErrorBoundary extends React.Component {
     }
 
     recoverDynamicImport = async (error) => {
+        window.__MALI_ASSET_RECOVERY_ACTIVE__ = true;
         const retryCount = readRetryCount();
         if (retryCount >= MAX_DYNAMIC_IMPORT_RETRIES) {
             this.setState({ recoveryExhausted: true });
@@ -68,16 +70,29 @@ class ErrorBoundary extends React.Component {
 
         const nextRetryCount = retryCount + 1;
         saveRetryCount(nextRetryCount);
+        await new Promise((resolve) =>
+            window.setTimeout(
+                resolve,
+                DYNAMIC_IMPORT_RETRY_DELAYS_MS[retryCount],
+            ),
+        );
 
         const assetUrl = extractSameOriginAssetUrl(error);
         if (assetUrl) {
             try {
-                await fetch(assetUrl, {
+                const response = await fetch(assetUrl, {
                     cache: "reload",
                     credentials: "same-origin",
                 });
+                const contentType = response.headers.get("Content-Type") || "";
+                if (
+                    !response.ok ||
+                    !/(?:java|ecma)script/i.test(contentType)
+                ) {
+                    return this.recoverDynamicImport(error);
+                }
             } catch {
-                // Reload below retries the application even if prefetch fails.
+                return this.recoverDynamicImport(error);
             }
         }
 
