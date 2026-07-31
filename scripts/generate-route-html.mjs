@@ -25,6 +25,20 @@ const replaceOrThrow = (html, pattern, replacement, label) => {
   return html.replace(pattern, replacement);
 };
 
+const injectPrerenderRouteMarker = (html, routePath) => {
+  const normalizedPath = normalizeRoutePath(routePath);
+  const marker =
+    `    <meta name="seo-prerender-route" ` +
+    `content="${escapeAttribute(encodeURIComponent(normalizedPath))}" />`;
+
+  return replaceOrThrow(
+    html,
+    /<\/head>/i,
+    `${marker}\n  </head>`,
+    "đóng head để chèn prerender route marker",
+  );
+};
+
 const injectJsonLd = (html, schemas = []) => {
   if (!Array.isArray(schemas) || schemas.length === 0) return html;
 
@@ -123,7 +137,8 @@ const applySeoToHtml = (html, seo) => {
     nextHtml = replaceOrThrow(nextHtml, pattern, replacement, label);
   }
 
-  return injectJsonLd(nextHtml, seo.jsonLd);
+  nextHtml = injectJsonLd(nextHtml, seo.jsonLd);
+  return injectPrerenderRouteMarker(nextHtml, seo.path);
 };
 
 const createSpaShell = (html) =>

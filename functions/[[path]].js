@@ -9,6 +9,7 @@ import {
 
 const exactRoutes = new Set(Object.keys(ROUTE_SEO));
 const cacheSeconds = 300;
+const prerenderRouteMetaName = "seo-prerender-route";
 
 const normalizePath = (pathname = "/") => {
   try {
@@ -18,6 +19,9 @@ const normalizePath = (pathname = "/") => {
     return pathname.replace(/\/+$/, "") || "/";
   }
 };
+
+const escapeRegExp = (value) =>
+  String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 const isStaticAssetPath = (pathname) =>
   pathname.startsWith("/assets/") ||
@@ -73,7 +77,7 @@ const serveSpaShell = async (context, { noindex = false } = {}) => {
       : response;
   }
 
-  const shellUrl = new URL("/spa.html", context.request.url);
+  const shellUrl = new URL("/spa", context.request.url);
   const shellRequest = new Request(shellUrl, {
     method: context.request.method === "HEAD" ? "HEAD" : "GET",
     headers: context.request.headers,
@@ -103,13 +107,23 @@ const servePrerenderedRoute = async (context, pathname) => {
   assetUrl.search = "";
 
   const assetRequest = new Request(assetUrl, {
-    method: context.request.method === "HEAD" ? "HEAD" : "GET",
+    // A GET is required even for incoming HEAD requests so the route marker
+    // can be verified before accepting the asset as route-specific HTML.
+    method: "GET",
     headers: context.request.headers,
   });
   const response = await context.env.ASSETS.fetch(assetRequest);
   const contentType = response.headers.get("Content-Type") || "";
 
   if (!response.ok || !/text\/html/i.test(contentType)) return null;
+
+  const html = await response.clone().text();
+  const encodedPath = escapeRegExp(encodeURIComponent(pathname));
+  const markerPattern = new RegExp(
+    `<meta\\b[^>]*\\bname=["']${prerenderRouteMetaName}["'][^>]*\\bcontent=["']${encodedPath}["'][^>]*>`,
+    "i",
+  );
+  if (!markerPattern.test(html)) return null;
 
   const nextResponse = cloneWithHeaders(response, {
     "Cache-Control": "public, max-age=0, must-revalidate",
@@ -193,6 +207,25 @@ const fetchDocumentBySlug = async ({
   const url =
     `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents:runQuery` +
     `?key=${encodeURIComponent(apiKey)}`;
+  const filters = [
+    {
+      fieldFilter: {
+        field: { fieldPath: "slug" },
+        op: "EQUAL",
+        value: { stringValue: slug },
+      },
+    },
+  ];
+  if (requirePublished) {
+    filters.push({
+      fieldFilter: {
+        field: { fieldPath: "isPublished" },
+        op: "EQUAL",
+        value: { booleanValue: true },
+      },
+    });
+  }
+
   const response = await fetch(url, {
     method: "POST",
     headers: {
@@ -203,11 +236,14 @@ const fetchDocumentBySlug = async ({
       structuredQuery: {
         from: [{ collectionId: collection }],
         where: {
-          fieldFilter: {
-            field: { fieldPath: "slug" },
-            op: "EQUAL",
-            value: { stringValue: slug },
-          },
+          ...(filters.length === 1
+            ? filters[0]
+            : {
+                compositeFilter: {
+                  op: "AND",
+                  filters,
+                },
+              }),
         },
         limit: 1,
       },
@@ -243,13 +279,14 @@ const dynamicDocumentExists = async (context, rule, slug) => {
     requirePublished: rule.requirePublished,
     firebaseConfig,
   });
-  if (exists === false) {
-    exists = await fetchDocumentBySlug({
+  if (exists !== true) {
+    const slugExists = await fetchDocumentBySlug({
       collection: rule.collection,
       slug,
       requirePublished: rule.requirePublished,
       firebaseConfig,
     });
+    if (slugExists !== null) exists = slugExists;
   }
 
   if (exists !== null && edgeCache) {
@@ -285,12 +322,25 @@ export async function onRequest(context) {
     const slug = pathname.slice(dynamicRule.prefix.length);
     if (!slug || slug.includes("/")) return renderNotFound(request);
     const exists = await dynamicDocumentExists(context, dynamicRule, slug);
-    if (exists === false) return renderNotFound(request);
+    if (exists !== true) return renderNotFound(request);
+
+    if (dynamicRule.prefix === "/bai-viet/") {
+      const canonicalUrl = new URL(request.url);
+      canonicalUrl.pathname = `/tin-tuc/${slug}`;
+      canonicalUrl.search = "";
+      return new Response(null, {
+        status: 301,
+        headers: {
+          Location: canonicalUrl.toString(),
+          "Cache-Control": "public, max-age=300",
+        },
+      });
+    }
 
     const prerenderedResponse = await servePrerenderedRoute(context, pathname);
     if (prerenderedResponse) return prerenderedResponse;
 
-    // Fail open if Firestore is temporarily unavailable; existing pages remain usable.
+    // A published route without a current prerender can still hydrate as an SPA.
     return serveSpaShell(context);
   }
 

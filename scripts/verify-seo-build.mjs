@@ -83,6 +83,13 @@ assert(
   "spa.html không được chứa robots tĩnh.",
 );
 assert(
+  countMatches(
+    spaHtml,
+    /<meta\b[^>]*\bname=["']seo-prerender-route["'][^>]*>/gi,
+  ) === 0,
+  "spa.html không được chứa prerender route marker.",
+);
+assert(
   !/^\s*\/\*\s+\/index\.html\s+200\s*$/m.test(redirects),
   "_redirects vẫn còn wildcard SPA rewrite gây soft 404.",
 );
@@ -127,6 +134,18 @@ for (const route of manifest.routes) {
   assert(
     canonicalFromHtml(html) === route.url,
     `${route.path}: canonical không khớp ${route.url}.`,
+  );
+  assert(
+    countMatches(
+      html,
+      /<meta\b[^>]*\bname=["']seo-prerender-route["'][^>]*>/gi,
+    ) === 1,
+    `${route.path}: phải có đúng một prerender route marker.`,
+  );
+  assert(
+    metaContentFromHtml(html, "name", "seo-prerender-route") ===
+      encodeURIComponent(normalizeRoutePath(route.path)),
+    `${route.path}: prerender route marker không khớp route.`,
   );
   for (const property of [
     "og:type",
