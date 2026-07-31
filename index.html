@@ -86,6 +86,163 @@
       name="twitter:image"
       content="https://s3-hn1-api.longvan.vn/video-khoa-hoc/videos/1776223771769-356869318-FULL-SIZE.png"
     />
+    <script>
+      (() => {
+        const RETRY_KEY = "mali_asset_retry_v1";
+        const MAX_RETRIES = 2;
+        const RETRY_WINDOW_MS = 60_000;
+        let recovering = false;
+
+        const readRetryState = () => {
+          try {
+            const state = JSON.parse(sessionStorage.getItem(RETRY_KEY) || "null");
+            if (
+              !state ||
+              !Number.isInteger(state.attempts) ||
+              Date.now() - state.updatedAt > RETRY_WINDOW_MS
+            ) {
+              return { attempts: 0, updatedAt: Date.now() };
+            }
+            return state;
+          } catch {
+            return { attempts: 0, updatedAt: Date.now() };
+          }
+        };
+
+        const saveRetryState = (attempts) => {
+          try {
+            sessionStorage.setItem(
+              RETRY_KEY,
+              JSON.stringify({ attempts, updatedAt: Date.now() }),
+            );
+          } catch {
+            // Recovery must still work when browser storage is unavailable.
+          }
+        };
+
+        const clearRetryState = () => {
+          try {
+            sessionStorage.removeItem(RETRY_KEY);
+          } catch {
+            // Nothing else is required when browser storage is unavailable.
+          }
+        };
+
+        const showRecoveryMessage = () => {
+          const root = document.getElementById("root");
+          if (!root || root.childElementCount > 0) return;
+
+          const wrapper = document.createElement("div");
+          wrapper.style.cssText =
+            "min-height:100vh;display:grid;place-items:center;padding:24px;background:#fffaf1;color:#173e35;font-family:Arial,sans-serif;text-align:center";
+
+          const card = document.createElement("div");
+          const title = document.createElement("h1");
+          title.textContent = "Mali Edu đang cập nhật";
+          title.style.cssText = "font-size:24px;margin:0 0 12px";
+
+          const message = document.createElement("p");
+          message.textContent =
+            "Phiên bản mới chưa tải xong. Vui lòng tải lại trang sau ít phút.";
+          message.style.cssText = "margin:0 0 20px;color:#5d6663";
+
+          const button = document.createElement("button");
+          button.type = "button";
+          button.textContent = "Tải lại trang";
+          button.style.cssText =
+            "border:0;border-radius:999px;padding:12px 22px;background:#a72c25;color:#fff;font-weight:700;cursor:pointer";
+          button.addEventListener("click", () => window.location.reload());
+
+          card.append(title, message, button);
+          wrapper.append(card);
+          root.replaceChildren(wrapper);
+        };
+
+        const recoverEntryModule = async () => {
+          const root = document.getElementById("root");
+          if (
+            recovering ||
+            window.__MALI_APP_MOUNTED__ ||
+            (root && root.childElementCount > 0)
+          ) {
+            return;
+          }
+
+          const entry = document.querySelector(
+            'script[type="module"][src*="/assets/"], script[type="module"][src*="/src/"]',
+          );
+          if (!entry?.src) {
+            showRecoveryMessage();
+            return;
+          }
+
+          const state = readRetryState();
+          if (state.attempts >= MAX_RETRIES) {
+            showRecoveryMessage();
+            return;
+          }
+
+          const attempt = state.attempts + 1;
+          recovering = true;
+          saveRetryState(attempt);
+
+          try {
+            await fetch(entry.src, {
+              cache: "reload",
+              credentials: "same-origin",
+            });
+          } catch {
+            // The cache-busted module request below is the actual recovery path.
+          }
+
+          const retryUrl = new URL(entry.src, window.location.href);
+          retryUrl.searchParams.set(
+            "__asset_retry",
+            `${Date.now()}-${attempt}`,
+          );
+
+          const retryScript = document.createElement("script");
+          retryScript.type = "module";
+          retryScript.crossOrigin = "anonymous";
+          retryScript.src = retryUrl.toString();
+          retryScript.addEventListener("load", () => {
+            recovering = false;
+            window.setTimeout(recoverEntryModule, 3_000);
+          });
+          retryScript.addEventListener("error", () => {
+            recovering = false;
+            window.setTimeout(recoverEntryModule, 500);
+          });
+          document.head.appendChild(retryScript);
+        };
+
+        window.__MALI_MARK_APP_MOUNTED__ = () => {
+          window.__MALI_APP_MOUNTED__ = true;
+          clearRetryState();
+        };
+
+        window.addEventListener(
+          "error",
+          (event) => {
+            const source = event.target;
+            if (
+              source?.tagName === "SCRIPT" &&
+              source.type === "module" &&
+              source.src
+            ) {
+              window.setTimeout(recoverEntryModule, 250);
+            }
+          },
+          true,
+        );
+
+        window.addEventListener(
+          "DOMContentLoaded",
+          () => window.setTimeout(recoverEntryModule, 5_000),
+          { once: true },
+        );
+      })();
+    </script>
     <script src="/runtime-config.js" defer></script>
   </head>
 

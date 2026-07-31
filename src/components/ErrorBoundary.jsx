@@ -1,12 +1,52 @@
 import React from 'react';
 
+const DYNAMIC_IMPORT_RETRY_KEY = "mali_dynamic_import_retry_v1";
+const MAX_DYNAMIC_IMPORT_RETRIES = 2;
+
 const isDynamicImportFetchError = (error) =>
-    error?.message?.includes("Failed to fetch dynamically imported module");
+    /dynamically imported module|importing a module script failed/i.test(
+        error?.message || "",
+    );
+
+const extractSameOriginAssetUrl = (error) => {
+    const candidate = error?.message?.match(/https?:\/\/[^\s)]+/)?.[0];
+    if (!candidate) return null;
+
+    try {
+        const url = new URL(candidate);
+        return url.origin === window.location.origin ? url.toString() : null;
+    } catch {
+        return null;
+    }
+};
+
+const readRetryCount = () => {
+    try {
+        return Number.parseInt(
+            sessionStorage.getItem(DYNAMIC_IMPORT_RETRY_KEY) || "0",
+            10,
+        ) || 0;
+    } catch {
+        return 0;
+    }
+};
+
+const saveRetryCount = (count) => {
+    try {
+        sessionStorage.setItem(DYNAMIC_IMPORT_RETRY_KEY, String(count));
+    } catch {
+        // Recovery can continue without browser storage.
+    }
+};
 
 class ErrorBoundary extends React.Component {
     constructor(props) {
         super(props);
-        this.state = { hasError: false, error: null };
+        this.state = {
+            hasError: false,
+            error: null,
+            recoveryExhausted: false,
+        };
     }
 
     static getDerivedStateFromError(error) {
@@ -16,20 +56,41 @@ class ErrorBoundary extends React.Component {
     componentDidCatch(error, errorInfo) {
         console.error("Uncaught error:", error, errorInfo);
 
-        if (isDynamicImportFetchError(error)) {
-            const url = new URL(window.location.href);
-            url.searchParams.set("_reload", Date.now().toString());
-            window.location.href = url.toString();
-        }
+        if (isDynamicImportFetchError(error)) this.recoverDynamicImport(error);
     }
 
-    handleReset = () => {
-        localStorage.clear();
-        window.location.href = "/";
+    recoverDynamicImport = async (error) => {
+        const retryCount = readRetryCount();
+        if (retryCount >= MAX_DYNAMIC_IMPORT_RETRIES) {
+            this.setState({ recoveryExhausted: true });
+            return;
+        }
+
+        const nextRetryCount = retryCount + 1;
+        saveRetryCount(nextRetryCount);
+
+        const assetUrl = extractSameOriginAssetUrl(error);
+        if (assetUrl) {
+            try {
+                await fetch(assetUrl, {
+                    cache: "reload",
+                    credentials: "same-origin",
+                });
+            } catch {
+                // Reload below retries the application even if prefetch fails.
+            }
+        }
+
+        const url = new URL(window.location.href);
+        url.searchParams.set("_asset_retry", String(nextRetryCount));
+        window.location.replace(url.toString());
     };
 
     render() {
-        if (isDynamicImportFetchError(this.state.error)) {
+        if (
+            isDynamicImportFetchError(this.state.error) &&
+            !this.state.recoveryExhausted
+        ) {
             return (
                 <div className="min-h-screen flex flex-col items-center justify-center bg-white p-4">
                     <div className="w-10 h-10 border-4 border-red-600 border-t-transparent rounded-full animate-spin mb-4" />
@@ -52,10 +113,10 @@ class ErrorBoundary extends React.Component {
                                 Tải lại trang
                             </button>
                             <button
-                                onClick={this.handleReset}
+                                onClick={() => { window.location.href = "/"; }}
                                 className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-bold"
                             >
-                                Xóa Cache & Reset
+                                Về trang chủ
                             </button>
                         </div>
                         {this.state.error && (

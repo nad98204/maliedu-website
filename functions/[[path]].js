@@ -26,6 +26,16 @@ const isStaticAssetPath = (pathname) =>
   pathname === "/runtime-config.js" ||
   /\.[a-z0-9]{2,8}$/i.test(pathname);
 
+const isExpectedAssetContentType = (pathname, contentType) => {
+  if (/\.m?js$/i.test(pathname)) {
+    return /(?:java|ecma)script/i.test(contentType);
+  }
+  if (/\.css$/i.test(pathname)) {
+    return /text\/css/i.test(contentType);
+  }
+  return true;
+};
+
 const cloneWithHeaders = (response, additionalHeaders = {}) => {
   const headers = new Headers(response.headers);
   for (const [name, value] of Object.entries(additionalHeaders)) {
@@ -35,6 +45,23 @@ const cloneWithHeaders = (response, additionalHeaders = {}) => {
     status: response.status,
     statusText: response.statusText,
     headers,
+  });
+};
+
+const serveStaticAsset = async (context, pathname) => {
+  const response = await context.next();
+  const contentType = response.headers.get("Content-Type") || "";
+  const invalidAsset =
+    !response.ok || !isExpectedAssetContentType(pathname, contentType);
+
+  if (!invalidAsset) return response;
+
+  return cloneWithHeaders(response, {
+    "Cache-Control": "no-store, max-age=0",
+    "CDN-Cache-Control": "no-store",
+    "Cloudflare-CDN-Cache-Control": "no-store",
+    Pragma: "no-cache",
+    "X-Content-Type-Options": "nosniff",
   });
 };
 
@@ -209,9 +236,10 @@ export async function onRequest(context) {
   if (!["GET", "HEAD"].includes(request.method)) return context.next();
 
   const pathname = normalizePath(new URL(request.url).pathname);
-  if (pathname.startsWith("/api/") || isStaticAssetPath(pathname)) {
+  if (pathname.startsWith("/api/")) {
     return context.next();
   }
+  if (isStaticAssetPath(pathname)) return serveStaticAsset(context, pathname);
 
   if (exactRoutes.has(pathname)) {
     const response = await context.next();
