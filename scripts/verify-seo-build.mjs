@@ -43,6 +43,36 @@ const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
 const sitemap = await readFile(path.join(distDir, "sitemap.xml"), "utf8");
 const spaHtml = await readFile(path.join(distDir, "spa.html"), "utf8");
 const redirects = await readFile(path.join(distDir, "_redirects"), "utf8");
+const robots = await readFile(path.join(distDir, "robots.txt"), "utf8");
+
+const expectedRobots = [
+  "User-agent: *",
+  "Allow: /",
+  "Disallow: /admin/",
+  "",
+  "Sitemap: https://luathapdan.vn/sitemap.xml",
+].join("\n");
+
+assert(
+  robots.replace(/\r\n/g, "\n").trim() === expectedRobots,
+  "robots.txt không đúng chính sách crawl đã duyệt.",
+);
+for (const crawler of [
+  "Googlebot",
+  "Bingbot",
+  "GPTBot",
+  "ClaudeBot",
+  "Google-Extended",
+]) {
+  const crawlerBlock = new RegExp(
+    `User-agent:\\s*${escapeRegExp(crawler)}[\\s\\S]*?Disallow:\\s*/(?:\\s|$)`,
+    "i",
+  );
+  assert(
+    !crawlerBlock.test(robots),
+    `robots.txt đang chặn ${crawler}.`,
+  );
+}
 
 assert(
   countMatches(spaHtml, /<link\b[^>]*\brel=["']canonical["'][^>]*>/gi) === 0,
