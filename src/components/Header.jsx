@@ -186,7 +186,7 @@ const Header = () => {
   };
 
   return (
-    <div className="w-full">
+    <div className="w-full" data-security-revision="2026-07-31">
       <div className="bg-secret-wax text-secret-paper text-xs relative z-[60]">
         <div className="max-w-7xl mx-auto px-4 py-2 flex flex-col gap-3 items-center sm:flex-row sm:justify-between">
           <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3">
