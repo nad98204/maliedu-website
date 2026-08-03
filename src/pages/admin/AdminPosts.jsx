@@ -5,7 +5,7 @@ import { CalendarClock, Edit, Trash2, Plus, X, Image as ImageIcon, Upload, Eye, 
 import { db } from '../../firebase';
 import RichTextEditor from '../../components/RichTextEditor';
 import { uploadFileToS3 } from '../../utils/s3UploadService';
-import { getYouTubeThumbnailUrl } from '../../utils/videoUtils';
+import { getYouTubeThumbnailUrl, getVideoEmbedData, isSupportedVideoUrl } from '../../utils/videoUtils';
 
 const defaultFormData = {
     title: '',
@@ -321,6 +321,8 @@ const AdminPosts = () => {
         const previewErrors = {};
         if (!formData.title.trim()) previewErrors.title = 'Vui lòng nhập tiêu đề trước khi xem trước.';
         if (!generatedSlug) previewErrors.slug = 'Vui lòng nhập tiêu đề hoặc slug hợp lệ.';
+        if (formData.type === 'video' && !formData.videoUrl.trim()) previewErrors.videoUrl = 'Vui lòng nhập URL video.';
+        if (formData.videoUrl.trim() && !isSupportedVideoUrl(formData.videoUrl)) previewErrors.videoUrl = 'Chỉ hỗ trợ link YouTube, YouTube Shorts hoặc TikTok.';
         if (formData.publishAt && Number.isNaN(new Date(formData.publishAt).getTime())) previewErrors.publishAt = 'Ngày giờ xuất bản không hợp lệ.';
 
         if (Object.keys(previewErrors).length > 0) {
@@ -412,6 +414,7 @@ const AdminPosts = () => {
             if (!formData.thumbnailUrl.trim()) nextErrors.thumbnailUrl = 'Vui lòng thêm ảnh bìa.';
             if (!formData.category.trim()) nextErrors.category = 'Vui lòng chọn danh mục.';
             if (formData.type === 'video' && !formData.videoUrl.trim()) nextErrors.videoUrl = 'Vui lòng nhập URL video.';
+            if (formData.videoUrl.trim() && !isSupportedVideoUrl(formData.videoUrl)) nextErrors.videoUrl = 'Chỉ hỗ trợ link YouTube, YouTube Shorts hoặc TikTok.';
             if (formData.publishAt && Number.isNaN(new Date(formData.publishAt).getTime())) nextErrors.publishAt = 'Ngày giờ xuất bản không hợp lệ.';
 
             if (Object.keys(nextErrors).length > 0) {
@@ -1174,8 +1177,16 @@ const AdminPosts = () => {
                                         onChange={handleInputChange}
                                         aria-invalid={Boolean(formErrors.videoUrl)}
                                         className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 ${formErrors.videoUrl ? 'border-red-400 focus:ring-red-200' : 'border-slate-200 focus:border-secret-wax focus:ring-secret-wax/20'}`}
-                                        placeholder="https://www.youtube.com/embed/..."
+                                        placeholder="YouTube, YouTube Shorts hoặc TikTok…"
                                     />
+                                    {formData.videoUrl && isSupportedVideoUrl(formData.videoUrl) && (
+                                        <p className="text-[11px] font-medium text-emerald-700">
+                                            Đã nhận dạng: {getVideoEmbedData(formData.videoUrl)?.provider === 'tiktok' ? 'TikTok' : (getVideoEmbedData(formData.videoUrl)?.isVertical ? 'YouTube Shorts' : 'YouTube')}.
+                                        </p>
+                                    )}
+                                    <p className="text-[11px] text-slate-400">
+                                        TikTok dạng đầy đủ “…/@tên/video/…” sẽ phát ngay trong bài. Link rút gọn vt.tiktok.com hoặc vm.tiktok.com sẽ mở video trên TikTok.
+                                    </p>
                                     {formErrors.videoUrl && <p className="text-xs text-red-600">{formErrors.videoUrl}</p>}
                                 </div>
                             )}

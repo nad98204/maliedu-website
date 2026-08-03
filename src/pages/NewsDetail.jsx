@@ -6,7 +6,7 @@ import SEO from '../components/SEO';
 import { onAuthStateChanged } from 'firebase/auth';
 import { collection, doc, getDoc, getDocs, limit, orderBy, query, where } from 'firebase/firestore';
 import { auth, crmFirestore, db } from '../firebase';
-import { getYouTubeEmbedUrl } from '../utils/videoUtils';
+import { getVideoEmbedData } from '../utils/videoUtils';
 import BlockContentRenderer from '../components/BlockContentRenderer';
 import { MALI_LOGO_URL } from '../constants/brandAssets.js';
 import { firestoreValueToDate, formatArticleDate, getArticlePublishedValue, getReadingTime, isPostPubliclyVisible, prepareArticleContent } from '../utils/articleContent';
@@ -250,6 +250,7 @@ const NewsDetail = () => {
     const seoDescription = post.seoDescription?.trim() || post.excerpt || '';
     const seoKeywords = post.seoKeywords?.trim() || '';
     const relatedPosts = recentPosts.slice(0, 3);
+    const videoEmbedData = getVideoEmbedData(post.videoUrl);
 
     const handleFeedbackSubmit = async (event) => {
         event.preventDefault();
@@ -444,18 +445,37 @@ const NewsDetail = () => {
                             )}
 
                             {/* Featured Image / Video */}
-                            <div className="mb-6 overflow-hidden rounded-xl shadow-sm md:mb-10">
-                                {post.videoUrl ? (
-                                    <div className="aspect-video w-full bg-black">
+                            <div className={`mb-6 overflow-hidden rounded-xl shadow-sm md:mb-10 ${videoEmbedData?.isVertical ? 'mx-auto max-w-sm' : ''}`}>
+                                {videoEmbedData?.embedUrl ? (
+                                    <div className={`${videoEmbedData.isVertical ? 'aspect-[9/16]' : 'aspect-video'} w-full bg-black`}>
                                         <iframe
-                                            src={getYouTubeEmbedUrl(post.videoUrl)}
+                                            src={videoEmbedData.embedUrl}
                                             title={`${post.title} – video bài viết`}
-                                            className="w-full h-full"
+                                            className="h-full w-full"
                                             loading="lazy"
                                             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                            referrerPolicy="strict-origin-when-cross-origin"
                                             allowFullScreen
                                         ></iframe>
                                     </div>
+                                ) : videoEmbedData?.isExternalOnly ? (
+                                    <a
+                                        href={videoEmbedData.externalUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="group relative block aspect-[9/16] w-full bg-black"
+                                    >
+                                        <img
+                                            src={post.thumbnailUrl || "https://placehold.co/720x1280?text=TikTok"}
+                                            alt={post.thumbnailAlt || post.title}
+                                            className="h-full w-full object-cover opacity-80 transition group-hover:opacity-60"
+                                        />
+                                        <span className="absolute inset-0 flex items-center justify-center p-6 text-center">
+                                            <span className="rounded-full bg-white px-5 py-3 text-sm font-semibold text-gray-900 shadow-lg">
+                                                Xem video trên TikTok <ArrowRight className="ml-1 inline h-4 w-4" />
+                                            </span>
+                                        </span>
+                                    </a>
                                 ) : (
                                     <img
                                         src={post.thumbnailUrl || "https://placehold.co/800x500?text=Mali+Edu"}
