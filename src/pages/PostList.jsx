@@ -6,6 +6,7 @@ import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import SEO from '../components/SEO';
 import NotFound from './NotFound';
+import { formatArticlePublishedDate, getArticlePublishedDate, isPostPubliclyVisible } from '../utils/articleContent';
 
 const CATEGORY_DATA = {
     "luat-nhan-qua-hap-dan": {
@@ -70,11 +71,11 @@ const PostList = () => {
                     return {
                         id: doc.id,
                         ...data,
-                        createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toLocaleDateString('vi-VN') : data.createdAt,
-                        // Keep raw timestamp for sorting
-                        originalCreatedAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt)
+                        createdAt: formatArticlePublishedDate(data),
+                        // Keep the actual publication date for client-side sorting.
+                        originalCreatedAt: getArticlePublishedDate(data)
                     };
-                });
+                }).filter((post) => isPostPubliclyVisible(post));
 
                 // Sort client-side
                 postsData.sort((a, b) => b.originalCreatedAt - a.originalCreatedAt);

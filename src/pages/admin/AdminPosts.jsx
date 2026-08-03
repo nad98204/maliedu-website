@@ -34,6 +34,14 @@ const toDateTimeLocalValue = (value) => {
     return localDate.toISOString().slice(0, 16);
 };
 
+const formatScheduleSummary = (value) => {
+    const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(value || '');
+    if (!match) return '';
+    const [, year, month, day, hour, minute] = match;
+    const periodHint = hour === '00' ? ' (12 giờ đêm)' : hour === '12' ? ' (12 giờ trưa)' : '';
+    return `${day}/${month}/${year} lúc ${hour}:${minute}${periodHint}`;
+};
+
 const isScheduledPost = (post) => {
     if (post?.isScheduled) return true;
     if (!post?.isPublished || !post.publishAt) return false;
@@ -449,6 +457,18 @@ const AdminPosts = () => {
 
             const publishDate = formData.publishAt ? new Date(formData.publishAt) : null;
             const shouldSchedule = Boolean(formData.isPublished && publishDate && publishDate > new Date());
+            let publishedAt = null;
+            if (formData.isPublished && !shouldSchedule) {
+                if (publishDate) {
+                    publishedAt = Timestamp.fromDate(publishDate);
+                } else if (editingPost?.publishedAt) {
+                    publishedAt = editingPost.publishedAt;
+                } else if (editingPost?.isPublished && editingPost?.createdAt) {
+                    publishedAt = editingPost.createdAt;
+                } else {
+                    publishedAt = serverTimestamp();
+                }
+            }
             const postData = {
                 ...formData,
                 slug: generatedSlug,
@@ -456,15 +476,16 @@ const AdminPosts = () => {
                 isPublished: shouldSchedule ? false : formData.isPublished,
                 isScheduled: shouldSchedule,
                 publishAt: publishDate ? Timestamp.fromDate(publishDate) : null,
+                publishedAt,
                 updatedAt: serverTimestamp(),
             };
 
             if (editingPost) {
                 await updateDoc(doc(db, 'posts', editingPost.id), postData);
-                showToast('Cập nhật bài viết thành công!');
+                showToast(shouldSchedule ? 'Đã cập nhật lịch xuất bản!' : 'Cập nhật bài viết thành công!');
             } else {
                 await addDoc(collection(db, 'posts'), { ...postData, createdAt: serverTimestamp(), views: 0 });
-                showToast('Đăng bài viết thành công!');
+                showToast(shouldSchedule ? 'Đã hẹn giờ xuất bản bài viết!' : 'Đăng bài viết thành công!');
             }
 
             setFormErrors({});
@@ -996,6 +1017,7 @@ const AdminPosts = () => {
                                     <input
                                         id="post-publish-at"
                                         type="datetime-local"
+                                        step="60"
                                         name="publishAt"
                                         ref={(el) => { fieldRefs.current.publishAt = el; }}
                                         value={formData.publishAt}
@@ -1004,7 +1026,12 @@ const AdminPosts = () => {
                                         className={`w-full rounded-lg border py-2 pl-9 pr-2 text-xs focus:outline-none focus:ring-2 ${formErrors.publishAt ? 'border-red-400 focus:ring-red-200' : 'border-slate-200 focus:border-secret-wax focus:ring-secret-wax/20'}`}
                                     />
                                 </div>
-                                <p className="text-[11px] text-slate-400">Để trống nếu muốn xuất bản ngay. Công tắc “Xuất bản” phải được bật.</p>
+                                {formData.publishAt && (
+                                    <p className="text-[11px] font-medium text-amber-700">
+                                        Đang chọn: {formatScheduleSummary(formData.publishAt)} — giờ trên thiết bị này.
+                                    </p>
+                                )}
+                                <p className="text-[11px] text-slate-400">Nhập theo định dạng 24 giờ: 00:00 là 12 giờ đêm, 12:00 là 12 giờ trưa. Để trống nếu muốn xuất bản ngay; công tắc “Xuất bản” phải được bật.</p>
                                 {formErrors.publishAt && <p className="text-xs text-red-600">{formErrors.publishAt}</p>}
                             </div>
 

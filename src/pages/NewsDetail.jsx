@@ -9,7 +9,7 @@ import { auth, crmFirestore, db } from '../firebase';
 import { getYouTubeEmbedUrl } from '../utils/videoUtils';
 import BlockContentRenderer from '../components/BlockContentRenderer';
 import { MALI_LOGO_URL } from '../constants/brandAssets.js';
-import { firestoreValueToDate, formatArticleDate, getReadingTime, isPostPubliclyVisible, prepareArticleContent } from '../utils/articleContent';
+import { firestoreValueToDate, formatArticleDate, getArticlePublishedValue, getReadingTime, isPostPubliclyVisible, prepareArticleContent } from '../utils/articleContent';
 import { isAdminUser, isSuperAdminEmail } from '../utils/adminAccess';
 import NotFound from './NotFound';
 import { DEFAULT_IMAGE, SITE_URL } from '../seo/routeSeo';
@@ -137,6 +137,7 @@ const NewsDetail = () => {
                 }
 
                 const data = postSnapshot.docs[0].data();
+                const publishedValue = getArticlePublishedValue(data);
 
                 if (!canPreviewDraft && !isPostPubliclyVisible(data)) {
                     setNotFound(true);
@@ -157,8 +158,8 @@ const NewsDetail = () => {
                 const postData = {
                     id: postSnapshot.docs[0].id,
                     ...data,
-                    createdAt: formatDate(data.createdAt),
-                    createdAtISO: toISOString(data.createdAt),
+                    createdAt: formatDate(publishedValue),
+                    createdAtISO: toISOString(publishedValue),
                     updatedAtISO: toISOString(data.updatedAt || data.createdAt),
                     readingTime: getReadingTime(data.content, data.isBlockMode),
                 };
@@ -195,7 +196,7 @@ const NewsDetail = () => {
                     .map(doc => ({
                         id: doc.id,
                         ...doc.data(),
-                        createdAt: formatDate(doc.data().createdAt)
+                        createdAt: formatDate(getArticlePublishedValue(doc.data()))
                     }))
                     .filter(p => p.id !== postSnapshot.docs[0].id)
                     .slice(0, 10); // Keep top 10 relevant posts

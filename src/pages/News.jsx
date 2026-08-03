@@ -4,7 +4,7 @@ import { Link } from 'react-router';
 import { collection, getDocs, limit, orderBy, query, startAfter, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import SEO from '../components/SEO';
-import { formatArticleDate, getReadingTime, isPostPubliclyVisible } from '../utils/articleContent';
+import { formatArticlePublishedDate, getReadingTime, isPostPubliclyVisible } from '../utils/articleContent';
 
 const PAGE_SIZE = 9;
 const PLACEHOLDER_IMAGE = 'https://placehold.co/1200x800?text=Mali+Edu';
@@ -21,7 +21,7 @@ const mapPost = (postDoc) => {
     return {
         id: postDoc.id,
         ...data,
-        createdAtLabel: formatArticleDate(data.createdAt),
+        publishedAtLabel: formatArticlePublishedDate(data),
         readingTime: getReadingTime(data.content, data.isBlockMode),
     };
 };
@@ -269,7 +269,7 @@ const FeaturedSpotlight = ({ post }) => (
                     </h3>
                     {post.excerpt && <p className="mt-5 line-clamp-4 text-base leading-relaxed text-gray-600 lg:text-lg">{post.excerpt}</p>}
                     <div className="mt-6 flex flex-wrap items-center gap-4 text-sm text-gray-500">
-                        <span>{post.createdAtLabel}</span>
+                        <span>{post.publishedAtLabel}</span>
                         <span className="inline-flex items-center gap-1.5"><Clock className="h-4 w-4" />{post.readingTime} phút đọc</span>
                     </div>
                     <Link to={`/tin-tuc/${post.slug}`} className="mt-8 inline-flex w-fit items-center rounded-full bg-secret-ink px-6 py-3 text-sm font-semibold text-white transition hover:bg-secret-wax">
@@ -292,7 +292,7 @@ const NewsCard = ({ post }) => (
         <div className="flex flex-1 flex-col p-6">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs">
                 <span className="font-semibold uppercase tracking-wide text-secret-wax">{post.category || 'Tin tức'}</span>
-                <time className="flex items-center gap-1 text-gray-500"><Calendar className="h-3 w-3" />{post.createdAtLabel}</time>
+                <time className="flex items-center gap-1 text-gray-500"><Calendar className="h-3 w-3" />{post.publishedAtLabel}</time>
             </div>
             <h2 className="mb-3 text-xl font-bold leading-tight text-secret-ink"><Link to={`/tin-tuc/${post.slug}`} className="hover:text-secret-wax">{post.title}</Link></h2>
             <p className="mb-5 line-clamp-3 flex-1 text-sm leading-relaxed text-gray-600">{post.excerpt}</p>

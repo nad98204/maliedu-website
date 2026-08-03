@@ -536,8 +536,9 @@ if (db || usePublicFirestore) {
       data.excerpt ||
       data.summary ||
       "Bài viết mới từ Mali Edu.";
-    const publishedAt = toDateString(data.createdAt);
-    const modifiedAt = toDateString(data.updatedAt || data.createdAt);
+    const publicationValue = data.publishedAt || data.publishAt || data.createdAt;
+    const publishedAt = toDateString(publicationValue);
+    const modifiedAt = toDateString(data.updatedAt || publicationValue);
     addDynamicRoute({
       path: routePath,
       title: postTitle,

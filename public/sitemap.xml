@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Sitemap tự động sinh lúc build – 2026-07-31 -->
-<!-- Tổng URL: 28 (tĩnh: 25, khóa học: 1, bài viết: 2, tuyển dụng: 0) -->
+<!-- Sitemap tự động sinh lúc build – 2026-08-03 -->
+<!-- Tổng URL: 30 (tĩnh: 25, khóa học: 1, bài viết: 4, tuyển dụng: 0) -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9
@@ -112,6 +112,14 @@
   <url>
     <loc>https://luathapdan.vn/tin-tuc/nho-luat-hap-dan-toi-nhan-ra-om-2-con-ra-di-tay-trang-khong-phai-la-that-bai</loc>
     <lastmod>2026-07-30</lastmod>
+  </url>
+  <url>
+    <loc>https://luathapdan.vn/tin-tuc/thien-thu-hut-muc-tieu-sieu-toc-kich-hoat-tiem-thuc-va-dong-luc-hanh-dong</loc>
+    <lastmod>2026-08-03</lastmod>
+  </url>
+  <url>
+    <loc>https://luathapdan.vn/tin-tuc/nhac-thien-chua-lanh-ton-thuong-noi-dau-va-ket-noi-ban-than</loc>
+    <lastmod>2026-08-01</lastmod>
   </url>
   <url>
     <loc>https://luathapdan.vn/tin-tuc/nho-luat-hap-dan-tu-he-thong-suyt-gay-den-gan-40-nguoi-tu-nguyen-xin-lam-si</loc>

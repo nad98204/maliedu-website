@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Play } from 'lucide-react';
+import { formatArticlePublishedDate, getArticlePublishedDate, isPostPubliclyVisible } from '../utils/articleContent';
 
 const PostSidebar = ({ currentCategory, currentPostId }) => {
     const [relatedPosts, setRelatedPosts] = useState([]);
@@ -25,16 +26,12 @@ const PostSidebar = ({ currentCategory, currentPostId }) => {
                 const allPosts = snapshot.docs.map(doc => ({
                     id: doc.id,
                     ...doc.data(),
-                    // Handle both Firestore Timestamp and Number/String dates
-                    createdAtFormatted: doc.data().createdAt?.toDate
-                        ? doc.data().createdAt.toDate().toLocaleDateString('vi-VN')
-                        : (new Date(doc.data().createdAt).toLocaleDateString('vi-VN') !== 'Invalid Date'
-                            ? new Date(doc.data().createdAt).toLocaleDateString('vi-VN')
-                            : 'Mới cập nhật')
-                }));
+                    createdAtFormatted: formatArticlePublishedDate(doc.data()) || 'Mới cập nhật',
+                    publishedDate: getArticlePublishedDate(doc.data()),
+                })).sort((left, right) => (right.publishedDate?.getTime?.() || 0) - (left.publishedDate?.getTime?.() || 0));
 
                 // Filter published posts
-                const publishedPosts = allPosts.filter(p => p.isPublished === true || p.isPublished === 'true');
+                const publishedPosts = allPosts.filter((post) => isPostPubliclyVisible(post));
 
                 // 1. Get Related Posts
                 const related = currentCategory

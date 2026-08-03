@@ -18,6 +18,18 @@ export const formatArticleDate = (value) => {
     return date ? date.toLocaleDateString('vi-VN') : '';
 };
 
+export const getArticlePublishedValue = (post) => (
+    post?.publishedAt || post?.publishAt || post?.createdAt || null
+);
+
+export const getArticlePublishedDate = (post) => (
+    firestoreValueToDate(getArticlePublishedValue(post))
+);
+
+export const formatArticlePublishedDate = (post) => (
+    formatArticleDate(getArticlePublishedValue(post))
+);
+
 export const isPostPubliclyVisible = (post, now = new Date()) => {
     if (!post?.isPublished) return false;
     const publishDate = firestoreValueToDate(post.publishAt);

@@ -1334,22 +1334,42 @@ export const publishScheduledPosts = onSchedule(
     region: "asia-southeast1",
   },
   async () => {
-    const dueSnapshot = await getFirestoreDb()
-      .collection("posts")
-      .where("isScheduled", "==", true)
-      .where("publishAt", "<=", new Date())
-      .orderBy("publishAt", "asc")
-      .limit(100)
-      .get();
+    const postsCollection = getFirestoreDb().collection("posts");
+    const now = new Date();
+    let candidateSnapshot;
 
-    if (dueSnapshot.empty) return;
+    try {
+      candidateSnapshot = await postsCollection
+        .where("isScheduled", "==", true)
+        .where("publishAt", "<=", now)
+        .orderBy("publishAt", "asc")
+        .limit(100)
+        .get();
+    } catch (error) {
+      const isMissingIndex = Number(error?.code) === 9
+        || String(error?.message || "").includes("requires an index");
+      if (!isMissingIndex) throw error;
+
+      console.warn("Scheduled-post index is unavailable; using safe fallback query.");
+      candidateSnapshot = await postsCollection
+        .where("isScheduled", "==", true)
+        .limit(500)
+        .get();
+    }
+
+    const duePosts = candidateSnapshot.docs.filter((postSnapshot) => {
+      const publishAt = postSnapshot.data().publishAt?.toDate?.();
+      return publishAt && publishAt <= now;
+    });
+    if (duePosts.length === 0) return;
 
     const batch = getFirestoreDb().batch();
-    dueSnapshot.docs.forEach((postSnapshot) => {
+    duePosts.forEach((postSnapshot) => {
+      const post = postSnapshot.data();
       batch.update(postSnapshot.ref, {
         isPublished: true,
         isScheduled: false,
-        publishedAt: FieldValue.serverTimestamp(),
+        publishedAt: post.publishAt || FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp(),
       });
     });
