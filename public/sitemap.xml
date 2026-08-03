@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Sitemap tự động sinh lúc build – 2026-08-03 -->
-<!-- Tổng URL: 30 (tĩnh: 25, khóa học: 1, bài viết: 4, tuyển dụng: 0) -->
+<!-- Tổng URL: 31 (tĩnh: 25, khóa học: 1, bài viết: 5, tuyển dụng: 0) -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9
@@ -108,6 +108,10 @@
   <url>
     <loc>https://luathapdan.vn/khoa-hoc/khoa-hoc-tu-thoi-mien</loc>
     <lastmod>2026-07-20</lastmod>
+  </url>
+  <url>
+    <loc>https://luathapdan.vn/tin-tuc/thieu-ky-luat-bai-am-thi-giup-ban-kich-hoat-quyet-tam-va-hanh-dong</loc>
+    <lastmod>2026-08-03</lastmod>
   </url>
   <url>
     <loc>https://luathapdan.vn/tin-tuc/nho-luat-hap-dan-toi-nhan-ra-om-2-con-ra-di-tay-trang-khong-phai-la-that-bai</loc>
