@@ -78,6 +78,48 @@ export const getTikTokEmbedUrl = (value) => {
     return videoId ? `https://www.tiktok.com/player/v1/${videoId}` : null;
 };
 
+export const isFacebookUrl = (value) => {
+    const url = parseHttpsUrl(value);
+    if (!url) return false;
+
+    const hostname = url.hostname.toLowerCase();
+    if (hostname === 'fb.watch') return url.pathname !== '/';
+    if (!isHostOrSubdomain(hostname, 'facebook.com')) return false;
+
+    return /\/(?:posts|photos|videos|reel|reels|share)(?:\/|$)/i.test(url.pathname)
+        || /^\/(?:photo|story|permalink|watch)\.php$/i.test(url.pathname)
+        || Boolean(url.searchParams.get('fbid') || url.searchParams.get('story_fbid') || url.searchParams.get('v'));
+};
+
+export const isFacebookVideoUrl = (value) => {
+    const url = parseHttpsUrl(value);
+    if (!url || !isFacebookUrl(value)) return false;
+
+    if (url.hostname.toLowerCase() === 'fb.watch') return true;
+
+    return /\/(?:reel|reels|videos|watch)(?:\/|$)/i.test(url.pathname)
+        || /\/share\/(?:r|v)(?:\/|$)/i.test(url.pathname)
+        || Boolean(url.searchParams.get('v'));
+};
+
+export const isFacebookReelUrl = (value) => {
+    const url = parseHttpsUrl(value);
+    return Boolean(
+        url
+        && isFacebookUrl(value)
+        && (/\/(?:reel|reels)(?:\/|$)/i.test(url.pathname) || /\/share\/r(?:\/|$)/i.test(url.pathname))
+    );
+};
+
+export const getFacebookEmbedUrl = (value) => {
+    if (!isFacebookUrl(value)) return null;
+
+    const sourceUrl = parseHttpsUrl(value);
+    sourceUrl.protocol = 'https:';
+    sourceUrl.hash = '';
+    return `https://www.facebook.com/plugins/post.php?href=${encodeURIComponent(sourceUrl.toString())}&show_text=true&width=500`;
+};
+
 export const getVideoEmbedData = (value) => {
     const youtubeEmbedUrl = getYouTubeEmbedUrl(value);
     if (youtubeEmbedUrl) {
@@ -87,6 +129,7 @@ export const getVideoEmbedData = (value) => {
             externalUrl: String(value).trim(),
             isVertical: isYouTubeShortUrl(value),
             isExternalOnly: false,
+            contentKind: 'video',
         };
     }
 
@@ -98,6 +141,20 @@ export const getVideoEmbedData = (value) => {
             externalUrl: String(value).trim(),
             isVertical: true,
             isExternalOnly: !embedUrl,
+            contentKind: 'video',
+        };
+    }
+
+    if (isFacebookUrl(value)) {
+        const isVideo = isFacebookVideoUrl(value);
+        return {
+            provider: 'facebook',
+            embedUrl: getFacebookEmbedUrl(value),
+            externalUrl: String(value).trim(),
+            isVertical: isFacebookReelUrl(value),
+            isExternalOnly: false,
+            isSocialPost: true,
+            contentKind: isVideo ? 'video' : 'post',
         };
     }
 

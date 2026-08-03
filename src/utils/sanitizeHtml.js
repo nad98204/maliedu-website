@@ -37,6 +37,7 @@ const EMBED_HOSTS = new Set([
   "youtube.com",
   "youtube-nocookie.com",
   "www.tiktok.com",
+  "www.facebook.com",
 ]);
 
 const normalizeHtml = (value) =>

@@ -5,6 +5,7 @@ import { collection, getDocs, limit, orderBy, query, startAfter, where } from 'f
 import { db } from '../firebase';
 import SEO from '../components/SEO';
 import { formatArticlePublishedDate, getReadingTime, isPostPubliclyVisible } from '../utils/articleContent';
+import { getVideoEmbedData } from '../utils/videoUtils';
 
 const PAGE_SIZE = 9;
 const PLACEHOLDER_IMAGE = 'https://placehold.co/1200x800?text=Mali+Edu';
@@ -251,7 +252,7 @@ const FeaturedSpotlight = ({ post }) => (
             <article className="grid overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-lg md:grid-cols-2">
                 <Link to={`/tin-tuc/${post.slug}`} className="group relative min-h-[280px] overflow-hidden md:min-h-[430px]">
                     <img src={post.thumbnailUrl || PLACEHOLDER_IMAGE} alt={post.thumbnailAlt || post.title} className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-105" />
-                    {post.videoUrl && (
+                    {getVideoEmbedData(post.videoUrl)?.contentKind === 'video' && (
                         <span className="absolute inset-0 flex items-center justify-center bg-black/20" aria-hidden="true">
                             <span className="flex h-16 w-16 items-center justify-center rounded-full bg-white/90 shadow-lg transition group-hover:scale-110">
                                 <Play className="ml-1 h-7 w-7 fill-secret-wax text-secret-wax" />
@@ -285,7 +286,7 @@ const NewsCard = ({ post }) => (
     <article className="flex flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-md transition duration-300 hover:-translate-y-1 hover:shadow-xl">
         <Link to={`/tin-tuc/${post.slug}`} className="group relative h-56 overflow-hidden">
             <img src={post.thumbnailUrl || PLACEHOLDER_IMAGE} alt={post.thumbnailAlt || post.title} loading="lazy" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
-            {post.videoUrl && (
+            {getVideoEmbedData(post.videoUrl)?.contentKind === 'video' && (
                 <span className="absolute inset-0 flex items-center justify-center bg-black/25"><span className="flex h-14 w-14 items-center justify-center rounded-full bg-white/90"><Play className="ml-1 h-6 w-6 fill-secret-wax text-secret-wax" /></span></span>
             )}
         </Link>

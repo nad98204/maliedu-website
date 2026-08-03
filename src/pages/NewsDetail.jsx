@@ -445,19 +445,31 @@ const NewsDetail = () => {
                             )}
 
                             {/* Featured Image / Video */}
-                            <div className={`mb-6 overflow-hidden rounded-xl shadow-sm md:mb-10 ${videoEmbedData?.isVertical ? 'mx-auto max-w-sm' : ''}`}>
+                            <div className={`mb-6 overflow-hidden rounded-xl shadow-sm md:mb-10 ${videoEmbedData?.isSocialPost ? 'mx-auto max-w-[500px]' : (videoEmbedData?.isVertical ? 'mx-auto max-w-sm' : '')}`}>
                                 {videoEmbedData?.embedUrl ? (
-                                    <div className={`${videoEmbedData.isVertical ? 'aspect-[9/16]' : 'aspect-video'} w-full bg-black`}>
-                                        <iframe
-                                            src={videoEmbedData.embedUrl}
-                                            title={`${post.title} – video bài viết`}
-                                            className="h-full w-full"
-                                            loading="lazy"
-                                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                            referrerPolicy="strict-origin-when-cross-origin"
-                                            allowFullScreen
-                                        ></iframe>
-                                    </div>
+                                    <>
+                                        <div className={`${videoEmbedData.isSocialPost ? 'h-[720px] bg-white sm:h-[760px]' : (videoEmbedData.isVertical ? 'aspect-[9/16] bg-black' : 'aspect-video bg-black')} w-full`}>
+                                            <iframe
+                                                src={videoEmbedData.embedUrl}
+                                                title={`${post.title} – nội dung nhúng`}
+                                                className="h-full w-full"
+                                                loading="lazy"
+                                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                                                referrerPolicy="strict-origin-when-cross-origin"
+                                                allowFullScreen
+                                            ></iframe>
+                                        </div>
+                                        {videoEmbedData.isSocialPost && (
+                                            <a
+                                                href={videoEmbedData.externalUrl}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="flex items-center justify-center gap-1 border-t border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-blue-700 transition hover:bg-blue-50"
+                                            >
+                                                Xem bài gốc trên Facebook <ArrowRight className="h-4 w-4" />
+                                            </a>
+                                        )}
+                                    </>
                                 ) : videoEmbedData?.isExternalOnly ? (
                                     <a
                                         href={videoEmbedData.externalUrl}

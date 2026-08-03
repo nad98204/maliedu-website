@@ -26,6 +26,17 @@ const defaultFormData = {
     publishAt: '',
 };
 
+const getSocialMediaLabel = (value) => {
+    const media = getVideoEmbedData(value);
+    if (!media) return '';
+    if (media.provider === 'tiktok') return 'TikTok';
+    if (media.provider === 'facebook') {
+        if (media.isVertical) return 'Facebook Reel';
+        return media.contentKind === 'video' ? 'Video Facebook' : 'Bài đăng Facebook';
+    }
+    return media.isVertical ? 'YouTube Shorts' : 'YouTube';
+};
+
 const toDateTimeLocalValue = (value) => {
     if (!value) return '';
     const date = value?.toDate ? value.toDate() : new Date(value);
@@ -322,7 +333,7 @@ const AdminPosts = () => {
         if (!formData.title.trim()) previewErrors.title = 'Vui lòng nhập tiêu đề trước khi xem trước.';
         if (!generatedSlug) previewErrors.slug = 'Vui lòng nhập tiêu đề hoặc slug hợp lệ.';
         if (formData.type === 'video' && !formData.videoUrl.trim()) previewErrors.videoUrl = 'Vui lòng nhập URL video.';
-        if (formData.videoUrl.trim() && !isSupportedVideoUrl(formData.videoUrl)) previewErrors.videoUrl = 'Chỉ hỗ trợ link YouTube, YouTube Shorts hoặc TikTok.';
+        if (formData.videoUrl.trim() && !isSupportedVideoUrl(formData.videoUrl)) previewErrors.videoUrl = 'Chỉ hỗ trợ link YouTube, YouTube Shorts, TikTok hoặc Facebook.';
         if (formData.publishAt && Number.isNaN(new Date(formData.publishAt).getTime())) previewErrors.publishAt = 'Ngày giờ xuất bản không hợp lệ.';
 
         if (Object.keys(previewErrors).length > 0) {
@@ -414,7 +425,7 @@ const AdminPosts = () => {
             if (!formData.thumbnailUrl.trim()) nextErrors.thumbnailUrl = 'Vui lòng thêm ảnh bìa.';
             if (!formData.category.trim()) nextErrors.category = 'Vui lòng chọn danh mục.';
             if (formData.type === 'video' && !formData.videoUrl.trim()) nextErrors.videoUrl = 'Vui lòng nhập URL video.';
-            if (formData.videoUrl.trim() && !isSupportedVideoUrl(formData.videoUrl)) nextErrors.videoUrl = 'Chỉ hỗ trợ link YouTube, YouTube Shorts hoặc TikTok.';
+            if (formData.videoUrl.trim() && !isSupportedVideoUrl(formData.videoUrl)) nextErrors.videoUrl = 'Chỉ hỗ trợ link YouTube, YouTube Shorts, TikTok hoặc Facebook.';
             if (formData.publishAt && Number.isNaN(new Date(formData.publishAt).getTime())) nextErrors.publishAt = 'Ngày giờ xuất bản không hợp lệ.';
 
             if (Object.keys(nextErrors).length > 0) {
@@ -1162,34 +1173,34 @@ const AdminPosts = () => {
                                 />
                             </div>
 
-                            {/* Video URL for video and student-result posts */}
-                            {['video', 'case-study', 'case'].includes(formData.type) && (
-                                <div className="space-y-1.5">
-                                    <label htmlFor="post-video-url" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                        URL Video {formData.type === 'video' && <span className="text-red-500">*</span>}
-                                    </label>
-                                    <input
-                                        id="post-video-url"
-                                        type="url"
-                                        name="videoUrl"
-                                        ref={(el) => { fieldRefs.current.videoUrl = el; }}
-                                        value={formData.videoUrl}
-                                        onChange={handleInputChange}
-                                        aria-invalid={Boolean(formErrors.videoUrl)}
-                                        className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 ${formErrors.videoUrl ? 'border-red-400 focus:ring-red-200' : 'border-slate-200 focus:border-secret-wax focus:ring-secret-wax/20'}`}
-                                        placeholder="YouTube, YouTube Shorts hoặc TikTok…"
-                                    />
-                                    {formData.videoUrl && isSupportedVideoUrl(formData.videoUrl) && (
-                                        <p className="text-[11px] font-medium text-emerald-700">
-                                            Đã nhận dạng: {getVideoEmbedData(formData.videoUrl)?.provider === 'tiktok' ? 'TikTok' : (getVideoEmbedData(formData.videoUrl)?.isVertical ? 'YouTube Shorts' : 'YouTube')}.
-                                        </p>
-                                    )}
-                                    <p className="text-[11px] text-slate-400">
-                                        TikTok dạng đầy đủ “…/@tên/video/…” sẽ phát ngay trong bài. Link rút gọn vt.tiktok.com hoặc vm.tiktok.com sẽ mở video trên TikTok.
+                            <div className="space-y-1.5">
+                                <label htmlFor="post-video-url" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                    URL Video / Bài đăng mạng xã hội {formData.type === 'video' && <span className="text-red-500">*</span>}
+                                </label>
+                                <input
+                                    id="post-video-url"
+                                    type="url"
+                                    name="videoUrl"
+                                    ref={(el) => { fieldRefs.current.videoUrl = el; }}
+                                    value={formData.videoUrl}
+                                    onChange={handleInputChange}
+                                    aria-invalid={Boolean(formErrors.videoUrl)}
+                                    className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 ${formErrors.videoUrl ? 'border-red-400 focus:ring-red-200' : 'border-slate-200 focus:border-secret-wax focus:ring-secret-wax/20'}`}
+                                    placeholder="YouTube, Shorts, TikTok hoặc Facebook…"
+                                />
+                                {formData.videoUrl && isSupportedVideoUrl(formData.videoUrl) && (
+                                    <p className="text-[11px] font-medium text-emerald-700">
+                                        Đã nhận dạng: {getSocialMediaLabel(formData.videoUrl)}.
                                     </p>
-                                    {formErrors.videoUrl && <p className="text-xs text-red-600">{formErrors.videoUrl}</p>}
-                                </div>
-                            )}
+                                )}
+                                <p className="text-[11px] text-slate-400">
+                                    Facebook hỗ trợ bài viết, ảnh, video và Reel từ trang cá nhân hoặc fanpage khi nội dung để Công khai. Nên dán liên kết đầy đủ của chính bài đăng/Reel.
+                                </p>
+                                <p className="text-[11px] text-slate-400">
+                                    TikTok dạng đầy đủ “…/@tên/video/…” sẽ phát ngay trong bài. Link rút gọn vt.tiktok.com hoặc vm.tiktok.com sẽ mở video trên TikTok.
+                                </p>
+                                {formErrors.videoUrl && <p className="text-xs text-red-600">{formErrors.videoUrl}</p>}
+                            </div>
                         </aside>
                     </form>
                 </div>,
