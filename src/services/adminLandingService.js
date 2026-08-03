@@ -15,7 +15,8 @@ import { auth } from "../firebase";
 const MAX_BULK_UPDATES = 100;
 const FUNNEL_TYPES = new Set(["ads", "leader", "brand", "organic"]);
 const ADMIN_LANDING_API_BASE = "/api/admin/landings";
-const USE_ADMIN_LANDING_API = !import.meta.env.DEV;
+let isAdminLandingApiAvailable = !import.meta.env.DEV;
+const ADMIN_LANDING_API_FALLBACK = Symbol("admin-landing-api-fallback");
 
 export class LandingServiceError extends Error {
   constructor(code, message, details = {}) {
@@ -59,6 +60,28 @@ const requestAdminLandingApi = async (
     );
   }
   return result;
+};
+
+const isMissingAdminLandingApiRoute = (error) => (
+  error instanceof LandingServiceError
+  && error.code === "api/404"
+  && /api route not found/i.test(error.message)
+);
+
+const requestAdminLandingApiIfAvailable = async (path, options) => {
+  if (!isAdminLandingApiAvailable) return ADMIN_LANDING_API_FALLBACK;
+
+  try {
+    return await requestAdminLandingApi(path, options);
+  } catch (error) {
+    if (!isMissingAdminLandingApiRoute(error)) throw error;
+
+    // Hosting can briefly serve a newer frontend while Cloud Functions is still
+    // on the previous release. Fall back for this browser session so admins can
+    // keep working until the matching function deployment is live.
+    isAdminLandingApiAvailable = false;
+    return ADMIN_LANDING_API_FALLBACK;
+  }
 };
 
 const requiredText = (value, label, maxLength = 160) => {
@@ -296,8 +319,9 @@ export const getAdminLandingWorkspace = async ({
   realtimeDatabase,
   scheduleDocumentId,
 }) => {
-  if (USE_ADMIN_LANDING_API) {
-    return requestAdminLandingApi();
+  if (isAdminLandingApiAvailable) {
+    const apiWorkspace = await requestAdminLandingApiIfAvailable();
+    if (apiWorkspace !== ADMIN_LANDING_API_FALLBACK) return apiWorkspace;
   }
 
   const [landingSnapshot, courses, schedule, userSnapshot] = await Promise.all([
@@ -344,8 +368,8 @@ export const saveSharedLandingSchedule = async ({ firestore, documentId, schedul
     updatedAt: serverTimestamp(),
   };
 
-  if (USE_ADMIN_LANDING_API) {
-    const result = await requestAdminLandingApi("/schedule", {
+  if (isAdminLandingApiAvailable) {
+    const result = await requestAdminLandingApiIfAvailable("/schedule", {
       method: "POST",
       payload: {
         eventStart: payload.eventStart,
@@ -354,7 +378,7 @@ export const saveSharedLandingSchedule = async ({ firestore, documentId, schedul
         thankYouZaloLink: payload.thankYouZaloLink,
       },
     });
-    return result.schedule;
+    if (result !== ADMIN_LANDING_API_FALLBACK) return result.schedule;
   }
 
   await setDoc(doc(firestore, "public_settings", documentId), payload, { merge: true });
@@ -364,12 +388,12 @@ export const saveSharedLandingSchedule = async ({ firestore, documentId, schedul
 export const saveLandingWithSource = async ({ firestore, input }) => {
   const landing = normalizeFullLandingInput(input);
 
-  if (USE_ADMIN_LANDING_API) {
-    const result = await requestAdminLandingApi("/save", {
+  if (isAdminLandingApiAvailable) {
+    const result = await requestAdminLandingApiIfAvailable("/save", {
       method: "POST",
       payload: landing,
     });
-    return result.landing;
+    if (result !== ADMIN_LANDING_API_FALLBACK) return result.landing;
   }
 
   const landingRef = doc(firestore, "landing_pages", landing.landingId);
@@ -435,11 +459,12 @@ export const saveLandingWithSource = async ({ firestore, input }) => {
 export const deleteLandingWithSource = async ({ firestore, landingId }) => {
   const normalizedLandingId = normalizeDocumentId(landingId, "ID Landing");
 
-  if (USE_ADMIN_LANDING_API) {
-    return requestAdminLandingApi("/delete", {
+  if (isAdminLandingApiAvailable) {
+    const result = await requestAdminLandingApiIfAvailable("/delete", {
       method: "POST",
       payload: { landingId: normalizedLandingId },
     });
+    if (result !== ADMIN_LANDING_API_FALLBACK) return result;
   }
 
   const landingRef = doc(firestore, "landing_pages", normalizedLandingId);
@@ -499,12 +524,12 @@ export const updateLandingRoutingBatch = async ({ firestore, updates }) => {
     sourceKeys.add(update.sourceKey);
   });
 
-  if (USE_ADMIN_LANDING_API) {
-    const result = await requestAdminLandingApi("/routing", {
+  if (isAdminLandingApiAvailable) {
+    const result = await requestAdminLandingApiIfAvailable("/routing", {
       method: "POST",
       payload: { updates: normalizedUpdates },
     });
-    return result.updates;
+    if (result !== ADMIN_LANDING_API_FALLBACK) return result.updates;
   }
 
   return runTransaction(firestore, async (transaction) => {
@@ -595,11 +620,12 @@ export const updateLandingRoutingBatch = async ({ firestore, updates }) => {
 };
 
 export const repairAdminLandingSources = async ({ firestore, apply = false }) => {
-  if (USE_ADMIN_LANDING_API) {
-    return requestAdminLandingApi("/repair-sources", {
+  if (isAdminLandingApiAvailable) {
+    const result = await requestAdminLandingApiIfAvailable("/repair-sources", {
       method: "POST",
       payload: { apply: apply === true },
     });
+    if (result !== ADMIN_LANDING_API_FALLBACK) return result;
   }
 
   const [landingSnapshot, sourceSnapshot] = await Promise.all([
