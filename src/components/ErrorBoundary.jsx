@@ -40,6 +40,20 @@ const saveRetryCount = (count) => {
     }
 };
 
+const resetAssetRecovery = (destination = window.location.href) => {
+    try {
+        sessionStorage.removeItem(DYNAMIC_IMPORT_RETRY_KEY);
+    } catch {
+        // A manual recovery must still work when storage is unavailable.
+    }
+
+    window.__MALI_ASSET_RECOVERY_ACTIVE__ = false;
+    const url = new URL(destination, window.location.origin);
+    url.searchParams.delete("_asset_retry");
+    url.searchParams.set("_asset_reset", String(Date.now()));
+    window.location.replace(url.toString());
+};
+
 class ErrorBoundary extends React.Component {
     constructor(props) {
         super(props);
@@ -122,13 +136,13 @@ class ErrorBoundary extends React.Component {
                         <p className="text-gray-600 mb-6">Trang web gặp sự cố không mong muốn. Vui lòng thử tải lại hoặc reset dữ liệu.</p>
                         <div className="flex gap-4 justify-center">
                             <button
-                                onClick={() => window.location.reload()}
+                                onClick={() => resetAssetRecovery()}
                                 className="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 font-medium"
                             >
                                 Tải lại trang
                             </button>
                             <button
-                                onClick={() => { window.location.href = "/"; }}
+                                onClick={() => resetAssetRecovery("/")}
                                 className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-bold"
                             >
                                 Về trang chủ

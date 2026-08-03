@@ -956,6 +956,41 @@ const normalizeRequestPath = (request) => {
   return normalizedPath.replace(/\/+$/, "") || "/";
 };
 
+const getPublicApiError = (error, normalizedPath) => {
+  const originalStatus = Number(error?.status) || 500;
+  const errorText = `${error?.code || ""} ${error?.message || ""}`.toLowerCase();
+  const isCrmAccessFailure = (
+    (PROTECTED_ADMIN_LANDING_PATHS.has(normalizedPath) || normalizedPath === "/api/crm-leads")
+    && (
+      /permission[_ -]?denied/.test(errorText)
+      || /invalid credential/.test(errorText)
+      || /default credentials/.test(errorText)
+      || /^7\b/.test(errorText.trim())
+    )
+  );
+
+  if (isCrmAccessFailure) {
+    return {
+      status: 503,
+      body: {
+        code: "crm/access-denied",
+        error: "Backend Website ch\u01b0a \u0111\u01b0\u1ee3c CRM c\u1ea5p \u0111\u1ee7 quy\u1ec1n truy c\u1eadp.",
+      },
+    };
+  }
+
+  return {
+    status: originalStatus,
+    body: {
+      error: originalStatus >= 500
+        ? "Service is temporarily unavailable"
+        : error?.message || "Request failed",
+      ...(originalStatus < 500 && error?.code ? { code: error.code } : {}),
+      ...(originalStatus < 500 && error?.details ? { details: error.details } : {}),
+    },
+  };
+};
+
 const getStorageMediaTokenSecret = () =>
   STORAGE_MEDIA_TOKEN_SECRET.value() || "";
 
@@ -1345,7 +1380,8 @@ export const uploadApi = onRequest(
 
       return sendWebResponse(result, response);
     } catch (error) {
-      const status = Number(error?.status) || 500;
+      const publicError = getPublicApiError(error, normalizedPath);
+      const { status } = publicError;
       if (status >= 500) {
         console.error(`API error for ${routeKey}:`, error);
       }
@@ -1357,16 +1393,7 @@ export const uploadApi = onRequest(
       }
 
       return sendWebResponse(
-        createJsonResponse(
-          {
-            error: status >= 500
-              ? "Service is temporarily unavailable"
-              : error?.message || "Request failed",
-            ...(status < 500 && error?.code ? { code: error.code } : {}),
-            ...(status < 500 && error?.details ? { details: error.details } : {}),
-          },
-          status,
-        ),
+        createJsonResponse(publicError.body, status),
         response,
       );
     }

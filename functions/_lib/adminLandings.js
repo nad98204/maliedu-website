@@ -220,6 +220,9 @@ const buildSourceRecord = ({ landing, existingSource = {} }) => ({
   name: landing.name,
   landingPageId: landing.landingId,
   landingSlug: landing.slug,
+  isActive: true,
+  managedBy: "maliedu-admin",
+  schemaVersion: 2,
   targetCourseId: landing.targetCourseId,
   targetK: landing.targetK,
   targetFunnel: landing.targetFunnel,
@@ -227,6 +230,7 @@ const buildSourceRecord = ({ landing, existingSource = {} }) => ({
   assignedSale: landing.funnelType === "leader" ? "" : "Round Robin",
   assignmentMode: landing.funnelType === "leader" ? "leader_referrer" : "sales",
   targetZalo: landing.zaloLink,
+  createdAt: existingSource.createdAt || FieldValue.serverTimestamp(),
   updatedAt: FieldValue.serverTimestamp(),
 });
 

@@ -18,6 +18,17 @@ createRoot(document.getElementById('root')).render(
 
 window.__MALI_MARK_APP_MOUNTED__?.()
 
+try {
+  const mountedUrl = new URL(window.location.href)
+  if (mountedUrl.searchParams.has('_asset_retry') || mountedUrl.searchParams.has('_asset_reset')) {
+    mountedUrl.searchParams.delete('_asset_retry')
+    mountedUrl.searchParams.delete('_asset_reset')
+    window.history.replaceState(window.history.state, '', mountedUrl.toString())
+  }
+} catch {
+  // URL cleanup is cosmetic and must never block the application.
+}
+
 window.setTimeout(() => {
   if (window.__MALI_ASSET_RECOVERY_ACTIVE__) return
 

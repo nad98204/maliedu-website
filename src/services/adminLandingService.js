@@ -15,7 +15,7 @@ import { auth } from "../firebase";
 const MAX_BULK_UPDATES = 100;
 const FUNNEL_TYPES = new Set(["ads", "leader", "brand", "organic"]);
 const ADMIN_LANDING_API_BASE = "/api/admin/landings";
-let isAdminLandingApiAvailable = !import.meta.env.DEV;
+const isAdminLandingApiAvailable = !import.meta.env.DEV;
 const ADMIN_LANDING_API_FALLBACK = Symbol("admin-landing-api-fallback");
 
 export class LandingServiceError extends Error {
@@ -62,37 +62,12 @@ const requestAdminLandingApi = async (
   return result;
 };
 
-const isMissingAdminLandingApiRoute = (error) => (
-  error instanceof LandingServiceError
-  && error.code === "api/404"
-  && /api route not found/i.test(error.message)
-);
-
-const isTemporaryAdminLandingApiFailure = (error) => (
-  error instanceof LandingServiceError
-  && ["api/500", "api/502", "api/503", "api/504"].includes(error.code)
-);
-
 const requestAdminLandingApiIfAvailable = async (
   path,
   options,
-  { fallbackOnTemporaryError = false } = {},
 ) => {
   if (!isAdminLandingApiAvailable) return ADMIN_LANDING_API_FALLBACK;
-
-  try {
-    return await requestAdminLandingApi(path, options);
-  } catch (error) {
-    const canFallback = isMissingAdminLandingApiRoute(error)
-      || (fallbackOnTemporaryError && isTemporaryAdminLandingApiFailure(error));
-    if (!canFallback) throw error;
-
-    // Hosting can briefly serve a newer frontend while Cloud Functions is still
-    // on the previous release. Fall back for this browser session so admins can
-    // keep working until the matching function deployment is live.
-    isAdminLandingApiAvailable = false;
-    return ADMIN_LANDING_API_FALLBACK;
-  }
+  return requestAdminLandingApi(path, options);
 };
 
 const requiredText = (value, label, maxLength = 160) => {
@@ -293,6 +268,9 @@ const buildSourceRecord = ({ landing, existingSource = {} }) => ({
   name: landing.name,
   landingPageId: landing.landingId,
   landingSlug: landing.slug,
+  isActive: true,
+  managedBy: "maliedu-admin",
+  schemaVersion: 2,
   targetCourseId: landing.targetCourseId,
   targetK: landing.targetK,
   targetFunnel: landing.targetFunnel,
@@ -300,6 +278,7 @@ const buildSourceRecord = ({ landing, existingSource = {} }) => ({
   assignedSale: landing.funnelType === "leader" ? "" : "Round Robin",
   assignmentMode: landing.funnelType === "leader" ? "leader_referrer" : "sales",
   targetZalo: landing.zaloLink,
+  createdAt: existingSource.createdAt || serverTimestamp(),
   updatedAt: serverTimestamp(),
 });
 
@@ -331,9 +310,7 @@ export const getAdminLandingWorkspace = async ({
   scheduleDocumentId,
 }) => {
   if (isAdminLandingApiAvailable) {
-    const apiWorkspace = await requestAdminLandingApiIfAvailable("", undefined, {
-      fallbackOnTemporaryError: true,
-    });
+    const apiWorkspace = await requestAdminLandingApiIfAvailable("", undefined);
     if (apiWorkspace !== ADMIN_LANDING_API_FALLBACK) return apiWorkspace;
   }
 
