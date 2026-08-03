@@ -313,7 +313,10 @@ const getWorkspace = async ({ crmFirestore, crmDatabase, scheduleDocumentId }) =
     crmFirestore.collection("landing_pages").get(),
     crmFirestore.collection("courses_config").get(),
     crmFirestore.collection("public_settings").doc(scheduleDocumentId).get(),
-    crmDatabase.ref("system_settings/users").once("value"),
+    crmDatabase.ref("system_settings/users").once("value").catch((error) => {
+      console.warn("Unable to load CRM users; continuing without assignee options:", error?.message || error);
+      return null;
+    }),
   ]);
 
   const sourceRefs = landingSnapshot.docs
@@ -342,7 +345,7 @@ const getWorkspace = async ({ crmFirestore, crmDatabase, scheduleDocumentId }) =
           : [],
     };
   });
-  const crmUsers = Object.values(userSnapshot.val() || {})
+  const crmUsers = Object.values(userSnapshot?.val?.() || {})
     .filter((user) => user?.isActive !== false)
     .slice(0, 2_000)
     .map((user) => ({

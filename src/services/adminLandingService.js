@@ -68,13 +68,24 @@ const isMissingAdminLandingApiRoute = (error) => (
   && /api route not found/i.test(error.message)
 );
 
-const requestAdminLandingApiIfAvailable = async (path, options) => {
+const isTemporaryAdminLandingApiFailure = (error) => (
+  error instanceof LandingServiceError
+  && ["api/500", "api/502", "api/503", "api/504"].includes(error.code)
+);
+
+const requestAdminLandingApiIfAvailable = async (
+  path,
+  options,
+  { fallbackOnTemporaryError = false } = {},
+) => {
   if (!isAdminLandingApiAvailable) return ADMIN_LANDING_API_FALLBACK;
 
   try {
     return await requestAdminLandingApi(path, options);
   } catch (error) {
-    if (!isMissingAdminLandingApiRoute(error)) throw error;
+    const canFallback = isMissingAdminLandingApiRoute(error)
+      || (fallbackOnTemporaryError && isTemporaryAdminLandingApiFailure(error));
+    if (!canFallback) throw error;
 
     // Hosting can briefly serve a newer frontend while Cloud Functions is still
     // on the previous release. Fall back for this browser session so admins can
@@ -320,7 +331,9 @@ export const getAdminLandingWorkspace = async ({
   scheduleDocumentId,
 }) => {
   if (isAdminLandingApiAvailable) {
-    const apiWorkspace = await requestAdminLandingApiIfAvailable();
+    const apiWorkspace = await requestAdminLandingApiIfAvailable("", undefined, {
+      fallbackOnTemporaryError: true,
+    });
     if (apiWorkspace !== ADMIN_LANDING_API_FALLBACK) return apiWorkspace;
   }
 
