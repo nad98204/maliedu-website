@@ -1,231 +1,62 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { KHOI_THONG_HERO_BANNER_URL, useKhoiThongLandingConfig } from "../landingConfig";
 import { trackCtaClick } from "../ctaTracking";
 import { scrollToRegistrationForm } from "../scrollToRegistration";
 
-const VIDEO_URL =
-  "https://s3-hn1-api.longvan.vn/video-khoa-hoc/videos/1777912962001-669107119-banh-xe-cuoc-doi.mp4";
+const YOUTUBE_VIDEO_ID = "gPdub90aL9k";
+const YOUTUBE_EMBED_URL = `https://www.youtube-nocookie.com/embed/${YOUTUBE_VIDEO_ID}?autoplay=1&rel=0&playsinline=1`;
+const YOUTUBE_THUMBNAIL_URL =
+  "/assets/landing/khoi-thong-dong-tien/khoi-thong-dong-tien-video-thumbnail.webp";
 const TITLE_IMG_URL = KHOI_THONG_HERO_BANNER_URL;
-/** Poster cùng nguồn S3 (không qua CDN khác); trình duyệt báo một frame trong khi tải video. */
-const VIDEO_POSTER_URL = TITLE_IMG_URL;
+const MOBILE_BENEFITS = [
+  "Nhận diện điểm nghẽn",
+  "Điều chỉnh tư duy và cảm xúc",
+  "Xây mục tiêu và kế hoạch",
+];
 
 /* ─── VideoPlayer ────────────────────────────────────────────── */
 const VideoPlayer = () => {
-  const videoRef = useRef(null);
-  const containerRef = useRef(null);
-  const [playing, setPlaying] = useState(true);
-  const [muted, setMuted] = useState(true);
-  const [volume, setVolume] = useState(0.7);
-  const [isVideoReady, setIsVideoReady] = useState(false);
-  const [hasVideoError, setHasVideoError] = useState(false);
-  const [showPause, setShowPause] = useState(false);
-  let hideTimer = useRef(null);
-
-  /** Autoplay luôn tắt tiếng (muted) để tuân thủ chính sách trình duyệt. */
-  const attemptAutoplay = useCallback(() => {
-    const v = videoRef.current;
-    if (!v) return;
-
-    v.volume = 0.7;
-    v.muted = true;
-
-    const p = v.play();
-    if (p?.catch) {
-      p.catch(() => setPlaying(false));
-    }
-  }, []);
-
-  const togglePlay = () => {
-    const v = videoRef.current;
-    if (!v) return;
-    if (v.muted) {
-      v.muted = false;
-      const vol = volume > 0 ? volume : 0.7;
-      v.volume = vol;
-      setMuted(false);
-      setVolume(vol);
-      v.play();
-      setPlaying(true);
-      setShowPause(true);
-      clearTimeout(hideTimer.current);
-      hideTimer.current = setTimeout(() => setShowPause(false), 800);
-      return;
-    }
-    if (v.paused) {
-      v.play();
-      setPlaying(true);
-    } else {
-      v.pause();
-      setPlaying(false);
-    }
-    setShowPause(true);
-    clearTimeout(hideTimer.current);
-    hideTimer.current = setTimeout(() => setShowPause(false), 800);
-  };
-
-  const toggleMute = (e) => {
-    e.stopPropagation();
-    const v = videoRef.current;
-    if (!v) return;
-    v.muted = !v.muted;
-    setMuted(v.muted);
-    if (!v.muted && volume === 0) {
-      v.volume = 0.5;
-      setVolume(0.5);
-    }
-  };
-
-  const handleVolumeChange = (e) => {
-    e.stopPropagation();
-    const val = parseFloat(e.target.value);
-    setVolume(val);
-    const v = videoRef.current;
-    if (v) {
-      v.volume = val;
-      if (val > 0) {
-        v.muted = false;
-        setMuted(false);
-      } else {
-        v.muted = true;
-        setMuted(true);
-      }
-    }
-  };
-
-  useEffect(() => {
-    const v = videoRef.current;
-    if (v) {
-      v.volume = 0.7;
-      attemptAutoplay();
-    }
-  }, [attemptAutoplay]);
-
-
-  useEffect(() => () => clearTimeout(hideTimer.current), []);
-
-  /** Dự phòng: nếu sự kiện không bắn (hiếm), ẩn overlay sau vài giây để không kẹt mãi. */
-  useEffect(() => {
-    const t = setTimeout(() => {
-      setIsVideoReady((prev) => prev || true);
-    }, 3000);
-    return () => clearTimeout(t);
-  }, []);
+  const [hasStarted, setHasStarted] = useState(false);
 
   return (
     <div
-      ref={containerRef}
-      className="relative rounded-2xl overflow-hidden cursor-pointer select-none"
-      style={{ boxShadow: "0 20px 50px rgba(0,0,0,0.18), 0 0 0 3px #C9961A, 0 0 0 5px #F8E08A" }}
-      onClick={togglePlay}
+      className="relative overflow-hidden rounded-[18px] border border-[#C9961A]/70 bg-black shadow-[0_14px_36px_rgba(71,35,13,0.18)] select-none sm:rounded-[22px]"
     >
       <div className="relative aspect-video bg-black">
-        <video
-          ref={videoRef}
-          className="w-full h-full object-cover"
-          autoPlay
-          muted={muted}
-          loop
-          playsInline
-          preload="metadata"
-          fetchPriority="low"
-          poster={VIDEO_POSTER_URL}
-          onLoadedMetadata={() => {
-            setIsVideoReady(true);
-            setHasVideoError(false);
-          }}
-          onLoadedData={() => {
-            setIsVideoReady(true);
-            setHasVideoError(false);
-            attemptAutoplay();
-          }}
-          onCanPlay={() => {
-            setIsVideoReady(true);
-            attemptAutoplay();
-          }}
-          onPlaying={() => {
-            setPlaying(true);
-            setIsVideoReady(true);
-          }}
-          onPause={() => setPlaying(false)}
-          onError={() => {
-            setHasVideoError(true);
-            setIsVideoReady(false);
-            setPlaying(false);
-          }}
-        >
-          <source src={VIDEO_URL} type="video/mp4" />
-        </video>
-
-        {!isVideoReady && !hasVideoError && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/5 pointer-events-none">
-            <div className="rounded-full px-4 py-2 text-xs font-semibold tracking-wide text-[#FFE566] bg-black/50 border border-[#C9961A]/60">
-              Đang tải video…
-            </div>
-          </div>
-        )}
-
-        {/* Play/Pause feedback icon (briefly shown on click) */}
-        <div
-          className="absolute inset-0 flex items-center justify-center pointer-events-none transition-opacity duration-300"
-          style={{ opacity: showPause ? 1 : 0 }}
-        >
-          <div className="bg-black/50 rounded-full w-16 h-16 flex items-center justify-center backdrop-blur-sm">
-            {playing
-              ? <span className="text-white text-3xl">▶</span>
-              : <span className="text-white text-3xl ml-1">⏸</span>
-            }
-          </div>
-        </div>
-
-        {/* ── Âm lượng: thanh dưới video, cách mép an toàn, không chèn góc ── */}
-        <div className="absolute bottom-0 left-0 right-0 z-30 pointer-events-none">
-          <div
-            className="pointer-events-auto px-3 sm:px-5 pt-7 sm:pt-10 pb-3 sm:pb-5 bg-gradient-to-t from-black/85 via-black/55 to-transparent"
-            onClick={(e) => e.stopPropagation()}
+        {hasStarted ? (
+          <iframe
+            className="absolute inset-0 h-full w-full"
+            src={YOUTUBE_EMBED_URL}
+            title="Bánh xe cuộc đời - Khơi Thông Dòng Tiền"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            referrerPolicy="strict-origin-when-cross-origin"
+            allowFullScreen
+          />
+        ) : (
+          <button
+            type="button"
+            className="group absolute inset-0 h-full w-full cursor-pointer overflow-hidden text-white"
+            onClick={() => setHasStarted(true)}
+            aria-label="Phát video Bánh xe cuộc đời"
           >
-            <div className="flex items-center gap-2 sm:gap-4 max-w-2xl ml-auto mr-auto">
-              <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-                <span className="text-[#F8E08A] text-[10px] sm:text-xs font-bold uppercase tracking-[0.1em] sm:tracking-[0.14em] shrink-0 w-auto sm:w-24">
-                  Âm lượng
-                </span>
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.05"
-                  value={muted ? 0 : volume}
-                  onChange={handleVolumeChange}
-                  title="Kéo để chỉnh âm lượng"
-                  aria-label="Âm lượng video"
-                  className="block flex-1 min-w-[4.25rem] h-2.5 sm:h-3.5 cursor-pointer accent-[#F8E08A]"
-                  style={{ padding: 0 }}
-                />
-              </div>
-              <div className="flex justify-end shrink-0">
-                <button
-                  type="button"
-                  onClick={toggleMute}
-                  className="inline-flex items-center justify-center gap-1.5 sm:gap-2 rounded-lg sm:rounded-xl min-h-[36px] sm:min-h-[44px] min-w-[36px] sm:min-w-[44px] px-2.5 sm:px-5 font-bold text-[11px] sm:text-sm transition-all duration-200 active:scale-95 shadow-md whitespace-nowrap"
-                  style={{
-                    background: (muted || volume === 0)
-                      ? "rgba(55,55,55,0.95)"
-                      : "linear-gradient(135deg, #C9961A, #F8E08A)",
-                    color: (muted || volume === 0) ? "#fff" : "#3A1A00",
-                    border: "1px solid rgba(248,224,138,0.45)",
-                    boxShadow: "0 4px 14px rgba(0,0,0,0.35)",
-                  }}
-                  aria-label={muted ? "Bật tiếng" : "Tắt tiếng"}
-                >
-                  <span className="text-lg leading-none">{(muted || volume === 0) ? "🔇" : "🔊"}</span>
-                  <span>{(muted || volume === 0) ? "Bật tiếng" : "Tắt tiếng"}</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-
-
+            <img
+              src={YOUTUBE_THUMBNAIL_URL}
+              alt="Xem video Bánh xe cuộc đời"
+              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+              loading="lazy"
+              decoding="async"
+              fetchPriority="low"
+              width={1280}
+              height={720}
+            />
+            <span className="absolute inset-0 bg-black/15 transition-colors group-hover:bg-black/5" />
+            <span className="absolute inset-0 flex items-center justify-center">
+              <span className="flex h-14 w-14 items-center justify-center rounded-full border border-white/80 bg-[#A50F17]/95 shadow-[0_8px_24px_rgba(0,0,0,0.35)] ring-4 ring-white/25 transition-transform group-hover:scale-110 sm:h-16 sm:w-16">
+                <span className="ml-1 text-2xl leading-none sm:text-3xl" aria-hidden="true">▶</span>
+              </span>
+            </span>
+          </button>
+        )}
       </div>
     </div>
   );
@@ -306,6 +137,7 @@ const BannerChinh = () => {
     className="relative w-full overflow-hidden font-sans"
     style={{ background: "transparent" }}
   >
+    <h1 className="sr-only">Khơi Thông Dòng Tiền - 4 buổi học online miễn phí</h1>
     {/* (Đã loại bỏ ảnh chữ và nền dư thừa để dùng chung với global layout KhoiThongDongTien) */}
 
     {/* ── Ánh sáng Gradient Ambient (translateZ cô lập layer, giảm CLS khi paint/blur) ── */}
@@ -353,7 +185,7 @@ const BannerChinh = () => {
             "0 1px 2px rgba(0,0,0,0.9), 0 0 20px rgba(248,224,138,0.35), 0 0 1px rgba(255,255,255,0.4)",
         }}
       >
-        4 BUỔI TỐI HỌC ONLINE MIỄN PHÍ
+        4 BUỔI HỌC ONLINE MIỄN PHÍ
       </span>
     </div>
 
@@ -378,15 +210,40 @@ const BannerChinh = () => {
           />
         </div>
 
+        <div className="relative max-w-[570px] px-2 text-center sm:px-3">
+          <span className="mx-auto mb-2 block h-0.5 w-10 rounded-full bg-gradient-to-r from-transparent via-[#C9961A] to-transparent" />
+          <p className="text-[0.85rem] font-semibold leading-[1.6] text-[#5A3A1A] min-[380px]:text-[0.9rem] sm:text-[1.05rem]">
+            <span className="block whitespace-nowrap">
+              Nhận diện <strong className="font-black text-[#7A2113]">điểm nghẽn tài chính</strong>, <strong className="font-black text-[#7A2113]">điều chỉnh tư duy</strong>
+            </span>
+            <span className="block whitespace-nowrap">
+              về tiền và xây dựng <strong className="font-black text-[#7A2113]">kế hoạch hành động</strong> rõ ràng.
+            </span>
+          </p>
+        </div>
+
         {/* Video: chỉ mobile — desktop render ở cột phải (một instance duy nhất) */}
         {!isDesktop && (
-          <div className="w-full">
+          <div className="w-full rounded-[22px] border border-[#D4B572]/55 bg-white/70 p-2 shadow-[0_10px_32px_rgba(83,48,18,0.10)] backdrop-blur-sm sm:p-3">
+            <div className="flex items-center gap-3 px-2 pb-2.5 pt-1 sm:px-3 sm:pb-3">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#8C0C12] text-[0.72rem] text-white shadow-sm" aria-hidden="true">
+                ▶
+              </span>
+              <div className="min-w-0 text-left">
+                <span className="block text-[0.55rem] font-black uppercase tracking-[0.16em] text-[#B17B18]">
+                  Video giới thiệu
+                </span>
+                <p className="mt-0.5 text-[0.7rem] font-bold leading-snug text-[#6F2B1C] sm:text-[0.82rem]">
+                  Xem để biết chương trình có phù hợp với bạn không
+                </p>
+              </div>
+            </div>
             <VideoPlayer />
           </div>
         )}
 
         {/* CTA Section */}
-        <div className="flex flex-col items-center gap-4 lg:gap-5 w-full">
+        <div className="flex w-full flex-col items-center gap-3.5 lg:gap-4">
           {/* Glow */}
           <div className="relative w-full max-w-[360px] lg:max-w-[400px] mx-auto">
             <div className="absolute inset-0 rounded-full blur-xl opacity-50 transition-opacity hover:opacity-70"
@@ -398,31 +255,45 @@ const BannerChinh = () => {
                 trackCtaClick("BannerChinh");
                 scrollToRegistrationForm();
               }}
-              className="group relative flex flex-col items-center justify-center w-full rounded-full py-4 lg:py-4.5 overflow-hidden transition-all duration-300 hover:scale-[1.03] active:scale-[0.98]"
+              className="group relative flex w-full items-center justify-center overflow-hidden rounded-full px-3 py-4 transition-all duration-300 hover:scale-[1.03] active:scale-[0.98] lg:py-4.5"
               style={{
                 background: "linear-gradient(180deg, #E8393F 0%, #9C0C12 100%)",
                 boxShadow: "0 10px 30px rgba(160,20,28,0.5), inset 0 1px 0 rgba(255,255,255,0.2)",
               }}
             >
               <span className="absolute inset-0 translate-x-[-100%] skew-x-[-20deg] bg-white/20 group-hover:translate-x-[200%] transition-transform duration-700" />
-              <span className="text-[#FFE566] font-black text-[1.05rem] sm:text-[1.2rem] lg:text-[1.25rem] uppercase tracking-[0.08em] drop-shadow whitespace-nowrap">
-                BẤM ĐỂ NHẬN VÉ THAM DỰ
-              </span>
-              <span className="flex items-center gap-1.5 mt-0.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#FFE566] animate-ping opacity-80" />
-                <span className="text-white/90 text-[0.65rem] sm:text-xs font-semibold uppercase tracking-wider">
-                  {landingConfig.ctaScheduleLabel}
-                </span>
+              <span className="whitespace-nowrap text-[0.88rem] font-black uppercase tracking-[0.025em] text-[#FFE566] drop-shadow sm:text-[1.03rem] sm:tracking-[0.04em] lg:text-[1.08rem]">
+                ĐĂNG KÝ MIỄN PHÍ – NHẬN LINK HỌC
               </span>
             </a>
           </div>
 
-          <div className="flex items-center gap-2 text-[0.72rem] sm:text-[0.8rem] lg:text-[0.85rem] text-[#5A3A1A] font-semibold bg-white/80 backdrop-blur-md px-4 py-1.5 lg:py-2 rounded-full border border-white shadow-sm transition hover:bg-white">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-red-600" />
-            </span>
-            Đã có <b className="text-[#8C0C12] mx-0.5">500+</b> người đăng ký tham gia
+          <div className="w-full max-w-[360px] overflow-hidden rounded-2xl border border-[#D4B572]/55 bg-white/80 text-center shadow-sm backdrop-blur-md">
+            <div className="grid grid-cols-[0.82fr_1.45fr]">
+              <div className="flex flex-col justify-center border-r border-[#D4B572]/35 px-3 py-2.5">
+                <span className="text-[0.52rem] font-black uppercase tracking-[0.14em] text-[#9A6A1A]">
+                  Hình thức
+                </span>
+                <span className="mt-0.5 text-[0.72rem] font-extrabold text-[#7A2113] sm:text-[0.8rem]">
+                  Học qua Zoom
+                </span>
+              </div>
+              <div className="flex flex-col justify-center px-3 py-2.5">
+                <span className="text-[0.52rem] font-black uppercase tracking-[0.14em] text-[#9A6A1A]">
+                  Thời gian
+                </span>
+                <span className="mt-0.5 text-[0.69rem] font-extrabold text-[#7A2113] sm:text-[0.78rem]">
+                  {landingConfig.ctaScheduleLabel}
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center justify-center gap-2 border-t border-[#D4B572]/35 bg-[#FFF9EC]/75 px-4 py-2 text-[0.7rem] font-semibold text-[#5A3A1A] sm:text-[0.78rem]">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-75" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-red-600" />
+              </span>
+              Hơn <b className="text-[#8C0C12]">500 học viên</b> đã đăng ký tham gia
+            </div>
           </div>
         </div>
 
@@ -437,7 +308,20 @@ const BannerChinh = () => {
       <div className="flex w-full lg:w-1/2 justify-center lg:justify-end items-center relative">
         <div className="w-full max-w-[580px] xl:max-w-[620px] relative z-20 flex flex-col gap-6 lg:gap-8">
 
-          <div className="w-full transition-transform duration-500 hover:scale-[1.02]">
+          <div className="w-full rounded-[26px] border border-[#D4B572]/55 bg-white/70 p-3 shadow-[0_14px_40px_rgba(83,48,18,0.10)] backdrop-blur-sm transition-transform duration-500 hover:scale-[1.02]">
+            <div className="flex items-center gap-3 px-3 pb-3 pt-1">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#8C0C12] text-sm text-white shadow-sm" aria-hidden="true">
+                ▶
+              </span>
+              <div className="text-left">
+                <span className="block text-[0.62rem] font-black uppercase tracking-[0.18em] text-[#B17B18]">
+                  Video giới thiệu
+                </span>
+                <p className="mt-0.5 text-sm font-bold text-[#6F2B1C]">
+                  Xem để biết chương trình có phù hợp với bạn không
+                </p>
+              </div>
+            </div>
             <VideoPlayer />
           </div>
 
@@ -481,6 +365,25 @@ const BannerChinh = () => {
       </div>
       )}
 
+    </div>
+
+    <div className="relative z-10 mx-auto -mt-5 grid max-w-[640px] grid-cols-3 gap-2 px-4 pb-12 lg:hidden">
+      {MOBILE_BENEFITS.map((benefit) => (
+        <div
+          key={benefit}
+          className="flex min-h-[72px] flex-col items-center justify-center gap-2 rounded-2xl border border-[#D4B572]/60 bg-white/75 px-2 py-3 text-center shadow-sm backdrop-blur-sm"
+        >
+          <span
+            className="flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-[#C9961A] to-[#F8E08A] text-[0.7rem] font-black text-[#3A1A00]"
+            aria-hidden="true"
+          >
+            ✓
+          </span>
+          <span className="text-[0.68rem] font-black leading-[1.3] text-[#7A2113] min-[380px]:text-[0.72rem]">
+            {benefit}
+          </span>
+        </div>
+      ))}
     </div>
 
     {/* Tailwind custom animations */}

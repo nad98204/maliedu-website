@@ -3,6 +3,7 @@ import { initializeApp, getApps, getApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { getDatabase } from "firebase/database";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
+import { CRM_FIREBASE_PUBLIC_CONFIG } from "./constants/crmFirebasePublicConfig";
 import { FIREBASE_PUBLIC_CONFIG } from "./constants/firebasePublicConfig";
 
 // --- 1. APP CHÍNH (Web MaliEdu) ---
@@ -32,15 +33,7 @@ export const createGoogleProvider = ({ emailHint = "" } = {}) => {
 };
 
 // --- 2. APP CRM (Antigravity) ---
-const crmConfig = {
-  apiKey: "AIzaSyDr6pJNY5ThZz2NMox5lqXLR_gihyxrNFU",
-  authDomain: "dangpkkzxy.firebaseapp.com",
-  projectId: "dangpkkzxy",
-  storageBucket: "dangpkkzxy.firebasestorage.app",
-  messagingSenderId: "644778150594",
-  appId: "1:644778150594:web:0c4dca15c424e86efc495b",
-  databaseURL: "https://dangpkkzxy-default-rtdb.asia-southeast1.firebasedatabase.app"
-};
+const crmConfig = CRM_FIREBASE_PUBLIC_CONFIG;
 
 let crmApp;
 try {

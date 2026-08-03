@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { REVEAL_LAZY_SECTIONS_EVENT } from "./scrollToRegistration";
 
 /**
  * Chỉ mount children khi khối gần vào viewport → dynamic import trong children
@@ -12,6 +13,13 @@ export default function LazyWhenVisible({
 }) {
   const ref = useRef(null);
   const [show, setShow] = useState(false);
+
+  useEffect(() => {
+    if (show) return;
+    const reveal = () => setShow(true);
+    window.addEventListener(REVEAL_LAZY_SECTIONS_EVENT, reveal);
+    return () => window.removeEventListener(REVEAL_LAZY_SECTIONS_EVENT, reveal);
+  }, [show]);
 
   useEffect(() => {
     if (show) return;

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowRight, Eye, Play, X } from "lucide-react";
+import { ArrowRight, ChevronLeft, ChevronRight, Eye, Play, X } from "lucide-react";
 import { trackCtaClick } from "../ctaTracking";
 import { scrollToRegistrationForm } from "../scrollToRegistration";
 
@@ -19,6 +19,33 @@ const STUDENT_VIDEOS = [
     desc: "Từ nghi ngờ đến tin tưởng tuyệt đối, áp dụng và nhận về kết quả tài chính vượt ngoài mong đợi.",
     views: "956 lượt xem",
     videoUrl: "https://s3-hn1-api.longvan.vn/video-khoa-hoc/videos/1776243242346-87859924-CH--NGUY-T.mp4",
+  },
+  {
+    name: "Chị Phương",
+    label: "Học viên Mong Coaching – MALI",
+    status: "DẪN DẮT",
+    desc: "Khi hệ thống đứng trước nguy cơ đổ vỡ, chị lựa chọn thay đổi chính mình, rèn luyện trạng thái và dẫn dắt bằng năng lượng, tư duy cùng sự thấu hiểu con người.",
+    views: "Video thực tế",
+    youtubeId: "F-VCxNtQNuM",
+    videoUrl: "https://www.youtube.com/watch?v=F-VCxNtQNuM",
+  },
+  {
+    name: "Học viên MALI",
+    label: "Học viên Vút Tốc Mục Tiêu",
+    status: "BƯỚC NGOẶT",
+    desc: "Từng ôm hai con ra đi với hai bàn tay trắng, cô đã thay đổi góc nhìn để nhận ra quyết định năm ấy chính là bước ngoặt giúp mình trưởng thành và mạnh mẽ hơn.",
+    views: "Video thực tế",
+    youtubeId: "9V15y_pUJXk",
+    videoUrl: "https://www.youtube.com/watch?v=9V15y_pUJXk",
+  },
+  {
+    name: "Anh Dương",
+    label: "Học viên Mong Coaching – MALI",
+    status: "ĐỨNG DẬY",
+    desc: "Hành trình đứng dậy từ nợ nần và áp lực tài chính bằng việc thay đổi tư duy, thực hành biết ơn, nâng lại năng lượng và từng bước hành động.",
+    views: "Video thực tế",
+    youtubeId: "cQDNT8LcL-0",
+    videoUrl: "https://www.youtube.com/watch?v=cQDNT8LcL-0",
   },
 ];
 
@@ -55,16 +82,27 @@ const VideoCard = ({ item, onOpen, width = 280 }) => {
       style={{ boxShadow: "0 6px 20px rgba(122,33,19,0.07)" }}
     >
       <div className="relative aspect-video bg-black overflow-hidden">
-        <video
-          ref={thumbRef}
-          className="h-full w-full object-cover opacity-75"
-          playsInline
-          muted
-          preload={srcLoaded ? "metadata" : "none"}
-          onLoadedMetadata={() => { if (thumbRef.current) thumbRef.current.currentTime = 1; }}
-        >
-          {srcLoaded && <source src={item.videoUrl} type="video/mp4" />}
-        </video>
+        {item.youtubeId ? (
+          <img
+            src={`https://i.ytimg.com/vi/${item.youtubeId}/maxresdefault.jpg`}
+            alt={`Video chia sẻ của ${item.name}`}
+            className="h-full w-full object-cover opacity-80"
+            loading="lazy"
+            decoding="async"
+            draggable={false}
+          />
+        ) : (
+          <video
+            ref={thumbRef}
+            className="h-full w-full object-cover opacity-75"
+            playsInline
+            muted
+            preload={srcLoaded ? "metadata" : "none"}
+            onLoadedMetadata={() => { if (thumbRef.current) thumbRef.current.currentTime = 1; }}
+          >
+            {srcLoaded && <source src={item.videoUrl} type="video/mp4" />}
+          </video>
+        )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/15 to-transparent" />
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="w-12 h-12 rounded-full flex items-center justify-center bg-white/90 shadow-lg text-[#7A2113] transition duration-300 group-hover:scale-110 group-hover:bg-white">
@@ -105,42 +143,90 @@ const VideoCard = ({ item, onOpen, width = 280 }) => {
   );
 };
 
+const FeaturedVideoCard = ({ item, onOpen }) => {
+  const videoRef = useRef(null);
+
+  return (
+    <article className="overflow-hidden rounded-[1.7rem] border border-[#D4B572]/55 bg-white/90 shadow-[0_16px_38px_rgba(91,49,14,0.12)]">
+      <button
+        type="button"
+        onClick={() => onOpen(item)}
+        className="group relative block aspect-video w-full overflow-hidden bg-black"
+        aria-label={`Xem video chia sẻ của ${item.name}`}
+      >
+        {item.youtubeId ? (
+          <img
+            src={`https://i.ytimg.com/vi/${item.youtubeId}/maxresdefault.jpg`}
+            alt={`Video chia sẻ của ${item.name}`}
+            className="h-full w-full object-cover opacity-85"
+            loading="lazy"
+            decoding="async"
+            draggable={false}
+          />
+        ) : (
+          <video
+            key={item.videoUrl}
+            ref={videoRef}
+            src={item.videoUrl}
+            className="h-full w-full object-cover opacity-80"
+            playsInline
+            muted
+            preload="metadata"
+            onLoadedMetadata={() => { if (videoRef.current) videoRef.current.currentTime = 1; }}
+          />
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/5 to-black/15" />
+        <span className="absolute left-3 top-3 rounded-full border border-white/20 bg-black/35 px-2.5 py-1 text-[0.58rem] font-bold text-white/90 backdrop-blur-sm">
+          <span className="inline-flex items-center gap-1.5"><Eye className="h-3 w-3" />{item.views}</span>
+        </span>
+        <span className="absolute right-3 top-3 rounded-full bg-[#C9961A] px-2.5 py-1 text-[0.55rem] font-black uppercase tracking-[0.1em] text-white shadow-lg">
+          {item.status}
+        </span>
+        <span className="absolute inset-0 flex items-center justify-center">
+          <span className="flex h-14 w-14 items-center justify-center rounded-full border-4 border-white/45 bg-white text-[#7A2113] shadow-[0_12px_30px_rgba(0,0,0,0.3)] transition group-hover:scale-110">
+            <Play className="ml-0.5 h-5 w-5 fill-current" />
+          </span>
+        </span>
+      </button>
+
+      <div className="p-4 sm:p-5">
+        <div className="mb-3 flex items-center gap-3">
+          <span className="flex h-10 w-10 flex-none items-center justify-center rounded-full bg-[#7A2113] text-sm font-black text-[#FFE388] shadow-md">
+            {item.name.charAt(0)}
+          </span>
+          <div className="min-w-0">
+            <h3 className="text-[0.9rem] font-black uppercase text-[#3A2208]">{item.name}</h3>
+            <p className="mt-0.5 text-[0.58rem] font-extrabold uppercase tracking-[0.14em] text-[#A27313]">{item.label}</p>
+          </div>
+        </div>
+        <blockquote className="border-l-2 border-[#C9961A]/65 pl-3 text-[0.78rem] italic leading-[1.65] text-[#5C3A1A]">
+          “{item.desc}”
+        </blockquote>
+      </div>
+    </article>
+  );
+};
+
 /* ─── main component ─── */
 const VideoHocVien = () => {
-  /* mobile snap carousel */
+  /* mobile focused story */
   const [active, setActive] = useState(0);
-  const mobileRef = useRef(null);
-  const cardRefs = useRef([]);
   const autoRef = useRef(null);
   const touchStartX = useRef(null);
 
-  // Scroll so card i is exactly centered in its container
-  const scrollToCard = useCallback((i) => {
-    const container = mobileRef.current;
-    const card = cardRefs.current[i];
-    if (!container || !card) return;
-    const cRect = container.getBoundingClientRect();
-    const kRect = card.getBoundingClientRect();
-    const newLeft = container.scrollLeft + (kRect.left - cRect.left) - (cRect.width - kRect.width) / 2;
-    container.scrollTo({ left: newLeft, behavior: "smooth" });
-  }, []);
-
   const goTo = useCallback((idx) => {
-    const i = (idx + TOTAL) % TOTAL;
-    setActive(i);
-    scrollToCard(i);
-  }, [scrollToCard]);
+    setActive((idx + TOTAL) % TOTAL);
+  }, []);
 
   const startAuto = useCallback(() => {
     clearInterval(autoRef.current);
     autoRef.current = setInterval(() => {
       setActive(i => {
         const next = (i + 1) % TOTAL;
-        scrollToCard(next);
         return next;
       });
-    }, 3500);
-  }, [scrollToCard]);
+    }, 5500);
+  }, []);
 
   useEffect(() => {
     startAuto();
@@ -198,77 +284,78 @@ const VideoHocVien = () => {
         .vm-track:hover { animation-play-state: paused; }
       `}</style>
 
-      <div className="relative space-y-8 sm:space-y-10">
+      <div className="relative space-y-7 sm:space-y-10">
         {/* Header */}
-        <div className="text-center space-y-3 px-4">
-          <span className="inline-block py-1.5 px-5 rounded-full text-[10px] sm:text-[11px] font-black tracking-[0.22em] uppercase border border-[#C9961A]/70 bg-white/75 text-[#7A2113] backdrop-blur-sm">
+        <div className="px-5 text-center sm:px-6">
+          <span className="inline-flex items-center gap-2 rounded-full border border-[#C9961A]/70 bg-white/80 px-4 py-1.5 text-[0.6rem] font-black uppercase tracking-[0.19em] text-[#7A2113] shadow-[0_5px_16px_rgba(122,33,19,0.06)] backdrop-blur-sm sm:text-[11px]">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#C9961A]" />
             Chia sẻ từ trái tim
           </span>
-          <div>
-            <h2 className="font-extrabold text-[#3A2208] tracking-tight leading-[1.15]"
-              style={{ fontSize: "clamp(1.5rem, 6.2vw, 3.8rem)" }}>
-              KẾT QUẢ KHI ÁP DỤNG
+          <div className="mt-4">
+            <h2 className="whitespace-nowrap text-[clamp(1.45rem,6.3vw,3.8rem)] font-black leading-[1.1] tracking-[-0.04em] text-[#3A2208]">
+              CÂU CHUYỆN THẬT
             </h2>
-            <h2 className="font-extrabold text-[#7A2113] tracking-tight leading-[1.15]"
-              style={{ fontSize: "clamp(1.3rem, 5.5vw, 3.4rem)" }}>
-              KHƠI THÔNG DÒNG TIỀN
+            <h2 className="mt-1 whitespace-nowrap text-[clamp(1.25rem,5.5vw,3.4rem)] font-black leading-[1.1] tracking-[-0.03em] text-[#7A2113]">
+              TỪ HỌC VIÊN
             </h2>
           </div>
-          <p className="text-[10.5px] sm:text-[12px] text-[#5C3A1A]/75 italic leading-relaxed px-2">
-            "Lắng nghe hành trình chuyển hóa của các học viên sau khi áp dụng Lộ trình Khơi Thông Dòng Tiền"
+          <p className="mx-auto mt-3 max-w-md text-[0.76rem] leading-[1.65] text-[#5C3A1A]/70 sm:text-sm">
+            Lắng nghe hành trình chuyển hóa sau khi áp dụng Lộ trình Khơi Thông Dòng Tiền.
           </p>
-          <div className="w-20 h-[2px] mx-auto rounded-full bg-gradient-to-r from-transparent via-[#C9961A]/50 to-transparent" />
         </div>
 
-        {/* ── MOBILE: snap carousel ── */}
-        <div className="md:hidden">
-          <div
-            ref={mobileRef}
-            className="overflow-x-auto scrollbar-hide"
-            style={{
-              WebkitOverflowScrolling: "touch",
-              scrollSnapType: "x mandatory",
-              paddingLeft: "9vw",
-              paddingRight: "9vw",
-            }}
-            onTouchStart={onTouchStart}
-            onTouchEnd={onTouchEnd}
-          >
-            <div className="flex gap-3 pb-1">
-              {STUDENT_VIDEOS.map((item, idx) => (
-                <div
-                  key={idx}
-                  ref={(el) => { cardRefs.current[idx] = el; }}
-                  className="flex-shrink-0 transition-all duration-300"
-                  style={{
-                    width: "82vw",
-                    scrollSnapAlign: "center",
-                    opacity: idx === active ? 1 : 0.55,
-                    transform: idx === active ? "scale(1)" : "scale(0.95)",
-                  }}
-                >
-                  <VideoCard item={item} onOpen={setModalVideo} width="100%" />
+        {/* ── MOBILE: focused student story ── */}
+        <div
+          className="px-5 md:hidden"
+          onTouchStart={onTouchStart}
+          onTouchEnd={onTouchEnd}
+        >
+          <FeaturedVideoCard
+            key={STUDENT_VIDEOS[active].videoUrl}
+            item={STUDENT_VIDEOS[active]}
+            onOpen={setModalVideo}
+          />
+
+          <div className="mt-3 flex items-center gap-3 rounded-full border border-[#D4B572]/45 bg-white/70 p-1.5 shadow-[0_8px_22px_rgba(91,49,14,0.07)] backdrop-blur-sm">
+            <button
+              type="button"
+              onClick={() => { goTo(active - 1); startAuto(); }}
+              className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-[#7A2113] text-[#FFE388] shadow-md transition active:scale-95"
+              aria-label="Xem câu chuyện trước"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+
+            <div className="min-w-0 flex-1 text-center">
+              <span className="block truncate text-[0.66rem] font-black uppercase text-[#5B2412]">
+                {STUDENT_VIDEOS[active].name}
+              </span>
+              <div className="mt-1.5 flex items-center gap-2">
+                <div className="h-1 flex-1 overflow-hidden rounded-full bg-[#D4B572]/25">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-[#C9961A] to-[#7A2113] transition-all duration-500"
+                    style={{ width: `${((active + 1) / TOTAL) * 100}%` }}
+                  />
                 </div>
-              ))}
+                <span className="text-[0.55rem] font-black tracking-[0.08em] text-[#9A6610]">
+                  {String(active + 1).padStart(2, "0")}/{String(TOTAL).padStart(2, "0")}
+                </span>
+              </div>
             </div>
+
+            <button
+              type="button"
+              onClick={() => { goTo(active + 1); startAuto(); }}
+              className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-[#7A2113] text-[#FFE388] shadow-md transition active:scale-95"
+              aria-label="Xem câu chuyện tiếp theo"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
           </div>
 
-          {/* Dots */}
-          <div className="flex justify-center gap-2 mt-3">
-            {STUDENT_VIDEOS.map((_, i) => (
-              <button
-                key={i}
-                type="button"
-                onClick={() => { goTo(i); startAuto(); }}
-                className="rounded-full transition-all duration-300"
-                style={{
-                  width: i === active ? "22px" : "7px",
-                  height: "7px",
-                  background: i === active ? "#C9961A" : "#D4B572",
-                }}
-              />
-            ))}
-          </div>
+          <p className="mt-2 text-center text-[0.64rem] font-semibold uppercase tracking-[0.12em] text-[#7A2113]/45">
+            Vuốt để đổi câu chuyện • Chạm video để xem
+          </p>
         </div>
 
         {/* ── DESKTOP: CSS marquee ── */}
@@ -283,15 +370,20 @@ const VideoHocVien = () => {
           </div>
         </div>
 
-        <p className="text-center text-[10px] text-[#7A2113]/40 font-bold uppercase tracking-[0.18em] -mt-3">
-          Vuốt hoặc nhấn để xem
+        <p className="mx-auto max-w-2xl px-6 text-center text-[0.66rem] leading-[1.6] text-[#6A4A2A]/55 sm:text-xs">
+          Các chia sẻ là trải nghiệm thực tế của từng học viên. Kết quả của mỗi người có thể khác nhau tùy hoàn cảnh, quá trình thực hành và hành động thực tế.
         </p>
 
         {/* CTA */}
-        <div className="flex flex-col items-center gap-3 px-4">
-          <p className="text-[11px] sm:text-[13px] text-[#3A2208] font-semibold text-center leading-snug whitespace-nowrap">
-            Bạn có muốn là câu chuyện thành công tiếp theo?
-          </p>
+        <div className="mx-5 flex flex-col items-center gap-3 rounded-[1.6rem] border border-white/75 bg-white/55 px-4 py-5 text-center shadow-[0_12px_30px_rgba(91,49,14,0.07)] backdrop-blur-sm sm:mx-auto sm:max-w-xl sm:px-7">
+          <div>
+            <p className="text-[0.88rem] font-black uppercase leading-snug text-[#3A2208] sm:text-base">
+              Câu chuyện tiếp theo có thể là của bạn
+            </p>
+            <p className="mt-1 text-[0.7rem] leading-relaxed text-[#5C3A1A]/70 sm:text-xs">
+              Bắt đầu bằng việc đăng ký và nhận hướng dẫn tham gia chương trình.
+            </p>
+          </div>
           <a
             href="#dang-ky"
             onClick={(e) => {
@@ -299,18 +391,18 @@ const VideoHocVien = () => {
               trackCtaClick("VideoHocVien");
               scrollToRegistrationForm();
             }}
-            className="group relative inline-flex items-center gap-2.5 rounded-full px-8 py-3.5 font-black uppercase tracking-[0.08em] text-[#FFE566] text-sm transition-all duration-300 hover:-translate-y-0.5 active:scale-95"
+            className="group relative inline-flex w-full max-w-[410px] items-center justify-center gap-2 rounded-full px-4 py-3.5 text-[0.7rem] font-black uppercase tracking-[0.025em] text-[#FFE566] transition-all duration-300 hover:-translate-y-0.5 active:scale-95 min-[380px]:text-[0.77rem] sm:text-sm"
             style={{
               background: "linear-gradient(180deg, #E8393F 0%, #9C0C12 100%)",
               boxShadow: "0 12px 28px rgba(156,12,18,0.4), 0 0 0 2px rgba(255,229,102,0.15)",
             }}
           >
             <div className="absolute inset-x-0 top-0 h-[2px] rounded-t-full bg-white/20" />
-            BẤM ĐỂ NHẬN VÉ THAM DỰ
+            ĐĂNG KÝ MIỄN PHÍ – NHẬN LINK HỌC
             <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
           </a>
-          <p className="text-[8.5px] text-[#7A2113]/50 font-bold uppercase tracking-[0.15em] text-center whitespace-nowrap">
-            Chỉ dành cho những ai khao khát thay đổi
+          <p className="text-[0.68rem] font-medium text-[#7A2113]/60">
+            Học online qua Zoom • Nhận hướng dẫn tham gia
           </p>
         </div>
       </div>
@@ -343,9 +435,19 @@ const VideoHocVien = () => {
                 {modalVideo.status}
               </span>
             </div>
-            <video ref={modalVideoRef} className="w-full aspect-video bg-black" controls autoPlay playsInline>
-              <source src={modalVideo.videoUrl} type="video/mp4" />
-            </video>
+            {modalVideo.youtubeId ? (
+              <iframe
+                className="aspect-video w-full bg-black"
+                src={`https://www.youtube-nocookie.com/embed/${modalVideo.youtubeId}?autoplay=1&rel=0`}
+                title={`Video chia sẻ của ${modalVideo.name}`}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+              />
+            ) : (
+              <video ref={modalVideoRef} className="aspect-video w-full bg-black" controls autoPlay playsInline>
+                <source src={modalVideo.videoUrl} type="video/mp4" />
+              </video>
+            )}
             <div className="px-4 py-3 bg-[#FFFDF7] border-t border-[#D4B572]/20">
               <p className="text-[11px] font-bold text-[#7A2113]/60 uppercase tracking-widest mb-1">{modalVideo.label}</p>
               <p className="text-[13px] text-[#5C3A1A] italic leading-relaxed">"{modalVideo.desc}"</p>

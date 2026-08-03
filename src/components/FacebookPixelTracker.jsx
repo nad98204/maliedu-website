@@ -3,11 +3,9 @@ import { useLocation } from "react-router";
 
 import { isFunnelLandingPath } from "../utils/funnelLandingPaths";
 import { ensureMetaPixel, getMetaBrowserData, initMetaPixel, trackMetaEventForPixel } from "../utils/metaPixel";
+import { findPublicLandingConfig, getPublicFirestoreDocument } from "../utils/publicFirestore";
 
 const DEFAULT_PIXEL_ID = "1526874981588150";
-
-let landingPagesPromise = null;
-let publicLandingConfigPromise = null;
 
 const normalizePath = (path) => {
   if (!path) return "/";
@@ -24,39 +22,6 @@ const isThuongHieuNoTrackingPath = (pathname, search = "") => {
     normalizedPath.includes("khoi-thong-dong-tien-thuonghieu") ||
     (normalizedPath === "/cam-on-khoi-thong" && requestedFunnel === "thuonghieu")
   );
-};
-
-const getLandingPages = async () => {
-  if (!landingPagesPromise) {
-    landingPagesPromise = (async () => {
-      const [{ crmFirestore }, { collection, getDocs }] = await Promise.all([
-        import("../firebase"),
-        import("firebase/firestore"),
-      ]);
-      const snapshot = await getDocs(collection(crmFirestore, "landing_pages"));
-      return snapshot.docs.map((item) => ({
-        id: item.id,
-        ...item.data(),
-      }));
-    })();
-  }
-
-  return landingPagesPromise;
-};
-
-const getPublicLandingConfig = async () => {
-  if (!publicLandingConfigPromise) {
-    publicLandingConfigPromise = (async () => {
-      const [{ crmFirestore }, { doc, getDoc }] = await Promise.all([
-        import("../firebase"),
-        import("firebase/firestore"),
-      ]);
-      const snapshot = await getDoc(doc(crmFirestore, "public_settings", "landing_config"));
-      return snapshot.exists() ? snapshot.data() : {};
-    })();
-  }
-
-  return publicLandingConfigPromise;
 };
 
 const getLandingIdHints = (pathname, search = "") => {
@@ -97,20 +62,21 @@ const resolvePixelIdForPath = async (pathname, search = "") => {
   }
 
   try {
-    const landingPages = await getLandingPages();
-    const matchedBySlug = landingPages.find((item) => {
-      const slug = normalizePath(item.slug || "");
-      return slug !== "/" && (slug === normalizedPath || normalizedPath.startsWith(`${slug}/`));
+    const matchedBySlug = await findPublicLandingConfig({
+      path: normalizedPath,
+      fields: ["fbPixel"],
     });
-
     const slugPixelId = pickPixelId(matchedBySlug?.fbPixel);
     if (slugPixelId) {
       return slugPixelId;
     }
 
     const landingIdHints = getLandingIdHints(normalizedPath, search);
-    if (landingIdHints.size > 0) {
-      const matchedById = landingPages.find((item) => landingIdHints.has(item.id));
+    for (const landingPageId of landingIdHints) {
+      const matchedById = await findPublicLandingConfig({
+        landingPageId,
+        fields: ["fbPixel"],
+      });
       const idPixelId = pickPixelId(matchedById?.fbPixel);
       if (idPixelId) {
         return idPixelId;
@@ -118,18 +84,20 @@ const resolvePixelIdForPath = async (pathname, search = "") => {
     }
   } catch (error) {
     console.error("Error resolving landing pixel:", error);
-    landingPagesPromise = null;
   }
 
   try {
-    const publicLandingConfig = await getPublicLandingConfig();
+    const publicLandingConfig = await getPublicFirestoreDocument(
+      "public_settings",
+      "landing_config",
+      ["fbPixel"],
+    );
     const publicPixelId = pickPixelId(publicLandingConfig?.fbPixel);
     if (publicPixelId) {
       return publicPixelId;
     }
   } catch (error) {
     console.error("Error resolving default pixel:", error);
-    publicLandingConfigPromise = null;
   }
 
   return DEFAULT_PIXEL_ID;

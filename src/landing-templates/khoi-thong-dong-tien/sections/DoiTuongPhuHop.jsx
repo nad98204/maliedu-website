@@ -4,7 +4,6 @@ import {
   BriefcaseBusiness,
   Building2,
   CheckCircle2,
-  Clock,
   Sparkles,
   Users,
 } from "lucide-react";
@@ -43,21 +42,8 @@ const GoldParticles = () => {
   );
 };
 
-/* ─── Animated Number Badge ─────────────────────────────── */
-const AnimBadge = ({ number }) => (
-  <div
-    className="absolute -top-3 -right-3 w-9 h-9 rounded-full flex items-center justify-center text-xs font-black text-white z-20"
-    style={{
-      background: "linear-gradient(135deg, #7A2113, #C9961A)",
-      boxShadow: "0 4px 14px rgba(122,33,19,0.35)",
-    }}
-  >
-    {number}
-  </div>
-);
-
 /* ─── Card component ────────────────────────────────────── */
-const TargetCard = ({ title, Icon, desc, painPoints, highlight, number, delay }) => {
+const TargetCard = ({ title, Icon, desc, painPoints, number, delay }) => {
   const cardRef = useRef(null);
   const [visible, setVisible] = useState(false);
 
@@ -75,134 +61,89 @@ const TargetCard = ({ title, Icon, desc, painPoints, highlight, number, delay })
   return (
     <div
       ref={cardRef}
-      className="relative flex flex-col rounded-3xl transition-all duration-700"
+      className="relative flex w-full flex-1 flex-col rounded-[1.6rem] transition-all duration-700"
       style={{
         opacity: visible ? 1 : 0,
         transform: visible ? "translateY(0)" : "translateY(40px)",
         transitionDelay: `${delay}ms`,
       }}
     >
-      {/* Glow behind highlighted card */}
-      {highlight && (
-        <div
-          className="absolute -inset-1 rounded-3xl opacity-50 blur-xl pointer-events-none"
-          style={{ background: "linear-gradient(135deg, #C9961A 0%, #7A2113 100%)" }}
-        />
-      )}
-
       <div
-        className={`relative flex flex-col h-full rounded-3xl overflow-hidden transition-transform duration-300 hover:-translate-y-2 hover:shadow-2xl ${
-          highlight ? "z-10" : ""
-        }`}
+        className="group relative flex h-full flex-col overflow-hidden rounded-[1.6rem] transition-transform duration-300 hover:-translate-y-1.5"
         style={{
-          background: highlight
-            ? "linear-gradient(165deg, #FFFDF5 0%, #FFF9E8 40%, #FFF3D0 100%)"
-            : "linear-gradient(165deg, #FFFFFF 0%, #FFFCF5 40%, #FFF8EC 100%)",
-          border: highlight ? "2px solid #C9961A" : "1px solid #D4B572",
-          boxShadow: highlight
-            ? "0 20px 60px rgba(201,150,26,0.25), 0 8px 24px rgba(122,33,19,0.1), inset 0 1px 0 rgba(255,255,255,0.8)"
-            : "0 10px 35px rgba(122,33,19,0.07), 0 4px 14px rgba(0,0,0,0.04), inset 0 1px 0 rgba(255,255,255,0.6)",
+          background: "linear-gradient(155deg, rgba(255,255,255,0.98) 0%, #FFFCF4 58%, #FFF6E4 100%)",
+          border: "1px solid rgba(201,150,26,0.55)",
+          boxShadow: "0 16px 42px rgba(91,49,14,0.09), 0 3px 10px rgba(122,33,19,0.04), inset 0 1px 0 rgba(255,255,255,0.9)",
         }}
       >
-        {/* Top gradient bar */}
-        {highlight && (
-          <div
-            className="h-1.5 rounded-t-[22px]"
-            style={{ background: "linear-gradient(90deg, #7A2113, #C9961A, #F8E08A, #C9961A, #7A2113)" }}
-          />
-        )}
+        <div
+          className="absolute inset-y-0 left-0 w-1"
+          style={{ background: "linear-gradient(180deg, #7A2113 0%, #C9961A 48%, #F1D477 100%)" }}
+        />
+        <div
+          className="absolute -right-16 -top-16 h-36 w-36 rounded-full opacity-40 blur-3xl"
+          style={{ background: "#F5D979" }}
+        />
 
         {/* Content */}
-        <div className="flex flex-col items-center text-center p-5 sm:px-6 sm:py-7 flex-1">
-          {/* Icon Frame */}
-          <div className="relative mb-4">
-            {/* Outer glow ring */}
+        <div className="relative flex flex-1 flex-col px-5 pb-5 pt-5 sm:px-6 sm:pb-6 sm:pt-6">
+          <div className="mb-4 flex items-start gap-3.5 pr-10 text-left">
             <div
-              className="absolute inset-0 rounded-full blur-md"
+              className="flex h-12 w-12 flex-none items-center justify-center rounded-2xl transition-transform duration-300 group-hover:scale-105"
               style={{
-                background: highlight
-                  ? "radial-gradient(circle, rgba(201,150,26,0.35), transparent 70%)"
-                  : "radial-gradient(circle, rgba(212,181,114,0.25), transparent 70%)",
-                transform: "scale(1.6)",
-              }}
-            />
-            {/* Icon container */}
-            <div
-              className="relative w-[60px] h-[60px] rounded-2xl flex items-center justify-center"
-              style={{
-                background: highlight
-                  ? "linear-gradient(135deg, #F5EDD8, #FFF3D0)"
-                  : "linear-gradient(135deg, #F8F2E4, #FFF8EC)",
-                border: highlight ? "2px solid #C9961A" : "1.5px solid #D4B572",
-                boxShadow: highlight
-                  ? "0 8px 24px rgba(201,150,26,0.2), inset 0 1px 0 rgba(255,255,255,0.8)"
-                  : "0 6px 18px rgba(212,181,114,0.15), inset 0 1px 0 rgba(255,255,255,0.6)",
+                background: "linear-gradient(145deg, #7A2113 0%, #A83A20 100%)",
+                border: "1px solid rgba(201,150,26,0.65)",
+                boxShadow: "0 8px 20px rgba(122,33,19,0.2), inset 0 1px 0 rgba(255,255,255,0.18)",
               }}
             >
               <Icon
-                className="w-7 h-7"
-                strokeWidth={1.8}
-                style={{ color: highlight ? "#7A2113" : "#8B5E3C" }}
+                className="h-6 w-6 text-[#FFE795]"
+                strokeWidth={1.9}
               />
+            </div>
+            <div className="min-w-0 pt-0.5">
+              <span className="mb-1 block text-[0.62rem] font-extrabold uppercase tracking-[0.18em] text-[#C18A13]">
+                Nhóm {String(number).padStart(2, "0")}
+              </span>
+              <h3 className="text-[0.8rem] font-black uppercase leading-[1.35] tracking-[-0.01em] text-[#55280F] sm:text-[0.95rem]">
+                {title.map((line) => (
+                  <span key={line} className="block whitespace-nowrap">{line}</span>
+                ))}
+              </h3>
             </div>
           </div>
 
-          {/* Tag */}
-          {highlight && (
-            <span
-              className="inline-flex items-center gap-1 rounded-full px-3 py-0.5 text-[10px] font-bold uppercase tracking-[0.16em] mb-3"
-              style={{
-                background: "linear-gradient(135deg, #7A2113, #C9961A)",
-                color: "#FFE566",
-                boxShadow: "0 2px 8px rgba(122,33,19,0.2)",
-              }}
-            >
-              <Sparkles className="w-3 h-3" />
-              Phổ biến nhất
-            </span>
-          )}
-
-          {/* Title */}
-          <h3
-            className="text-[0.9rem] sm:text-base font-extrabold uppercase tracking-[0.02em] mb-2 leading-snug whitespace-nowrap"
-            style={{ color: highlight ? "#7A2113" : "#5C3A1A" }}
-          >
-            {title}
-          </h3>
-
-          {/* Gold divider */}
-          <div
-            className="w-10 h-[3px] rounded-full mb-3"
+          <span
+            className="absolute right-5 top-5 flex h-8 w-8 items-center justify-center rounded-full text-[0.7rem] font-black text-white"
             style={{
-              background: highlight
-                ? "linear-gradient(90deg, transparent, #C9961A, transparent)"
-                : "linear-gradient(90deg, transparent, #D4B572, transparent)",
+              background: "linear-gradient(145deg, #C9961A, #7A2113)",
+              boxShadow: "0 6px 16px rgba(122,33,19,0.24)",
             }}
-          />
+          >
+            {number}
+          </span>
 
           {/* Description */}
-          <p className="text-[13px] sm:text-sm leading-relaxed text-[#5C3A1A]/90 mb-4 italic">{desc}</p>
+          <p className="mb-4 border-l-2 border-[#E3BF65] pl-3 text-left text-[0.78rem] leading-[1.65] text-[#6A4A2A] sm:text-sm">
+            {desc}
+          </p>
 
           {/* Pain Points Checklist */}
-          <div className="w-full space-y-2.5 text-left mt-2">
+          <div className="mt-auto w-full space-y-2 text-left">
             {painPoints.map((point) => (
               <div
                 key={point}
-                className="flex items-start gap-2.5 rounded-xl px-3 py-2.5 transition-colors"
-                style={{ background: "rgba(245,237,216,0.5)" }}
+                className="flex items-start gap-2.5 rounded-xl border border-[#EEDFB9]/70 bg-[#FAF4E5]/75 px-3 py-2.5 transition-colors group-hover:bg-[#FAF1DC]"
               >
-                <CheckCircle2
-                  className="w-4 h-4 flex-shrink-0 mt-0.5"
-                  strokeWidth={2.2}
-                  style={{ color: "#C9961A" }}
-                />
-                <span className="text-[13px] leading-snug text-[#3A2208]">{point}</span>
+                <span className="mt-0.5 flex h-4 w-4 flex-none items-center justify-center rounded-full bg-[#C9961A]/15">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-[#B77B00]" strokeWidth={2.4} />
+                </span>
+                <span className="text-[0.76rem] leading-[1.45] text-[#4B2E13] sm:text-[13px]">{point}</span>
               </div>
             ))}
           </div>
         </div>
       </div>
-      <AnimBadge number={number} />
     </div>
   );
 };
@@ -211,46 +152,42 @@ const TargetCard = ({ title, Icon, desc, painPoints, highlight, number, delay })
 const DoiTuongPhuHop = () => {
   const cards = [
     {
-      title: "Người đang bế tắc tài chính",
-      highlight: false,
+      title: ["Người muốn ổn định", "tài chính"],
       Icon: Users,
-      desc: "Bạn đang muốn tìm ra một hướng đi rõ ràng, thoát khỏi sự mông lung.",
+      desc: "Bạn đang muốn thoát khỏi tình trạng thu nhập thiếu ổn định, khó tích lũy và chưa biết nên bắt đầu thay đổi từ đâu.",
       painPoints: [
-        "Thu nhập bấp bênh, không ổn định",
-        "Không biết bắt đầu từ đâu",
-        "Cảm thấy mông lung về tương lai",
+        "Thu nhập chưa ổn định hoặc khó giữ lại tiền",
+        "Chưa có mục tiêu tài chính rõ ràng",
+        "Muốn xây dựng kế hoạch phù hợp với thực tế",
       ],
     },
     {
-      title: "Người kinh doanh",
-      highlight: true,
+      title: ["Người kinh doanh,", "bán hàng"],
       Icon: BriefcaseBusiness,
-      desc: "Bán hàng mãi không ra đơn, càng cố gắng càng nản chí.",
+      desc: "Bạn đang nỗ lực tìm kiếm khách hàng và gia tăng doanh số nhưng kết quả chưa ổn định, khiến tinh thần dễ bị ảnh hưởng.",
       painPoints: [
-        "Doanh số giảm sút liên tục",
-        "Năng lượng tụt dốc mỗi ngày",
-        "Marketing không hiệu quả",
-        "Mất động lực kinh doanh",
+        "Doanh số lên xuống thất thường",
+        "Dễ mất động lực khi kết quả chưa như mong muốn",
+        "Muốn cải thiện tư duy, cảm xúc và cách hành động",
       ],
     },
     {
-      title: "Chủ doanh nghiệp",
-      highlight: false,
+      title: ["Chủ doanh nghiệp,", "người quản lý"],
       Icon: Building2,
-      desc: "Đang chịu áp lực tài chính đè nặng, sống trong lo âu.",
+      desc: "Bạn đang chịu nhiều áp lực về doanh thu, nhân sự và vận hành, nên cần một trạng thái vững vàng hơn để đưa ra quyết định.",
       painPoints: [
-        "Áp lực tài chính chồng chất",
-        "Nhân sự không đồng lòng",
-        "Trách nhiệm đè nặng trên vai",
+        "Thường xuyên chịu áp lực tài chính",
+        "Quá tải vì phải xử lý nhiều vấn đề cùng lúc",
+        "Muốn có định hướng và kế hoạch rõ ràng hơn",
       ],
     },
   ];
 
   return (
     <section
-      className="relative overflow-hidden rounded-3xl py-16 sm:py-20"
+      className="relative overflow-hidden rounded-3xl py-12 sm:py-16"
       style={{
-        background: "linear-gradient(160deg, #FDF5E4 0%, #F7EBCC 50%, #F2E4C8 100%)",
+        background: "linear-gradient(160deg, #FFF9EC 0%, #F8EDCF 52%, #F3E3BF 100%)",
         border: "1px solid #D4B572",
         boxShadow: "0 24px 60px rgba(122,33,19,0.08)",
       }}
@@ -263,41 +200,53 @@ const DoiTuongPhuHop = () => {
 
       <div className="relative max-w-3xl lg:max-w-6xl xl:max-w-7xl mx-auto px-6 sm:px-10">
         {/* ── Header ── */}
-        <div className="text-center mb-12 lg:mb-16 space-y-4">
-          {/* Eyebrow */}
-          <span
-            className="inline-flex items-center gap-1.5 rounded-full px-4 py-1 text-[11px] sm:text-xs font-bold tracking-[0.2em] uppercase border border-[#C9961A] bg-white/60 text-[#7A2113] backdrop-blur-sm"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-[#C9961A]" />
-            Dành cho bạn
+        <div
+          className="relative mx-auto mb-10 max-w-3xl overflow-hidden rounded-[1.8rem] border border-[#D5A942]/70 lg:mb-12"
+          style={{
+            background: "linear-gradient(145deg, #8D2417 0%, #65170F 58%, #4B100B 100%)",
+            boxShadow: "0 18px 46px rgba(94,24,14,0.24), inset 0 1px 0 rgba(255,255,255,0.1)",
+          }}
+        >
+          <div className="absolute -right-12 -top-16 h-48 w-48 rounded-full border border-[#F2D579]/15 bg-[#D8A92D]/10" />
+          <div className="absolute -bottom-24 -left-16 h-52 w-52 rounded-full bg-[#C9961A]/10 blur-2xl" />
+          <span className="pointer-events-none absolute -bottom-8 right-2 text-[8rem] font-black leading-none text-white/[0.035] sm:text-[11rem]">
+            03
           </span>
 
-          {/* Title group */}
-          <div className="space-y-1.5 sm:space-y-2">
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold uppercase tracking-[0.04em] text-[#3A2208] leading-tight">
-              KHÓA HỌC NÀY
-            </h2>
-            <h2 className="text-[1.55rem] sm:text-4xl lg:text-5xl font-extrabold uppercase tracking-[0.03em] leading-tight">
-              <span className="relative inline-block text-[#7A2113] whitespace-nowrap">
-                PHÙ HỢP VỚI BẠN
-                <span
-                  className="absolute bottom-0 left-0 w-full h-1.5 -mb-1 rounded-full opacity-30"
-                  style={{ background: "linear-gradient(90deg, transparent, #C9961A, transparent)" }}
-                />
+          <div className="relative px-5 py-6 text-left sm:px-10 sm:py-9">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-[#F3D477]/45 bg-white/10 px-3.5 py-1.5 text-[0.58rem] font-extrabold uppercase tracking-[0.17em] text-[#FFE99A] backdrop-blur-sm sm:text-[0.68rem]">
+              <Sparkles className="h-3.5 w-3.5" />
+              Chương trình dành cho ai?
+            </span>
+
+            <h2 className="mt-5 font-black uppercase leading-[1.14] tracking-[-0.025em]">
+              <span className="block whitespace-nowrap text-[clamp(1rem,4.5vw,1.4rem)] text-white">
+                Bạn sẽ phù hợp với
+              </span>
+              <span className="mt-1 block whitespace-nowrap text-[clamp(1.12rem,5.2vw,1.75rem)] text-[#FFE27A]">
+                chương trình này nếu…
               </span>
             </h2>
-          </div>
 
-          <p className="text-base sm:text-lg text-[#5C3A1A]/80 max-w-xl mx-auto leading-relaxed">
-            <span className="block">Nếu bạn thấy mình trong mô tả này,</span>
-            <span className="block">
-              chương trình này <strong className="text-[#7A2113]">dành cho bạn</strong>.
-            </span>
-          </p>
+            <p className="mt-4 max-w-xl border-l-2 border-[#E7C15D]/65 pl-3 text-[0.78rem] leading-[1.65] text-white/75 sm:text-sm">
+              Dù đang làm công việc nào, bạn đều mong muốn hiểu rõ vấn đề tài chính của mình và xây dựng hướng thay đổi cụ thể hơn.
+            </p>
+
+            <div className="mt-5 grid grid-cols-3 gap-2 sm:max-w-md">
+              {["Cá nhân", "Kinh doanh", "Quản lý"].map((group) => (
+                <span
+                  key={group}
+                  className="rounded-full border border-white/15 bg-white/[0.08] px-2 py-2 text-center text-[0.58rem] font-extrabold uppercase tracking-[0.08em] text-white/85 backdrop-blur-sm sm:text-[0.65rem]"
+                >
+                  {group}
+                </span>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* ── Cards Grid ── */}
-        <div className="flex flex-wrap justify-center gap-6 lg:gap-8 items-stretch mb-12 lg:mb-16">
+        <div className="mb-10 flex flex-wrap items-stretch justify-center gap-5 lg:mb-12 lg:gap-7">
           {cards.map((card, idx) => (
             <div key={card.title} className="w-full md:w-[320px] lg:w-[350px] flex">
               <TargetCard
@@ -310,9 +259,24 @@ const DoiTuongPhuHop = () => {
         </div>
 
         {/* ── Bottom CTA ── */}
-        <div className="flex flex-col items-center gap-4">
+        <div
+          className="mx-auto flex max-w-xl flex-col items-center gap-4 rounded-[1.7rem] border border-white/80 px-4 py-5 text-center sm:px-7 sm:py-7"
+          style={{
+            background: "linear-gradient(145deg, rgba(255,255,255,0.88), rgba(255,248,230,0.76))",
+            boxShadow: "0 14px 38px rgba(122,33,19,0.08), inset 0 1px 0 rgba(255,255,255,0.95)",
+          }}
+        >
+          <div className="space-y-1">
+            <p className="text-base font-black uppercase leading-tight tracking-[0.01em] text-[#5B2412] sm:text-lg">
+              Sẵn sàng bắt đầu?
+            </p>
+            <p className="text-[0.76rem] leading-relaxed text-[#6A4A2A]/80 sm:text-sm">
+              Đăng ký để nhận lịch học và hướng dẫn tham gia.
+            </p>
+          </div>
+
           {/* CTA Button */}
-          <div className="relative w-full max-w-[380px]">
+          <div className="relative w-full max-w-[420px]">
             <div
               className="absolute inset-0 rounded-full blur-xl opacity-40"
               style={{ background: "#C8282E" }}
@@ -324,7 +288,7 @@ const DoiTuongPhuHop = () => {
                 trackCtaClick("DoiTuongPhuHop");
                 scrollToRegistrationForm();
               }}
-              className="group relative flex items-center justify-center gap-2.5 w-full rounded-full py-4 sm:py-[18px] overflow-hidden transition-all duration-300 hover:scale-[1.03] active:scale-[0.98]"
+              className="group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-full py-4 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] sm:py-[18px]"
               style={{
                 background: "linear-gradient(180deg, #E8393F 0%, #9C0C12 100%)",
                 boxShadow: "0 12px 32px rgba(156,12,18,0.45), inset 0 1px 0 rgba(255,255,255,0.2)",
@@ -332,16 +296,16 @@ const DoiTuongPhuHop = () => {
             >
               {/* Shine sweep */}
               <span className="absolute inset-0 translate-x-[-100%] skew-x-[-20deg] bg-white/20 group-hover:translate-x-[200%] transition-transform duration-700" />
-              <span className="text-[#FFE566] font-black text-[1rem] sm:text-[1.1rem] uppercase tracking-[0.08em] drop-shadow whitespace-nowrap">
-                BẤM ĐỂ NHẬN VÉ THAM DỰ
+              <span className="whitespace-nowrap text-[0.72rem] font-black uppercase tracking-[0.025em] text-[#FFE566] drop-shadow min-[380px]:text-[0.8rem] sm:text-[0.95rem]">
+                ĐĂNG KÝ MIỄN PHÍ – NHẬN LINK HỌC
               </span>
-              <ArrowRight className="w-5 h-5 text-[#FFE566]" />
+              <ArrowRight className="h-4 w-4 flex-none text-[#FFE566] transition-transform group-hover:translate-x-1 sm:h-5 sm:w-5" />
             </a>
           </div>
 
-          <div className="flex items-center gap-2 text-sm italic text-[#C9961A]">
-            <Clock className="w-4 h-4" />
-            <span>Ưu đãi có giới hạn thời gian</span>
+          <div className="flex items-center justify-center gap-2 text-center text-[0.72rem] font-medium leading-relaxed text-[#7A2113]/75 sm:text-sm">
+            <span className="h-1.5 w-1.5 flex-none rounded-full bg-[#C9961A]" />
+            <span>Học online qua Zoom • Chỉ cần họ tên và số điện thoại</span>
           </div>
         </div>
       </div>

@@ -4,6 +4,11 @@ import { toast } from "react-hot-toast";
 import { useNavigate, useSearchParams } from "react-router";
 import { submitToCRM } from "../../../services/crmService";
 import {
+  findPublicLandingConfig,
+  getPublicFirestoreDocument,
+  normalizePublicLandingPath as normalizePath,
+} from "../../../utils/publicFirestore";
+import {
   createMetaEventId,
   getMetaBrowserData,
   hashData,
@@ -15,7 +20,7 @@ import {
 } from "../../../utils/metaPixel";
 
 const BANNER_URL =
-  "https://s3-hn1-api.longvan.vn/video-khoa-hoc/videos/1776245418122-943458166-Kh-i-Th-ng-D-ng-Ti-n-Mobile.jpg";
+  "/assets/landing/khoi-thong-dong-tien/registration-banner.webp";
 
 const DEFAULT_REMOTE_CONFIG = {
   fbPixel: "1526874981588150",
@@ -57,61 +62,37 @@ const resolveRouteFunnel = (normalizedPath = "") => {
   return "ads";
 };
 
-const normalizePath = (path) => {
-  if (!path) return "/";
-  try {
-    // Giải mã URL (để khớp với tiếng Việt có dấu nếu có)
-    const decoded = decodeURIComponent(path.split("?")[0].split("#")[0]);
-    // lowerCase, bỏ gạch chéo ở cả đầu và cuối để so sánh nguyên bản nhất
-    return decoded.toLowerCase().replace(/^\/+|\/+$/g, "") || "root";
-  } catch {
-    return path.split("?")[0].split("#")[0].toLowerCase().replace(/^\/+|\/+$/g, "") || "root";
-  }
-};
-
-/** Firestore CRM — dynamic import, gọi sau khi user tương tác form hoặc submit. */
+/** Firestore CRM REST — chỉ lấy các trường cấu hình công khai cần cho form. */
 const fetchLandingRemoteConfig = async () => {
-  const [{ crmFirestore }, { collection, doc, getDoc, getDocs }] = await Promise.all([
-    import("../../../firebase"),
-    import("firebase/firestore"),
-  ]);
-  const normalizedRequestPath = normalizePath(window.location.pathname);
+  const match = await findPublicLandingConfig({ path: window.location.pathname });
 
-  const querySnap = await getDocs(collection(crmFirestore, "landing_pages"));
-
-  let matchDoc = querySnap.docs.find((item) => {
-    const configSlug = normalizePath(item.data().slug || "");
-    return configSlug !== "root" && configSlug === normalizedRequestPath;
-  });
-
-  if (!matchDoc) {
-    matchDoc = querySnap.docs.find((item) => {
-      const configSlug = normalizePath(item.data().slug || "");
-      return (
-        (item.id === "khoi-thong-dong-tien" || configSlug === "dao-tao/khoi-thong-dong-tien") &&
-        normalizedRequestPath.includes("khoi-thong-dong-tien") &&
-        !normalizedRequestPath.includes("leader") &&
-        !normalizedRequestPath.includes("thuonghieu")
-      );
-    });
-  }
-
-  if (matchDoc) {
-    const configData = matchDoc.data();
+  if (match) {
     return {
       ...DEFAULT_REMOTE_CONFIG,
-      ...configData,
-      landingPageId: matchDoc.id,
+      ...match,
+      landingPageId: match.__documentId,
       isLoading: false,
     };
   }
 
-  const docRef = doc(crmFirestore, "public_settings", "landing_config");
-  const docSnap = await getDoc(docRef);
-  return docSnap.exists()
+  const publicConfig = await getPublicFirestoreDocument(
+    "public_settings",
+    "landing_config",
+    [
+      "active_source_key",
+      "course_k",
+      "fbCurrency",
+      "fbEventValue",
+      "fbPixel",
+      "funnel_type",
+      "is_maintenance",
+      "targetFunnel",
+    ],
+  );
+  return publicConfig
     ? {
         ...DEFAULT_REMOTE_CONFIG,
-        ...docSnap.data(),
+        ...publicConfig,
         isLoading: false,
       }
     : { ...DEFAULT_REMOTE_CONFIG, isLoading: false };
@@ -299,7 +280,7 @@ const FormDangKy = ({
   }, [finalFunnel, finalSourceKey]);
 
   useEffect(() => {
-    if (!crmActivated) return;
+    if (!crmActivated || !isLeader) return;
 
     let unsubscribe;
     let cancelled = false;
@@ -334,7 +315,7 @@ const FormDangKy = ({
       cancelled = true;
       unsubscribe?.();
     };
-  }, [crmActivated]);
+  }, [crmActivated, isLeader]);
 
   useEffect(() => {
     if (!crmActivated) return;
@@ -678,11 +659,11 @@ const FormDangKy = ({
 
   return (
     <section
-      className="relative rounded-3xl overflow-hidden py-8 sm:py-12"
+      className="relative overflow-hidden rounded-3xl py-10 sm:py-14"
       style={{
-        background: "linear-gradient(145deg, #1A0A02 0%, #2D1005 40%, #3A1A06 70%, #1E0C03 100%)",
-        border: "1px solid #8B6010",
-        boxShadow: "0 30px 80px rgba(0,0,0,0.4), inset 0 1px 0 rgba(201,150,26,0.2)",
+        background: "linear-gradient(145deg, #7D2015 0%, #52110C 56%, #350A07 100%)",
+        border: "1px solid rgba(212,181,114,0.75)",
+        boxShadow: "0 28px 70px rgba(73,15,9,0.3), inset 0 1px 0 rgba(255,255,255,0.08)",
       }}
       onPointerDownCapture={engageCrm}
       onFocusCapture={engageCrm}
@@ -703,49 +684,41 @@ const FormDangKy = ({
       </div>
 
       <div className="relative max-w-5xl mx-auto px-4 sm:px-8">
-        <div className="text-center mb-4 sm:mb-12 space-y-2 sm:space-y-4">
-          <div className="inline-flex items-center gap-1.5 sm:gap-2 py-1.5 sm:py-2 px-3 sm:px-5 rounded-full text-[9px] sm:text-[11px] font-bold tracking-widest sm:tracking-[0.2em] uppercase border border-[#C9961A]/60 text-[#FFE566] bg-[#C9961A]/10 backdrop-blur-sm whitespace-nowrap">
-            <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-[#FFE566] animate-pulse flex-shrink-0" />
-            CÒN CÁC SUẤT VÉ CUỐI - ĐĂNG KÝ NGAY
+        <div className="mb-6 space-y-3 text-center sm:mb-10 sm:space-y-4">
+          <div className="inline-flex items-center gap-2 rounded-full border border-[#FFE388]/35 bg-white/[0.07] px-4 py-1.5 text-[0.58rem] font-extrabold uppercase tracking-[0.17em] text-[#FFE388] backdrop-blur-sm sm:px-5 sm:py-2 sm:text-[11px]">
+            <Sparkles className="h-3.5 w-3.5" />
+            Đăng ký tham gia miễn phí
           </div>
 
-          <div className="py-1 sm:py-0">
-            <h2
-              className="font-black text-white tracking-tight"
-              style={{ fontSize: "clamp(1.8rem, 6vw, 4rem)", lineHeight: 1.3 }}
-            >
-              NHẬN VÉ THAM DỰ
+          <div>
+            <h2 className="whitespace-nowrap text-[clamp(1.45rem,6vw,4rem)] font-black uppercase leading-[1.12] tracking-[-0.04em] text-white">
+              ĐĂNG KÝ 4 BUỔI HỌC
             </h2>
-            <h2
-              className="font-black tracking-tight"
-              style={{
-                fontSize: "clamp(1.8rem, 6vw, 4rem)",
-                lineHeight: 1.3,
-                background: "linear-gradient(90deg, #C9961A, #FFE566, #C9961A)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-              }}
-            >
+            <h2 className="mt-1 whitespace-nowrap text-[clamp(1.4rem,5.8vw,3.8rem)] font-black uppercase leading-[1.12] tracking-[-0.035em] text-[#FFE065]">
               HOÀN TOÀN MIỄN PHÍ
             </h2>
           </div>
 
-          <p className="text-[#B89060] text-[12px] sm:text-lg max-w-md mx-auto leading-relaxed tracking-tighter sm:tracking-normal whitespace-nowrap">
-            Để lại thông tin - nhận link tham gia <span className="text-[#FFE566] font-semibold">ngay lập tức</span>
+          <p className="mx-auto max-w-md text-[0.76rem] leading-relaxed text-white/65 sm:text-base">
+            Điền thông tin để nhận lịch học và link tham gia qua Zoom.
           </p>
         </div>
 
         <div
           className={`${isLeader ? "max-w-xl mx-auto" : ""} rounded-3xl overflow-hidden`}
           style={{
-            background: "linear-gradient(135deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.03) 100%)",
-            border: "1px solid rgba(201,150,26,0.3)",
-            boxShadow: "0 24px 60px rgba(0,0,0,0.4), inset 0 1px 0 rgba(201,150,26,0.15)",
+            background: isLeader
+              ? "linear-gradient(135deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.03) 100%)"
+              : "linear-gradient(145deg, #FFFCF5 0%, #FFF5DE 100%)",
+            border: isLeader ? "1px solid rgba(201,150,26,0.3)" : "1px solid rgba(255,255,255,0.85)",
+            boxShadow: isLeader
+              ? "0 24px 60px rgba(0,0,0,0.4), inset 0 1px 0 rgba(201,150,26,0.15)"
+              : "0 22px 56px rgba(50,9,5,0.24), inset 0 1px 0 rgba(255,255,255,0.95)",
             backdropFilter: "blur(12px)",
           }}
         >
           <div className={`flex flex-col-reverse ${isLeader ? "" : "md:flex-row md:items-stretch"} capitalize-none`}>
-            <div className="flex-1 p-5 sm:p-10 flex flex-col justify-center">
+            <div className="flex flex-1 flex-col justify-center p-5 sm:p-10">
               {remoteConfig.is_maintenance ? (
                 <div className="rounded-2xl border border-amber-400/30 bg-amber-400/10 p-6 text-center space-y-3">
                   <div className="text-amber-400 font-bold text-lg uppercase tracking-wider">Thông báo bảo trì</div>
@@ -755,16 +728,28 @@ const FormDangKy = ({
                 </div>
               ) : (
                 <form className="space-y-4 sm:space-y-6" onSubmit={handleSubmit}>
-                  <div className="flex items-center gap-2 mb-1">
-                    <Sparkles className="w-3.5 h-3.5 text-[#C9961A]" />
-                    <span className="text-[#C9961A] text-[9px] sm:text-xs font-bold uppercase tracking-widest">
-                      Điền thông tin - Nhận link ngay!
+                  <div className={`flex items-center justify-between gap-3 rounded-2xl px-3.5 py-3 ${isLeader ? "border border-[#C9961A]/20 bg-white/[0.04]" : "border border-[#D4B572]/35 bg-white/70"}`}>
+                    <div className="flex items-center gap-2">
+                      <span className={`flex h-8 w-8 items-center justify-center rounded-xl ${isLeader ? "bg-[#C9961A]/15" : "bg-[#7A2113]"}`}>
+                        <Sparkles className={`h-4 w-4 ${isLeader ? "text-[#C9961A]" : "text-[#FFE388]"}`} />
+                      </span>
+                      <div>
+                        <span className={`block text-[0.62rem] font-black uppercase tracking-[0.14em] ${isLeader ? "text-[#C9961A]" : "text-[#5B2412]"}`}>
+                          Thông tin đăng ký
+                        </span>
+                        <span className={`mt-0.5 block text-[0.58rem] ${isLeader ? "text-white/45" : "text-[#6A4A2A]/60"}`}>
+                          Nhận lịch học và link Zoom
+                        </span>
+                      </div>
+                    </div>
+                    <span className={`rounded-full px-2.5 py-1 text-[0.55rem] font-black uppercase tracking-[0.1em] ${isLeader ? "bg-[#C9961A]/15 text-[#FFE566]" : "bg-[#C9961A]/12 text-[#9A6610]"}`}>
+                      Miễn phí
                     </span>
                   </div>
 
                   <div className="grid grid-cols-1 gap-3 sm:gap-5">
                     <div className="space-y-1">
-                      <label className="flex flex-wrap items-center gap-x-1 text-[10px] sm:text-xs font-black uppercase tracking-wider text-[#C9961A]/90">
+                      <label className={`flex flex-wrap items-center gap-x-1 text-[10px] font-black uppercase tracking-wider sm:text-xs ${isLeader ? "text-[#C9961A]/90" : "text-[#6B2A17]"}`}>
                         <span className="flex items-center gap-1.5">
                           <User className="w-3 h-3 shrink-0" /> Họ và tên
                         </span>
@@ -782,18 +767,26 @@ const FormDangKy = ({
                         autoComplete="name"
                         aria-invalid={errors.name ? true : undefined}
                         aria-required
-                        className="w-full rounded-lg px-4 py-2.5 sm:py-3.5 text-sm text-white placeholder:text-white/30 transition-all duration-200 focus:outline-none"
+                        className={`w-full rounded-xl px-4 py-3 text-sm transition-all duration-200 focus:outline-none sm:py-3.5 ${isLeader ? "text-white placeholder:text-white/30" : "bg-white text-[#3A2208] placeholder:text-[#8A725A]/55 shadow-sm"}`}
                         style={{
-                          background: "rgba(255,255,255,0.06)",
-                          border: errors.name ? "1.5px solid #E8393F" : "1px solid rgba(201,150,26,0.2)",
+                          background: isLeader ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.92)",
+                          border: errors.name
+                            ? "1.5px solid #E8393F"
+                            : isLeader
+                              ? "1px solid rgba(201,150,26,0.2)"
+                              : "1px solid rgba(185,139,47,0.36)",
                         }}
                         onFocus={(e) => {
-                          e.target.style.border = "1px solid rgba(201,150,26,0.6)";
-                          e.target.style.background = "rgba(255,255,255,0.09)";
+                          e.target.style.border = isLeader ? "1px solid rgba(201,150,26,0.6)" : "1.5px solid #B9821B";
+                          e.target.style.background = isLeader ? "rgba(255,255,255,0.09)" : "#FFFFFF";
                         }}
                         onBlur={(e) => {
-                          e.target.style.border = errors.name ? "1.5px solid #E8393F" : "1px solid rgba(201,150,26,0.2)";
-                          e.target.style.background = "rgba(255,255,255,0.06)";
+                          e.target.style.border = errors.name
+                            ? "1.5px solid #E8393F"
+                            : isLeader
+                              ? "1px solid rgba(201,150,26,0.2)"
+                              : "1px solid rgba(185,139,47,0.36)";
+                          e.target.style.background = isLeader ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.92)";
                           handleAdvancedMatch("name", formState.name);
                         }}
                       />
@@ -805,7 +798,7 @@ const FormDangKy = ({
                     </div>
 
                     <div className="space-y-1">
-                      <label className="flex flex-wrap items-center gap-x-1 text-[10px] sm:text-xs font-black uppercase tracking-wider text-[#C9961A]/90">
+                      <label className={`flex flex-wrap items-center gap-x-1 text-[10px] font-black uppercase tracking-wider sm:text-xs ${isLeader ? "text-[#C9961A]/90" : "text-[#6B2A17]"}`}>
                         <span className="flex items-center gap-1.5">
                           <Phone className="w-3 h-3 shrink-0" /> Số điện thoại
                         </span>
@@ -823,18 +816,26 @@ const FormDangKy = ({
                         aria-invalid={errors.phone ? true : undefined}
                         aria-required
                         inputMode="numeric"
-                        className="w-full rounded-lg px-4 py-2.5 sm:py-3.5 text-sm text-white placeholder:text-white/30 transition-all duration-200 focus:outline-none"
+                        className={`w-full rounded-xl px-4 py-3 text-sm transition-all duration-200 focus:outline-none sm:py-3.5 ${isLeader ? "text-white placeholder:text-white/30" : "bg-white text-[#3A2208] placeholder:text-[#8A725A]/55 shadow-sm"}`}
                         style={{
-                          background: "rgba(255,255,255,0.06)",
-                          border: errors.phone ? "1.5px solid #E8393F" : "1px solid rgba(201,150,26,0.2)",
+                          background: isLeader ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.92)",
+                          border: errors.phone
+                            ? "1.5px solid #E8393F"
+                            : isLeader
+                              ? "1px solid rgba(201,150,26,0.2)"
+                              : "1px solid rgba(185,139,47,0.36)",
                         }}
                         onFocus={(e) => {
-                          e.target.style.border = "1px solid rgba(201,150,26,0.6)";
-                          e.target.style.background = "rgba(255,255,255,0.09)";
+                          e.target.style.border = isLeader ? "1px solid rgba(201,150,26,0.6)" : "1.5px solid #B9821B";
+                          e.target.style.background = isLeader ? "rgba(255,255,255,0.09)" : "#FFFFFF";
                         }}
                         onBlur={(e) => {
-                          e.target.style.border = errors.phone ? "1.5px solid #E8393F" : "1px solid rgba(201,150,26,0.2)";
-                          e.target.style.background = "rgba(255,255,255,0.06)";
+                          e.target.style.border = errors.phone
+                            ? "1.5px solid #E8393F"
+                            : isLeader
+                              ? "1px solid rgba(201,150,26,0.2)"
+                              : "1px solid rgba(185,139,47,0.36)";
+                          e.target.style.background = isLeader ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.92)";
                           handleAdvancedMatch("phone", formState.phone);
                         }}
                       />
@@ -999,13 +1000,13 @@ const FormDangKy = ({
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="w-full rounded-2xl py-3.5 sm:py-4 font-black uppercase tracking-[0.08em] text-sm sm:text-base transition-all duration-300 hover:-translate-y-[2px] active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed group whitespace-nowrap"
+                    className="group w-full rounded-full py-4 text-[0.7rem] font-black uppercase tracking-[0.025em] transition-all duration-300 hover:-translate-y-[2px] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70 min-[380px]:text-[0.78rem] sm:text-sm"
                     style={{
                       background: isSubmitting
                         ? "rgba(122,33,19,0.5)"
-                        : "linear-gradient(135deg, #E8393F 0%, #C9961A 50%, #E8393F 100%)",
+                        : "linear-gradient(180deg, #ED3B41 0%, #A30D13 100%)",
                       color: "#FFE566",
-                      boxShadow: "0 12px 32px rgba(232,57,63,0.35)",
+                      boxShadow: "0 14px 30px rgba(156,12,18,0.36), inset 0 1px 0 rgba(255,255,255,0.2)",
                     }}
                   >
                     <span className="flex items-center justify-center gap-2">
@@ -1016,11 +1017,15 @@ const FormDangKy = ({
                         </>
                       ) : (
                         <>
-                          YES! TÔI ĐĂNG KÝ THAM GIA <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                          ĐĂNG KÝ MIỄN PHÍ – NHẬN LINK HỌC <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1 sm:h-5 sm:w-5" />
                         </>
                       )}
                     </span>
                   </button>
+
+                  <p className={`text-center text-[0.66rem] font-medium leading-relaxed ${isLeader ? "text-white/45" : "text-[#6A4A2A]/60"}`}>
+                    Thông tin được sử dụng để gửi lịch học và hướng dẫn tham gia.
+                  </p>
                 </form>
               )}
             </div>

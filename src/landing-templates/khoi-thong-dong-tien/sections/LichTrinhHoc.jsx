@@ -1,4 +1,4 @@
-const TREE_IMG = "https://s3-hn1-api.longvan.vn/video-khoa-hoc/videos/1772679328351-749384425--Pngtree-money-tree-concept-plant-growing-18245719.png";
+const TREE_IMG = "/assets/landing/khoi-thong-dong-tien/money-tree.webp";
 
 const sessions = [
   {
@@ -63,8 +63,8 @@ const LichTrinhHoc = () => (
       border: "1px solid #D4B572",
       boxShadow: "0 20px 50px rgba(122,33,19,0.06)",
       marginTop: "1.5rem",
-      paddingTop: "4rem",
-      paddingBottom: "4rem",
+      paddingTop: "3rem",
+      paddingBottom: "3rem",
     }}
   >
     {/* Background orbs */}
@@ -82,16 +82,58 @@ const LichTrinhHoc = () => (
     <div className="relative max-w-7xl mx-auto px-6 sm:px-10">
 
       {/* ── HEADER ── */}
-      <div className="relative z-10 text-center mb-6 sm:mb-20 space-y-3">
-        <span className="inline-block py-1.5 px-5 rounded-full text-[11px] font-bold tracking-[0.25em] uppercase mb-4 border border-[#C9961A] bg-white/70 text-[#7A2113] backdrop-blur-sm">
+      <div
+        className="relative z-10 mb-8 min-h-[17rem] overflow-hidden rounded-[1.7rem] border border-[#D4B572]/70 bg-white/55 px-5 py-6 text-left shadow-[0_16px_40px_rgba(91,49,14,0.08)] backdrop-blur-sm md:hidden"
+      >
+        <div className="absolute -right-12 -top-12 h-44 w-44 rounded-full bg-[#DDBB55]/15 blur-2xl" />
+        <div className="absolute -bottom-12 -right-8 h-40 w-40 rounded-full border border-[#D4B572]/30 bg-[#FFF7DA]/65" />
+
+        <span className="relative inline-flex items-center gap-2 rounded-full border border-[#C9961A]/70 bg-white/80 px-3.5 py-1.5 text-[0.58rem] font-extrabold uppercase tracking-[0.18em] text-[#7A2113]">
+          <span className="h-1.5 w-1.5 rounded-full bg-[#C9961A]" />
           Lộ trình chuyển hóa
         </span>
-        <h2 className="text-3xl sm:text-6xl lg:text-7xl font-black text-[#3A2208] tracking-tight leading-none whitespace-nowrap">
-          LỊCH TRÌNH 4 BUỔI
+
+        <h2 className="relative mt-5 font-black uppercase">
+          <span className="flex items-center gap-2.5 text-[0.92rem] tracking-[0.06em] text-[#3A2208]">
+            Lịch trình
+            <span className="rounded-full bg-[#C9961A] px-2.5 py-1 text-[0.62rem] tracking-[0.12em] text-white shadow-[0_5px_12px_rgba(201,150,26,0.25)]">
+              4 buổi
+            </span>
+          </span>
+          <span className="mt-2.5 block text-[1.75rem] leading-[1.02] tracking-[-0.035em] text-[#7A2113]">
+            Khơi thông
+          </span>
+          <span className="block text-[1.75rem] leading-[1.08] tracking-[-0.035em] text-[#7A2113]">
+            dòng tiền
+          </span>
         </h2>
-        <h3 className="text-4xl sm:text-5xl lg:text-6xl font-black text-[#7A2113] mt-2 leading-snug">
-          KHƠI THÔNG DÒNG TIỀN
-        </h3>
+
+        <p className="relative mt-5 border-l-2 border-[#C9961A]/60 pl-3 pr-[6.25rem] text-[0.74rem] leading-[1.6] text-[#5C3A1A]/75">
+          Đi từ nhận diện điểm nghẽn đến xây dựng kế hoạch hành động rõ ràng.
+        </p>
+
+        <img
+          src={TREE_IMG}
+          alt="Cây tài chính phát triển qua 4 buổi học"
+          className="absolute bottom-2 right-1 w-[6.5rem] object-contain drop-shadow-[0_12px_16px_rgba(91,49,14,0.2)]"
+          loading="lazy"
+          decoding="async"
+          style={{ mixBlendMode: "multiply", filter: "brightness(1.02) saturate(1.08)" }}
+        />
+      </div>
+
+      <div className="relative z-10 mb-20 hidden space-y-3 text-center md:block">
+        <span className="mb-2 inline-flex items-center gap-2 rounded-full border border-[#C9961A]/80 bg-white/80 px-5 py-1.5 text-[11px] font-extrabold uppercase tracking-[0.22em] text-[#7A2113] shadow-[0_6px_20px_rgba(122,33,19,0.06)] backdrop-blur-sm">
+          <span className="h-1.5 w-1.5 rounded-full bg-[#C9961A]" />
+          Lộ trình chuyển hóa
+        </span>
+        <h2 className="font-black uppercase leading-[1.08] tracking-[-0.035em]">
+          <span className="block whitespace-nowrap text-6xl text-[#3A2208] lg:text-7xl">LỊCH TRÌNH 4 BUỔI</span>
+          <span className="mt-2 block text-5xl text-[#7A2113] lg:text-6xl">KHƠI THÔNG DÒNG TIỀN</span>
+        </h2>
+        <p className="mx-auto max-w-xl pt-1 text-base leading-[1.65] text-[#5C3A1A]/75">
+          Đi từ nhận diện điểm nghẽn đến xây dựng kế hoạch hành động rõ ràng.
+        </p>
       </div>
 
       {/* ── DESKTOP: tree + overlaid cards ── */}
@@ -203,106 +245,73 @@ const LichTrinhHoc = () => (
 
       {/* ── MOBILE ── */}
       <div className="md:hidden">
-        {/* Tree image centered */}
-        <div className="w-44 mx-auto mb-1">
-          <img
-            src={TREE_IMG}
-            alt="Cây tri thức"
-            className="w-full object-contain"
-            loading="lazy"
-            decoding="async"
-            style={{ mixBlendMode: "multiply", filter: "brightness(1.0) saturate(1.15)" }}
-          />
-        </div>
-
         {/* Timeline */}
-        <div className="relative">
-          {/* Vertical line — fades at top and bottom */}
-          <div
-            className="absolute top-0 bottom-0 w-[3px] rounded-full"
-            style={{
-              left: "9px",
-              background: "linear-gradient(to bottom, transparent 0%, #C9961A 12%, #7A4A18 50%, #4F8B1A 88%, transparent 100%)",
-            }}
-          />
-
+        <div>
           <div className="space-y-5">
             {sessions.map((session) => (
-              <div key={session.title} className="relative flex gap-3 items-start">
-                {/* Ping dot */}
-                <div
-                  className="flex-shrink-0 relative mt-1"
-                  style={{ width: "20px", height: "20px" }}
-                >
-                  <span
-                    className="absolute inset-0 rounded-full"
-                    style={{
-                      background: session.color,
-                      opacity: 0.6,
-                      animation: "treePing 1.4s cubic-bezier(0,0,0.2,1) infinite",
-                    }}
-                  />
-                  <span
-                    className="relative flex w-full h-full rounded-full items-center justify-center"
-                    style={{
-                      background: session.highlight ? "#7A2113" : session.color,
-                      border: "3px solid white",
-                      boxShadow: `0 0 0 2px ${session.color}55`,
-                    }}
-                  >
-                    {session.highlight && (
-                      <svg className="w-2.5 h-2.5 text-[#FFE566]" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                      </svg>
-                    )}
-                  </span>
-                </div>
-
+              <div key={session.title}>
                 {/* Card */}
-                <div
-                  className="relative bg-white rounded-2xl p-4 flex-1"
+                <article
+                  className="relative overflow-hidden rounded-[1.35rem] bg-white/95"
                   style={{
-                    border: session.highlight ? "2px solid #7A2113" : `1px solid ${session.color}77`,
+                    border: session.highlight ? "1.5px solid #7A2113" : `1px solid ${session.color}66`,
                     boxShadow: session.highlight
-                      ? "0 8px 28px rgba(122,33,19,0.18)"
-                      : "0 4px 18px rgba(60,30,0,0.09)",
+                      ? "0 14px 34px rgba(122,33,19,0.16), 0 3px 10px rgba(91,49,14,0.06)"
+                      : "0 10px 28px rgba(91,49,14,0.08), 0 2px 8px rgba(91,49,14,0.04)",
                   }}
                 >
-                  {/* Top accent */}
                   <div
-                    className="absolute top-0 left-0 w-full h-1 rounded-t-2xl"
+                    className="absolute inset-x-0 top-0 h-1"
                     style={{
                       background: session.highlight
                         ? "linear-gradient(90deg, #7A2113, #C9961A, #7A2113)"
                         : `linear-gradient(90deg, transparent, ${session.color}, transparent)`,
                     }}
                   />
-                  {session.highlight && (
-                    <div
-                      className="absolute -top-3 right-3 inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white shadow"
-                      style={{ background: "linear-gradient(135deg, #7A2113, #C9961A)" }}
-                    >
-                      ★ Tổng kết
+
+                  <div className="px-4 pb-4 pt-4">
+                    <div className="mb-2.5 flex items-center justify-between gap-2">
+                      <span
+                        className="inline-flex rounded-full px-2.5 py-1 text-[0.62rem] font-black uppercase tracking-[0.14em]"
+                        style={{
+                          color: session.highlight ? "#FFFFFF" : session.color,
+                          background: session.highlight ? "#7A2113" : `${session.color}14`,
+                          border: session.highlight ? "none" : `1px solid ${session.color}35`,
+                        }}
+                      >
+                        {session.badge}
+                      </span>
+                      {session.highlight && (
+                        <span className="text-[0.6rem] font-black uppercase tracking-[0.12em] text-[#9A6610]">
+                          ★ Tổng kết
+                        </span>
+                      )}
                     </div>
-                  )}
-                  <span
-                    className="text-[11px] font-extrabold uppercase tracking-wider mb-1.5 block"
-                    style={{ color: session.color }}
-                  >
-                    {session.badge}
-                  </span>
-                  <h3 className="text-[13px] font-extrabold mb-2 leading-snug text-[#7A2113]">
-                    {session.title}
-                  </h3>
-                  <ul className="space-y-1.5 text-[#5C3A1A] text-[12px]">
-                    {session.points.map((point) => (
-                      <li key={point} className="flex gap-1.5 items-start">
-                        <span className="font-bold flex-shrink-0 mt-[1px]" style={{ color: session.color }}>•</span>
-                        <span className="leading-snug">{point}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+
+                    <h3 className="mb-3 text-[0.83rem] font-black uppercase leading-[1.4] tracking-[-0.01em] text-[#7A2113]">
+                      {session.title}
+                    </h3>
+
+                    <div
+                      className="mb-3 h-px w-full"
+                      style={{ background: `linear-gradient(90deg, ${session.color}55, transparent)` }}
+                    />
+
+                    <ul className="space-y-2.5">
+                      {session.points.map((point) => (
+                        <li key={point} className="grid grid-cols-[17px_1fr] items-start gap-2">
+                          <span
+                            className="mt-0.5 flex h-[17px] w-[17px] items-center justify-center rounded-full text-[0.58rem] font-black"
+                            style={{ color: session.color, background: `${session.color}12` }}
+                          >
+                            ✓
+                          </span>
+                          <span className="text-[0.76rem] leading-[1.5] text-[#5C3A1A]">{point}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </article>
               </div>
             ))}
           </div>

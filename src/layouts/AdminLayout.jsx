@@ -98,7 +98,7 @@ const AdminLayout = () => {
     ].join(" ");
 
   return (
-    <div className="min-h-screen bg-slate-50/50 flex flex-col lg:flex-row relative font-sans transition-all duration-300">
+    <div className="relative flex min-h-screen flex-col bg-slate-50/50 font-sans transition-all duration-300 lg:h-[calc(100dvh-110px)] lg:min-h-0 lg:flex-row">
       {/* MOBILE TOP NAVIGATION BAR (Admin Toolbar) */}
       <div className="lg:hidden w-full bg-white border-b border-slate-200 px-5 py-2 flex flex-row items-center justify-between shadow-sm relative z-40">
         <div className="flex items-center gap-3">
@@ -126,7 +126,7 @@ const AdminLayout = () => {
 
       {/* SIDEBAR DRAWER (Desktop & Mobile) */}
       <aside
-        className={`fixed lg:relative z-[99999] lg:z-10 h-[100dvh] lg:h-screen bg-white text-slate-600 flex flex-col transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] shadow-[20px_0_40px_rgba(0,0,0,0.1)] lg:shadow-none border-r border-slate-200 top-0 left-0 ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+        className={`fixed lg:relative z-[99999] lg:z-10 h-[100dvh] lg:h-[calc(100dvh-110px)] bg-white text-slate-600 flex flex-col transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] shadow-[20px_0_40px_rgba(0,0,0,0.1)] lg:shadow-none border-r border-slate-200 top-0 left-0 ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
           } ${isCollapsed ? "lg:w-[84px]" : "w-[85vw] max-w-[320px] lg:w-72"}`}
       >
         {/* Sidebar Header (Mobile Only) */}
@@ -279,7 +279,7 @@ const AdminLayout = () => {
       </aside>
 
       {/* MAIN CONTENT AREA */}
-      <div className="flex-1 bg-slate-50/50 relative h-[100dvh] lg:h-screen overflow-hidden flex flex-col min-w-0 w-full">
+      <div className="relative flex h-[100dvh] w-full min-w-0 flex-1 flex-col overflow-hidden bg-slate-50/50 lg:h-[calc(100dvh-110px)]">
         <div className="flex-1 overflow-y-auto custom-scrollbar relative pb-6 lg:pb-0">
           <div className="min-h-full">
             <Outlet />

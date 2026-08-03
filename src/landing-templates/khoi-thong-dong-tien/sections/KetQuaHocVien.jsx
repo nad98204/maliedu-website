@@ -3,19 +3,20 @@ import { ArrowRight, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { trackCtaClick } from "../ctaTracking";
 import { scrollToRegistrationForm } from "../scrollToRegistration";
 
+const RESULT_ASSET_BASE = "/assets/landing/khoi-thong-dong-tien";
 const RESULTS = [
-  { img: "https://s3-hn1-api.longvan.vn/video-khoa-hoc/videos/1776239109825-745089269-z6872970557588-ef9b4c68fb455ae97e0689a1e6b89b1a.jpg", badge: "Đã xác thực" },
-  { img: "https://s3-hn1-api.longvan.vn/video-khoa-hoc/videos/1776239108868-193166368-z6872965008097-69573745489f2b7741dd76ba80379fef.jpg", badge: "Thành công" },
-  { img: "https://s3-hn1-api.longvan.vn/video-khoa-hoc/videos/1776239109398-258986797-z6872969159069-89daa20741f2957ae50e3f2aff7b4db2.jpg", badge: "Chữa lành" },
-  { img: "https://s3-hn1-api.longvan.vn/video-khoa-hoc/videos/1776239107986-44915151-z6872964996920-94c9969ffc17ff0bd240dfee07a2efda.jpg", badge: "Tài chính" },
-  { img: "https://s3-hn1-api.longvan.vn/video-khoa-hoc/videos/1776239107597-888278364-z6872964986051-238748b361c2bf706bf0bc880d2c6b21.jpg", badge: "Thịnh vượng" },
-  { img: "https://s3-hn1-api.longvan.vn/video-khoa-hoc/videos/1776239108458-793790834-z6872965006390-8a14d0b53fd44040a89733fbf4d6e76a.jpg", badge: "Bình an" },
-  { img: "https://s3-hn1-api.longvan.vn/video-khoa-hoc/videos/1776239106818-375307557-5.jpg", badge: "Hạnh phúc" },
-  { img: "https://s3-hn1-api.longvan.vn/video-khoa-hoc/videos/1776239107207-498431161-z6872964982486-0fe1da8f6e57a1086375e2b275d0a5a1.jpg", badge: "Đã xác thực" },
-  { img: "https://s3-hn1-api.longvan.vn/video-khoa-hoc/videos/1776239106320-501773316-4.jpg", badge: "Thành công" },
-  { img: "https://s3-hn1-api.longvan.vn/video-khoa-hoc/videos/1776239105777-96366976-3.jpg", badge: "Tài chính" },
-  { img: "https://s3-hn1-api.longvan.vn/video-khoa-hoc/videos/1776239104262-933547219-1.jpg", badge: "Thịnh vượng" },
-  { img: "https://s3-hn1-api.longvan.vn/video-khoa-hoc/videos/1776239105269-245301649-2.jpg", badge: "Chữa lành" },
+  { img: `${RESULT_ASSET_BASE}/student-result-01.webp`, badge: "Đã xác thực" },
+  { img: `${RESULT_ASSET_BASE}/student-result-02.webp`, badge: "Thành công" },
+  { img: `${RESULT_ASSET_BASE}/student-result-03.webp`, badge: "Chữa lành" },
+  { img: `${RESULT_ASSET_BASE}/student-result-04.webp`, badge: "Tài chính" },
+  { img: `${RESULT_ASSET_BASE}/student-result-05.webp`, badge: "Thịnh vượng" },
+  { img: `${RESULT_ASSET_BASE}/student-result-06.webp`, badge: "Bình an" },
+  { img: `${RESULT_ASSET_BASE}/student-result-07.webp`, badge: "Hạnh phúc" },
+  { img: `${RESULT_ASSET_BASE}/student-result-08.webp`, badge: "Đã xác thực" },
+  { img: `${RESULT_ASSET_BASE}/student-result-09.webp`, badge: "Thành công" },
+  { img: `${RESULT_ASSET_BASE}/student-result-10.webp`, badge: "Tài chính" },
+  { img: `${RESULT_ASSET_BASE}/student-result-11.webp`, badge: "Thịnh vượng" },
+  { img: `${RESULT_ASSET_BASE}/student-result-12.webp`, badge: "Chữa lành" },
 ];
 
 const TOTAL = RESULTS.length;
@@ -31,7 +32,7 @@ export default function KetQuaHocVien() {
 
   const startAuto = useCallback(() => {
     clearInterval(autoRef.current);
-    autoRef.current = setInterval(next, 3000);
+    autoRef.current = setInterval(next, 5000);
   }, [next]);
 
   useEffect(() => {
@@ -53,13 +54,6 @@ export default function KetQuaHocVien() {
     touchStartX.current = null;
   };
 
-  // Show 3 cards: prev, active, next
-  const cards = [
-    { idx: (active - 1 + TOTAL) % TOTAL, pos: "left" },
-    { idx: active,                        pos: "center" },
-    { idx: (active + 1) % TOTAL,          pos: "right" },
-  ];
-
   return (
     <section
       className="relative rounded-3xl py-12 sm:py-16 overflow-hidden"
@@ -78,113 +72,100 @@ export default function KetQuaHocVien() {
 
       <div className="relative space-y-4 sm:space-y-6">
         {/* Header */}
-        <div className="text-center space-y-3 px-4 sm:px-6 mb-1">
-          <span className="inline-block py-1.5 px-5 rounded-full text-[10px] sm:text-[11px] font-black tracking-[0.22em] uppercase border border-[#C9961A]/70 bg-white/75 text-[#7A2113] backdrop-blur-sm">
+        <div className="mb-3 px-5 text-center sm:px-6">
+          <span className="inline-flex items-center gap-2 rounded-full border border-[#C9961A]/70 bg-white/80 px-4 py-1.5 text-[0.6rem] font-black uppercase tracking-[0.19em] text-[#7A2113] shadow-[0_5px_16px_rgba(122,33,19,0.06)] backdrop-blur-sm sm:text-[11px]">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#C9961A] shadow-[0_0_0_3px_rgba(201,150,26,0.13)]" />
             Minh chứng thực tế
           </span>
-          <div className="space-y-2 sm:space-y-2.5">
-            <h2
-              className="font-extrabold text-[#3A2208] tracking-tight"
-              style={{ fontSize: "clamp(1.6rem, 6.8vw, 4.4rem)", lineHeight: 1.18 }}
-            >
+          <div className="mt-4 space-y-1.5">
+            <h2 className="whitespace-nowrap text-[clamp(1.35rem,6vw,4.4rem)] font-black leading-[1.15] tracking-[-0.035em] text-[#3A2208]">
               KẾT QUẢ KHI ÁP DỤNG
             </h2>
-            <h2
-              className="font-extrabold text-[#7A2113] tracking-tight drop-shadow-[0_2px_6px_rgba(122,33,19,0.18)] whitespace-nowrap"
-              style={{ fontSize: "clamp(1.2rem, 5.3vw, 3.7rem)", lineHeight: 1.18 }}
-            >
+            <h2 className="whitespace-nowrap text-[clamp(1.08rem,5vw,3.7rem)] font-black leading-[1.15] tracking-[-0.025em] text-[#7A2113]">
               KHƠI THÔNG DÒNG TIỀN
             </h2>
           </div>
-          <div className="w-24 h-[3px] mx-auto rounded-full bg-gradient-to-r from-transparent via-[#C9961A] to-transparent" />
+          <p className="mx-auto mt-3 max-w-md text-[0.76rem] leading-relaxed text-[#5C3A1A]/70 sm:text-sm">
+            Những chia sẻ và kết quả thực tế từ học viên đã tham gia chương trình.
+          </p>
         </div>
 
-        {/* ── MOBILE: 3-card carousel (hidden on desktop) ── */}
+        {/* ── MOBILE: focused proof carousel ── */}
         <div
-          className="relative overflow-hidden md:hidden"
+          className="relative px-5 md:hidden"
           onTouchStart={onTouchStart}
           onTouchEnd={onTouchEnd}
         >
-          {/* Nav */}
-          <button
-            type="button"
-            onClick={handlePrev}
-            className="absolute left-2 top-1/2 -translate-y-1/2 z-30 w-9 h-9 flex items-center justify-center rounded-full bg-white/95 border border-[#D4B572] shadow-md hover:bg-[#7A2113] hover:text-white transition-all"
+          <div
+            className="relative overflow-hidden rounded-[1.75rem] border border-[#D6A73A]/70 p-2.5"
+            style={{
+              background: "linear-gradient(155deg, #7A2113 0%, #4E100B 100%)",
+              boxShadow: "0 18px 42px rgba(96,25,15,0.24), inset 0 1px 0 rgba(255,255,255,0.12)",
+            }}
           >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-          <button
-            type="button"
-            onClick={handleNext}
-            className="absolute right-2 top-1/2 -translate-y-1/2 z-30 w-9 h-9 flex items-center justify-center rounded-full bg-white/95 border border-[#D4B572] shadow-md hover:bg-[#7A2113] hover:text-white transition-all"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
+            <div className="flex items-center justify-between gap-3 px-2 pb-2.5 pt-1">
+              <span className="inline-flex items-center gap-1.5 text-[0.62rem] font-extrabold uppercase tracking-[0.13em] text-[#FFE483]">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#FFE483] shadow-[0_0_0_3px_rgba(255,228,131,0.14)]" />
+                {RESULTS[active].badge}
+              </span>
+              <span className="text-[0.65rem] font-bold tracking-[0.12em] text-white/65">
+                {String(active + 1).padStart(2, "0")} / {TOTAL}
+              </span>
+            </div>
 
-          {/* Cards row — center is always flex center */}
-          <div className="flex items-center justify-center py-3.5 gap-3 px-2" style={{ height: "500px" }}>
-            {cards.map(({ idx, pos }) => {
-              const isCenter = pos === "center";
-              const item = RESULTS[idx];
-              return (
-                <div
-                  key={`${pos}-${idx}`}
-                  className="flex-shrink-0 transition-all duration-500 h-full"
-                  style={{
-                    /* Center card takes 75% width, side cards 20% each */
-                    width: isCenter ? "74%" : "13%",
-                    opacity: isCenter ? 1 : 0.35,
-                    filter: isCenter
-                      ? "brightness(1.05)"
-                      : "brightness(0.6) grayscale(40%)",
-                    zIndex: isCenter ? 10 : 1,
-                  }}
-                >
-                  <div
-                    className="relative rounded-2xl overflow-hidden w-full h-full transition-all duration-500 cursor-pointer"
-                    onClick={() => setSelectedImage(item.img)}
-                    style={{
-                      border: isCenter ? "3px solid #C9961A" : "1px solid rgba(212,181,114,0.85)",
-                      boxShadow: isCenter
-                        ? "0 6px 24px rgba(201,150,26,0.35), 0 0 0 2px rgba(201,150,26,0.25)"
-                        : "none",
-                      transform: isCenter ? "scale(1)" : "scale(0.92)",
-                    }}
-                  >
-                    <img
-                      src={item.img}
-                      alt="Kết quả học viên"
-                      className={`w-full h-full bg-[#F7EFD8] ${isCenter ? "object-contain" : "object-cover"}`}
-                      loading="lazy"
-                      decoding="async"
-                      draggable={false}
-                    />
-                    {/* Gradient on center only */}
-                    {isCenter && (
-                      <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-[rgba(58,34,8,0.72)] to-transparent" />
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Dots */}
-          <div className="flex justify-center gap-2 pb-2">
-            {RESULTS.map((_, i) => (
-              <button
-                key={i}
-                type="button"
-                onClick={() => { setActive(i); startAuto(); }}
-                className="rounded-full transition-all duration-300"
-                style={{
-                  width: i === active ? "24px" : "7px",
-                  height: "7px",
-                  background: i === active ? "#C9961A" : "#D4B572",
-                }}
+            <button
+              type="button"
+              onClick={() => setSelectedImage(RESULTS[active].img)}
+              className="block aspect-[7/10] w-full overflow-hidden rounded-[1.25rem] border border-white/20 bg-[#FBF7EC]"
+              aria-label={`Xem rõ kết quả học viên ${active + 1}`}
+            >
+              <img
+                key={RESULTS[active].img}
+                src={RESULTS[active].img}
+                alt={`Kết quả thực tế của học viên ${active + 1}`}
+                className="h-full w-full object-contain"
+                loading="lazy"
+                decoding="async"
+                draggable={false}
               />
-            ))}
+            </button>
           </div>
+
+          <div className="mt-3 flex items-center gap-3 rounded-full border border-[#D4B572]/45 bg-white/70 p-1.5 shadow-[0_8px_22px_rgba(91,49,14,0.07)] backdrop-blur-sm">
+            <button
+              type="button"
+              onClick={handlePrev}
+              className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-[#7A2113] text-[#FFE483] shadow-md transition active:scale-95"
+              aria-label="Xem kết quả trước"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+
+            <div className="min-w-0 flex-1 text-center">
+              <span className="block text-[0.6rem] font-extrabold uppercase tracking-[0.12em] text-[#7A2113]">
+                Vuốt để xem thêm
+              </span>
+              <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-[#D4B572]/25">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-[#C9961A] to-[#7A2113] transition-all duration-500"
+                  style={{ width: `${((active + 1) / TOTAL) * 100}%` }}
+                />
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleNext}
+              className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-[#7A2113] text-[#FFE483] shadow-md transition active:scale-95"
+              aria-label="Xem kết quả tiếp theo"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+
+          <p className="mt-2 text-center text-[0.66rem] font-medium text-[#6A4A2A]/65">
+            Chạm vào ảnh để xem rõ hơn
+          </p>
         </div>
 
         {/* ── DESKTOP: Marquee auto-scroll (hidden on mobile) ── */}
@@ -252,7 +233,7 @@ export default function KetQuaHocVien() {
         </div>
 
         {/* CTA */}
-        <div className="flex flex-col items-center gap-3 px-6">
+        <div className="flex flex-col items-center gap-2.5 px-5 pt-2 sm:px-6">
           <a
             href="#dang-ky"
             onClick={(e) => {
@@ -260,16 +241,18 @@ export default function KetQuaHocVien() {
               trackCtaClick("KetQuaHocVien");
               scrollToRegistrationForm();
             }}
-            className="inline-flex items-center gap-2 rounded-full font-extrabold uppercase tracking-[0.06em] text-[#FFE566] text-[0.78rem] sm:text-sm px-8 sm:px-10 py-3.5 sm:py-4 transition active:scale-95 hover:-translate-y-[2px] whitespace-nowrap"
+            className="inline-flex w-full max-w-[390px] items-center justify-center gap-2 rounded-full px-4 py-3.5 text-[0.7rem] font-black uppercase tracking-[0.025em] text-[#FFE566] transition hover:-translate-y-[2px] active:scale-95 min-[380px]:text-[0.76rem] sm:px-10 sm:py-4 sm:text-sm"
             style={{
               background: "linear-gradient(180deg, #E8393F 0%, #9C0C12 100%)",
               boxShadow: "0 14px 30px rgba(156,12,18,0.45), 0 0 0 2px rgba(255,229,102,0.18)",
             }}
           >
-            ĐĂNG KÝ NHẬN VÉ MIỄN PHÍ
+            ĐĂNG KÝ MIỄN PHÍ – NHẬN LINK HỌC
             <ArrowRight className="w-5 h-5 text-[#FFE566]" />
           </a>
-          <p className="text-xs text-[#7A2113] italic font-medium">Số lượng vé có hạn - Đăng ký ngay hôm nay</p>
+          <p className="text-[0.7rem] font-medium text-[#7A2113]/70 sm:text-xs">
+            Học online qua Zoom • Nhận hướng dẫn tham gia
+          </p>
         </div>
       </div>
 

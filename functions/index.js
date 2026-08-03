@@ -18,10 +18,13 @@ import { getAuth as getAdminAuth } from "firebase-admin/auth";
 import { getDatabase } from "firebase-admin/database";
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { hashData, normalizeNameForHash, sendMetaCapiEvent } from "./capi_helper.js";
+import { createAdminLandingHandlers } from "./_lib/adminLandings.js";
 
 let defaultApp = null;
 let firestoreDb = null;
+let crmAdminApp = null;
 let crmDb = null;
+let crmFirestoreDb = null;
 
 const META_CAPI_ACCESS_TOKEN_SECRET = defineSecret("META_CAPI_ACCESS_TOKEN");
 const S3_ACCESS_KEY_SECRET = defineSecret("S3_ACCESS_KEY");
@@ -48,15 +51,30 @@ const getFirestoreDb = () => {
   return firestoreDb;
 };
 
-const getCrmDatabase = () => {
-  if (!crmDb) {
-    const CRM_DATABASE_URL =
+const getCrmAdminApp = () => {
+  if (!crmAdminApp) {
+    const databaseURL =
       process.env.CRM_DATABASE_URL ||
       "https://dangpkkzxy-default-rtdb.asia-southeast1.firebasedatabase.app";
-    const crmAdminApp = initializeApp({ databaseURL: CRM_DATABASE_URL }, "crm-admin");
-    crmDb = getDatabase(crmAdminApp);
+    const hostname = new URL(databaseURL).hostname;
+    const inferredProjectId = hostname.match(/^(.+?)-default-rtdb(?:\.|$)/)?.[1] || "";
+    const projectId = String(process.env.CRM_PROJECT_ID || inferredProjectId).trim();
+    if (!projectId) {
+      throw new Error("CRM_PROJECT_ID is not configured");
+    }
+    crmAdminApp = initializeApp({ databaseURL, projectId }, "crm-admin");
   }
+  return crmAdminApp;
+};
+
+const getCrmDatabase = () => {
+  if (!crmDb) crmDb = getDatabase(getCrmAdminApp());
   return crmDb;
+};
+
+const getCrmFirestore = () => {
+  if (!crmFirestoreDb) crmFirestoreDb = getFirestore(getCrmAdminApp());
+  return crmFirestoreDb;
 };
 
 const STORAGE_MEDIA_TOKEN_TTL_SECONDS = 2 * 60 * 60;
@@ -68,6 +86,14 @@ const PROTECTED_MULTIPART_PATHS = new Set([
   "/api/s3-multipart/complete",
   "/api/s3-multipart/init",
   "/api/s3-multipart/sign-part",
+]);
+const PROTECTED_ADMIN_LANDING_PATHS = new Set([
+  "/api/admin/landings",
+  "/api/admin/landings/delete",
+  "/api/admin/landings/repair-sources",
+  "/api/admin/landings/routing",
+  "/api/admin/landings/save",
+  "/api/admin/landings/schedule",
 ]);
 const PUBLIC_BANK_SETTING_FIELDS = [
   "accountName",
@@ -886,7 +912,20 @@ const onTrackOrderPurchase = async ({ request, orderId }) => {
   }
 };
 
+const adminLandingHandlers = createAdminLandingHandlers({
+  createJsonResponse,
+  getCrmDatabase,
+  getCrmFirestore,
+  scheduleDocumentId: "khoi_thong_dong_tien_schedule",
+});
+
 const ROUTES = new Map([
+  ["GET /api/admin/landings", adminLandingHandlers.getWorkspace],
+  ["POST /api/admin/landings/delete", adminLandingHandlers.delete],
+  ["POST /api/admin/landings/repair-sources", adminLandingHandlers.repairSources],
+  ["POST /api/admin/landings/routing", adminLandingHandlers.updateRouting],
+  ["POST /api/admin/landings/save", adminLandingHandlers.save],
+  ["POST /api/admin/landings/schedule", adminLandingHandlers.saveSchedule],
   ["GET /api/bank-settings", onGetPublicBankSettings],
   ["POST /api/crm-leads", onCreateCrmLead],
   ["POST /api/newsletter", onCreateNewsletterSubscription],
@@ -1140,7 +1179,7 @@ export const onCrmLeadCreated = onValueCreated(
 
       // Pixel ID may be public per landing page. The CAPI token must remain server-only.
       if (landingPageId) {
-        const lpDoc = await getFirestoreDb().collection("landing_pages").doc(landingPageId).get();
+        const lpDoc = await getCrmFirestore().collection("landing_pages").doc(landingPageId).get();
         if (lpDoc.exists) {
           const config = lpDoc.data();
           fbPixel = config.fbPixel || pixelId;
@@ -1291,10 +1330,15 @@ export const uploadApi = onRequest(
         );
       }
 
-      if (PROTECTED_MULTIPART_PATHS.has(normalizedPath)) {
-        await requireAdminRequest(request);
+      let adminUser = null;
+      if (
+        PROTECTED_MULTIPART_PATHS.has(normalizedPath)
+        || PROTECTED_ADMIN_LANDING_PATHS.has(normalizedPath)
+      ) {
+        adminUser = await requireAdminRequest(request);
       }
       const result = await handler({
+        adminUser,
         request: adaptedRequest,
         env: process.env,
       });
@@ -1318,6 +1362,8 @@ export const uploadApi = onRequest(
             error: status >= 500
               ? "Service is temporarily unavailable"
               : error?.message || "Request failed",
+            ...(status < 500 && error?.code ? { code: error.code } : {}),
+            ...(status < 500 && error?.details ? { details: error.details } : {}),
           },
           status,
         ),

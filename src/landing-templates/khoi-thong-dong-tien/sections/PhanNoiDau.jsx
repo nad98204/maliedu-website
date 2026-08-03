@@ -13,103 +13,87 @@ import { scrollToRegistrationForm } from "../scrollToRegistration";
 
 const PainPoints = () => {
   const pains = [
-    "Nỗ lực kiếm tiền nhưng vẫn không thấy kết quả, càng làm càng bế tắc.",
-    "Muốn thay đổi tài chính mà không biết bắt đầu từ đâu.",
-    "Áp lực vì tiền khiến năng lượng tụt, kinh doanh thì bế tắc, đơn hàng bị từ chối.",
-    "Cuộc sống rối loạn: tinh thần, công việc, gia đình đều đi xuống.",
-    "Nợ tăng mỗi ngày, làm mãi không đủ trả, càng xoay càng rối.",
+    "Làm việc rất nhiều nhưng thu nhập vẫn chưa cải thiện như mong muốn.",
+    "Có tiền nhưng khó giữ lại, cuối tháng gần như không còn khoản dư.",
+    "Muốn thay đổi tài chính nhưng chưa biết nên bắt đầu từ đâu.",
+    "Áp lực tiền bạc khiến bạn mất tập trung, dễ trì hoãn và quyết định theo cảm xúc.",
+    "Đặt mục tiêu nhiều lần nhưng vẫn chưa duy trì được hành động đến cùng.",
   ];
 
   return (
-    <div className="relative">
-      {/* đường nối mềm (chỉ desktop) */}
-      <div
-        className="pointer-events-none absolute left-[17px] top-8 bottom-8 w-px hidden sm:block opacity-30"
-        style={{
-          background: "linear-gradient(180deg, transparent, #C9961A 15%, #C9961A 85%, transparent)",
-        }}
-      />
-      <div className="grid gap-3.5 sm:gap-4 sm:grid-cols-2">
+    <div className="grid gap-3 sm:grid-cols-2 sm:gap-4">
         {pains.map((item, idx) => (
           <div
             key={item}
-            className={`group relative rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_16px_40px_rgba(122,33,19,0.12)] ${
-              idx === pains.length - 1 ? "sm:col-span-2 w-full" : ""
+            className={`group relative overflow-hidden rounded-[1.15rem] border border-[#D4B572]/45 bg-white/85 p-4 shadow-[0_7px_24px_rgba(87,45,16,0.07)] transition-all duration-300 hover:-translate-y-0.5 hover:border-[#C9961A]/65 hover:shadow-[0_14px_34px_rgba(87,45,16,0.11)] sm:p-5 ${
+              idx === pains.length - 1 ? "w-full sm:col-span-2" : ""
             }`}
-            style={{
-              background: "linear-gradient(135deg, rgba(255,255,255,0.92) 0%, rgba(255,252,245,0.88) 100%)",
-              border: "1px solid rgba(212,181,114,0.45)",
-              boxShadow: "0 4px 20px rgba(122,33,19,0.06), inset 0 1px 0 rgba(255,255,255,0.85)",
-            }}
           >
-            <div
-              className="absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl opacity-90 group-hover:opacity-100 transition-opacity"
-              style={{
-                background: "linear-gradient(180deg, #C9961A 0%, #7A2113 50%, #C9961A 100%)",
-              }}
-            />
-            <div className="flex items-start gap-3.5 pl-5 pr-5 py-5 sm:pl-6">
+            <span className="absolute inset-y-4 left-0 w-[3px] rounded-r-full bg-gradient-to-b from-[#E4B94D] via-[#C9961A] to-[#8C2517]" />
+            <div className="flex items-start gap-3.5">
               <span
-                className="mt-0.5 flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center text-sm font-black text-white shadow-md transition-transform duration-300 group-hover:scale-105"
+                className="mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-[#E9C86F]/65 text-sm font-black text-[#FFF2C2] shadow-[0_5px_14px_rgba(99,23,14,0.24)] transition-transform duration-300 group-hover:scale-105"
                 style={{
-                  background: "linear-gradient(145deg, #8B2E1A 0%, #7A2113 45%, #5C180E 100%)",
-                  boxShadow: "0 4px 12px rgba(122,33,19,0.35), inset 0 1px 0 rgba(255,255,255,0.2)",
+                  background: "linear-gradient(145deg, #9E3020 0%, #74180F 100%)",
                 }}
               >
                 {idx + 1}
               </span>
-              <p className="text-[#3A2208] leading-relaxed text-[15px] sm:text-[15.5px] pt-0.5">
+              <p className="pt-0.5 text-[0.9rem] font-medium leading-[1.65] text-[#402817] sm:text-[0.96rem]">
                 {item}
               </p>
             </div>
           </div>
         ))}
-      </div>
     </div>
   );
 };
 
 const TransformBlock = () => (
   <div
-    className="relative rounded-[1.35rem] p-[1px] overflow-hidden"
+    className="relative overflow-hidden rounded-[1.5rem] p-[1px]"
     style={{
-      background: "linear-gradient(145deg, rgba(201,150,26,0.65) 0%, rgba(122,33,19,0.35) 50%, rgba(201,150,26,0.5) 100%)",
-      boxShadow: "0 20px 50px rgba(122,33,19,0.12), 0 8px 24px rgba(201,150,26,0.08)",
+      background: "linear-gradient(145deg, #F1D888 0%, #A66A13 48%, #F1D888 100%)",
+      boxShadow: "0 22px 52px rgba(84,20,12,0.2), 0 8px 24px rgba(201,150,26,0.12)",
     }}
   >
     <div
-      className="relative rounded-[1.3rem] px-6 sm:px-8 py-9 sm:py-10 text-center overflow-hidden"
+      className="relative overflow-hidden rounded-[1.45rem] px-5 py-8 text-center sm:px-8 sm:py-10"
       style={{
-        background: "linear-gradient(165deg, #FFFCF7 0%, #FFF8EC 45%, #FFF3E0 100%)",
-        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.95)",
+        background: "linear-gradient(150deg, #74180F 0%, #571009 52%, #3B0906 100%)",
+        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.12)",
       }}
     >
-      <div className="absolute -top-16 -right-16 w-40 h-40 rounded-full opacity-[0.12] pointer-events-none bg-[#C9961A] blur-3xl" />
-      <div className="absolute -bottom-12 -left-10 w-32 h-32 rounded-full opacity-[0.1] pointer-events-none bg-[#7A2113] blur-3xl" />
+      <div className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-[#F5CE65]/20 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-12 -left-10 h-32 w-32 rounded-full bg-[#C9961A]/20 blur-3xl" />
 
-      <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-transparent via-[#C9961A] to-transparent" />
+      <div className="absolute left-0 right-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-[#F8E08A] to-transparent" />
 
       <div className="relative flex justify-center mb-5">
         <span
-          className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em] text-[#7A2113]/90 border border-[#D4B572]/50 bg-white/80 shadow-sm"
+          className="inline-flex items-center gap-1.5 rounded-full border border-[#F8E08A]/40 bg-[#FFF4C7]/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-[#FFE9A3] shadow-sm sm:text-[11px]"
         >
-          <Sparkles className="w-3.5 h-3.5 text-[#C9961A]" strokeWidth={2.2} />
-          Giải pháp
+          <Sparkles className="h-3.5 w-3.5 text-[#F8E08A]" strokeWidth={2.2} />
+          Bước khởi đầu
         </span>
       </div>
 
-      <div className="relative text-[17px] sm:text-lg font-bold text-[#3A2208] mb-3 leading-snug space-y-1.5 text-center">
-        <p>ĐỪNG LO, mọi vấn đề sẽ</p>
-        <p>
-          <span className="text-[#C9961A] font-extrabold" style={{ textShadow: "0 0 24px rgba(201,150,26,0.35)" }}>
-            THÁO GỠ NGAY LẬP TỨC
-          </span>
-        </p>
-      </div>
-      <p className="relative text-[#5C3A1A]/95 text-[15px] sm:text-base mb-2">Khi bạn thực sự thấu hiểu cách</p>
-      <p className="relative text-xl sm:text-2xl md:text-[1.65rem] font-extrabold text-[#7A2113] uppercase tracking-[0.06em] mb-7 leading-tight">
-        NĂNG LƯỢNG TIỀN BẠC VẬN HÀNH
+      <h3 className="relative -mx-2 mb-5 text-[clamp(0.86rem,4.1vw,1.02rem)] font-black uppercase leading-[1.35] tracking-[-0.04em] text-white sm:mx-0 sm:text-lg lg:text-[1.08rem] xl:text-[1.2rem]">
+        <span className="block whitespace-nowrap">Có thể bạn không thiếu cố gắng,</span>
+        <span className="mt-1 block whitespace-nowrap text-[#F3C955]">mà chỉ chưa nhìn đúng điểm nghẽn</span>
+      </h3>
+
+      <p className="relative mx-auto mb-6 max-w-xl text-[0.82rem] leading-[1.75] text-white/80 sm:text-[0.95rem]">
+        Trong 4 buổi học, bạn sẽ được hướng dẫn nhận diện những suy nghĩ, cảm xúc và thói quen đang ảnh hưởng đến tài chính; từ đó xác định mục tiêu và xây dựng kế hoạch hành động rõ ràng.
       </p>
+
+      <div className="relative mb-7 grid grid-cols-[1fr_auto_1fr_auto_1fr] items-center gap-1 rounded-2xl border border-white/10 bg-black/15 px-2 py-3 text-[0.62rem] font-black uppercase tracking-[0.04em] text-[#FFE9A3] min-[380px]:text-[0.68rem] sm:px-4 sm:text-xs">
+        <span>Hiểu đúng</span>
+        <ArrowRight className="h-3.5 w-3.5 text-[#E4B94D]" aria-hidden="true" />
+        <span>Điều chỉnh</span>
+        <ArrowRight className="h-3.5 w-3.5 text-[#E4B94D]" aria-hidden="true" />
+        <span>Hành động</span>
+      </div>
 
       <div className="relative flex justify-center">
         <a
@@ -119,14 +103,14 @@ const TransformBlock = () => (
             trackCtaClick("PhanNoiDau");
             scrollToRegistrationForm();
           }}
-          className="inline-flex items-center gap-2 rounded-full px-8 sm:px-10 py-3.5 font-bold uppercase tracking-[0.08em] sm:tracking-[0.1em] text-[#FFE566] text-xs sm:text-sm md:text-base whitespace-nowrap transition-all duration-300 hover:-translate-y-[3px] hover:shadow-[0_14px_36px_rgba(156,12,18,0.45)] active:translate-y-0"
+          className="inline-flex w-full max-w-[360px] items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-white/40 px-3 py-3.5 text-[0.68rem] font-black uppercase tracking-[0.015em] text-[#5A120B] transition-all duration-300 hover:-translate-y-[3px] hover:shadow-[0_14px_36px_rgba(25,3,2,0.38)] active:translate-y-0 min-[380px]:text-[0.72rem] sm:w-auto sm:px-7 sm:text-sm sm:tracking-[0.035em]"
           style={{
-            background: "linear-gradient(180deg, #E8393F 0%, #9C0C12 100%)",
-            boxShadow: "0 10px 28px rgba(156,12,18,0.4), inset 0 1px 0 rgba(255,255,255,0.2)",
+            background: "linear-gradient(180deg, #FFE99A 0%, #E6B93E 100%)",
+            boxShadow: "0 10px 28px rgba(18,2,1,0.32), inset 0 1px 0 rgba(255,255,255,0.65)",
           }}
         >
-          BẤM ĐỂ NHẬN VÉ THAM DỰ
-          <ArrowRight className="w-5 h-5 text-[#FFE566] shrink-0" />
+          ĐĂNG KÝ MIỄN PHÍ – NHẬN LINK HỌC
+          <ArrowRight className="h-4 w-4 shrink-0 text-[#7A2113] sm:h-5 sm:w-5" />
         </a>
       </div>
     </div>
@@ -155,7 +139,7 @@ const PhanNoiDau = () => {
 
   return (
     <section
-      className="relative overflow-hidden rounded-3xl px-5 sm:px-10 pt-6 sm:pt-8 pb-10 sm:pb-14 space-y-6 sm:space-y-7"
+      className="relative space-y-6 overflow-hidden rounded-3xl px-4 pb-10 pt-7 sm:space-y-7 sm:px-10 sm:pb-14 sm:pt-9"
       style={{
         background: "linear-gradient(155deg, #FDF7EA 0%, #F9F0DC 38%, #F3E6C8 100%)",
         border: "1px solid rgba(212,181,114,0.55)",
@@ -181,56 +165,32 @@ const PhanNoiDau = () => {
 
       <div ref={revealRef} className="relative max-w-3xl lg:max-w-6xl xl:max-w-7xl mx-auto space-y-6 lg:space-y-8">
         {/* ── Tiêu đề (gọn, trong một khối) ── */}
-        <header className="relative mx-auto max-w-[min(100%,42rem)] text-center">
-          <div
-            className="relative rounded-2xl sm:rounded-[1.25rem] px-5 pt-5 pb-5 sm:px-8 sm:pt-7 sm:pb-7 overflow-hidden"
-            style={{
-              background: "linear-gradient(180deg, rgba(255,255,255,0.72) 0%, rgba(255,250,240,0.55) 100%)",
-              border: "1px solid rgba(212,181,114,0.45)",
-              boxShadow: "0 10px 40px rgba(122,33,19,0.06), inset 0 1px 0 rgba(255,255,255,0.9)",
-            }}
-          >
-            <div
-              className="absolute top-0 left-0 right-0 h-[2px] opacity-90"
-              style={{
-                background: "linear-gradient(90deg, transparent 0%, #C9961A 20%, #E8C468 50%, #C9961A 80%, transparent 100%)",
-              }}
-            />
+        <header className="relative mx-auto max-w-[min(100%,42rem)] px-2 py-1 text-center sm:py-3">
             <p className="mb-0">
-              <span className="inline-flex items-center py-1.5 px-4 sm:px-5 rounded-full text-[10px] sm:text-[11px] font-bold tracking-[0.2em] uppercase text-[#7A2113] bg-white/90 border border-[#D4B572]/55 shadow-sm">
-                Bạn đang gặp gì?
+              <span className="inline-flex items-center rounded-full border border-[#D4B572]/60 bg-white/65 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-[#7A2113] shadow-sm sm:px-5 sm:text-[11px]">
+                Bạn có đang gặp?
               </span>
             </p>
 
             <h2
-              className="font-black tracking-[0.06em] text-[#3A2208] mb-4 sm:mb-5 mt-4 sm:mt-5 leading-[1.08] pt-1"
+              className="mb-4 mt-4 pt-1 font-black uppercase leading-[1.08] tracking-[0.025em] text-[#3A2208] sm:mb-5 sm:mt-5 sm:tracking-[0.045em]"
               style={{
-                fontSize: "clamp(2rem, 7vw, 3.35rem)",
+                fontSize: "clamp(1.65rem, 6.5vw, 2.8rem)",
                 textShadow: "0 2px 0 rgba(255,255,255,0.5)",
               }}
             >
-              ĐIỀU GÌ?
+              <span className="block">5 dấu hiệu tài chính</span>
+              <span className="mt-1 block text-[#8C2517]">
+                đang mắc kẹt
+              </span>
             </h2>
 
-            <div className="mx-auto max-w-xl border-t border-[#D4B572]/35 pt-4 sm:pt-5 space-y-1.5 sm:space-y-2">
-              <p
-                className="font-extrabold uppercase tracking-[0.04em] leading-snug text-[#7A2113]"
-                style={{ fontSize: "clamp(0.95rem, 2.8vw, 1.35rem)" }}
-              >
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#8B4513] via-[#C9961A] to-[#8B4513]">
-                  ĐANG CẢN TRỞ DÒNG CHẢY
-                </span>
-              </p>
-              <p
-                className="font-extrabold uppercase tracking-[0.05em] leading-snug text-[#7A2113]"
-                style={{ fontSize: "clamp(1.05rem, 3.4vw, 1.75rem)" }}
-              >
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#C9961A] via-[#D4A84B] to-[#7A2113]">
-                  TIỀN BẠC CỦA BẠN
-                </span>
+            <div className="mx-auto max-w-xl pt-1">
+              <span className="mx-auto mb-4 block h-[2px] w-14 rounded-full bg-gradient-to-r from-transparent via-[#C9961A] to-transparent" />
+              <p className="text-[0.86rem] font-semibold leading-relaxed text-[#5C3A1A] sm:text-base">
+                Dù đã rất cố gắng, bạn vẫn thường xuyên rơi vào những tình trạng sau:
               </p>
             </div>
-          </div>
         </header>
 
         {/* ── Hai cột ── */}
