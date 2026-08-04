@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Sitemap tự động sinh lúc build – 2026-08-03 -->
-<!-- Tổng URL: 31 (tĩnh: 25, khóa học: 1, bài viết: 5, tuyển dụng: 0) -->
+<!-- Sitemap tự động sinh lúc build – 2026-08-04 -->
+<!-- Tổng URL: 32 (tĩnh: 25, khóa học: 1, bài viết: 6, tuyển dụng: 0) -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9
@@ -124,6 +124,10 @@
   <url>
     <loc>https://luathapdan.vn/tin-tuc/nhac-thien-chua-lanh-ton-thuong-noi-dau-va-ket-noi-ban-than</loc>
     <lastmod>2026-08-01</lastmod>
+  </url>
+  <url>
+    <loc>https://luathapdan.vn/tin-tuc/tai-sao-cang-co-gang-tra-no-lai-cang-be-tac</loc>
+    <lastmod>2026-08-04</lastmod>
   </url>
   <url>
     <loc>https://luathapdan.vn/tin-tuc/nho-luat-hap-dan-tu-he-thong-suyt-gay-den-gan-40-nguoi-tu-nguyen-xin-lam-si</loc>
