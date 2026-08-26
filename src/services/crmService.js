@@ -59,12 +59,12 @@ export const submitToCRM = async (formData) => {
         if (funnelType === "leader" || funnelType === "leader_funnel") {
             funnelType = "leader";
         } else if (funnelType === "thuonghieu" || funnelType === "thuonghieu_funnel" || funnelType === "brand" || funnelType === "brand_funnel") {
-            funnelType = "thuonghieu";
+            funnelType = "brand";
         } else if (funnelType === "ads_funnel") {
             funnelType = "ads";
         }
         
-        // Đường dẫn kho: funnels/ads hoặc funnels/leader
+        // Đường dẫn chuẩn của CRM: funnels/ads, funnels/leader hoặc funnels/brand.
         const nodePath = `funnels/${funnelType}`;
 
         const resolvedNoteRaw = formData.note != null ? String(formData.note).trim() : "";
@@ -79,20 +79,20 @@ export const submitToCRM = async (formData) => {
         const normalizedFunnelType =
             funnelType === "leader"
                 ? "leader_funnel"
-                : funnelType === "thuonghieu"
-                    ? "thuonghieu"
+                : funnelType === "brand"
+                    ? "brand"
                     : "ads";
         const normalizedSourceType =
             funnelType === "leader"
                 ? "leader_funnel"
-                : funnelType === "thuonghieu"
-                    ? "thuonghieu_funnel"
+                : funnelType === "brand"
+                    ? "brand_funnel"
                     : "ads";
         const normalizedFunnelChannel =
             funnelType === "leader"
                 ? "leader_funnel"
-                : funnelType === "thuonghieu"
-                    ? "thuonghieu_funnel"
+                : funnelType === "brand"
+                    ? "brand_funnel"
                     : "ads_funnel";
 
         const payload = {

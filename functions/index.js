@@ -200,7 +200,9 @@ import { createJsonResponse } from "./_lib/s3MultipartV3.js";
 
 const ALLOWED_CRM_FUNNEL_PATHS = new Set([
   "funnels/ads",
+  "funnels/brand",
   "funnels/leader",
+  // Giữ tương thích với các bản landing cũ trong thời gian chuyển đổi.
   "funnels/thuonghieu",
 ]);
 const CRM_ALLOWED_FIELDS = new Set([
