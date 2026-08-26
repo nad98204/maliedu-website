@@ -14,7 +14,6 @@ import {
   hashData,
   initMetaPixel,
   normalizeNameForHash,
-  resolveMetaEventData,
   setMetaUserData,
   trackMetaEventForPixel,
 } from "../../../utils/metaPixel";
@@ -31,7 +30,7 @@ const DEFAULT_REMOTE_CONFIG = {
   is_maintenance: false,
   isLoading: false,
   fbCurrency: "VND",
-  fbEventValue: 110000,
+  fbEventValue: 0,
   course_k: "K41", // Giá trị mặc định
 };
 
@@ -598,8 +597,9 @@ const FormDangKy = ({
         fbp: fbp || "",
         fbc: fbc || "",
         test_event_code: searchParams.get("test_event_code") || "",
-        fbEventValue: cfg.fbEventValue || 0,
-        fbCurrency: cfg.fbCurrency || "VND",
+        // Đây là đăng ký chương trình miễn phí, không ghi nhận doanh thu giả.
+        fbEventValue: 0,
+        fbCurrency: "VND",
         userAgent: navigator.userAgent,
         clientIp: clientIp,
       });
@@ -614,10 +614,8 @@ const FormDangKy = ({
       const hashedLn = lastName ? await hashData(normalizeNameForHash(lastName)) : "";
       const hashedExternalId = crmResponse?.id ? await hashData(String(crmResponse.id)) : "";
 
-      const metaEventData = resolveMetaEventData(cfg);
       const leadEventData = {
         content_name: "Đăng ký Khơi Thông Dòng Tiền",
-        ...metaEventData,
       };
 
       const userDataCommon = {

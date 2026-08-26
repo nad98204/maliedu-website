@@ -313,6 +313,119 @@ const buildSearchKeywords = ({ name, phone }) => {
   ].filter(Boolean))].slice(0, 30);
 };
 
+const DEFAULT_META_PIXEL_ID = "1526874981588150";
+
+const resolveLeadMetaPixelId = async (leadData = {}) => {
+  let pixelId = String(process.env.META_PIXEL_ID || DEFAULT_META_PIXEL_ID).trim();
+  const landingPageId = String(leadData.landingPageId || "").trim();
+
+  if (landingPageId && /^[a-zA-Z0-9_-]{1,150}$/.test(landingPageId)) {
+    try {
+      const landingSnapshot = await getCrmFirestore()
+        .collection("landing_pages")
+        .doc(landingPageId)
+        .get();
+      const configuredPixelId = String(landingSnapshot.data()?.fbPixel || "").trim();
+      if (/^\d{5,30}$/.test(configuredPixelId)) {
+        pixelId = configuredPixelId;
+      }
+    } catch (error) {
+      console.warn("[CAPI] Could not resolve landing Pixel ID; using the default:", error);
+    }
+  }
+
+  return /^\d{5,30}$/.test(pixelId) ? pixelId : DEFAULT_META_PIXEL_ID;
+};
+
+const sendCrmLeadMetaEvents = async ({ leadData, leadId }) => {
+  const leadEventId = String(leadData?.lead_event_id || "").trim();
+  const registrationEventId = String(leadData?.meta_event_id || "").trim();
+  if (!leadEventId && !registrationEventId) {
+    return { attempted: 0, received: 0 };
+  }
+
+  const accessToken = getMetaCapiAccessToken();
+  if (!accessToken) {
+    console.error("[CAPI] Missing access token for CRM lead:", leadId);
+    return { attempted: 0, received: 0 };
+  }
+
+  const rawPhone = String(leadData.phone || "");
+  const normalizedPhone = rawPhone.replace(/\D/g, "").replace(/^0/, "84");
+  const normalizedEmail = String(leadData.email || "").trim().toLowerCase();
+  const nameParts = String(leadData.name || "").trim().split(/\s+/).filter(Boolean);
+  const firstName = nameParts.length > 0 ? nameParts[nameParts.length - 1] : "";
+  const lastName = nameParts.length > 1 ? nameParts.slice(0, -1).join(" ") : "";
+  const hashedEmail = normalizedEmail ? hashData(normalizedEmail) : "";
+  const hashedPhone = normalizedPhone ? hashData(normalizedPhone) : "";
+  const hashedFn = firstName ? hashData(normalizeNameForHash(firstName)) : "";
+  const hashedLn = lastName ? hashData(normalizeNameForHash(lastName)) : "";
+  const hashedExternalId = leadId ? hashData(String(leadId)) : "";
+  const userData = {
+    ...(hashedEmail ? { em: [hashedEmail] } : {}),
+    ...(hashedPhone ? { ph: [hashedPhone] } : {}),
+    ...(hashedFn ? { fn: [hashedFn] } : {}),
+    ...(hashedLn ? { ln: [hashedLn] } : {}),
+    ...(hashedExternalId ? { external_id: [hashedExternalId] } : {}),
+    ...(leadData.fbp ? { fbp: leadData.fbp } : {}),
+    ...(leadData.fbc ? { fbc: leadData.fbc } : {}),
+    ...(leadData.clientIp ? { client_ip_address: leadData.clientIp } : {}),
+    ...(leadData.userAgent ? { client_user_agent: leadData.userAgent } : {}),
+  };
+  const pixelId = await resolveLeadMetaPixelId(leadData);
+  const commonParams = {
+    accessToken,
+    pixelId,
+    sourceUrl: sanitizeEventSourceUrl(leadData.sourceUrl),
+    testEventCode: String(leadData.test_event_code || "").trim(),
+    userData,
+  };
+  const configuredEventValue = Number(leadData.fbEventValue);
+  const currency = String(leadData.fbCurrency || "VND").trim().toUpperCase();
+  const optionalValueData = Number.isFinite(configuredEventValue) && configuredEventValue > 0
+    ? {
+        value: configuredEventValue,
+        currency: /^[A-Z]{3}$/.test(currency) ? currency : "VND",
+      }
+    : {};
+  const events = [
+    ...(leadEventId
+      ? [{
+          eventName: "Lead",
+          eventId: leadEventId,
+          customData: {
+            content_name: leadData.courseName || "Đăng ký Landing",
+            ...optionalValueData,
+          },
+        }]
+      : []),
+    ...(registrationEventId
+      ? [{
+          eventName: "CompleteRegistration",
+          eventId: registrationEventId,
+          customData: {
+            content_name: leadData.courseName || "Xác nhận Đăng ký Landing",
+            ...optionalValueData,
+            status: true,
+          },
+        }]
+      : []),
+  ];
+  const results = await Promise.all(events.map(async (metaEvent) => {
+    const result = await sendMetaCapiEvent({ ...commonParams, ...metaEvent });
+    const received = Number(result?.events_received || 0);
+    if (result?.error || received < 1) {
+      console.error(`[CAPI] Meta rejected ${metaEvent.eventName} for CRM lead ${leadId}:`, result);
+    }
+    return { eventName: metaEvent.eventName, received };
+  }));
+
+  return {
+    attempted: results.length,
+    received: results.reduce((total, result) => total + result.received, 0),
+  };
+};
+
 const onCreateCrmLead = async ({ request }) => {
   const body = await request.json();
   const nodePath = normalizeCrmNodePath(body?.nodePath);
@@ -387,6 +500,17 @@ const onCreateCrmLead = async ({ request }) => {
     utmMedium: String(normalizedPayload.cpMedium || ""),
     utmSource: String(normalizedPayload.cpSource || ""),
   });
+
+  try {
+    const capiResult = await sendCrmLeadMetaEvents({
+      leadData: normalizedPayload,
+      leadId: leadRef.key,
+    });
+    console.log(`[CAPI] CRM lead ${leadRef.key} processed:`, capiResult);
+  } catch (error) {
+    // CRM submission must remain successful even if Meta is temporarily unavailable.
+    console.error(`[CAPI] CRM lead ${leadRef.key} tracking failed:`, error);
+  }
 
   return createJsonResponse({ success: true, id: leadRef.key });
 };
@@ -836,6 +960,18 @@ const onTrackOrderPurchase = async ({ request, orderId }) => {
   }
 
   const body = await request.json();
+  const purchaseValue = Number(order.amount);
+  if (String(order.status || "").toLowerCase() !== "completed") {
+    throw createHttpError(409, "Purchase is only tracked after payment is completed");
+  }
+  if (!Number.isFinite(purchaseValue) || purchaseValue <= 0) {
+    return createJsonResponse({
+      success: true,
+      skipped: true,
+      reason: "non_positive_purchase_value",
+    });
+  }
+
   const claimed = await getFirestoreDb().runTransaction(async (transaction) => {
     const currentSnapshot = await transaction.get(reference);
     const current = currentSnapshot.data() || {};
@@ -881,7 +1017,7 @@ const onTrackOrderPurchase = async ({ request, orderId }) => {
     content_type: "product",
     currency: "VND",
     num_items: items.length || 1,
-    value: Number(order.amount) || 0,
+    value: purchaseValue,
   };
 
   try {
@@ -1196,100 +1332,12 @@ export const onCrmLeadCreated = onValueCreated(
   async (event) => {
     const leadData = event.data.val();
     if (!leadData) return;
-
-    // Chỉ xử lý nếu có ID sự kiện tracking
-    const leadEventId = leadData.lead_event_id;
-    const metaEventId = leadData.meta_event_id;
-    if (!leadEventId && !metaEventId) {
-      console.log("[CAPI] No tracking IDs found for lead:", event.params.leadId);
-      return;
-    }
-
     try {
-      const pixelId = leadData.fbPixel || "1526874981588150"; // Fallback to default
-      const landingPageId = leadData.landingPageId;
-      
-      const fbCapiToken = getMetaCapiAccessToken();
-      let fbPixel = pixelId;
-
-      // Pixel ID may be public per landing page. The CAPI token must remain server-only.
-      if (landingPageId) {
-        const lpDoc = await getCrmFirestore().collection("landing_pages").doc(landingPageId).get();
-        if (lpDoc.exists) {
-          const config = lpDoc.data();
-          fbPixel = config.fbPixel || pixelId;
-        }
-      }
-
-      if (!fbCapiToken) {
-        console.error("[CAPI] No CAPI Token found for lead:", event.params.leadId);
-        return;
-      }
-
-      // Chuẩn bị User Data (Hashing server-side để đảm bảo an toàn)
-      const rawPhone = leadData.phone || "";
-      const normalizedPhone = rawPhone.replace(/\D/g, "").replace(/^0/, "84");
-      const hashedPhone = normalizedPhone ? hashData(normalizedPhone) : "";
-
-      const rawName = leadData.name || "";
-      const nameParts = rawName.trim().split(/\s+/).filter(Boolean);
-      const firstName = nameParts.length > 0 ? nameParts[nameParts.length - 1] : "";
-      const lastName = nameParts.length > 1 ? nameParts.slice(0, -1).join(" ") : "";
-      const hashedFn = firstName ? hashData(normalizeNameForHash(firstName)) : "";
-      const hashedLn = lastName ? hashData(normalizeNameForHash(lastName)) : "";
-      const hashedExternalId = hashData(event.params.leadId);
-
-      const userData = {
-        ...(hashedPhone ? { ph: [hashedPhone] } : {}),
-        ...(hashedFn ? { fn: [hashedFn] } : {}),
-        ...(hashedLn ? { ln: [hashedLn] } : {}),
-        ...(hashedExternalId ? { external_id: [hashedExternalId] } : {}),
-        ...(leadData.fbp ? { fbp: leadData.fbp } : {}),
-        ...(leadData.fbc ? { fbc: leadData.fbc } : {}),
-        ...(leadData.clientIp ? { client_ip_address: leadData.clientIp } : {}),
-        client_user_agent: leadData.userAgent || "",
-      };
-
-      const commonParams = {
-        pixelId: fbPixel,
-        accessToken: fbCapiToken,
-        userData,
-        sourceUrl: leadData.sourceUrl || "",
-        testEventCode: leadData.test_event_code || "",
-      };
-
-      // Gửi sự kiện Lead
-      if (leadEventId) {
-        const result = await sendMetaCapiEvent({
-          ...commonParams,
-          eventName: "Lead",
-          eventId: leadEventId,
-          customData: { 
-            content_name: leadData.courseName || "Đăng ký Landing",
-            value: Number(leadData.fbEventValue) || 110000,
-            currency: leadData.fbCurrency || "VND"
-          },
-        });
-        console.log(`[CAPI] Meta Response (Lead):`, JSON.stringify(result));
-      }
-
-      // Gửi sự kiện CompleteRegistration
-      if (metaEventId) {
-        const result = await sendMetaCapiEvent({
-          ...commonParams,
-          eventName: "CompleteRegistration",
-          eventId: metaEventId,
-          customData: {
-            content_name: leadData.courseName || "Xác nhận Đăng ký Landing",
-            value: Number(leadData.fbEventValue) || 110000,
-            currency: leadData.fbCurrency || "VND",
-            status: true
-          },
-        });
-        console.log(`[CAPI] Meta Response (CompleteRegistration):`, JSON.stringify(result));
-      }
-
-      console.log(`[CAPI] Finished processing lead: ${event.params.leadId}`);
+      const capiResult = await sendCrmLeadMetaEvents({
+        leadData,
+        leadId: event.params.leadId,
+      });
+      console.log(`[CAPI] RTDB lead ${event.params.leadId} processed:`, capiResult);
     } catch (error) {
       console.error("[CAPI] Critical Error:", error);
     }

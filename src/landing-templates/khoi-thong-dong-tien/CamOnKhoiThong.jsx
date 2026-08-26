@@ -68,7 +68,7 @@ const CamOnKhoiThong = () => {
       trackMetaEventForPixel(
         pixelId,
         "CompleteRegistration",
-        { content_name: "Xác nhận - Khơi Thông Dòng Tiền", status: true, value: 110000, currency: "VND" },
+        { content_name: "Xác nhận - Khơi Thông Dòng Tiền", status: true },
         eventId ? { eventID: eventId } : undefined,
       );
       sessionStorage.removeItem("form_submitted");

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, Link } from "react-router";
 import { Copy, CheckCircle, Home, Loader2, RefreshCw, Clock, AlertCircle, Zap, Smartphone, X, ChevronRight } from "lucide-react";
 
@@ -226,6 +226,7 @@ const OrderSuccess = () => {
     const [checking, setChecking] = useState(false);
     const [checkCount, setCheckCount] = useState(0);
     const [showBankSelector, setShowBankSelector] = useState(false);
+    const purchaseTrackingRef = useRef("");
 
     const fetchOrder = useCallback(async () => {
         try {
@@ -241,6 +242,8 @@ const OrderSuccess = () => {
     }, [orderId]);
 
     useEffect(() => {
+        let statusInterval = null;
+
         const init = async () => {
             setLoading(true);
             const [orderData, settings] = await Promise.all([
@@ -250,82 +253,107 @@ const OrderSuccess = () => {
             setBankSettings(settings);
             setLoading(false);
 
-            // Track Purchase in the browser and through the authenticated server endpoint.
-            if (orderData && !sessionStorage.getItem(`mali_purchase_${orderData.orderCode}`)) {
-                const trackPurchase = async () => {
-                    try {
-                        const { fbp, fbc } = getMetaBrowserData(window.location.search);
-
-                        // Prepare PII
-                        const email = orderData.customerEmail || "";
-                        const phone = (orderData.customerPhone || "").replace(/\D/g, "").replace(/^0/, "84");
-                        const fullName = orderData.customerName || "";
-                        const nameParts = fullName.trim().split(/\s+/).filter(Boolean);
-                        const fn = nameParts.length > 0 ? nameParts[nameParts.length - 1] : "";
-                        const ln = nameParts.length > 1 ? nameParts.slice(0, -1).join(" ") : "";
-
-                        const hashedEmail = await hashData(email);
-                        const hashedPhone = await hashData(phone);
-                        const hashedFn = await hashData(normalizeNameForHash(fn));
-                        const hashedLn = await hashData(normalizeNameForHash(ln));
-
-                        const customData = {
-                            content_name: orderData.courseName,
-                            content_ids: (orderData.items || []).map(i => i.id),
-                            content_type: 'product',
-                            value: orderData.amount,
-                            currency: 'VND',
-                            num_items: (orderData.items || []).length || 1
-                        };
-
-                        // Browser Track with retry
-                        const fireBrowserTrack = () => {
-                            setMetaUserData({ em: hashedEmail, ph: hashedPhone, fn: hashedFn, ln: hashedLn });
-                            trackMetaEvent("Purchase", customData, { eventID: orderData.orderCode });
-                        };
-
-                        if (typeof window.fbq === "function") {
-                            fireBrowserTrack();
-                        } else {
-                            let attempts = 0;
-                            const interval = setInterval(() => {
-                                attempts += 1;
-                                if (typeof window.fbq === "function") {
-                                    clearInterval(interval);
-                                    fireBrowserTrack();
-                                } else if (attempts >= 10) {
-                                    clearInterval(interval);
-                                }
-                            }, 300);
-                        }
-
-                        await trackOrderPurchase(orderId, {
-                            fbp,
-                            fbc,
-                            sourceUrl: window.location.href,
-                        });
-                        
-                        sessionStorage.setItem(`mali_purchase_${orderData.orderCode}`, 'true');
-                    } catch (err) {
-                        console.error("Purchase Tracking Error:", err);
-                    }
-                };
-                trackPurchase();
-            }
-
             if (orderData?.status === 'pending') {
-                const interval = setInterval(async () => {
+                statusInterval = window.setInterval(async () => {
                     const updated = await fetchOrder();
                     setCheckCount(prev => prev + 1);
                     if (updated?.status === 'completed') {
-                        clearInterval(interval);
+                        window.clearInterval(statusInterval);
+                        statusInterval = null;
                     }
                 }, 30000);
-                return () => clearInterval(interval);
             }
         };
         init();
+
+        return () => {
+            if (statusInterval) {
+                window.clearInterval(statusInterval);
+            }
+        };
     }, [fetchOrder, orderId]);
+
+    useEffect(() => {
+        const purchaseValue = Number(order?.amount);
+        const orderCode = String(order?.orderCode || "");
+        const storageKey = orderCode ? `mali_purchase_${orderCode}` : "";
+        if (
+            !orderId ||
+            order?.status !== "completed" ||
+            !Number.isFinite(purchaseValue) ||
+            purchaseValue <= 0 ||
+            !storageKey ||
+            sessionStorage.getItem(storageKey) ||
+            purchaseTrackingRef.current === orderCode
+        ) {
+            return;
+        }
+
+        purchaseTrackingRef.current = orderCode;
+        let browserRetryInterval = null;
+
+        const trackPurchase = async () => {
+            try {
+                const { fbp, fbc } = getMetaBrowserData(window.location.search);
+                const email = order.customerEmail || "";
+                const phone = (order.customerPhone || "").replace(/\D/g, "").replace(/^0/, "84");
+                const fullName = order.customerName || "";
+                const nameParts = fullName.trim().split(/\s+/).filter(Boolean);
+                const fn = nameParts.length > 0 ? nameParts[nameParts.length - 1] : "";
+                const ln = nameParts.length > 1 ? nameParts.slice(0, -1).join(" ") : "";
+
+                const [hashedEmail, hashedPhone, hashedFn, hashedLn] = await Promise.all([
+                    hashData(email),
+                    hashData(phone),
+                    hashData(normalizeNameForHash(fn)),
+                    hashData(normalizeNameForHash(ln)),
+                ]);
+                const customData = {
+                    content_name: order.courseName,
+                    content_ids: (order.items || []).map((item) => item.id),
+                    content_type: "product",
+                    value: purchaseValue,
+                    currency: "VND",
+                    num_items: (order.items || []).length || 1,
+                };
+
+                const fireBrowserTrack = () => {
+                    setMetaUserData({ em: hashedEmail, ph: hashedPhone, fn: hashedFn, ln: hashedLn });
+                    return trackMetaEvent("Purchase", customData, { eventID: orderCode });
+                };
+
+                if (!fireBrowserTrack()) {
+                    let attempts = 0;
+                    browserRetryInterval = window.setInterval(() => {
+                        attempts += 1;
+                        if (fireBrowserTrack() || attempts >= 10) {
+                            window.clearInterval(browserRetryInterval);
+                            browserRetryInterval = null;
+                        }
+                    }, 300);
+                }
+
+                await trackOrderPurchase(orderId, {
+                    fbp,
+                    fbc,
+                    sourceUrl: window.location.href,
+                });
+
+                sessionStorage.setItem(storageKey, "true");
+            } catch (err) {
+                purchaseTrackingRef.current = "";
+                console.error("Purchase Tracking Error:", err);
+            }
+        };
+
+        trackPurchase();
+
+        return () => {
+            if (browserRetryInterval) {
+                window.clearInterval(browserRetryInterval);
+            }
+        };
+    }, [order, orderId]);
 
     const copyToClipboard = (text, key) => {
         navigator.clipboard.writeText(text);

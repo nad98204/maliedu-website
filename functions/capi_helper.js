@@ -1,4 +1,15 @@
 import crypto from "node:crypto";
+import process from "node:process";
+
+const DEFAULT_META_GRAPH_API_VERSION = "v24.0";
+const META_REQUEST_TIMEOUT_MS = 8000;
+
+const getMetaGraphApiVersion = () => {
+  const configuredVersion = String(process.env.META_GRAPH_API_VERSION || "").trim();
+  return /^v\d+\.0$/.test(configuredVersion)
+    ? configuredVersion
+    : DEFAULT_META_GRAPH_API_VERSION;
+};
 
 export const hashData = (input) => {
   if (!input) return "";
@@ -42,13 +53,15 @@ export const sendMetaCapiEvent = async ({
     ...(testEventCode ? { test_event_code: testEventCode } : {}),
   };
 
-  const url = `https://graph.facebook.com/v19.0/${pixelId}/events?access_token=${accessToken}`;
+  const graphApiVersion = getMetaGraphApiVersion();
+  const url = `https://graph.facebook.com/${graphApiVersion}/${pixelId}/events?access_token=${accessToken}`;
 
   try {
     const response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(META_REQUEST_TIMEOUT_MS),
     });
     return await response.json();
   } catch (error) {
