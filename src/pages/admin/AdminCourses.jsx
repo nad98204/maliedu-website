@@ -330,8 +330,7 @@ const AdminCourses = () => {
   // Fetch courses from Firebase
   const fetchCourses = useCallback(async () => {
     try {
-      const q = query(collection(db, "courses"), orderBy("createdAt", "desc"));
-      const snapshot = await getDocs(q);
+      const snapshot = await getDocs(collection(db, "courses"));
       const data = await Promise.all(
         snapshot.docs.map(async (docItem) => {
           const publicCourse = { id: docItem.id, ...docItem.data() };
@@ -339,7 +338,15 @@ const AdminCourses = () => {
           return mergeCourseWithContent(publicCourse, privateCourse);
         }),
       );
-      setCourses(data);
+      setCourses(
+        data
+          .filter((course) => course.name?.trim())
+          .sort(
+            (courseA, courseB) =>
+              Number(courseB.createdAt || courseB.updatedAt || 0) -
+              Number(courseA.createdAt || courseA.updatedAt || 0),
+          ),
+      );
     } catch (error) {
       console.error("Error fetching courses:", error);
       setToast({ message: "Không thể tải danh sách khóa học", type: "error" });
@@ -1228,7 +1235,11 @@ const AdminCourses = () => {
         ? doc(db, "courses", editingCourse.id)
         : doc(collection(db, "courses"));
       const dataToStore = editingCourse
-        ? courseData
+        ? {
+            ...courseData,
+            createdAt:
+              editingCourse.createdAt || editingCourse.updatedAt || Date.now(),
+          }
         : { ...courseData, createdAt: Date.now() };
       const { publicCourse, privateCourse } = splitCourseForStorage(
         courseRef.id,
@@ -1313,6 +1324,17 @@ const AdminCourses = () => {
 
         return accumulator;
       }, {}),
+    [formData.curriculum],
+  );
+
+  const freePreviewLessonCount = useMemo(
+    () =>
+      (formData.curriculum || []).reduce(
+        (total, section) =>
+          total +
+          (section.lessons || []).filter((lesson) => lesson.isFreePreview).length,
+        0,
+      ),
     [formData.curriculum],
   );
 
@@ -2155,6 +2177,23 @@ const AdminCourses = () => {
                     </div>
                   </div>
 
+                  <div className="flex flex-col gap-4 rounded-[28px] border-2 border-emerald-200 bg-emerald-50/70 p-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+                    <div className="flex items-start gap-4">
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-md shadow-emerald-200">
+                        <Eye className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <h4 className="text-base font-black text-emerald-950">Chọn bài học thử miễn phí</h4>
+                        <p className="mt-1 text-xs font-medium leading-5 text-emerald-700">
+                          Bật nút <strong>HỌC THỬ</strong> ngay trên từng bài học rồi lưu khóa học.
+                        </p>
+                      </div>
+                    </div>
+                    <span className="w-fit shrink-0 rounded-full bg-white px-4 py-2 text-sm font-black text-emerald-700 ring-1 ring-emerald-200">
+                      Đã chọn {freePreviewLessonCount} bài
+                    </span>
+                  </div>
+
                   {formData.curriculum && formData.curriculum.length > 0 ? (
                     <div className="space-y-10 pb-10">
                       {formData.curriculum.map((section, sIdx) => (
@@ -2353,7 +2392,7 @@ const AdminCourses = () => {
                                       />
                                     </div>
 
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex flex-wrap items-center justify-end gap-2">
                                       <div className="relative group/vid flex items-center gap-1">
                                         <input
                                           type="text"
@@ -2376,6 +2415,37 @@ const AdminCourses = () => {
                                           )}
                                         </label>
                                       </div>
+                                      <button
+                                        type="button"
+                                        role="switch"
+                                        aria-checked={lesson.isFreePreview}
+                                        onClick={() =>
+                                          handleUpdateLesson(
+                                            sIdx,
+                                            lIdx,
+                                            "isFreePreview",
+                                            !lesson.isFreePreview,
+                                          )
+                                        }
+                                        className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-black transition-all ${
+                                          lesson.isFreePreview
+                                            ? "border-emerald-500 bg-emerald-600 text-white shadow-md shadow-emerald-200"
+                                            : "border-slate-200 bg-white text-slate-500 hover:border-emerald-400 hover:bg-emerald-50 hover:text-emerald-700"
+                                        }`}
+                                        title="Bật hoặc tắt quyền học thử miễn phí cho bài này"
+                                      >
+                                        <Eye className="h-4 w-4" />
+                                        <span>Học thử</span>
+                                        <span
+                                          className={`rounded-md px-1.5 py-0.5 text-[9px] uppercase tracking-wide ${
+                                            lesson.isFreePreview
+                                              ? "bg-white/20 text-white"
+                                              : "bg-slate-100 text-slate-400"
+                                          }`}
+                                        >
+                                          {lesson.isFreePreview ? "Bật" : "Tắt"}
+                                        </span>
+                                      </button>
                                       <button
                                         type="button"
                                         onClick={() => toggleLessonExpansion(lesson, sIdx, lIdx)}

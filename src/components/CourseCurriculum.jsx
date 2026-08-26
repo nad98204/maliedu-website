@@ -133,8 +133,8 @@ const CourseCurriculum = ({ course, courseId, onPreviewClick }) => {
                                                     <div className="mt-1 flex items-center gap-3 text-[11px] font-medium text-slate-500">
                                                         <span>{section.lessons.length} bài học</span>
                                                         {section.lessons.some(l => previewableLessonKeys.has(getLessonKey(l))) && (
-                                                            <span className="text-green-600 flex items-center gap-1">
-                                                                <span className="h-1 w-1 rounded-full bg-green-500"></span>
+                                                            <span className="flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-wide text-emerald-700 ring-1 ring-emerald-200">
+                                                                <PlayCircle className="h-3.5 w-3.5" />
                                                                 Có bài học thử
                                                             </span>
                                                         )}
@@ -160,16 +160,23 @@ const CourseCurriculum = ({ course, courseId, onPreviewClick }) => {
                                         const isAccessible = lessonKey ? previewableLessonKeys.has(lessonKey) : false;
 
                                         return (
-                                            <div key={lIdx} className="flex items-center justify-between p-3.5 pl-4 sm:pl-12 hover:bg-slate-50/50 transition-all group">
+                                            <div
+                                                key={lIdx}
+                                                className={`group flex items-center justify-between border-l-4 p-3.5 pl-4 transition-all sm:pl-12 ${
+                                                    isAccessible
+                                                        ? 'border-emerald-500 bg-emerald-50/70 hover:bg-emerald-50'
+                                                        : 'border-transparent hover:bg-slate-50/50'
+                                                }`}
+                                            >
                                                     <div className="flex items-start gap-3 overflow-hidden pr-2">
-                                                        <div className="mt-0.5 shrink-0 bg-slate-100/50 p-1.5 rounded-md group-hover:bg-secret-wax/10 transition-colors">
+                                                        <div className={`mt-0.5 shrink-0 rounded-md p-1.5 transition-colors ${isAccessible ? 'bg-emerald-100' : 'bg-slate-100/50 group-hover:bg-secret-wax/10'}`}>
                                                             {lesson.type === 'file' ? (
-                                                                <FileText className="w-3.5 h-3.5 text-slate-400" />
+                                                                <FileText className={`h-3.5 w-3.5 ${isAccessible ? 'text-emerald-700' : 'text-slate-400'}`} />
                                                             ) : (
-                                                                <PlayCircle className="w-3.5 h-3.5 text-slate-400 group-hover:text-secret-wax transition-colors" />
+                                                                <PlayCircle className={`h-3.5 w-3.5 transition-colors ${isAccessible ? 'text-emerald-700' : 'text-slate-400 group-hover:text-secret-wax'}`} />
                                                             )}
                                                         </div>
-                                                        <span className="text-[13px] sm:text-sm text-slate-600 font-medium group-hover:text-secret-ink transition-colors leading-relaxed">
+                                                        <span className={`text-[13px] font-medium leading-relaxed transition-colors sm:text-sm ${isAccessible ? 'font-semibold text-slate-800' : 'text-slate-600 group-hover:text-secret-ink'}`}>
                                                             {lesson.title}
                                                         </span>
                                                     </div>
@@ -194,9 +201,9 @@ const CourseCurriculum = ({ course, courseId, onPreviewClick }) => {
                                                                         navigate(`/bai-giang/${courseId}?${params.toString()}`);
                                                                     }
                                                                 }}
-                                                                className="text-[10px] font-bold text-white bg-green-500 hover:bg-green-600 px-2.5 py-1 rounded-full shadow-sm shadow-green-200 transition-all hover:scale-105 active:scale-95"
+                                                                className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-extrabold uppercase tracking-wide text-white shadow-md shadow-emerald-200 transition-all hover:scale-105 hover:bg-emerald-700 active:scale-95"
                                                             >
-                                                                Học thử
+                                                                <PlayCircle className="h-4 w-4" /> Học thử
                                                             </button>
                                                         ) : (
                                                             <div className="p-1.5 rounded-full bg-slate-50 border border-slate-100/50">

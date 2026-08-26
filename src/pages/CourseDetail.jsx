@@ -568,6 +568,7 @@ const CourseDetail = () => {
                     <CourseSidebar 
                         course={course} 
                         onBuyClick={handleBuyClick} 
+                        onPreviewClick={() => navigateToPreviewLesson()}
                         isEnrolled={isEnrolled}
                     />
                 </div>

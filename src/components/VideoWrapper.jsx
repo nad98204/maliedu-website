@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import ReactPlayer from 'react-player';
-import { CheckCircle, ChevronDown, ChevronLeft, ChevronRight, Play, Settings } from 'lucide-react';
+import { CheckCircle, ChevronDown, ChevronLeft, ChevronRight, Lock, Play, Settings } from 'lucide-react';
 
 const VideoWrapper = ({
     videoUrl,
@@ -19,6 +19,8 @@ const VideoWrapper = ({
     sections = [],
     currentLessonId,
     onLessonSelect,
+    isPreviewMode = false,
+    previewableLessonKeys = [],
     children
 }) => {
     const [isSwitcherOpen, setIsSwitcherOpen] = useState(false);
@@ -90,6 +92,7 @@ const VideoWrapper = ({
     const activeSections = sections.filter(
         (section) => (section.lessons || []).length > 0
     );
+    const previewableLessonKeySet = new Set(previewableLessonKeys);
 
     return (
         <div className="mx-auto w-full max-w-6xl" onContextMenu={(e) => e.preventDefault()}>
@@ -235,17 +238,32 @@ const VideoWrapper = ({
                                         </div>
                                         <div className="py-1">
                                             {(section.lessons || []).map((lesson, lIdx) => {
-                                                const isActive = (lesson.id || lesson.videoId) === currentLessonId;
+                                                const lessonKey = lesson.id || lesson.videoId;
+                                                const isActive = lessonKey === currentLessonId;
+                                                const isLocked =
+                                                    isPreviewMode &&
+                                                    !previewableLessonKeySet.has(lessonKey);
                                                 return (
                                                     <button
                                                         key={lIdx}
                                                         onClick={() => { onLessonSelect?.(lesson); setIsSwitcherOpen(false); }}
-                                                        className={`mx-2 my-1 flex w-[calc(100%-1rem)] items-center gap-3 rounded-2xl px-4 py-3 text-left normal-case tracking-normal transition-all ${isActive ? 'border-l-4 border-[#B91C1C] bg-red-50/60 text-[#B91C1C] font-extrabold' : 'text-slate-600 font-medium hover:bg-slate-50/80 hover:text-slate-900'}`}
+                                                        className={`mx-2 my-1 flex w-[calc(100%-1rem)] items-center gap-3 rounded-2xl px-4 py-3 text-left normal-case tracking-normal transition-all ${isActive ? 'border-l-4 border-[#B91C1C] bg-red-50/60 text-[#B91C1C] font-extrabold' : isLocked ? 'bg-slate-50/80 text-slate-500 hover:bg-amber-50 hover:text-amber-700' : 'text-slate-600 font-medium hover:bg-slate-50/80 hover:text-slate-900'}`}
                                                     >
                                                         <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${isActive ? 'bg-[#B91C1C] text-white shadow-md shadow-red-500/20' : 'bg-slate-50 text-slate-400'}`}>
-                                                            {isActive ? <Play className="h-3 w-3 fill-current" /> : <span className="text-[10px] font-bold">{lIdx + 1}</span>}
+                                                            {isActive ? (
+                                                                <Play className="h-3 w-3 fill-current" />
+                                                            ) : isLocked ? (
+                                                                <Lock className="h-3 w-3" />
+                                                            ) : (
+                                                                <span className="text-[10px] font-bold">{lIdx + 1}</span>
+                                                            )}
                                                         </div>
-                                                        <span className="text-sm">{lesson.title}</span>
+                                                        <span className="min-w-0 flex-1 text-sm">{lesson.title}</span>
+                                                        {isLocked && (
+                                                            <span className="shrink-0 rounded-full bg-amber-100 px-2 py-1 text-[10px] font-extrabold text-amber-700">
+                                                                Đăng ký
+                                                            </span>
+                                                        )}
                                                     </button>
                                                 );
                                             })}

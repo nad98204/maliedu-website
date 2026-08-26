@@ -6,17 +6,16 @@ import {
     LifeBuoy,
     PlayCircle,
     ShieldCheck,
-    ShoppingCart,
 } from 'lucide-react';
 import { formatPrice } from '../utils/orderService';
 import { HOTLINE } from '../menuData';
-import { useCart } from '../context/CartContext';
+import { getPreviewableLessonKeys } from '../utils/courseAccess';
 
-const CourseSidebar = ({ course, onBuyClick, isEnrolled }) => {
+const CourseSidebar = ({ course, onBuyClick, onPreviewClick, isEnrolled }) => {
     const navigate = useNavigate();
-    const { addToCart } = useCart();
     const [wishlist, setWishlist] = useState(false);
     const isPreviewOnlyCourse = course.isForSale === false && !isEnrolled;
+    const hasPreviewLessons = getPreviewableLessonKeys(course).length > 0;
 
     const handleBuyNow = () => {
         if (onBuyClick) {
@@ -35,6 +34,15 @@ const CourseSidebar = ({ course, onBuyClick, isEnrolled }) => {
         }
 
         navigate(`/thanh-toan/${course.id}`);
+    };
+
+    const handlePreview = () => {
+        if (onPreviewClick) {
+            onPreviewClick();
+            return;
+        }
+
+        navigate(`/bai-giang/${course.id}?preview=1`);
     };
 
     return (
@@ -107,13 +115,13 @@ const CourseSidebar = ({ course, onBuyClick, isEnrolled }) => {
                             )}
                         </button>
 
-                        {!isEnrolled && course.isForSale !== false && (
+                        {!isEnrolled && course.isForSale !== false && hasPreviewLessons && (
                             <button
-                                onClick={() => addToCart(course)}
-                                className="group flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-6 py-3 font-bold text-slate-700 transition-all hover:border-[#FCD34D] hover:bg-slate-50"
+                                onClick={handlePreview}
+                                className="group flex w-full items-center justify-center gap-2 rounded-xl border-2 border-emerald-500 bg-emerald-50 px-6 py-3.5 text-base font-extrabold uppercase tracking-wide text-emerald-700 transition-all hover:-translate-y-0.5 hover:bg-emerald-600 hover:text-white hover:shadow-lg"
                             >
-                                <ShoppingCart className="h-5 w-5 transition-colors group-hover:text-[#FCD34D]" />
-                                Thêm vào giỏ hàng
+                                <PlayCircle className="h-6 w-6" />
+                                Học thử
                             </button>
                         )}
                     </div>

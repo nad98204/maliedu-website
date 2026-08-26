@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link, Navigate, useParams, useSearchParams } from 'react-router';
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router';
 import {
     arrayRemove,
     arrayUnion,
@@ -11,7 +11,7 @@ import {
     updateDoc,
     where
 } from 'firebase/firestore';
-import { CheckCircle, ChevronLeft, Menu, Star } from 'lucide-react';
+import { CheckCircle, ChevronLeft, LockKeyhole, Menu, PlayCircle, Star, X } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from '../firebase';
 import PlayerSidebar from '../components/PlayerSidebar';
@@ -21,6 +21,7 @@ import {
     getLessonKey,
     getPreferredPreviewLesson,
     getPreviewSections,
+    getPreviewableLessonKeys,
     resolveCourseAccess,
 } from '../utils/courseAccess';
 import { loadFullCourse } from '../utils/courseContentService';
@@ -45,6 +46,7 @@ const normalizeSections = (curriculum = []) => {
 
 const CoursePlayer = () => {
     const { courseId } = useParams();
+    const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const previewRequested = searchParams.get('preview') === '1';
     const requestedPreviewLessonKey = searchParams.get('lesson');
@@ -67,6 +69,7 @@ const CoursePlayer = () => {
 
     const [progress, setProgress] = useState({});
     const [resourceFocusRequest, setResourceFocusRequest] = useState(null);
+    const [isRegistrationPromptOpen, setIsRegistrationPromptOpen] = useState(false);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -216,30 +219,32 @@ const CoursePlayer = () => {
                     return;
                 }
 
-                const visibleSections = access.hasFullAccess
-                    ? normalizedSections
-                    : previewSections;
+                const visibleSections = normalizedSections;
 
                 setSections(visibleSections);
 
                 const allLessons = visibleSections.flatMap((section) => section.lessons || []);
-                if (allLessons.length > 0) {
-                    const requestedLesson = allLessons.find(
+                const selectableLessons = access.hasFullAccess
+                    ? allLessons
+                    : previewSections.flatMap((section) => section.lessons || []);
+
+                if (selectableLessons.length > 0) {
+                    const requestedLesson = selectableLessons.find(
                         (lesson) => getLessonKey(lesson) === requestedPreviewLessonKey
                     );
                     const previewStartLesson = previewLesson
-                        ? allLessons.find(
+                        ? selectableLessons.find(
                               (lesson) => getLessonKey(lesson) === getLessonKey(previewLesson)
                           )
                         : null;
                     const resumeLesson =
                         access.hasFullAccess && enrollmentData?.lastPlayedLessonId
-                            ? allLessons.find(
+                            ? selectableLessons.find(
                                   (lesson) =>
                                       getLessonKey(lesson) === enrollmentData.lastPlayedLessonId
                               )
                             : null;
-                    const firstIncompleteLesson = allLessons.find(
+                    const firstIncompleteLesson = selectableLessons.find(
                         (lesson) => !completedIds[getLessonKey(lesson)]
                     );
 
@@ -248,7 +253,7 @@ const CoursePlayer = () => {
                             previewStartLesson ||
                             resumeLesson ||
                             firstIncompleteLesson ||
-                            allLessons[0]
+                            selectableLessons[0]
                     );
                 } else {
                     setCurrentLesson(null);
@@ -267,6 +272,11 @@ const CoursePlayer = () => {
     const flatLessons = useMemo(
         () => sections.flatMap((section) => section.lessons || []),
         [sections]
+    );
+
+    const previewableLessonKeys = useMemo(
+        () => new Set(getPreviewableLessonKeys(course)),
+        [course]
     );
 
     const currentLessonId = currentLesson?.id || currentLesson?.videoId;
@@ -606,15 +616,37 @@ const CoursePlayer = () => {
     const progressPercent =
         flatLessons.length > 0 ? Math.round((progressCount / flatLessons.length) * 100) : 0;
 
+    const openRegistrationPrompt = () => {
+        setPlaying(false);
+        setIsRegistrationPromptOpen(true);
+    };
+
+    const handleLessonSelect = (lesson) => {
+        const lessonKey = getLessonKey(lesson);
+        const canOpenLesson = hasFullAccess || previewableLessonKeys.has(lessonKey);
+
+        if (!canOpenLesson) {
+            openRegistrationPrompt();
+            return false;
+        }
+
+        setCurrentLesson(lesson);
+        return true;
+    };
+
     const handleNextLesson = () => {
-        if (currentLessonIndex >= 0 && currentLessonIndex < flatLessons.length - 1) {
-            setCurrentLesson(flatLessons[currentLessonIndex + 1]);
+        const nextLesson = flatLessons[currentLessonIndex + 1];
+
+        if (nextLesson) {
+            handleLessonSelect(nextLesson);
+        } else if (!hasFullAccess) {
+            openRegistrationPrompt();
         }
     };
 
     const handlePrevLesson = () => {
         if (currentLessonIndex > 0) {
-            setCurrentLesson(flatLessons[currentLessonIndex - 1]);
+            handleLessonSelect(flatLessons[currentLessonIndex - 1]);
         }
     };
 
@@ -669,6 +701,22 @@ const CoursePlayer = () => {
 
     };
 
+    const handleVideoEnded = () => {
+        handleLessonComplete();
+
+        const nextLesson = flatLessons[currentLessonIndex + 1];
+        const canOpenNextLesson =
+            nextLesson && previewableLessonKeys.has(getLessonKey(nextLesson));
+
+        if (!hasFullAccess && !canOpenNextLesson) {
+            openRegistrationPrompt();
+        }
+    };
+
+    const handleRegisterCourse = () => {
+        navigate(`/thanh-toan/${course.id}`);
+    };
+
     if (loading) {
         return (
             <div className="flex h-screen w-screen items-center justify-center bg-[#0f0f15] text-white">
@@ -706,8 +754,8 @@ const CoursePlayer = () => {
                         {currentLesson?.title || course.name}
                     </h1>
                     {!hasFullAccess && (
-                        <span className="hidden rounded-full bg-white/15 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-white md:inline-flex">
-                            Học thử
+                        <span className="hidden items-center gap-2 rounded-xl bg-amber-300 px-4 py-2 text-sm font-black uppercase tracking-wider text-red-950 shadow-lg sm:inline-flex">
+                            <PlayCircle className="h-5 w-5" /> Học thử
                         </span>
                     )}
                 </div>
@@ -804,18 +852,39 @@ const CoursePlayer = () => {
                             playing={playing}
                             setPlaying={setPlaying}
                             isNotesMode={activePlayerTab === 'notes'}
-                            onEnded={handleLessonComplete}
+                            onEnded={handleVideoEnded}
                             onNext={handleNextLesson}
                             onPrev={handlePrevLesson}
-                            hasNext={currentLessonIndex < flatLessons.length - 1}
+                            hasNext={
+                                currentLessonIndex < flatLessons.length - 1 || !hasFullAccess
+                            }
                             hasPrev={currentLessonIndex > 0}
                             isCompleted={!!progress[currentLessonId]}
                             onMarkComplete={handleLessonComplete}
                             sections={sections}
                             currentLessonId={currentLessonId}
-                            onLessonSelect={setCurrentLesson}
+                            onLessonSelect={handleLessonSelect}
+                            isPreviewMode={!hasFullAccess}
+                            previewableLessonKeys={previewableLessonKeys}
                         >
                             <div className="px-3 pb-24 md:px-0 md:pb-20">
+                                {!hasFullAccess && (
+                                    <div className="mt-5 rounded-2xl bg-gradient-to-r from-[#B91C1C] to-[#7F1D1D] p-4 text-white shadow-xl md:hidden">
+                                        <p className="text-xs font-bold uppercase tracking-wider text-red-100">
+                                            Muốn xem toàn bộ lộ trình?
+                                        </p>
+                                        <p className="mt-1 text-lg font-black">
+                                            Đăng ký khóa học để mở khóa {Math.max(flatLessons.length - previewableLessonKeys.size, 0)} bài còn lại
+                                        </p>
+                                        <button
+                                            type="button"
+                                            onClick={handleRegisterCourse}
+                                            className="mt-3 w-full rounded-xl bg-white px-5 py-3 text-sm font-black uppercase tracking-wide text-[#B91C1C] shadow-lg"
+                                        >
+                                            Đăng ký khóa học ngay
+                                        </button>
+                                    </div>
+                                )}
                                 <PlayerTabs
                                     description={currentLesson?.description ?? ''}
                                     resources={currentTabResources}
@@ -826,7 +895,7 @@ const CoursePlayer = () => {
                                     lessonTitle={currentLesson?.title}
                                     currentUser={currentUser}
                                     hasFullAccess={hasFullAccess}
-                                    onLessonSelect={(lesson) => setCurrentLesson(lesson)}
+                                    onLessonSelect={handleLessonSelect}
                                     onActiveTabChange={setActivePlayerTab}
                                 />
                             </div>
@@ -849,19 +918,79 @@ const CoursePlayer = () => {
                         sectionResourceMap={sidebarSectionResourceMap}
                         currentContextResources={sidebarCurrentContextResources}
                         hasResourceAccess={hasFullAccess}
+                        isPreviewMode={!hasFullAccess}
+                        previewableLessonKeys={previewableLessonKeys}
+                        registrationPrice={course.salePrice || course.price || 0}
+                        originalPrice={course.salePrice ? course.price || 0 : 0}
                         currentLessonId={currentLessonId}
                         onLessonSelect={(lesson) => {
-                            setCurrentLesson(lesson);
-                            if (window.innerWidth < 768) {
+                            const lessonOpened = handleLessonSelect(lesson);
+                            if (lessonOpened && window.innerWidth < 768) {
                                 setIsSidebarOpen(false);
                             }
                         }}
+                        onLockedLessonSelect={openRegistrationPrompt}
+                        onRegisterClick={handleRegisterCourse}
                         onResourceSelect={handleResourceFocus}
                         onClose={() => setIsSidebarOpen(false)}
                         progress={progress}
                     />
                 </aside>
             </div>
+
+            {isRegistrationPromptOpen && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="registration-prompt-title"
+                >
+                    <div className="relative w-full max-w-lg overflow-hidden rounded-3xl bg-white p-6 text-center shadow-2xl sm:p-8">
+                        <button
+                            type="button"
+                            onClick={() => setIsRegistrationPromptOpen(false)}
+                            className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-800"
+                            aria-label="Đóng lời mời đăng ký"
+                        >
+                            <X className="h-5 w-5" />
+                        </button>
+
+                        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-red-100 text-[#B91C1C]">
+                            <LockKeyhole className="h-8 w-8" />
+                        </div>
+                        <p className="mt-5 text-sm font-extrabold uppercase tracking-widest text-emerald-600">
+                            Bạn đã học xong phần học thử
+                        </p>
+                        <h2
+                            id="registration-prompt-title"
+                            className="mt-2 text-2xl font-black text-slate-900 sm:text-3xl"
+                        >
+                            Đăng ký khóa học này để học tiếp
+                        </h2>
+                        <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-slate-600 sm:text-base">
+                            Mở khóa toàn bộ bài giảng, tài liệu và lộ trình học của khóa{' '}
+                            <strong>{course.name}</strong>.
+                        </p>
+
+                        <div className="mt-7 space-y-3">
+                            <button
+                                type="button"
+                                onClick={handleRegisterCourse}
+                                className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#ef4444] px-6 py-4 text-base font-extrabold uppercase tracking-wide text-white shadow-lg shadow-red-200 transition-all hover:-translate-y-0.5 hover:bg-red-700"
+                            >
+                                Đăng ký khóa học này
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setIsRegistrationPromptOpen(false)}
+                                className="w-full rounded-xl px-6 py-3 text-sm font-bold text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"
+                            >
+                                Xem lại bài học thử
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

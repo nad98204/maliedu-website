@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+    ArrowRight,
     CheckCircle,
     ChevronDown,
     ChevronUp,
@@ -11,6 +12,7 @@ import {
     Video,
     X
 } from 'lucide-react';
+import { formatPrice } from '../utils/orderService';
 
 const getViewerUrl = (url = '') => {
     const lower = url.toLowerCase().split('?')[0];
@@ -41,9 +43,15 @@ const PlayerSidebar = ({
     sectionResourceMap = {},
     currentContextResources = [],
     hasResourceAccess = true,
+    isPreviewMode = false,
+    previewableLessonKeys = [],
+    registrationPrice = 0,
+    originalPrice = 0,
     currentLessonId,
     progress = {},
     onLessonSelect,
+    onLockedLessonSelect,
+    onRegisterClick,
     onResourceSelect,
     onClose
 }) => {
@@ -65,6 +73,11 @@ const PlayerSidebar = ({
         () => Object.values(progress).filter(Boolean).length,
         [progress]
     );
+    const previewableLessonKeySet = useMemo(
+        () => new Set(previewableLessonKeys),
+        [previewableLessonKeys]
+    );
+    const lockedLessonCount = Math.max(totalLessons - previewableLessonKeySet.size, 0);
 
     const filteredSections = useMemo(() => {
         const keyword = lessonSearchTerm.trim().toLowerCase();
@@ -176,6 +189,48 @@ const PlayerSidebar = ({
     return (
         <div className="flex h-full flex-col border-l border-slate-200 bg-white">
             <div className="sticky top-0 z-10 space-y-4 border-b border-slate-200 bg-white/95 p-4 backdrop-blur md:static md:bg-white md:backdrop-blur-0">
+                {isPreviewMode && (
+                    <>
+                        <div className="rounded-xl border-2 border-emerald-200 bg-emerald-50 px-4 py-3 text-center shadow-sm">
+                            <p className="flex items-center justify-center gap-2 text-lg font-black uppercase tracking-wider text-emerald-700">
+                                <PlayCircle className="h-6 w-6" /> Học thử
+                            </p>
+                            <p className="mt-1 text-xs font-medium text-emerald-700/80">
+                                Bạn đang xem {previewableLessonKeySet.size} bài học miễn phí
+                            </p>
+                        </div>
+
+                        <div className="rounded-2xl bg-gradient-to-br from-[#B91C1C] to-[#7F1D1D] p-4 text-white shadow-xl shadow-red-200/60">
+                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-red-100">
+                                Học trọn bộ khóa học
+                            </p>
+                            <p className="mt-1 text-base font-extrabold leading-snug">
+                                Mở khóa {lockedLessonCount} bài học còn lại
+                            </p>
+                            {registrationPrice > 0 && (
+                                <div className="mt-2 flex items-end gap-2">
+                                    <span className="text-xl font-black text-amber-300">
+                                        {formatPrice(registrationPrice)}
+                                    </span>
+                                    {originalPrice > registrationPrice && (
+                                        <span className="pb-0.5 text-xs text-red-200 line-through">
+                                            {formatPrice(originalPrice)}
+                                        </span>
+                                    )}
+                                </div>
+                            )}
+                            <button
+                                type="button"
+                                onClick={() => onRegisterClick?.()}
+                                className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-black uppercase tracking-wide text-[#B91C1C] shadow-lg transition-all hover:-translate-y-0.5 hover:bg-amber-300 hover:text-red-950 active:translate-y-0"
+                            >
+                                Đăng ký khóa học ngay
+                                <ArrowRight className="h-4 w-4" />
+                            </button>
+                        </div>
+                    </>
+                )}
+
                 <div className="md:hidden">
                     <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 flex-1">
@@ -394,7 +449,9 @@ const PlayerSidebar = ({
                                                         section.sectionIndex === 0 &&
                                                         lessonIndex === 0);
                                                 const isCompleted = !!progress[lessonKey];
-                                                const isLocked = false;
+                                                const isLocked =
+                                                    isPreviewMode &&
+                                                    !previewableLessonKeySet.has(lessonKey);
                                                 const lessonResources =
                                                     lessonResourceMap[lessonKey] || [];
                                                 const visibleResources = lessonResources;
@@ -412,12 +469,18 @@ const PlayerSidebar = ({
                                                             className={`border-l-4 transition-all ${
                                                                 isCurrent
                                                                     ? 'border-[#B91C1C] bg-red-50'
-                                                                    : 'border-transparent bg-white hover:bg-slate-50'
+                                                                    : isLocked
+                                                                      ? 'border-transparent bg-slate-50/80 hover:border-amber-400 hover:bg-amber-50'
+                                                                      : 'border-transparent bg-white hover:bg-slate-50'
                                                             }`}
                                                         >
                                                             <button
                                                                 type="button"
-                                                                onClick={() => onLessonSelect?.(lesson)}
+                                                                onClick={() =>
+                                                                    isLocked
+                                                                        ? onLockedLessonSelect?.(lesson)
+                                                                        : onLessonSelect?.(lesson)
+                                                                }
                                                                 className="flex w-full items-start gap-3 px-3 pt-3 text-left"
                                                             >
                                                                 <div className="mt-0.5 shrink-0">
@@ -460,6 +523,17 @@ const PlayerSidebar = ({
                                                                 </div>
 
                                                                 <div className="mt-1 flex flex-wrap items-center gap-2">
+                                                                    {isPreviewMode && !isLocked && (
+                                                                        <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-extrabold uppercase tracking-wide text-emerald-700 ring-1 ring-emerald-200">
+                                                                            Học thử
+                                                                        </span>
+                                                                    )}
+                                                                    {isLocked && (
+                                                                        <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-extrabold text-amber-700 ring-1 ring-amber-200">
+                                                                            <Lock className="h-3 w-3" />
+                                                                            Đăng ký để học
+                                                                        </span>
+                                                                    )}
                                                                     <span className="flex items-center gap-1 text-xs text-slate-500">
                                                                         <Video className="h-3 w-3" />
                                                                         {lesson.duration || '00:00'}
