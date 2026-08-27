@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { useLocation } from "react-router";
 import toast from "react-hot-toast";
 import { isFunnelLandingPath } from "../utils/funnelLandingPaths";
+import { getCourseAccessPlanById, getPlanEffectivePrice } from "../utils/coursePricing";
 
 const CartContext = createContext();
 
@@ -132,7 +133,7 @@ export const CartProvider = ({ children }) => {
 
     const totalAmount = Array.isArray(cartItems) ? cartItems.reduce((total, item) => {
         if (!item) return total;
-        const price = Number(item.salePrice) || Number(item.price) || 0;
+        const price = getPlanEffectivePrice(getCourseAccessPlanById(item, item.accessPlanId));
         return total + price;
     }, 0) : 0;
 

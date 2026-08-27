@@ -107,7 +107,10 @@ const OrderHistory = () => {
                                                 {order.items ? (
                                                     <div className="flex flex-col gap-1">
                                                         {order.items.slice(0, 2).map((item, idx) => (
-                                                            <div key={idx} className="line-clamp-1 max-w-xs" title={item.name}>• {item.name}</div>
+                                                            <div key={idx} className="max-w-xs" title={item.name}>
+                                                                <div className="line-clamp-1">• {item.name}</div>
+                                                                {item.accessPlanName && <div className="ml-3 text-[11px] font-bold text-secret-wax">{item.accessPlanName}</div>}
+                                                            </div>
                                                         ))}
                                                         {order.items.length > 2 && <div className="text-xs text-slate-400 italic">...và {order.items.length - 2} khóa khác</div>}
                                                     </div>

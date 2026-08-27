@@ -101,7 +101,7 @@ const normalizePrivateContent = (courseId, course = {}) => {
 const getPreviewableLessonIds = (course, curriculum) => {
   const lessons = curriculum.flatMap((section) => section.lessons || []);
   const freeLessonCount =
-    course?.isForSale === false
+    course?.isForSale === false && course?.isLeadGenerationEnabled !== true
       ? clampPreviewCount(course?.freeLessonsCount, lessons.length)
       : 0;
 
@@ -110,7 +110,9 @@ const getPreviewableLessonIds = (course, curriculum) => {
       .filter(
         (lesson, lessonIndex) =>
           lesson?.isFreePreview ||
-          (course?.isForSale === false && lessonIndex < freeLessonCount),
+          (course?.isForSale === false &&
+            course?.isLeadGenerationEnabled !== true &&
+            lessonIndex < freeLessonCount),
       )
       .map((lesson) => lesson.id),
   );

@@ -3,6 +3,7 @@ import {
   COURSE_ACCESS_COLLECTION,
   getCourseAccessId,
 } from "./courseDataPrivacy";
+import { isAccessExpired } from "./coursePricing";
 
 export const DEFAULT_SECTION_TITLE = "Nội dung khóa học";
 export const DEFAULT_FREE_LESSONS_COUNT = 3;
@@ -39,7 +40,7 @@ export const getPreviewableLessonKeys = (course) => {
   const flatLessons = sections.flatMap((section) => section.lessons || []);
   const previewableKeys = new Set();
   const freeLessonCount =
-    course?.isForSale === false
+    course?.isForSale === false && course?.isLeadGenerationEnabled !== true
       ? clampPreviewCount(course?.freeLessonsCount, flatLessons.length)
       : 0;
 
@@ -51,7 +52,9 @@ export const getPreviewableLessonKeys = (course) => {
     }
 
     if (
-      (course?.isForSale === false && lessonIndex < freeLessonCount) ||
+      (course?.isForSale === false &&
+        course?.isLeadGenerationEnabled !== true &&
+        lessonIndex < freeLessonCount) ||
       lesson?.isFreePreview
     ) {
       previewableKeys.add(lessonKey);
@@ -170,6 +173,7 @@ export const resolveCourseAccess = async ({ db, course, user }) => {
   return {
     access,
     enrollment,
-    hasFullAccess: access?.status === "active",
+    isExpired: isAccessExpired(access),
+    hasFullAccess: access?.status === "active" && !isAccessExpired(access),
   };
 };

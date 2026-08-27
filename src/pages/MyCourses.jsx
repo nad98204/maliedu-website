@@ -26,6 +26,7 @@ import {
 import { db, auth } from "../firebase";
 import { ensureUserProfile } from "../utils/userService";
 import { loadFullCourse } from "../utils/courseContentService";
+import { formatAccessDuration, isAccessExpired, toDateValue } from "../utils/coursePricing";
 
 // Component hiển thị hình ảnh an toàn, có fallback thương hiệu sang trọng khi ảnh lỗi hoặc thiếu URL
 const CourseThumbnail = ({ src, alt, title }) => {
@@ -176,14 +177,16 @@ const MyCourses = () => {
                     .filter(snap => snap.exists())
                     .map(async (snap) => {
                         const publicCourse = { id: snap.id, ...snap.data() };
+                        const enrollment = enrollmentMap[publicCourse.id];
+                        const accessExpired = isAccessExpired(enrollment);
                         let cData = publicCourse;
-                        try {
-                            cData = await loadFullCourse(db, publicCourse);
-                        } catch {
-                            cData = publicCourse;
+                        if (!accessExpired) {
+                            try {
+                                cData = await loadFullCourse(db, publicCourse);
+                            } catch {
+                                cData = publicCourse;
+                            }
                         }
-
-                        const enrollment = enrollmentMap[cData.id];
 
                         let completedCount = 0;
                         if (enrollment && enrollment.completedLessonIds) {
@@ -206,6 +209,10 @@ const MyCourses = () => {
                             progressPercent,
                             totalLessons,
                             completedCount,
+                            isExpired: accessExpired,
+                            accessPlanName: enrollment?.accessPlanName || "Truy cập vĩnh viễn",
+                            accessDuration: formatAccessDuration(enrollment),
+                            expiresAt: toDateValue(enrollment?.expiresAt),
                             enrollmentDate: enrollment?.createdAt?.toDate
                                 ? enrollment.createdAt.toDate()
                                 : (enrollment?.createdAt ? new Date(enrollment.createdAt) : new Date())
@@ -505,7 +512,11 @@ const MyCourses = () => {
 
                                         {/* Status Badge (Top-Left) */}
                                         <div className="absolute top-3 left-3 z-10">
-                                            {isCompleted ? (
+                                            {course.isExpired ? (
+                                                <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-300/40 bg-rose-600/90 px-3 py-1 text-xs font-bold text-white shadow-sm backdrop-blur-md">
+                                                    <ShieldAlert className="w-3.5 h-3.5" /> HẾT HẠN
+                                                </span>
+                                            ) : isCompleted ? (
                                                 <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300/40 bg-emerald-500/90 px-3 py-1 text-xs font-bold text-white shadow-sm backdrop-blur-md">
                                                     <CheckCircle2 className="w-3.5 h-3.5" /> HOÀN THÀNH
                                                 </span>
@@ -530,7 +541,7 @@ const MyCourses = () => {
 
                                         {/* Center Hover Play Icon Overlay */}
                                         <Link
-                                            to={`/bai-giang/${course.id}`}
+                                            to={course.isExpired ? `/khoa-hoc/${course.slug || course.id}` : `/bai-giang/${course.id}`}
                                             className="absolute inset-0 z-10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black/35 backdrop-blur-[2px]"
                                             aria-label={`Vào học khóa ${course.name}`}
                                         >
@@ -549,13 +560,20 @@ const MyCourses = () => {
                                                 </span>
                                             )}
                                             <h3 className="text-lg font-bold text-slate-900 leading-snug line-clamp-2 group-hover:text-[#8B2E2E] transition-colors" title={course.name}>
-                                                <Link to={`/bai-giang/${course.id}`}>
+                                                <Link to={course.isExpired ? `/khoa-hoc/${course.slug || course.id}` : `/bai-giang/${course.id}`}>
                                                     {course.name}
                                                 </Link>
                                             </h3>
                                         </div>
 
                                         <div className="space-y-4">
+                                            <div className={`rounded-xl border px-3 py-2 text-xs font-bold ${course.isExpired ? 'border-rose-200 bg-rose-50 text-rose-700' : 'border-emerald-100 bg-emerald-50 text-emerald-700'}`}>
+                                                {course.isExpired
+                                                    ? `Gói ${course.accessPlanName} đã hết hạn${course.expiresAt ? ` ngày ${course.expiresAt.toLocaleDateString('vi-VN')}` : ''}`
+                                                    : course.expiresAt
+                                                        ? `${course.accessPlanName} · dùng đến ${course.expiresAt.toLocaleDateString('vi-VN')}`
+                                                        : `${course.accessPlanName} · ${course.accessDuration}`}
+                                            </div>
                                             {/* Progress Section */}
                                             <div className="space-y-2 bg-slate-50/80 rounded-2xl p-3 border border-slate-100">
                                                 <div className="flex items-center justify-between text-xs font-semibold">
@@ -590,7 +608,15 @@ const MyCourses = () => {
                                             {/* Action Buttons */}
                                             <div className="space-y-2 pt-1">
                                                 {/* Primary CTA */}
-                                                {isCompleted ? (
+                                                {course.isExpired ? (
+                                                    <Link
+                                                        to={`/khoa-hoc/${course.slug || course.id}`}
+                                                        className="flex w-full items-center justify-center gap-2 rounded-2xl bg-rose-600 px-4 py-3 text-sm font-bold text-white shadow-md transition hover:bg-rose-700"
+                                                    >
+                                                        <ShieldAlert className="h-4 w-4" />
+                                                        <span>GIA HẠN QUYỀN HỌC</span>
+                                                    </Link>
+                                                ) : isCompleted ? (
                                                     <Link
                                                         to={`/bai-giang/${course.id}`}
                                                         className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-sm shadow-sm transition-all active:scale-[0.98]"
@@ -617,7 +643,7 @@ const MyCourses = () => {
                                                 )}
 
                                                 {/* Secondary Quick Action Row (Tài liệu & Ghi chép) */}
-                                                <div className="grid grid-cols-2 gap-2">
+                                                {!course.isExpired && <div className="grid grid-cols-2 gap-2">
                                                     <Link
                                                         to={`/tai-lieu/${course.id}`}
                                                         className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-2xl border border-slate-200 bg-white hover:bg-red-50 hover:border-red-200 hover:text-red-700 text-slate-700 text-xs sm:text-sm font-bold transition-all shadow-sm active:scale-[0.98]"
@@ -632,7 +658,7 @@ const MyCourses = () => {
                                                         <PenTool className="w-4 h-4 text-amber-600" />
                                                         <span>Ghi Chép</span>
                                                     </Link>
-                                                </div>
+                                                </div>}
                                             </div>
                                         </div>
                                     </div>

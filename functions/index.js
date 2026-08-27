@@ -787,19 +787,63 @@ const getAuthorizedOrder = async ({ request, orderId }) => {
   return { order, reference, snapshot };
 };
 
-const getCoursePrice = (course) => {
-  const hasSalePrice = course.salePrice !== null
-    && course.salePrice !== undefined
-    && course.salePrice !== "";
-  const salePrice = hasSalePrice ? Number(course.salePrice) : Number.NaN;
-  const regularPrice = Number(course.price);
-  const resolved = Number.isFinite(salePrice) && salePrice >= 0
+const normalizeOrderAccessPlan = (plan, fallbackId = "legacy-lifetime") => {
+  const accessType = plan?.accessType === "duration" ? "duration" : "lifetime";
+  const price = Number(plan?.price);
+  const salePrice = plan?.salePrice === null || plan?.salePrice === undefined || plan?.salePrice === ""
+    ? null
+    : Number(plan.salePrice);
+  const effectivePrice = Number.isFinite(salePrice) && salePrice >= 0 && salePrice < price
     ? salePrice
-    : regularPrice;
-  if (!Number.isFinite(resolved) || resolved < 0 || resolved > 1_000_000_000) {
-    throw createHttpError(400, "Invalid course price");
+    : price;
+  if (!Number.isFinite(effectivePrice) || effectivePrice < 0 || effectivePrice > 1_000_000_000) {
+    throw createHttpError(400, "Invalid course plan price");
   }
-  return Math.round(resolved);
+
+  const durationValue = accessType === "duration" ? Math.round(Number(plan.durationValue)) : null;
+  const durationUnit = ["days", "months", "years"].includes(plan?.durationUnit)
+    ? plan.durationUnit
+    : "months";
+  if (accessType === "duration" && (!Number.isFinite(durationValue) || durationValue < 1 || durationValue > 1200)) {
+    throw createHttpError(400, "Invalid course access duration");
+  }
+
+  return {
+    id: String(plan?.id || fallbackId).slice(0, 80),
+    name: String(plan?.name || (accessType === "lifetime" ? "Truy cập vĩnh viễn" : "Gói thời hạn")).slice(0, 160),
+    accessType,
+    durationValue,
+    durationUnit: accessType === "duration" ? durationUnit : null,
+    originalPrice: Math.round(Number.isFinite(price) ? price : effectivePrice),
+    price: Math.round(effectivePrice),
+  };
+};
+
+const resolveOrderAccessPlan = (course, requestedPlanId) => {
+  const configuredPlans = course?.accessPlansEnabled === true && Array.isArray(course.accessPlans)
+    ? course.accessPlans.filter((plan) => plan && plan.isActive !== false)
+    : [];
+
+  if (configuredPlans.length === 0) {
+    return normalizeOrderAccessPlan({
+      id: "legacy-lifetime",
+      name: "Truy cập vĩnh viễn",
+      accessType: "lifetime",
+      price: course.price,
+      salePrice: course.salePrice,
+    });
+  }
+
+  const normalizedRequestedId = String(requestedPlanId || "").trim();
+  const selected = normalizedRequestedId
+    ? configuredPlans.find((plan) => String(plan.id) === normalizedRequestedId)
+    : configuredPlans.find((plan) => String(plan.id) === String(course.defaultAccessPlanId || ""))
+      || configuredPlans.find((plan) => plan.isRecommended === true)
+      || configuredPlans[0];
+  if (!selected) {
+    throw createHttpError(400, "Invalid course access plan");
+  }
+  return normalizeOrderAccessPlan(selected);
 };
 
 const onCreateOrder = async ({ request }) => {
@@ -840,12 +884,19 @@ const onCreateOrder = async ({ request }) => {
     return createJsonResponse({ error: "Course not found" }, 404);
   }
 
-  const items = courseSnapshots.map((snapshot) => {
+  const items = courseSnapshots.map((snapshot, index) => {
     const course = snapshot.data() || {};
+    const accessPlan = resolveOrderAccessPlan(course, requestedItems[index]?.accessPlanId);
     return {
       id: snapshot.id,
       name: String(course.name || "Khóa học").slice(0, 300),
-      price: getCoursePrice(course),
+      price: accessPlan.price,
+      originalPrice: accessPlan.originalPrice,
+      accessPlanId: accessPlan.id,
+      accessPlanName: accessPlan.name,
+      accessType: accessPlan.accessType,
+      durationValue: accessPlan.durationValue,
+      durationUnit: accessPlan.durationUnit,
       thumbnailUrl: String(course.thumbnailUrl || "").slice(0, 2048),
     };
   });

@@ -134,8 +134,13 @@ const AdminOrders = () => {
                                             <div className="text-xs text-slate-500">{order.customerEmail}</div>
                                             <div className="text-xs text-slate-500">{order.customerPhone}</div>
                                         </td>
-                                        <td className="px-6 py-4 text-sm text-slate-700 max-w-xs truncate" title={order.courseName}>
-                                            {order.courseName}
+                                        <td className="px-6 py-4 text-sm text-slate-700 max-w-xs">
+                                            <div className="font-bold text-slate-800">{order.courseName}</div>
+                                            {(order.items || []).map((item) => item.accessPlanName && (
+                                                <div key={`${item.id}-${item.accessPlanId}`} className="mt-1 text-[11px] font-bold text-secret-wax">
+                                                    {item.name}: {item.accessPlanName}
+                                                </div>
+                                            ))}
                                         </td>
                                         <td className="px-6 py-4 font-bold text-slate-900">
                                             {formatPrice(order.amount)}

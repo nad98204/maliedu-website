@@ -10,6 +10,7 @@ import {
     isLeadGenerationCourse,
     normalizeCourseLandingUrl,
 } from '../utils/courseMarketing';
+import { getCourseStartingPlan, getPlanEffectivePrice } from '../utils/coursePricing';
 
 const CourseCard = ({ course, featured = false }) => {
     // Helper to strip HTML tags and normalize text
@@ -51,6 +52,8 @@ const CourseCard = ({ course, featured = false }) => {
         ? `/bai-giang/${course.id}?preview=1&lesson=${encodeURIComponent(previewLessonKeys[0])}`
         : courseUrl;
     const isLeadCourse = isLeadGenerationCourse(course);
+    const startingPlan = getCourseStartingPlan(course);
+    const startingPrice = getPlanEffectivePrice(startingPlan);
     const actionUrl = isLeadCourse
         ? normalizeCourseLandingUrl(getCourseLeadLandingUrl(course))
         : previewUrl;
@@ -86,10 +89,10 @@ const CourseCard = ({ course, featured = false }) => {
                 )}
 
                 {/* Sale Badge - Top Right */}
-                {course.salePrice && course.price > course.salePrice && (
+                {startingPlan?.salePrice !== null && startingPlan?.price > startingPlan?.salePrice && (
                     <div className="absolute top-4 right-4 z-10">
                         <span className="bg-[#F85149] text-white text-[11px] font-black px-4 py-1.5 rounded-full shadow-lg tracking-wide uppercase">
-                            GIẢM {Math.round(((course.price - course.salePrice) / course.price) * 100)}%
+                            GIẢM {Math.round(((startingPlan.price - startingPlan.salePrice) / startingPlan.price) * 100)}%
                         </span>
                     </div>
                 )}
@@ -97,7 +100,7 @@ const CourseCard = ({ course, featured = false }) => {
                 {isLeadCourse ? (
                     <div className="absolute bottom-4 left-4 z-10 inline-flex items-center gap-2 rounded-full bg-amber-500 px-3.5 py-2 text-xs font-black text-amber-950 shadow-lg shadow-amber-950/20">
                         <MessageCircleMore className="h-4 w-4" />
-                        Đang tuyển sinh
+                        Khóa học chuyên sâu
                     </div>
                 ) : previewLessonCount > 0 && (
                     <div className="absolute bottom-4 left-4 z-10 inline-flex items-center gap-2 rounded-full bg-emerald-600 px-3.5 py-2 text-xs font-black text-white shadow-lg shadow-emerald-950/20">
@@ -111,7 +114,7 @@ const CourseCard = ({ course, featured = false }) => {
             <div className={`flex flex-col flex-1 ${featured ? 'p-6 sm:p-8 lg:p-10' : 'p-5 sm:p-6'}`}>
                 {featured && (
                     <p className="mb-3 text-xs font-black uppercase tracking-[0.18em] text-[#8B2E2E]">
-                        Khóa học dành cho bạn
+                        {isLeadCourse ? 'Chương trình đào tạo chuyên sâu' : 'Khóa học dành cho bạn'}
                     </p>
                 )}
 
@@ -147,47 +150,59 @@ const CourseCard = ({ course, featured = false }) => {
                         {isLeadCourse ? (
                             <>
                                 <span className="text-[10px] font-black uppercase tracking-wider text-amber-600">
-                                    Đào tạo chuyên sâu
+                                    Khóa học chuyên sâu
                                 </span>
                                 <span className="text-lg font-black text-[#8B2E2E]">
-                                    Nhận tư vấn
+                                    Tư vấn lộ trình
                                 </span>
                             </>
                         ) : course.isForSale === false ? (
                             <span className="text-xl font-black text-emerald-600">
                                 Miễn phí
                             </span>
-                        ) : course.salePrice ? (
+                        ) : startingPlan?.salePrice !== null ? (
                             <>
                                 <span className="text-[11px] text-slate-400 line-through font-bold mb-0.5 uppercase tracking-tighter">
-                                    {formatPrice(course.price)}
+                                    {course.accessPlansEnabled ? 'Giá từ ' : ''}{formatPrice(startingPlan.price)}
                                 </span>
                                 <span className="text-[18px] md:text-[21px] font-black text-[#8B2E2E] leading-none whitespace-nowrap">
-                                    {formatPrice(course.salePrice)}
+                                    {course.accessPlansEnabled ? 'Từ ' : ''}{formatPrice(startingPrice)}
                                 </span>
                             </>
                         ) : (
                             <span className="text-[18px] md:text-[21px] font-black text-[#8B2E2E] leading-none whitespace-nowrap">
-                                {formatPrice(course.price || 0)}
+                                {course.accessPlansEnabled ? 'Từ ' : ''}{formatPrice(startingPrice)}
                             </span>
                         )}
                     </div>
 
-                    <ActionLink
-                        {...actionLinkProps}
-                        className={`inline-flex items-center justify-center gap-2 rounded-xl bg-[#9B2528] text-white font-black shadow-lg shadow-red-950/10 hover:bg-[#7E1E21] hover:shadow-xl transition-all active:scale-[0.98] whitespace-nowrap ${featured ? 'px-5 py-3.5 text-sm' : 'px-4 md:px-5 py-2.5 text-[12px] md:text-[13px]'}`}
-                    >
-                        {isLeadCourse
-                            ? 'Đăng ký tư vấn'
-                            : previewLessonCount > 0
-                                ? 'Học thử miễn phí'
-                                : 'Xem khóa học'}
-                        {isLeadCourse
-                            ? <MessageCircleMore className="h-4 w-4" />
-                            : previewLessonCount > 0
-                                ? <PlayCircle className="h-4 w-4" />
-                                : <ArrowRight className="h-4 w-4" />}
-                    </ActionLink>
+                    <div className="flex shrink-0 flex-col items-stretch gap-2">
+                        <ActionLink
+                            {...actionLinkProps}
+                            className={`inline-flex items-center justify-center gap-2 rounded-xl bg-[#9B2528] text-white font-black shadow-lg shadow-red-950/10 hover:bg-[#7E1E21] hover:shadow-xl transition-all active:scale-[0.98] whitespace-nowrap ${featured ? 'px-5 py-3.5 text-sm' : 'px-4 md:px-5 py-2.5 text-[12px] md:text-[13px]'}`}
+                        >
+                            {isLeadCourse
+                                ? 'Đăng ký khóa học'
+                                : previewLessonCount > 0
+                                    ? 'Học thử miễn phí'
+                                    : 'Xem khóa học'}
+                            {isLeadCourse
+                                ? <MessageCircleMore className="h-4 w-4" />
+                                : previewLessonCount > 0
+                                    ? <PlayCircle className="h-4 w-4" />
+                                    : <ArrowRight className="h-4 w-4" />}
+                        </ActionLink>
+
+                        {isLeadCourse && previewLessonCount > 0 && (
+                            <Link
+                                to={previewUrl}
+                                className="inline-flex items-center justify-center gap-1.5 text-xs font-black text-emerald-700 transition hover:text-emerald-800"
+                            >
+                                <PlayCircle className="h-3.5 w-3.5" />
+                                Học thử {previewLessonCount} buổi miễn phí
+                            </Link>
+                        )}
+                    </div>
                 </div>
             </div>
         </article>

@@ -40,6 +40,8 @@ import {
   Copy,
   Pin,
   ListOrdered,
+  Clock3,
+  Crown,
 } from "lucide-react";
 
 import { crmFirestore, db } from "../../firebase";
@@ -59,6 +61,14 @@ import {
   isPublicCatalogCourse,
   normalizeCourseLandingUrl,
 } from "../../utils/courseMarketing";
+import {
+  ACCESS_DURATION_UNITS,
+  ACCESS_PLAN_TYPES,
+  formatAccessDuration,
+  getCourseStartingPlan,
+  getDefaultCourseAccessPlan,
+  normalizeCourseAccessPlans,
+} from "../../utils/coursePricing";
 
 // --- CẤU HÌNH THÔNG TIN GIẢNG VIÊN MẶC ĐỊNH ---
 // Anh/chị có thể sửa nội dung mặc định tại đây:
@@ -119,6 +129,26 @@ const comparePublicCourseOrder = (courseA, courseB) => {
 
 const createLocalId = (prefix) =>
   `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+const createAccessPlanDraft = ({
+  accessType = ACCESS_PLAN_TYPES.DURATION,
+  durationValue = 3,
+  durationUnit = ACCESS_DURATION_UNITS.MONTHS,
+  name = "",
+  price = "",
+  salePrice = "",
+  isRecommended = false,
+} = {}) => ({
+  id: createLocalId("plan"),
+  name: name || formatAccessDuration({ accessType, durationValue, durationUnit }),
+  accessType,
+  durationValue: accessType === ACCESS_PLAN_TYPES.LIFETIME ? "" : durationValue,
+  durationUnit: accessType === ACCESS_PLAN_TYPES.LIFETIME ? "" : durationUnit,
+  price,
+  salePrice,
+  isActive: true,
+  isRecommended,
+});
 
 const getSectionIdentifier = (section, fallbackId = "") =>
   section?.id || fallbackId;
@@ -352,6 +382,9 @@ const AdminCourses = () => {
     category: "",
     price: "",
     salePrice: "",
+    accessPlansEnabled: false,
+    accessPlans: [],
+    defaultAccessPlanId: "",
     thumbnailUrl: "",
     instructorImageUrl: "",
     description: "",
@@ -1036,6 +1069,101 @@ const AdminCourses = () => {
     }));
   };
 
+  const handleAccessPlansToggle = (enabled) => {
+    setFormData((current) => {
+      if (!enabled) {
+        return { ...current, accessPlansEnabled: false };
+      }
+
+      if ((current.accessPlans || []).length > 0) {
+        return { ...current, accessPlansEnabled: true };
+      }
+
+      const durationPlan = createAccessPlanDraft({
+        durationValue: 3,
+        price: current.price,
+        salePrice: current.salePrice,
+        isRecommended: true,
+      });
+      const lifetimePlan = createAccessPlanDraft({
+        accessType: ACCESS_PLAN_TYPES.LIFETIME,
+        name: "Truy cập vĩnh viễn",
+        price: current.price,
+        salePrice: current.salePrice,
+      });
+
+      return {
+        ...current,
+        accessPlansEnabled: true,
+        accessPlans: [durationPlan, lifetimePlan],
+        defaultAccessPlanId: durationPlan.id,
+      };
+    });
+  };
+
+  const addAccessPlan = (template = {}) => {
+    setFormData((current) => ({
+      ...current,
+      accessPlans: [
+        ...(current.accessPlans || []),
+        createAccessPlanDraft(template),
+      ],
+    }));
+  };
+
+  const updateAccessPlan = (planId, field, value) => {
+    setFormData((current) => ({
+      ...current,
+      accessPlans: (current.accessPlans || []).map((plan) => {
+        if (plan.id !== planId) return plan;
+
+        if (field === "accessType") {
+          return value === ACCESS_PLAN_TYPES.LIFETIME
+            ? {
+                ...plan,
+                accessType: value,
+                durationValue: "",
+                durationUnit: "",
+                name: plan.name || "Truy cập vĩnh viễn",
+              }
+            : {
+                ...plan,
+                accessType: value,
+                durationValue: plan.durationValue || 3,
+                durationUnit: plan.durationUnit || ACCESS_DURATION_UNITS.MONTHS,
+              };
+        }
+
+        return { ...plan, [field]: value };
+      }),
+    }));
+  };
+
+  const removeAccessPlan = (planId) => {
+    setFormData((current) => {
+      const nextPlans = (current.accessPlans || []).filter((plan) => plan.id !== planId);
+      const nextDefaultId = current.defaultAccessPlanId === planId
+        ? nextPlans[0]?.id || ""
+        : current.defaultAccessPlanId;
+      return {
+        ...current,
+        accessPlans: nextPlans,
+        defaultAccessPlanId: nextDefaultId,
+      };
+    });
+  };
+
+  const setRecommendedAccessPlan = (planId) => {
+    setFormData((current) => ({
+      ...current,
+      defaultAccessPlanId: planId,
+      accessPlans: (current.accessPlans || []).map((plan) => ({
+        ...plan,
+        isRecommended: plan.id === planId,
+      })),
+    }));
+  };
+
   const handleCategoryChange = (slug) => {
     setFormData((prev) => {
       const currentCategories = prev.categories || [];
@@ -1117,6 +1245,9 @@ const AdminCourses = () => {
       category: "", // Legacy support
       price: "",
       salePrice: "",
+      accessPlansEnabled: false,
+      accessPlans: [],
+      defaultAccessPlanId: "",
       thumbnailUrl: "",
       instructorImageUrl: "",
       description: "",
@@ -1155,6 +1286,15 @@ const AdminCourses = () => {
       category: course.category || "",
       price: course.price || "",
       salePrice: course.salePrice || "",
+      accessPlansEnabled: Boolean(course.accessPlansEnabled),
+      accessPlans: normalizeCourseAccessPlans(course.accessPlans).map((plan) => ({
+        ...plan,
+        durationValue: plan.durationValue ?? "",
+        durationUnit: plan.durationUnit || "",
+        price: plan.price ?? "",
+        salePrice: plan.salePrice ?? "",
+      })),
+      defaultAccessPlanId: course.defaultAccessPlanId || "",
       thumbnailUrl: course.thumbnailUrl || "",
       instructorImageUrl: course.instructorImageUrl || "",
       description: course.description || "",
@@ -1219,6 +1359,16 @@ const AdminCourses = () => {
       category: course.category || "",
       price: course.price || "",
       salePrice: course.salePrice || "",
+      accessPlansEnabled: Boolean(course.accessPlansEnabled),
+      accessPlans: normalizeCourseAccessPlans(course.accessPlans).map((plan) => ({
+        ...plan,
+        id: createLocalId("plan"),
+        durationValue: plan.durationValue ?? "",
+        durationUnit: plan.durationUnit || "",
+        price: plan.price ?? "",
+        salePrice: plan.salePrice ?? "",
+      })),
+      defaultAccessPlanId: "",
       thumbnailUrl: course.thumbnailUrl || "",
       instructorImageUrl: course.instructorImageUrl || "",
       authorId: course.authorId || "",
@@ -1313,6 +1463,20 @@ const AdminCourses = () => {
         .filter((resource) => resource.url),
     );
 
+    const normalizedAccessPlans = data.isForSale && data.accessPlansEnabled
+      ? normalizeCourseAccessPlans(data.accessPlans)
+      : [];
+    const accessPlansEnabled = normalizedAccessPlans.length > 0;
+    const pricingCourse = {
+      ...data,
+      accessPlansEnabled,
+      accessPlans: normalizedAccessPlans,
+      defaultAccessPlanId: data.defaultAccessPlanId,
+    };
+    const defaultAccessPlan = accessPlansEnabled
+      ? getDefaultCourseAccessPlan(pricingCourse)
+      : null;
+
     return {
       ...data,
       slug: data.slug || generateSlug(data.name),
@@ -1325,6 +1489,9 @@ const AdminCourses = () => {
           : data.whatYouWillLearn.split("\n").filter((line) => line.trim() !== "")
         : [],
       courseResources: normalizedCourseResources,
+      accessPlansEnabled,
+      accessPlans: normalizedAccessPlans,
+      defaultAccessPlanId: accessPlansEnabled ? defaultAccessPlan?.id || "" : "",
       isPinned: Boolean(data.isPinned),
       listingPriority: Number(data.listingPriority || 0),
       isLeadGenerationEnabled:
@@ -1333,9 +1500,14 @@ const AdminCourses = () => {
         data.isForSale === false && data.isLeadGenerationEnabled
           ? normalizeCourseLandingUrl(data.leadLandingUrl)
           : "",
-      price: data.isForSale ? Number(data.price) : 0,
-      salePrice:
-        data.isForSale && data.salePrice ? Number(data.salePrice) : null,
+      price: data.isForSale
+        ? Number(defaultAccessPlan?.price ?? data.price)
+        : 0,
+      salePrice: data.isForSale
+        ? accessPlansEnabled
+          ? defaultAccessPlan?.salePrice ?? null
+          : data.salePrice ? Number(data.salePrice) : null
+        : null,
     };
   };
 
@@ -1350,6 +1522,27 @@ const AdminCourses = () => {
       showToast("Vui lòng chọn Landing Page nhận đăng ký tư vấn", "error");
       setActiveTab("info");
       return;
+    }
+
+    if (formData.isForSale && formData.accessPlansEnabled) {
+      const activePlans = (formData.accessPlans || []).filter((plan) => plan.isActive !== false);
+      const invalidPlan = activePlans.find((plan) => {
+        const price = Number(plan.price);
+        const salePrice = plan.salePrice === "" || plan.salePrice === null
+          ? null
+          : Number(plan.salePrice);
+        return !plan.name?.trim()
+          || !Number.isFinite(price)
+          || price < 0
+          || (salePrice !== null && (!Number.isFinite(salePrice) || salePrice < 0 || salePrice >= price))
+          || (plan.accessType !== ACCESS_PLAN_TYPES.LIFETIME && Number(plan.durationValue) <= 0);
+      });
+
+      if (activePlans.length === 0 || invalidPlan) {
+        showToast("Mỗi gói đang bán cần có tên, thời hạn và giá hợp lệ", "error");
+        setActiveTab("info");
+        return;
+      }
     }
 
     setIsSubmitting(true);
@@ -1474,6 +1667,15 @@ const AdminCourses = () => {
       style: "currency",
       currency: "VND",
     }).format(price);
+  };
+
+  const getCourseAdminPrice = (course) => {
+    const plan = getCourseStartingPlan(course);
+    return {
+      price: Number(plan?.price ?? course.price ?? 0),
+      salePrice: plan?.salePrice ?? course.salePrice ?? null,
+      label: course.accessPlansEnabled ? `Từ ${formatAccessDuration(plan)}` : "",
+    };
   };
 
   const sectionOptions = useMemo(
@@ -1693,22 +1895,30 @@ const AdminCourses = () => {
                         </td>
                         <td className="px-6 py-4">
                           {course.isForSale !== false ? (
-                            <div className="flex flex-col">
-                              <span className="text-base font-bold text-slate-900">
-                                {course.salePrice
-                                  ? formatPrice(course.salePrice)
-                                  : formatPrice(course.price || 0)}
-                              </span>
-                              {course.salePrice && (
-                                <span className="text-xs text-slate-400 line-through">
-                                  {formatPrice(course.price || 0)}
-                                </span>
-                              )}
-                            </div>
+                            (() => {
+                              const pricing = getCourseAdminPrice(course);
+                              return (
+                                <div className="flex flex-col">
+                                  {pricing.label && (
+                                    <span className="text-[10px] font-black uppercase tracking-wider text-secret-wax">
+                                      {pricing.label}
+                                    </span>
+                                  )}
+                                  <span className="text-base font-bold text-slate-900">
+                                    {formatPrice(pricing.salePrice ?? pricing.price)}
+                                  </span>
+                                  {pricing.salePrice !== null && (
+                                    <span className="text-xs text-slate-400 line-through">
+                                      {formatPrice(pricing.price)}
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })()
                           ) : course.isLeadGenerationEnabled ? (
                             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 text-amber-700 text-[11px] font-bold uppercase tracking-wider border border-amber-200">
                               <MessageSquare className="h-3.5 w-3.5" />
-                              Thu Lead tư vấn
+                              Khóa học chuyên sâu
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-sky-50 text-sky-600 text-[11px] font-bold uppercase tracking-wider border border-sky-100">
@@ -1730,7 +1940,7 @@ const AdminCourses = () => {
                                 ? course.isForSale !== false
                                   ? "Đang bán"
                                   : course.isLeadGenerationEnabled
-                                    ? "Đang quảng bá"
+                                    ? "Đang tuyển sinh"
                                     : "Đang hoạt động"
                                 : "Tạm ẩn"}
                             </span>
@@ -2109,36 +2319,223 @@ const AdminCourses = () => {
                       </div>
                     </div>
 
-                    {/* Giá - chỉ hiển thị khi isForSale = true */}
+                    {/* Giá và thời hạn truy cập - chỉ hiển thị với khóa bán online */}
                     {formData.isForSale && (
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <label className="text-sm font-bold text-slate-700 flex items-center gap-1.5 text-red-600">
-                            Giá gốc (VND) <span className="text-red-500">*</span>
-                          </label>
+                      <div className="space-y-4 rounded-3xl border border-slate-200 bg-slate-50/70 p-5">
+                        <label className="flex cursor-pointer items-start gap-3">
                           <input
-                            type="number"
-                            name="price"
-                            value={formData.price}
-                            onChange={handleInputChange}
-                            className="w-full rounded-xl border border-slate-200 px-4 py-2.5 focus:ring-4 focus:ring-secret-wax/5 focus:border-secret-wax outline-none transition-all font-bold text-lg"
-                            required
-                            placeholder="VD: 5000000"
+                            type="checkbox"
+                            checked={Boolean(formData.accessPlansEnabled)}
+                            onChange={(event) => handleAccessPlansToggle(event.target.checked)}
+                            className="mt-1 h-5 w-5 rounded border-slate-300 text-secret-wax focus:ring-secret-wax"
                           />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-sm font-bold text-slate-700 flex items-center gap-1.5 text-emerald-600">
-                            Giá khuyến mãi (VND)
-                          </label>
-                          <input
-                            type="number"
-                            name="salePrice"
-                            value={formData.salePrice}
-                            onChange={handleInputChange}
-                            className="w-full rounded-xl border border-slate-200 px-4 py-2.5 focus:ring-4 focus:ring-secret-wax/5 focus:border-secret-wax outline-none transition-all font-bold text-lg text-emerald-600"
-                            placeholder="VD: 2999000"
-                          />
-                        </div>
+                          <span>
+                            <span className="flex items-center gap-2 text-sm font-black text-slate-900">
+                              <Clock3 className="h-4 w-4 text-secret-wax" />
+                              Bán theo nhiều gói thời hạn
+                            </span>
+                            <span className="mt-1 block text-xs leading-5 text-slate-500">
+                              Tạo các mức giá 3, 6, 9 tháng, 1 năm hoặc vĩnh viễn. Hệ thống sẽ tự khóa quyền học khi gói có thời hạn hết hiệu lực.
+                            </span>
+                          </span>
+                        </label>
+
+                        {!formData.accessPlansEnabled ? (
+                          <div className="grid grid-cols-1 gap-4 border-t border-slate-200 pt-4 sm:grid-cols-2">
+                            <div className="space-y-2">
+                              <label className="text-sm font-bold text-red-600">
+                                Giá gốc (VND) <span className="text-red-500">*</span>
+                              </label>
+                              <input
+                                type="number"
+                                name="price"
+                                min="0"
+                                value={formData.price}
+                                onChange={handleInputChange}
+                                className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-lg font-bold outline-none transition-all focus:border-secret-wax focus:ring-4 focus:ring-secret-wax/5"
+                                required
+                                placeholder="VD: 5000000"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-sm font-bold text-emerald-600">
+                                Giá khuyến mãi (VND)
+                              </label>
+                              <input
+                                type="number"
+                                name="salePrice"
+                                min="0"
+                                value={formData.salePrice}
+                                onChange={handleInputChange}
+                                className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-lg font-bold text-emerald-600 outline-none transition-all focus:border-secret-wax focus:ring-4 focus:ring-secret-wax/5"
+                                placeholder="VD: 2999000"
+                              />
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-4 border-t border-slate-200 pt-4">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="mr-1 text-[11px] font-black uppercase tracking-wider text-slate-400">
+                                Thêm nhanh
+                              </span>
+                              {[3, 6, 9].map((months) => (
+                                <button
+                                  key={months}
+                                  type="button"
+                                  onClick={() => addAccessPlan({ durationValue: months })}
+                                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-600 transition hover:border-secret-wax hover:text-secret-wax"
+                                >
+                                  + {months} tháng
+                                </button>
+                              ))}
+                              <button
+                                type="button"
+                                onClick={() => addAccessPlan({ durationValue: 1, durationUnit: ACCESS_DURATION_UNITS.YEARS })}
+                                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-600 transition hover:border-secret-wax hover:text-secret-wax"
+                              >
+                                + 1 năm
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => addAccessPlan({ accessType: ACCESS_PLAN_TYPES.LIFETIME, name: "Truy cập vĩnh viễn" })}
+                                className="inline-flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-black text-amber-800 transition hover:bg-amber-100"
+                              >
+                                <Crown className="h-3.5 w-3.5" /> + Vĩnh viễn
+                              </button>
+                            </div>
+
+                            <div className="space-y-3">
+                              {(formData.accessPlans || []).map((plan, planIndex) => (
+                                <div
+                                  key={plan.id}
+                                  className={`rounded-2xl border bg-white p-4 transition ${plan.isRecommended ? "border-amber-300 ring-2 ring-amber-100" : "border-slate-200"}`}
+                                >
+                                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                                    <div className="flex items-center gap-2">
+                                      <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 text-xs font-black text-slate-500">
+                                        {planIndex + 1}
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={() => setRecommendedAccessPlan(plan.id)}
+                                        className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider transition ${plan.isRecommended ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-400 hover:text-amber-700"}`}
+                                      >
+                                        {plan.isRecommended ? "Gói đề xuất" : "Chọn làm gói đề xuất"}
+                                      </button>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                      <label className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
+                                        <input
+                                          type="checkbox"
+                                          checked={plan.isActive !== false}
+                                          onChange={(event) => updateAccessPlan(plan.id, "isActive", event.target.checked)}
+                                          className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                                        />
+                                        Đang bán
+                                      </label>
+                                      <button
+                                        type="button"
+                                        onClick={() => removeAccessPlan(plan.id)}
+                                        className="rounded-lg p-1.5 text-slate-300 transition hover:bg-rose-50 hover:text-rose-600"
+                                        title="Xóa gói"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  <div className="grid gap-3 md:grid-cols-2">
+                                    <div className="space-y-1.5 md:col-span-2">
+                                      <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Tên gói</label>
+                                      <input
+                                        type="text"
+                                        value={plan.name || ""}
+                                        onChange={(event) => updateAccessPlan(plan.id, "name", event.target.value)}
+                                        className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-bold outline-none focus:border-secret-wax"
+                                        placeholder="VD: Gói 6 tháng"
+                                      />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                      <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Loại quyền học</label>
+                                      <select
+                                        value={plan.accessType}
+                                        onChange={(event) => updateAccessPlan(plan.id, "accessType", event.target.value)}
+                                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold outline-none focus:border-secret-wax"
+                                      >
+                                        <option value={ACCESS_PLAN_TYPES.DURATION}>Có thời hạn</option>
+                                        <option value={ACCESS_PLAN_TYPES.LIFETIME}>Vĩnh viễn</option>
+                                      </select>
+                                    </div>
+                                    {plan.accessType === ACCESS_PLAN_TYPES.DURATION ? (
+                                      <div className="grid grid-cols-[1fr_1.25fr] gap-2">
+                                        <div className="space-y-1.5">
+                                          <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Thời lượng</label>
+                                          <input
+                                            type="number"
+                                            min="1"
+                                            value={plan.durationValue ?? ""}
+                                            onChange={(event) => updateAccessPlan(plan.id, "durationValue", event.target.value)}
+                                            className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-bold outline-none focus:border-secret-wax"
+                                          />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                          <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Đơn vị</label>
+                                          <select
+                                            value={plan.durationUnit || ACCESS_DURATION_UNITS.MONTHS}
+                                            onChange={(event) => updateAccessPlan(plan.id, "durationUnit", event.target.value)}
+                                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold outline-none focus:border-secret-wax"
+                                          >
+                                            <option value={ACCESS_DURATION_UNITS.DAYS}>Ngày</option>
+                                            <option value={ACCESS_DURATION_UNITS.MONTHS}>Tháng</option>
+                                            <option value={ACCESS_DURATION_UNITS.YEARS}>Năm</option>
+                                          </select>
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <div className="flex items-end">
+                                        <div className="flex w-full items-center gap-2 rounded-xl bg-amber-50 px-3 py-2.5 text-sm font-black text-amber-800">
+                                          <Crown className="h-4 w-4" /> Không giới hạn thời gian
+                                        </div>
+                                      </div>
+                                    )}
+                                    <div className="space-y-1.5">
+                                      <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Giá gốc (VND)</label>
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        value={plan.price ?? ""}
+                                        onChange={(event) => updateAccessPlan(plan.id, "price", event.target.value)}
+                                        className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-black text-slate-900 outline-none focus:border-secret-wax"
+                                        placeholder="0"
+                                      />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                      <label className="text-[10px] font-black uppercase tracking-wider text-emerald-600">Giá khuyến mãi (VND)</label>
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        value={plan.salePrice ?? ""}
+                                        onChange={(event) => updateAccessPlan(plan.id, "salePrice", event.target.value)}
+                                        className="w-full rounded-xl border border-emerald-100 bg-emerald-50/40 px-3 py-2.5 text-sm font-black text-emerald-700 outline-none focus:border-emerald-500"
+                                        placeholder="Để trống nếu không giảm"
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+
+                            {(formData.accessPlans || []).length === 0 && (
+                              <button
+                                type="button"
+                                onClick={() => addAccessPlan({ durationValue: 3, isRecommended: true })}
+                                className="w-full rounded-2xl border-2 border-dashed border-slate-200 py-5 text-sm font-black text-slate-500 transition hover:border-secret-wax hover:text-secret-wax"
+                              >
+                                + Tạo gói giá đầu tiên
+                              </button>
+                            )}
+                          </div>
+                        )}
                       </div>
                     )}
 
@@ -2154,10 +2551,10 @@ const AdminCourses = () => {
                           />
                           <span>
                             <span className="block text-sm font-black text-amber-950">
-                              Quảng bá tuyển sinh trên website
+                              Hiển thị dưới dạng khóa học chuyên sâu
                             </span>
                             <span className="mt-1 block text-xs leading-5 text-amber-800/80">
-                              Khóa học được xuất hiện trên trang khóa học và các vị trí gợi ý. Nút đăng ký sẽ dẫn sang Landing Page để khách để lại thông tin, không qua thanh toán.
+                              Thẻ khóa học sẽ có nhãn KHÓA HỌC CHUYÊN SÂU và nút ĐĂNG KÝ KHÓA HỌC. Khách được dẫn sang Landing Page để lại thông tin, không qua thanh toán.
                             </span>
                           </span>
                         </label>
@@ -2200,6 +2597,20 @@ const AdminCourses = () => {
                               />
                               <p className="text-[11px] leading-5 text-amber-800/70">
                                 Có thể dùng đường dẫn trong website hoặc URL đầy đủ tới Landing bên ngoài.
+                              </p>
+                            </div>
+
+                            <div className={`rounded-xl border px-4 py-3 ${freePreviewLessonCount > 0 ? "border-emerald-200 bg-emerald-50" : "border-slate-200 bg-white"}`}>
+                              <div className="flex items-center justify-between gap-3">
+                                <span className={`text-sm font-black ${freePreviewLessonCount > 0 ? "text-emerald-800" : "text-slate-700"}`}>
+                                  Buổi học thử miễn phí
+                                </span>
+                                <span className={`rounded-full px-2.5 py-1 text-xs font-black ${freePreviewLessonCount > 0 ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-500"}`}>
+                                  {freePreviewLessonCount} buổi
+                                </span>
+                              </div>
+                              <p className="mt-1.5 text-[11px] leading-5 text-slate-500">
+                                Chọn từng buổi miễn phí tại tab <strong>Lộ trình bài học</strong>. Nếu là 0, website chỉ hiện nút đăng ký khóa học.
                               </p>
                             </div>
                           </div>
@@ -2299,12 +2710,14 @@ const AdminCourses = () => {
                           {formData.isForSale
                             ? "Đang bán"
                             : formData.isLeadGenerationEnabled
-                              ? "Hiển thị quảng bá"
+                              ? "Hiển thị tuyển sinh"
                               : "Đang hoạt động"}
                         </div>
                         <div className="text-slate-500">
                           {formData.isForSale || formData.isLeadGenerationEnabled
-                            ? "Tích vào để hiển thị khóa học lên website"
+                            ? formData.isLeadGenerationEnabled
+                              ? "Tích vào để hiển thị khóa học chuyên sâu lên website"
+                              : "Tích vào để hiển thị khóa học lên website"
                             : "Tích vào để khóa học có thể được Admin cấp quyền"}
                         </div>
                       </div>

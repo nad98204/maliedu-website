@@ -601,6 +601,12 @@ const OrderSuccess = () => {
                                                     <span className="text-slate-500">Khóa học</span>
                                                     <span className="font-medium text-slate-900 text-right max-w-[55%] leading-tight">{order.courseName}</span>
                                                 </div>
+                                                {order.items?.[0]?.accessPlanName && (
+                                                    <div className="flex justify-between">
+                                                        <span className="text-slate-500">Gói quyền học</span>
+                                                        <span className="font-bold text-secret-wax text-right max-w-[55%]">{order.items[0].accessPlanName}</span>
+                                                    </div>
+                                                )}
                                                 <div className="flex justify-between">
                                                     <span className="text-slate-500">Khách hàng</span>
                                                     <span className="font-medium text-slate-900">{order.customerName}</span>

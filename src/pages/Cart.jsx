@@ -4,6 +4,7 @@ import { Trash2, ArrowRight, ShoppingCart, Clock, ExternalLink, AlertCircle, Che
 import { toast } from "react-hot-toast";
 import { useCart } from "../context/CartContext";
 import { formatPrice, cancelOrder } from "../utils/orderService";
+import { formatAccessDuration, getCourseAccessPlanById, getPlanEffectivePrice } from "../utils/coursePricing";
 
 const Cart = () => {
     const { cartItems, removeFromCart, totalAmount, pendingOrders } = useCart();
@@ -144,9 +145,11 @@ const Cart = () => {
                         ) : (
                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                                 <div className="lg:col-span-2 space-y-4">
-                                    {cartItems.map((item) => (
+                                    {cartItems.map((item) => {
+                                        const itemPlan = getCourseAccessPlanById(item, item.accessPlanId);
+                                        return (
                                         <div
-                                            key={item.id}
+                                            key={`${item.id}-${itemPlan.id}`}
                                             className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex gap-4 items-center group hover:border-secret-wax/30 transition-all"
                                         >
                                             <Link to={`/khoa-hoc/${item.slug}`} className="shrink-0 overflow-hidden rounded-lg">
@@ -162,14 +165,15 @@ const Cart = () => {
                                                         {item.name}
                                                     </h3>
                                                 </Link>
+                                                <p className="mt-1 text-xs font-bold text-slate-500">{itemPlan.name} · {formatAccessDuration(itemPlan)}</p>
                                             </div>
                                             <div className="text-right shrink-0 flex flex-col items-end gap-2">
                                                 <div className="font-bold text-red-600 text-lg">
-                                                    {formatPrice(item.salePrice || item.price)}
+                                                    {formatPrice(getPlanEffectivePrice(itemPlan))}
                                                 </div>
-                                                {item.salePrice && (
+                                                {itemPlan.salePrice !== null && (
                                                     <div className="text-sm text-slate-400 line-through">
-                                                        {formatPrice(item.price)}
+                                                        {formatPrice(itemPlan.price)}
                                                     </div>
                                                 )}
                                                 <button
@@ -181,7 +185,8 @@ const Cart = () => {
                                                 </button>
                                             </div>
                                         </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
 
                                 <div className="lg:col-span-1">

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useParams, useNavigate } from "react-router";
+import { useParams, useNavigate, useSearchParams } from "react-router";
 import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { Loader2, ArrowLeft, ShieldCheck, CreditCard } from "lucide-react";
@@ -9,16 +9,25 @@ import { createOrder, formatPrice } from "../utils/orderService";
 import { useCart } from "../context/CartContext";
 import { trackMetaEvent } from "../utils/metaPixel";
 import { isLeadGenerationCourse, openCourseLeadLanding } from "../utils/courseMarketing";
+import {
+    formatAccessDuration,
+    getActiveCourseAccessPlans,
+    getCourseAccessPlanById,
+    getDefaultCourseAccessPlan,
+    getPlanEffectivePrice,
+} from "../utils/coursePricing";
 
 const Checkout = () => {
     const { courseId } = useParams();
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const { cartItems, clearCart, totalAmount } = useCart();
 
     const [course, setCourse] = useState(null);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [user, setUser] = useState(null);
+    const [selectedPlanId, setSelectedPlanId] = useState("");
 
     const [formData, setFormData] = useState({
         fullName: "",
@@ -30,13 +39,22 @@ const Checkout = () => {
     const [couponCode, setCouponCode] = useState("");
     const [couponApplied, setCouponApplied] = useState(null); // { code: 'MALI20', discountPercent: 20 }
     const [checkingCoupon, setCheckingCoupon] = useState(false);
+    const selectedPlan = useMemo(() => {
+        if (!course || course.id === 'cart') return null;
+        return getCourseAccessPlanById(course, selectedPlanId);
+    }, [course, selectedPlanId]);
+    const accessPlans = useMemo(() => (
+        !course || course.id === 'cart' ? [] : getActiveCourseAccessPlans(course)
+    ), [course]);
     const finalPrice = useMemo(() => {
         if (!course) return 0;
-        const basePrice = course.salePrice || course.price || 0;
+        const basePrice = course.id === 'cart'
+            ? totalAmount
+            : getPlanEffectivePrice(selectedPlan || getDefaultCourseAccessPlan(course));
         if (!couponApplied) return basePrice;
         const discountAmount = basePrice * (couponApplied.discountPercent / 100);
         return Math.max(0, basePrice - discountAmount);
-    }, [course, couponApplied]);
+    }, [course, couponApplied, selectedPlan, totalAmount]);
 
     useEffect(() => {
         // Fetch Course Info or Load Cart
@@ -67,6 +85,8 @@ const Checkout = () => {
                             return;
                         }
                         setCourse(courseData);
+                        const requestedPlanId = searchParams.get('plan');
+                        setSelectedPlanId(getCourseAccessPlanById(courseData, requestedPlanId)?.id || '');
                     } else {
                         alert("Khóa học không tồn tại!");
                         navigate("/khoa-hoc");
@@ -94,7 +114,7 @@ const Checkout = () => {
         });
 
         return () => unsubscribe();
-    }, [courseId, navigate, cartItems, totalAmount]);
+    }, [courseId, navigate, cartItems, totalAmount, searchParams]);
 
     useEffect(() => {
         if (course) {
@@ -173,15 +193,24 @@ const Checkout = () => {
 
             const isCartOrder = courseId === 'cart';
             // Prepare items array
-            const orderItems = isCartOrder ? cartItems.map(item => ({
-                id: item.id,
-                name: item.name,
-                price: item.salePrice || item.price || 0,
-                thumbnailUrl: item.thumbnailUrl
-            })) : [{
+            const orderItems = isCartOrder ? cartItems.map(item => {
+                const plan = getCourseAccessPlanById(item, item.accessPlanId);
+                return {
+                    id: item.id,
+                    name: item.name,
+                    accessPlanId: plan.id,
+                    accessPlanName: plan.name,
+                    accessDuration: formatAccessDuration(plan),
+                    price: getPlanEffectivePrice(plan),
+                    thumbnailUrl: item.thumbnailUrl
+                };
+            }) : [{
                 id: course.id,
                 name: course.name,
-                price: calculateFinalPrice(), // For single course, price is calculated
+                accessPlanId: selectedPlan.id,
+                accessPlanName: selectedPlan.name,
+                accessDuration: formatAccessDuration(selectedPlan),
+                price: getPlanEffectivePrice(selectedPlan),
                 thumbnailUrl: course.thumbnailUrl
             }];
 
@@ -198,7 +227,7 @@ const Checkout = () => {
                 courseId: isCartOrder ? 'cart-order' : course.id, // Legacy compatibility
                 courseName: isCartOrder ? `Đơn hàng gồm ${cartItems.length} khóa học` : course.name,
                 amount: calculateFinalPrice(), // Final amount after coupon
-                originalAmount: isCartOrder ? totalAmount : (course.salePrice || course.price || 0),
+                originalAmount: isCartOrder ? totalAmount : getPlanEffectivePrice(selectedPlan),
                 couponCode: couponApplied ? couponApplied.code : null,
                 discountPercent: couponApplied ? couponApplied.discountPercent : 0,
             };
@@ -331,8 +360,10 @@ const Checkout = () => {
                             <div className="p-6 space-y-6">
                                 {courseId === 'cart' ? (
                                     <div className="space-y-4 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
-                                        {cartItems.map((item) => (
-                                            <div key={item.id} className="flex gap-4">
+                                        {cartItems.map((item) => {
+                                            const itemPlan = getCourseAccessPlanById(item, item.accessPlanId);
+                                            return (
+                                            <div key={`${item.id}-${itemPlan.id}`} className="flex gap-4">
                                                 <img
                                                     src={item.thumbnailUrl || "https://via.placeholder.com/150"}
                                                     alt={item.name}
@@ -340,12 +371,14 @@ const Checkout = () => {
                                                 />
                                                 <div className="flex-1 min-w-0">
                                                     <h4 className="font-semibold text-slate-900 line-clamp-2 text-xs">{item.name}</h4>
+                                                    <p className="mt-0.5 text-[11px] text-slate-500">{itemPlan.name} · {formatAccessDuration(itemPlan)}</p>
                                                     <p className="text-xs text-red-600 font-bold mt-1">
-                                                        {formatPrice(item.salePrice || item.price)}
+                                                        {formatPrice(getPlanEffectivePrice(itemPlan))}
                                                     </p>
                                                 </div>
                                             </div>
-                                        ))}
+                                            );
+                                        })}
                                     </div>
                                 ) : (
                                     <div className="flex gap-4">
@@ -356,15 +389,37 @@ const Checkout = () => {
                                         />
                                         <div className="flex-1">
                                             <h4 className="font-semibold text-slate-900 line-clamp-2 text-sm">{course.name}</h4>
-                                            <p className="text-xs text-slate-500 mt-1">Trọn đời</p>
+                                            <p className="text-xs text-slate-500 mt-1">{selectedPlan.name} · {formatAccessDuration(selectedPlan)}</p>
                                         </div>
+                                    </div>
+                                )}
+
+                                {courseId !== 'cart' && course.accessPlansEnabled && accessPlans.length > 1 && (
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-black uppercase tracking-wider text-slate-500">Gói quyền học</label>
+                                        <select
+                                            value={selectedPlanId}
+                                            onChange={(event) => {
+                                                setSelectedPlanId(event.target.value);
+                                                setCouponApplied(null);
+                                            }}
+                                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm font-bold text-slate-800 outline-none focus:border-secret-wax focus:ring-2 focus:ring-secret-wax/10"
+                                        >
+                                            {accessPlans.map((plan) => (
+                                                <option key={plan.id} value={plan.id}>
+                                                    {plan.name} — {formatAccessDuration(plan)} — {formatPrice(getPlanEffectivePrice(plan))}
+                                                </option>
+                                            ))}
+                                        </select>
                                     </div>
                                 )}
 
                                 <div className="space-y-3 pt-6 border-t border-slate-100">
                                     <div className="flex justify-between text-sm">
                                         <span className="text-slate-600">Giá gốc</span>
-                                        <span className="text-slate-400 line-through">{formatPrice(course.price)}</span>
+                                        <span className="text-slate-400 line-through">
+                                            {formatPrice(courseId === 'cart' ? totalAmount : selectedPlan.price)}
+                                        </span>
                                     </div>
                                     <div className="flex justify-between text-sm font-medium">
                                         <span className="text-slate-900">Thành tiền</span>
@@ -372,7 +427,7 @@ const Checkout = () => {
                                             {couponApplied ? (
                                                 <>
                                                     <span className="block text-sm text-slate-400 line-through">
-                                                        {formatPrice(course.salePrice || course.price)}
+                                                        {formatPrice(courseId === 'cart' ? totalAmount : getPlanEffectivePrice(selectedPlan))}
                                                     </span>
                                                     <span className="text-red-600 text-lg">
                                                         {formatPrice(calculateFinalPrice())}
@@ -380,7 +435,7 @@ const Checkout = () => {
                                                 </>
                                             ) : (
                                                 <span className="text-red-600 text-lg">
-                                                    {formatPrice(course.salePrice || course.price)}
+                                                    {formatPrice(calculateFinalPrice())}
                                                 </span>
                                             )}
                                         </div>

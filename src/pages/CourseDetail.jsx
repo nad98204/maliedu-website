@@ -19,6 +19,7 @@ import { isLeadGenerationCourse, openCourseLeadLanding } from '../utils/courseMa
 import { sanitizeRichHtml } from '../utils/sanitizeHtml';
 import NotFound from './NotFound';
 import { SITE_URL } from '../seo/routeSeo';
+import { getDefaultCourseAccessPlan, getPlanEffectivePrice } from '../utils/coursePricing';
 
 const recordCourseView = async (courseId) => {
     const viewKey = `mali_view_${courseId}`;
@@ -125,7 +126,7 @@ const CourseDetail = () => {
         navigate(`/bai-giang/${course.id}?${previewParams.toString()}`);
     };
 
-    const handleBuyClick = async () => {
+    const handleBuyClick = async (selectedPlan = null) => {
         if (isEnrolled) {
             navigate(`/bai-giang/${course.id}`);
             return;
@@ -146,7 +147,8 @@ const CourseDetail = () => {
             return;
         }
 
-        navigate(`/thanh-toan/${course.id}`);
+        const plan = selectedPlan || getDefaultCourseAccessPlan(course);
+        navigate(`/thanh-toan/${course.id}?plan=${encodeURIComponent(plan.id)}`);
     };
 
     const handlePreviewClick = (lesson) => {
@@ -206,7 +208,7 @@ const CourseDetail = () => {
                 content_category: course.category || 'Course',
                 content_ids: [course.id],
                 content_type: 'product',
-                value: course.salePrice || course.price || 0,
+                value: getPlanEffectivePrice(getDefaultCourseAccessPlan(course)),
                 currency: 'VND'
             });
         }
@@ -367,7 +369,7 @@ const CourseDetail = () => {
                             "offers": {
                                 "@type": "Offer",
                                 "priceCurrency": "VND",
-                                "price": course.salePrice || course.price || 0,
+                                "price": getPlanEffectivePrice(getDefaultCourseAccessPlan(course)),
                                 "availability": "https://schema.org/InStock",
                                 "url": `${SITE_URL}/khoa-hoc/${course.slug || course.id}`
                             }
@@ -412,7 +414,9 @@ const CourseDetail = () => {
 
                     <div className="max-w-3xl">
                         <div className="mb-4 inline-flex items-center rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-amber-200 backdrop-blur-sm">
-                            {course.displayCategory || course.categoryName || 'Khóa học online'}
+                            {isLeadGenerationCourse(course)
+                                ? 'Khóa học chuyên sâu'
+                                : course.displayCategory || course.categoryName || 'Khóa học online'}
                         </div>
 
                         <h1 className="text-3xl font-black leading-[1.12] tracking-tight text-white sm:text-4xl lg:text-5xl">

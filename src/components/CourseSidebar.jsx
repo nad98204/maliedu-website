@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
     CheckCircle,
@@ -12,17 +12,29 @@ import { formatPrice } from '../utils/orderService';
 import { HOTLINE } from '../menuData';
 import { getPreviewableLessonKeys } from '../utils/courseAccess';
 import { isLeadGenerationCourse, openCourseLeadLanding } from '../utils/courseMarketing';
+import {
+    formatAccessDuration,
+    getActiveCourseAccessPlans,
+    getCourseAccessPlanById,
+    getDefaultCourseAccessPlan,
+    getPlanEffectivePrice,
+} from '../utils/coursePricing';
 
 const CourseSidebar = ({ course, onBuyClick, onPreviewClick, isEnrolled }) => {
     const navigate = useNavigate();
     const [wishlist, setWishlist] = useState(false);
     const isLeadCourse = isLeadGenerationCourse(course) && !isEnrolled;
     const isPreviewOnlyCourse = course.isForSale === false && !isEnrolled && !isLeadCourse;
-    const hasPreviewLessons = getPreviewableLessonKeys(course).length > 0;
+    const previewLessonCount = getPreviewableLessonKeys(course).length;
+    const hasPreviewLessons = previewLessonCount > 0;
+    const accessPlans = useMemo(() => getActiveCourseAccessPlans(course), [course]);
+    const [selectedPlanId, setSelectedPlanId] = useState(() => getDefaultCourseAccessPlan(course)?.id || '');
+    const selectedPlan = getCourseAccessPlanById(course, selectedPlanId);
+    const selectedPrice = getPlanEffectivePrice(selectedPlan);
 
     const handleBuyNow = () => {
         if (onBuyClick) {
-            onBuyClick();
+            onBuyClick(selectedPlan);
             return;
         }
 
@@ -41,7 +53,7 @@ const CourseSidebar = ({ course, onBuyClick, onPreviewClick, isEnrolled }) => {
             return;
         }
 
-        navigate(`/thanh-toan/${course.id}`);
+        navigate(`/thanh-toan/${course.id}?plan=${encodeURIComponent(selectedPlan.id)}`);
     };
 
     const handlePreview = () => {
@@ -65,9 +77,9 @@ const CourseSidebar = ({ course, onBuyClick, onPreviewClick, isEnrolled }) => {
                         height="338"
                         className="h-full w-full object-cover"
                     />
-                    {!isEnrolled && course.isForSale !== false && course.salePrice && (
+                    {!isEnrolled && course.isForSale !== false && selectedPlan?.salePrice !== null && selectedPlan?.price > 0 && (
                         <div className="absolute right-3 top-3 rounded-full bg-[#D93035] px-3 py-1.5 text-[11px] font-black text-white shadow-lg">
-                            Giảm {Math.round(((course.price - course.salePrice) / course.price) * 100)}%
+                            Giảm {Math.round(((selectedPlan.price - selectedPlan.salePrice) / selectedPlan.price) * 100)}%
                         </div>
                     )}
                     {!isEnrolled && !isLeadCourse && hasPreviewLessons && (
@@ -90,8 +102,9 @@ const CourseSidebar = ({ course, onBuyClick, onPreviewClick, isEnrolled }) => {
                         </div>
                     ) : isLeadCourse ? (
                         <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 p-4">
-                            <p className="text-xs font-black uppercase tracking-wider text-amber-700">Chương trình chuyên sâu</p>
+                            <p className="text-xs font-black uppercase tracking-wider text-amber-700">Đây là khóa học chuyên sâu</p>
                             <p className="mt-1 text-lg font-black text-amber-950">Đăng ký để được tư vấn lộ trình</p>
+                            <p className="mt-1 text-xs leading-5 text-amber-800/75">Mali Edu sẽ liên hệ xác nhận nhu cầu, lịch học và hình thức tham gia.</p>
                         </div>
                     ) : course.isForSale === false ? (
                         <div className="mb-5 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
@@ -100,14 +113,35 @@ const CourseSidebar = ({ course, onBuyClick, onPreviewClick, isEnrolled }) => {
                         </div>
                     ) : (
                         <div className="mb-5">
-                            <p className="text-xs font-bold text-slate-400">Giá khóa học</p>
+                            <p className="text-xs font-bold text-slate-400">Chọn thời hạn học</p>
+                            {course.accessPlansEnabled && accessPlans.length > 1 && (
+                                <div className="mt-2.5 grid gap-2">
+                                    {accessPlans.map((plan) => {
+                                        const active = plan.id === selectedPlan?.id;
+                                        return (
+                                            <button
+                                                key={plan.id}
+                                                type="button"
+                                                onClick={() => setSelectedPlanId(plan.id)}
+                                                className={`flex items-center justify-between gap-3 rounded-xl border px-3.5 py-3 text-left transition ${active ? 'border-[#9B2528] bg-red-50 ring-2 ring-red-100' : 'border-slate-200 hover:border-slate-300'}`}
+                                            >
+                                                <span>
+                                                    <span className="block text-sm font-black text-slate-900">{plan.name}</span>
+                                                    <span className="mt-0.5 block text-[11px] font-bold text-slate-500">{formatAccessDuration(plan)}</span>
+                                                </span>
+                                                <span className="shrink-0 text-sm font-black text-[#9B2528]">{formatPrice(getPlanEffectivePrice(plan))}</span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            )}
                             <div className="mt-1 flex flex-wrap items-end gap-2.5">
                                 <span className="text-3xl font-black tracking-tight text-[#9B2528]">
-                                    {formatPrice(course.salePrice || course.price)}
+                                    {formatPrice(selectedPrice)}
                                 </span>
-                                {course.salePrice && (
+                                {selectedPlan?.salePrice !== null && (
                                     <span className="pb-1 text-sm font-bold text-slate-400 line-through">
-                                        {formatPrice(course.price)}
+                                        {formatPrice(selectedPlan.price)}
                                     </span>
                                 )}
                             </div>
@@ -126,7 +160,7 @@ const CourseSidebar = ({ course, onBuyClick, onPreviewClick, isEnrolled }) => {
                             {isEnrolled ? (
                                 <><PlayCircle className="h-5 w-5" /> Vào học ngay</>
                             ) : isLeadCourse ? (
-                                <><MessageCircleMore className="h-5 w-5" /> Đăng ký tư vấn</>
+                                <><MessageCircleMore className="h-5 w-5" /> Đăng ký khóa học</>
                             ) : course.isForSale === false ? (
                                 <><PlayCircle className="h-5 w-5" /> Xem bài học thử</>
                             ) : (
@@ -134,12 +168,12 @@ const CourseSidebar = ({ course, onBuyClick, onPreviewClick, isEnrolled }) => {
                             )}
                         </button>
 
-                        {!isEnrolled && !isLeadCourse && course.isForSale !== false && hasPreviewLessons && (
+                        {!isEnrolled && hasPreviewLessons && (isLeadCourse || course.isForSale !== false) && (
                             <button
                                 onClick={handlePreview}
                                 className="flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-3 text-sm font-black text-emerald-700 transition hover:border-emerald-600 hover:bg-emerald-600 hover:text-white"
                             >
-                                <PlayCircle className="h-5 w-5" /> Học thử miễn phí
+                                <PlayCircle className="h-5 w-5" /> Học thử {previewLessonCount} buổi miễn phí
                             </button>
                         )}
                     </div>
@@ -160,6 +194,9 @@ const CourseSidebar = ({ course, onBuyClick, onPreviewClick, isEnrolled }) => {
                         {isLeadCourse ? (
                             <>
                                 <li className="flex items-start gap-2.5"><MessageCircleMore className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" /><span>Được tư vấn lộ trình phù hợp</span></li>
+                                {hasPreviewLessons && (
+                                    <li className="flex items-start gap-2.5"><PlayCircle className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" /><span>Có {previewLessonCount} buổi học thử miễn phí</span></li>
+                                )}
                                 <li className="flex items-start gap-2.5"><CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" /><span>Đội ngũ Mali Edu chủ động liên hệ</span></li>
                                 <li className="flex items-start gap-2.5"><LifeBuoy className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" /><span>Giải đáp lịch học và chính sách tham gia</span></li>
                             </>
@@ -171,7 +208,7 @@ const CourseSidebar = ({ course, onBuyClick, onPreviewClick, isEnrolled }) => {
                             </>
                         ) : (
                             <>
-                                <li className="flex items-start gap-2.5"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" /><span>Sở hữu khóa học trọn đời</span></li>
+                                <li className="flex items-start gap-2.5"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" /><span>Quyền học: {formatAccessDuration(selectedPlan)}</span></li>
                                 <li className="flex items-start gap-2.5"><CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" /><span>Cấp chứng nhận hoàn thành</span></li>
                                 <li className="flex items-start gap-2.5"><LifeBuoy className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" /><span>Hỗ trợ chuyên môn 24/7</span></li>
                                 <li className="flex items-start gap-2.5"><CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" /><span>Học trên điện thoại và máy tính</span></li>

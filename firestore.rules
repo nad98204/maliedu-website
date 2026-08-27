@@ -39,7 +39,12 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/course_access/$(request.auth.uid + "_" + courseId))
         && get(/databases/$(database)/documents/course_access/$(request.auth.uid + "_" + courseId)).data.userId == request.auth.uid
         && get(/databases/$(database)/documents/course_access/$(request.auth.uid + "_" + courseId)).data.courseId == courseId
-        && get(/databases/$(database)/documents/course_access/$(request.auth.uid + "_" + courseId)).data.status == "active";
+        && get(/databases/$(database)/documents/course_access/$(request.auth.uid + "_" + courseId)).data.status == "active"
+        && (
+          !("expiresAt" in get(/databases/$(database)/documents/course_access/$(request.auth.uid + "_" + courseId)).data)
+          || get(/databases/$(database)/documents/course_access/$(request.auth.uid + "_" + courseId)).data.expiresAt == null
+          || get(/databases/$(database)/documents/course_access/$(request.auth.uid + "_" + courseId)).data.expiresAt > request.time
+        );
     }
 
     match /users/{userId} {

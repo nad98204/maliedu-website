@@ -7,6 +7,7 @@ import {
     orderBy,
     query,
     serverTimestamp,
+    Timestamp,
     updateDoc,
     where,
     writeBatch
@@ -16,6 +17,11 @@ import {
     COURSE_ACCESS_COLLECTION,
     getCourseAccessId,
 } from "./courseDataPrivacy";
+import {
+    ACCESS_PLAN_TYPES,
+    calculateAccessExpiryDate,
+    toDateValue,
+} from "./coursePricing";
 
 const COLLECTION_NAME = "orders";
 const ORDER_API_PATH = "/api/orders";
@@ -147,26 +153,36 @@ export const approveOrder = async (orderId, orderData = null) => {
 
         // ── Bước 1: Check tất cả enrollment SONG SONG (Promise.all) ──────────
         const checkResults = await Promise.all(
-            itemsToEnroll.map(item => {
+            itemsToEnroll.map(async item => {
                 const cId = item.id || item.courseId;
                 const q = query(
                     enrollmentsRef,
                     where("userId", "==", order.userId),
                     where("courseId", "==", cId)
                 );
-                return getDocs(q).then(snap => ({
+                const accessRef = order.userId
+                    ? doc(db, COURSE_ACCESS_COLLECTION, getCourseAccessId(order.userId, cId))
+                    : null;
+                const [snap, accessSnapshot] = await Promise.all([
+                    getDocs(q),
+                    accessRef ? getDoc(accessRef) : Promise.resolve(null),
+                ]);
+                return {
                     item,
                     cId,
                     cName: item.name || item.courseName,
                     alreadyEnrolled: !snap.empty,
                     enrollmentId: snap.docs[0]?.id || null,
-                }));
+                    accessRef,
+                    existingAccess: accessSnapshot?.exists() ? accessSnapshot.data() : null,
+                };
             })
         );
 
         // ── Bước 2: Batch write tất cả trong 1 lần ───────────────────────────
         const batch = writeBatch(db);
         const now = serverTimestamp();
+        const nowDate = new Date();
 
         // Cập nhật trạng thái đơn hàng
         const orderRef = doc(db, COLLECTION_NAME, orderId);
@@ -178,8 +194,32 @@ export const approveOrder = async (orderId, orderData = null) => {
 
         // Tạo enrollment cho những khóa chưa được enroll
         let enrolledCount = 0;
-        checkResults.forEach(({ cId, cName, alreadyEnrolled, enrollmentId }) => {
+        checkResults.forEach(({ item, cId, cName, alreadyEnrolled, enrollmentId, accessRef, existingAccess }) => {
             let activeEnrollmentId = enrollmentId;
+            const accessPlan = {
+                id: item.accessPlanId || "legacy-lifetime",
+                name: item.accessPlanName || "Truy cập vĩnh viễn",
+                accessType: item.accessType === ACCESS_PLAN_TYPES.DURATION
+                    ? ACCESS_PLAN_TYPES.DURATION
+                    : ACCESS_PLAN_TYPES.LIFETIME,
+                durationValue: item.durationValue,
+                durationUnit: item.durationUnit,
+            };
+            const currentExpiry = toDateValue(existingAccess?.expiresAt);
+            const extensionStart = currentExpiry && currentExpiry > nowDate ? currentExpiry : nowDate;
+            const expiryDate = calculateAccessExpiryDate(accessPlan, extensionStart);
+            const accessMetadata = {
+                accessPlanId: accessPlan.id,
+                accessPlanName: accessPlan.name,
+                accessType: accessPlan.accessType,
+                durationValue: accessPlan.accessType === ACCESS_PLAN_TYPES.DURATION
+                    ? Number(accessPlan.durationValue)
+                    : null,
+                durationUnit: accessPlan.accessType === ACCESS_PLAN_TYPES.DURATION
+                    ? accessPlan.durationUnit
+                    : null,
+                expiresAt: expiryDate ? Timestamp.fromDate(expiryDate) : null,
+            };
             if (!alreadyEnrolled) {
                 const newEnrollRef = doc(enrollmentsRef); // auto ID
                 activeEnrollmentId = newEnrollRef.id;
@@ -190,21 +230,25 @@ export const approveOrder = async (orderId, orderData = null) => {
                     courseName: cName,
                     enrolledAt: now,
                     orderId: orderId,
-                    status: 'active'
+                    status: 'active',
+                    ...accessMetadata,
                 });
                 batch.update(doc(db, "courses", cId), {
                     enrollmentCount: increment(1),
                 });
                 enrolledCount++;
+            } else if (activeEnrollmentId) {
+                batch.set(doc(db, "enrollments", activeEnrollmentId), {
+                    orderId,
+                    status: "active",
+                    renewedAt: now,
+                    ...accessMetadata,
+                }, { merge: true });
             }
 
-            if (order.userId) {
+            if (accessRef) {
                 batch.set(
-                    doc(
-                        db,
-                        COURSE_ACCESS_COLLECTION,
-                        getCourseAccessId(order.userId, cId),
-                    ),
+                    accessRef,
                     {
                         userId: order.userId,
                         userEmail: order.userEmail || "",
@@ -213,7 +257,10 @@ export const approveOrder = async (orderId, orderData = null) => {
                         orderId,
                         status: "active",
                         grantedAt: now,
+                        renewedAt: existingAccess ? now : null,
+                        ...accessMetadata,
                     },
+                    { merge: true },
                 );
             }
         });
