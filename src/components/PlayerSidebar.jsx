@@ -1,16 +1,21 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
     ArrowRight,
-    CheckCircle,
+    CheckCircle2,
     ChevronDown,
     ChevronUp,
     Download,
+    Eye,
     FileText,
     Lock,
+    Play,
     PlayCircle,
     Search,
     Video,
-    X
+    Clock,
+    X,
+    Folder,
+    ExternalLink
 } from 'lucide-react';
 import { formatPrice } from '../utils/orderService';
 
@@ -21,18 +26,6 @@ const getViewerUrl = (url = '') => {
         return `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=false`;
     }
     return url;
-};
-
-const buildResourcePreview = (resourceList = [], limit = 2) => {
-    const names = [...new Set(resourceList.map((resource) => resource.name).filter(Boolean))];
-
-    if (names.length === 0) {
-        return '';
-    }
-
-    const preview = names.slice(0, limit).join(' • ');
-
-    return names.length > limit ? `${preview} +${names.length - limit}` : preview;
 };
 
 const PlayerSidebar = ({
@@ -60,8 +53,9 @@ const PlayerSidebar = ({
     const [resourceSearchTerm, setResourceSearchTerm] = useState('');
     const [openSections, setOpenSections] = useState({});
     const [openResourceGroups, setOpenResourceGroups] = useState({});
+
     const availableTabs = useMemo(
-        () => hasResourceAccess ? ['curriculum', 'resources'] : ['curriculum'],
+        () => (hasResourceAccess ? ['curriculum', 'resources'] : ['curriculum']),
         [hasResourceAccess]
     );
 
@@ -69,10 +63,14 @@ const PlayerSidebar = ({
         () => sections.reduce((total, section) => total + (section.lessons?.length || 0), 0),
         [sections]
     );
+
     const completedLessons = useMemo(
         () => Object.values(progress).filter(Boolean).length,
         [progress]
     );
+
+    const progressPercent = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
+
     const previewableLessonKeySet = useMemo(
         () => new Set(previewableLessonKeys),
         [previewableLessonKeys]
@@ -183,265 +181,232 @@ const PlayerSidebar = ({
     }, [activeTab, availableTabs]);
 
     const searchValue = activeTab === 'curriculum' ? lessonSearchTerm : resourceSearchTerm;
-    const setSearchValue =
-        activeTab === 'curriculum' ? setLessonSearchTerm : setResourceSearchTerm;
+    const setSearchValue = activeTab === 'curriculum' ? setLessonSearchTerm : setResourceSearchTerm;
 
     return (
-        <div className="flex h-full flex-col border-l border-slate-200 bg-white">
-            <div className="sticky top-0 z-10 space-y-4 border-b border-slate-200 bg-white/95 p-4 backdrop-blur md:static md:bg-white md:backdrop-blur-0">
+        <div className="flex h-full flex-col bg-white text-slate-800 select-none">
+            {/* Header Area */}
+            <div className="sticky top-0 z-10 space-y-3.5 border-b border-slate-100 bg-white/95 p-4 backdrop-blur-md">
+                
+                {/* Preview Banner */}
                 {isPreviewMode && (
-                    <>
-                        <div className="rounded-xl border-2 border-emerald-200 bg-emerald-50 px-4 py-3 text-center shadow-sm">
-                            <p className="flex items-center justify-center gap-2 text-lg font-black uppercase tracking-wider text-emerald-700">
-                                <PlayCircle className="h-6 w-6" /> Học thử
-                            </p>
-                            <p className="mt-1 text-xs font-medium text-emerald-700/80">
-                                Bạn đang xem {previewableLessonKeySet.size} bài học miễn phí
-                            </p>
+                    <div className="space-y-2.5">
+                        <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/80 px-3.5 py-2.5 flex items-center justify-between shadow-sm">
+                            <div className="flex items-center gap-2">
+                                <div className="h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
+                                <p className="text-xs font-bold uppercase tracking-wider text-emerald-700">
+                                    Chế độ học thử ({previewableLessonKeySet.size} bài)
+                                </p>
+                            </div>
+                            <span className="text-[11px] font-semibold text-emerald-600 bg-emerald-100/80 px-2 py-0.5 rounded-full">
+                                Miễn phí
+                            </span>
                         </div>
 
-                        <div className="rounded-2xl bg-gradient-to-br from-[#B91C1C] to-[#7F1D1D] p-4 text-white shadow-xl shadow-red-200/60">
-                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-red-100">
-                                Học trọn bộ khóa học
-                            </p>
-                            <p className="mt-1 text-base font-extrabold leading-snug">
-                                Mở khóa {lockedLessonCount} bài học còn lại
-                            </p>
-                            {registrationPrice > 0 && (
-                                <div className="mt-2 flex items-end gap-2">
-                                    <span className="text-xl font-black text-amber-300">
+                        <div className="rounded-2xl bg-gradient-to-br from-[#8B2E2E] to-red-800 p-4 text-white shadow-lg shadow-red-900/15">
+                            <div className="flex items-center justify-between mb-1">
+                                <span className="text-[10px] font-black uppercase tracking-wider text-amber-200">
+                                    Mở khóa trọn bộ
+                                </span>
+                                {registrationPrice > 0 && (
+                                    <span className="text-sm font-black text-amber-300">
                                         {formatPrice(registrationPrice)}
                                     </span>
-                                    {originalPrice > registrationPrice && (
-                                        <span className="pb-0.5 text-xs text-red-200 line-through">
-                                            {formatPrice(originalPrice)}
-                                        </span>
-                                    )}
-                                </div>
-                            )}
+                                )}
+                            </div>
+                            <p className="text-xs font-medium text-red-100 line-clamp-1">
+                                Mở khóa {lockedLessonCount} bài học & toàn bộ tài liệu
+                            </p>
                             <button
                                 type="button"
                                 onClick={() => onRegisterClick?.()}
-                                className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-black uppercase tracking-wide text-[#B91C1C] shadow-lg transition-all hover:-translate-y-0.5 hover:bg-amber-300 hover:text-red-950 active:translate-y-0"
+                                className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl bg-white py-2.5 px-3 text-xs font-black uppercase tracking-wide text-[#8B2E2E] shadow-sm hover:bg-amber-300 hover:text-red-950 transition-all active:scale-[0.98]"
                             >
-                                Đăng ký khóa học ngay
-                                <ArrowRight className="h-4 w-4" />
+                                <span>Đăng ký ngay</span>
+                                <ArrowRight className="h-3.5 w-3.5" />
                             </button>
                         </div>
-                    </>
+                    </div>
                 )}
 
-                <div className="md:hidden">
-                    <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0 flex-1">
-                            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-red-500">
-                                Chương học, bài tập
-                            </p>
-                            <h3 className="mt-1 line-clamp-2 text-base font-bold text-slate-900">
-                                {currentLessonMeta?.lesson?.title || 'Tiếp tục học'}
-                            </h3>
-                            <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
-                                <span className="rounded-full bg-red-50 px-2.5 py-1 font-semibold text-red-600 ring-1 ring-red-100">
-                                    {completedLessons}/{totalLessons} hoàn thành
-                                </span>
-                                {currentLessonMeta?.lessonNumber ? (
-                                    <span className="rounded-full bg-slate-100 px-2.5 py-1 font-semibold text-slate-600">
-                                        Bài {currentLessonMeta.lessonNumber}
-                                    </span>
-                                ) : null}
-                            </div>
-                            {currentLessonMeta?.sectionTitle ? (
-                                <p className="mt-2 line-clamp-1 text-xs font-medium text-slate-500">
-                                    {currentLessonMeta.sectionTitle}
-                                </p>
-                            ) : null}
-                        </div>
-
-                        <button
-                            type="button"
-                            onClick={() => onClose?.()}
-                            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-700"
-                            aria-label="Đóng chương học và bài tập"
-                        >
-                            <X className="h-5 w-5" />
-                        </button>
+                {/* Mobile Drawer Header */}
+                <div className="md:hidden flex items-center justify-between pb-1 border-b border-slate-100">
+                    <div className="min-w-0 flex-1 pr-2">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-[#8B2E2E]">
+                            Nội dung bài học
+                        </p>
+                        <h3 className="line-clamp-1 text-sm font-bold text-slate-900">
+                            {currentLessonMeta?.lesson?.title || 'Danh sách bài học'}
+                        </h3>
                     </div>
+                    <button
+                        type="button"
+                        onClick={() => onClose?.()}
+                        className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors"
+                        aria-label="Đóng menu"
+                    >
+                        <X className="h-4 w-4" />
+                    </button>
                 </div>
 
-                <div className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1">
+                {/* Segmented Tabs */}
+                <div className="grid grid-cols-2 gap-1 rounded-2xl bg-slate-100/80 p-1 border border-slate-200/50">
                     <button
                         type="button"
                         onClick={() => setActiveTab('curriculum')}
-                        className={`rounded-lg px-3 py-2 text-sm font-bold transition-all ${
+                        className={`flex items-center justify-center gap-1.5 rounded-xl py-2 px-3 text-xs font-bold transition-all ${
                             activeTab === 'curriculum'
-                                ? 'bg-white text-[#B91C1C] shadow-sm'
+                                ? 'bg-white text-[#8B2E2E] shadow-sm font-black'
                                 : 'text-slate-500 hover:text-slate-800'
                         }`}
                     >
-                        <span className="md:hidden">Chương học</span>
-                        <span className="hidden md:inline">Nội dung khóa học</span>
+                        <span>Bài học</span>
+                        <span className={`px-1.5 py-0.2 text-[10px] rounded-full font-bold ${
+                            activeTab === 'curriculum' ? 'bg-red-50 text-[#8B2E2E]' : 'bg-slate-200/70 text-slate-500'
+                        }`}>
+                            {totalLessons}
+                        </span>
                     </button>
+
                     <button
                         type="button"
                         onClick={() => setActiveTab('resources')}
-                        className={`rounded-lg px-3 py-2 text-sm font-bold transition-all ${
+                        className={`flex items-center justify-center gap-1.5 rounded-xl py-2 px-3 text-xs font-bold transition-all ${
                             activeTab === 'resources'
-                                ? 'bg-white text-[#B91C1C] shadow-sm'
+                                ? 'bg-white text-[#8B2E2E] shadow-sm font-black'
                                 : 'text-slate-500 hover:text-slate-800'
                         }`}
                     >
-                        <span className="md:hidden">Bài tập</span>
-                        <span className="hidden md:inline">Tài liệu</span>
+                        <span>Tài liệu</span>
+                        <span className={`px-1.5 py-0.2 text-[10px] rounded-full font-bold ${
+                            activeTab === 'resources' ? 'bg-red-50 text-[#8B2E2E]' : 'bg-slate-200/70 text-slate-500'
+                        }`}>
+                            {resources.length}
+                        </span>
                     </button>
                 </div>
 
+                {/* Search Bar */}
                 <div className="relative">
-                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
                     <input
                         type="text"
                         placeholder={
                             activeTab === 'curriculum'
-                                ? 'Tìm chương hoặc bài học...'
-                                : 'Tìm bài tập, tài liệu...'
+                                ? 'Tìm bài học theo tên...'
+                                : 'Tìm tài liệu, bài tập...'
                         }
                         value={searchValue}
-                        onChange={(event) => setSearchValue(event.target.value)}
-                        className="w-full rounded-lg border border-transparent bg-slate-100 py-2 pl-9 pr-4 text-sm outline-none transition-colors focus:border-secret-wax focus:bg-white"
+                        onChange={(e) => setSearchValue(e.target.value)}
+                        className="w-full rounded-xl border border-slate-200/80 bg-slate-50/70 py-2 pl-8 pr-7 text-xs font-medium outline-none transition-all placeholder-slate-400 focus:border-red-500 focus:bg-white focus:ring-2 focus:ring-red-500/10"
                     />
+                    {searchValue && (
+                        <button
+                            onClick={() => setSearchValue('')}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-200/60"
+                        >
+                            <X className="h-3 w-3" />
+                        </button>
+                    )}
                 </div>
 
-                <div className="flex items-center justify-between text-xs text-slate-500">
-                    <span className="font-semibold text-slate-700">
-                        {activeTab === 'curriculum'
-                            ? 'Chương và bài học'
-                            : 'Bài tập và tài liệu'}
-                    </span>
-                    <span>
-                        {activeTab === 'curriculum'
-                            ? `${totalLessons} bài học`
-                            : `${resources.length} tài liệu`}
-                    </span>
-                </div>
+                {/* Compact Progress Bar */}
+                {activeTab === 'curriculum' && totalLessons > 0 && (
+                    <div className="pt-1 space-y-1">
+                        <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500">
+                            <span>Tiến độ: <strong className="text-slate-800">{completedLessons}/{totalLessons}</strong> bài</span>
+                            <span className="text-[#8B2E2E] font-bold">{progressPercent}%</span>
+                        </div>
+                        <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                            <div
+                                className="h-full bg-gradient-to-r from-[#8B2E2E] to-amber-500 rounded-full transition-all duration-500"
+                                style={{ width: `${progressPercent}%` }}
+                            />
+                        </div>
+                    </div>
+                )}
             </div>
 
-            <div className="custom-scrollbar flex-1 overflow-y-auto">
+            {/* Scrollable Content Body */}
+            <div className="custom-scrollbar flex-1 overflow-y-auto p-3 space-y-2.5">
                 {activeTab === 'curriculum' ? (
                     filteredSections.length > 0 ? (
-                        (() => {
-                            let titledSectionCount = 0;
-                            let globalLessonIndex = 0;
-                            return filteredSections.map((section, sIdx) => {
-                                const sectionId = section.id || `section-${section.sectionIndex}`;
-                                const sectionResources = sectionResourceMap[sectionId] || [];
-                                const sectionLevelResources = sectionResources.filter(
-                                    (resource) => !resource.lessonId
-                                );
-                                const isSectionOpen =
-                                    openSections[section.sectionIndex] ??
-                                    sectionId === currentSectionId;
+                        filteredSections.map((section, sIdx) => {
+                            const sectionId = section.id || `section-${section.sectionIndex}`;
+                            const sectionResources = sectionResourceMap[sectionId] || [];
+                            const sectionLevelResources = sectionResources.filter(
+                                (resource) => !resource.lessonId
+                            );
+                            const isSectionOpen =
+                                openSections[section.sectionIndex] ??
+                                (sectionId === currentSectionId || sIdx === 0);
 
-                                const hasSectionTitle = Boolean(section.title?.trim());
-                                if (hasSectionTitle) titledSectionCount++;
-                                const displaySectionNumber = hasSectionTitle ? titledSectionCount : null;
+                            const hasSectionTitle = Boolean(section.title?.trim());
 
-                                return (
-                                    <div
-                                        key={`${sectionId}-${section.title}`}
-                                        className={`border-b border-slate-100 last:border-0 ${hasSectionTitle ? 'mb-3 last:mb-0' : 'mb-6 last:mb-0'} ${!hasSectionTitle && sIdx > 0 ? 'mt-4' : ''}`}
-                                    >
-                                        <div className={`bg-white overflow-hidden ${hasSectionTitle ? 'rounded-lg border border-slate-100 mx-2 shadow-sm' : 'border border-slate-100 shadow-sm sm:mx-2 sm:rounded-lg'}`}>
-                                            {hasSectionTitle ? (
-                                                <button
-                                                    type="button"
-                                                    onClick={() =>
-                                                        toggleSection(
-                                                            section.sectionIndex,
-                                                            sectionId === currentSectionId
-                                                        )
-                                                    }
-                                                    className={`flex w-full items-center justify-between gap-3 px-4 py-3.5 transition-all ${
-                                                        isSectionOpen 
-                                                            ? 'bg-slate-50/80 border-b border-slate-100' 
-                                                            : 'bg-white hover:bg-slate-50'
-                                                    }`}
-                                                >
-                                                    <div className="min-w-0 flex-1 text-left">
-                                                        <div className="flex items-center gap-2 mb-1">
-                                                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                                                                Phần {displaySectionNumber}
-                                                            </span>
-                                                            {isSectionOpen && (
-                                                                <span className="h-1 w-1 rounded-full bg-red-400"></span>
-                                                            )}
-                                                        </div>
-                                                        <h4 className={`line-clamp-1 text-sm font-bold ${isSectionOpen ? 'text-[#B91C1C]' : 'text-slate-800'}`}>
-                                                            {section.title}
-                                                        </h4>
-                                                        <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-slate-500 font-medium">
-                                                            <span>{section.lessons.length} bài học</span>
-                                                            {sectionLevelResources.length > 0 && (
-                                                                <span className="flex items-center gap-1 text-red-500">
-                                                                    <span className="h-1.5 w-1.5 rounded-full bg-red-500"></span>
-                                                                    {sectionLevelResources.length} tài liệu
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                <div className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors ${isSectionOpen ? 'bg-red-50 text-[#B91C1C]' : 'bg-slate-50 text-slate-400'}`}>
-                                                    {isSectionOpen ? (
-                                                        <ChevronUp className="h-4 w-4 shrink-0" />
-                                                    ) : (
-                                                        <ChevronDown className="h-4 w-4 shrink-0" />
-                                                    )}
-                                                </div>
-                                            </button>
-                                            ) : (
-                                                <div className="bg-slate-100/50 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
-                                                        <div className="flex items-center gap-2">
-                                                            <div className="h-1.5 w-1.5 rounded-full bg-slate-400"></div>
-                                                        <span className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.1em]">Bài học lẻ</span>
-                                                    </div>
-                                                    <span className="text-[10px] font-medium text-slate-400">{section.lessons.length} bài học</span>
-                                                </div>
-                                            )}
-
-                                        {sectionLevelResources.length > 0 && (
-                                            <div className="px-4 pb-3">
-                                                <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-red-500">
-                                                    Tài liệu theo phần
-                                                </p>
-                                                <div className="flex flex-wrap gap-1.5">
-                                                    {sectionLevelResources
-                                                        .slice(0, 2)
-                                                        .map((resource) => (
-                                                            <button
-                                                                key={resource.id}
-                                                                type="button"
-                                                                onClick={() =>
-                                                                    onResourceSelect?.(resource)
-                                                                }
-                                                                className="rounded-full bg-red-50 px-2.5 py-1 text-[11px] font-medium text-red-600 ring-1 ring-red-100 transition-all hover:-translate-y-0.5 hover:bg-white hover:text-[#B91C1C]"
-                                                            >
-                                                                {resource.name}
-                                                            </button>
-                                                        ))}
-                                                    {sectionLevelResources.length > 2 && (
-                                                        <span className="rounded-full bg-red-50 px-2.5 py-1 text-[11px] font-bold text-red-500 ring-1 ring-red-100">
-                                                            +{sectionLevelResources.length - 2}
+                            return (
+                                <div
+                                    key={`${sectionId}-${section.title}`}
+                                    className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm transition-all"
+                                >
+                                    {/* Section Header Accordion Trigger */}
+                                    {hasSectionTitle ? (
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                toggleSection(
+                                                    section.sectionIndex,
+                                                    sectionId === currentSectionId || sIdx === 0
+                                                )
+                                            }
+                                            className={`flex w-full items-center justify-between gap-2.5 px-3.5 py-3 text-left transition-colors ${
+                                                isSectionOpen
+                                                    ? 'bg-slate-50/90 border-b border-slate-100'
+                                                    : 'bg-white hover:bg-slate-50/60'
+                                            }`}
+                                        >
+                                            <div className="min-w-0 flex-1">
+                                                <h4 className={`text-xs font-bold leading-snug line-clamp-2 ${
+                                                    isSectionOpen ? 'text-[#8B2E2E]' : 'text-slate-800'
+                                                }`}>
+                                                    {section.title}
+                                                </h4>
+                                                <div className="mt-1 flex items-center gap-2 text-[11px] text-slate-500 font-medium">
+                                                    <span>{section.lessons.length} bài học</span>
+                                                    {sectionLevelResources.length > 0 && (
+                                                        <span className="flex items-center gap-1 text-red-600">
+                                                            <span>•</span>
+                                                            <FileText className="h-3 w-3" />
+                                                            {sectionLevelResources.length} tài liệu
                                                         </span>
                                                     )}
                                                 </div>
                                             </div>
-                                        )}
-                                    </div>
 
+                                            <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-lg transition-colors ${
+                                                isSectionOpen ? 'bg-red-50 text-[#8B2E2E]' : 'bg-slate-100 text-slate-400'
+                                            }`}>
+                                                {isSectionOpen ? (
+                                                    <ChevronUp className="h-3.5 w-3.5" />
+                                                ) : (
+                                                    <ChevronDown className="h-3.5 w-3.5" />
+                                                )}
+                                            </div>
+                                        </button>
+                                    ) : (
+                                        <div className="bg-slate-50/80 px-3.5 py-2 border-b border-slate-100 flex items-center justify-between text-slate-500 text-[11px]">
+                                            <span className="font-bold text-slate-700">Danh sách bài học</span>
+                                            <span>{section.lessons.length} bài</span>
+                                        </div>
+                                    )}
+
+                                    {/* Lessons List in Section */}
                                     <div
-                                        className={`overflow-hidden transition-all duration-300 ${
-                                            !hasSectionTitle || isSectionOpen ? 'max-h-[2000px]' : 'max-h-0'
+                                        className={`transition-all duration-300 ${
+                                            !hasSectionTitle || isSectionOpen ? 'block' : 'hidden'
                                         }`}
                                     >
+                                        <div className="divide-y divide-slate-100">
                                             {section.lessons.map((lesson, lessonIndex) => {
-                                                globalLessonIndex++;
                                                 const lessonKey = lesson.id || lesson.videoId;
                                                 const isCurrent =
                                                     currentLessonId === lessonKey ||
@@ -452,214 +417,150 @@ const PlayerSidebar = ({
                                                 const isLocked =
                                                     isPreviewMode &&
                                                     !previewableLessonKeySet.has(lessonKey);
-                                                const lessonResources =
-                                                    lessonResourceMap[lessonKey] || [];
-                                                const visibleResources = lessonResources;
-                                                const sectionOnlyCount = isCurrent
-                                                    ? currentContextResources.filter(
-                                                          (resource) =>
-                                                              !resource.lessonId &&
-                                                              resource.sectionId === sectionId
-                                                      ).length
-                                                    : 0;
+                                                const lessonResources = lessonResourceMap[lessonKey] || [];
 
                                                 return (
-                                                    <div
+                                                    <button
                                                         key={lessonKey || `${section.sectionIndex}-${lessonIndex}`}
-                                                            className={`border-l-4 transition-all ${
+                                                        type="button"
+                                                        onClick={() =>
+                                                            isLocked
+                                                                ? onLockedLessonSelect?.(lesson)
+                                                                : onLessonSelect?.(lesson)
+                                                        }
+                                                        className={`flex w-full items-start gap-2.5 px-3.5 py-3 text-left transition-all relative ${
+                                                            isCurrent
+                                                                ? 'bg-red-50/80 border-l-4 border-l-[#8B2E2E]'
+                                                                : isLocked
+                                                                    ? 'bg-slate-50/40 hover:bg-amber-50/50'
+                                                                    : 'bg-white hover:bg-slate-50/80'
+                                                        }`}
+                                                    >
+                                                        {/* Status Icon */}
+                                                        <div className="mt-0.5 shrink-0">
+                                                            {isCurrent ? (
+                                                                <div className="h-5 w-5 rounded-full bg-[#8B2E2E] text-white flex items-center justify-center shadow-sm">
+                                                                    <Play className="h-2.5 w-2.5 fill-current ml-0.5" />
+                                                                </div>
+                                                            ) : isCompleted ? (
+                                                                <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+                                                            ) : isLocked ? (
+                                                                <div className="h-5 w-5 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center">
+                                                                    <Lock className="h-3 w-3" />
+                                                                </div>
+                                                            ) : (
+                                                                <div className="h-5 w-5 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center text-[10px] font-bold">
+                                                                    {lessonIndex + 1}
+                                                                </div>
+                                                            )}
+                                                        </div>
+
+                                                        {/* Title & Meta info */}
+                                                        <div className="min-w-0 flex-1">
+                                                            <p className={`text-xs leading-snug line-clamp-2 ${
                                                                 isCurrent
-                                                                    ? 'border-[#B91C1C] bg-red-50'
+                                                                    ? 'font-bold text-[#8B2E2E]'
                                                                     : isLocked
-                                                                      ? 'border-transparent bg-slate-50/80 hover:border-amber-400 hover:bg-amber-50'
-                                                                      : 'border-transparent bg-white hover:bg-slate-50'
-                                                            }`}
-                                                        >
-                                                            <button
-                                                                type="button"
-                                                                onClick={() =>
-                                                                    isLocked
-                                                                        ? onLockedLessonSelect?.(lesson)
-                                                                        : onLessonSelect?.(lesson)
-                                                                }
-                                                                className="flex w-full items-start gap-3 px-3 pt-3 text-left"
-                                                            >
-                                                                <div className="mt-0.5 shrink-0">
-                                                                    {isCurrent ? (
-                                                                        <PlayCircle className="h-4 w-4 animate-pulse text-[#B91C1C]" />
-                                                                    ) : isCompleted ? (
-                                                                        <CheckCircle className="h-4 w-4 text-green-500" />
-                                                                    ) : isLocked ? (
-                                                                        <Lock className="h-4 w-4 text-slate-300" />
-                                                                    ) : (
-                                                                        <div className="h-5 w-5 rounded-full border border-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-400">
-                                                                            {globalLessonIndex}
-                                                                        </div>
-                                                                    )}
-                                                            </div>
+                                                                        ? 'font-medium text-slate-500'
+                                                                        : 'font-semibold text-slate-800'
+                                                            }`}>
+                                                                {lesson.title}
+                                                            </p>
 
-                                                            <div className="min-w-0 flex-1">
-                                                                <div className="flex items-start justify-between gap-2">
-                                                                    <p
-                                                                        className={`line-clamp-2 text-sm font-medium ${
-                                                                            isCurrent
-                                                                                ? 'text-[#B91C1C]'
-                                                                                : 'text-slate-700'
-                                                                        }`}
-                                                                    >
-                                                                        {lesson.title}
-                                                                    </p>
-                                                                    {visibleResources.length > 0 && (
-                                                                        <span
-                                                                            className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold ${
-                                                                                isCurrent
-                                                                                    ? 'bg-[#B91C1C] text-white'
-                                                                                    : 'bg-red-100 text-[#B91C1C]'
-                                                                            }`}
-                                                                        >
-                                                                            {visibleResources.length}{' '}
-                                                                            tài liệu
-                                                                        </span>
-                                                                    )}
-                                                                </div>
-
-                                                                <div className="mt-1 flex flex-wrap items-center gap-2">
-                                                                    {isPreviewMode && !isLocked && (
-                                                                        <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-extrabold uppercase tracking-wide text-emerald-700 ring-1 ring-emerald-200">
-                                                                            Học thử
-                                                                        </span>
-                                                                    )}
-                                                                    {isLocked && (
-                                                                        <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-extrabold text-amber-700 ring-1 ring-amber-200">
-                                                                            <Lock className="h-3 w-3" />
-                                                                            Đăng ký để học
-                                                                        </span>
-                                                                    )}
-                                                                    <span className="flex items-center gap-1 text-xs text-slate-500">
-                                                                        <Video className="h-3 w-3" />
-                                                                        {lesson.duration || '00:00'}
+                                                            <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
+                                                                {lesson.duration && (
+                                                                    <span className="flex items-center gap-1">
+                                                                        <Clock className="h-3 w-3" />
+                                                                        {lesson.duration}
                                                                     </span>
-                                                                    {lessonResources.length > 0 && (
-                                                                        <span className="text-[11px] font-semibold text-red-500">
-                                                                            Có tài liệu riêng
-                                                                        </span>
-                                                                    )}
-                                                                    {sectionOnlyCount > 0 && (
-                                                                        <span className="text-[11px] font-semibold text-red-500">
-                                                                            + {sectionOnlyCount} tài
-                                                                            liệu phần
-                                                                        </span>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                        </button>
+                                                                )}
 
-                                                        {visibleResources.length > 0 && (
-                                                            <div className="px-3 pb-3">
-                                                                <div
-                                                                    className={`rounded-xl border px-2.5 py-2 ${
-                                                                        isCurrent
-                                                                            ? 'border-red-200 bg-white'
-                                                                            : 'border-red-100 bg-red-50/70'
-                                                                    }`}
-                                                                >
-                                                                    <p className="text-[11px] font-bold uppercase tracking-wide text-red-500">
-                                                                        {isCurrent
-                                                                            ? 'Tài liệu hiện có'
-                                                                            : 'Tài liệu'}
-                                                                    </p>
-                                                                    <div className="mt-2 flex flex-wrap gap-1.5">
-                                                                        {visibleResources
-                                                                            .slice(0, 2)
-                                                                            .map((resource) => (
-                                                                                <button
-                                                                                    key={resource.id}
-                                                                                    type="button"
-                                                                                    onClick={() =>
-                                                                                        onResourceSelect?.(
-                                                                                            resource
-                                                                                        )
-                                                                                    }
-                                                                                    className="rounded-full bg-white px-2 py-1 text-[11px] font-medium text-slate-700 ring-1 ring-red-100 transition-all hover:-translate-y-0.5 hover:text-[#B91C1C]"
-                                                                                >
-                                                                                    {resource.name}
-                                                                                </button>
-                                                                            ))}
-                                                                        {visibleResources.length > 2 && (
-                                                                            <span className="rounded-full bg-white px-2 py-1 text-[11px] font-bold text-red-500 ring-1 ring-red-100">
-                                                                                +
-                                                                                {visibleResources.length -
-                                                                                    2}
-                                                                            </span>
-                                                                        )}
-                                                                    </div>
-                                                                </div>
+                                                                {isPreviewMode && !isLocked && (
+                                                                    <span className="rounded-md bg-emerald-50 px-1.5 py-0.2 text-[10px] font-bold text-emerald-600 border border-emerald-100">
+                                                                        Học thử
+                                                                    </span>
+                                                                )}
+
+                                                                {isLocked && (
+                                                                    <span className="rounded-md bg-amber-50 px-1.5 py-0.2 text-[10px] font-bold text-amber-700 border border-amber-100">
+                                                                        Khóa
+                                                                    </span>
+                                                                )}
+
+                                                                {lessonResources.length > 0 && (
+                                                                    <span className="flex items-center gap-0.5 text-red-600 font-semibold">
+                                                                        <FileText className="h-3 w-3" />
+                                                                        {lessonResources.length} tài liệu
+                                                                    </span>
+                                                                )}
                                                             </div>
-                                                        )}
-                                                    </div>
+                                                        </div>
+                                                    </button>
                                                 );
-                                        })}
+                                            })}
+                                        </div>
                                     </div>
                                 </div>
                             );
-                        });
-                    })()
-                ) : (
-                        <div className="px-4 py-10 text-center text-sm text-slate-400">
-                            Không tìm thấy bài học phù hợp.
+                        })
+                    ) : (
+                        <div className="py-12 text-center text-xs text-slate-400">
+                            Không tìm thấy bài học nào phù hợp.
                         </div>
                     )
                 ) : filteredResourceGroups.length > 0 ? (
                     filteredResourceGroups.map((group) => {
                         const isGroupOpen =
                             openResourceGroups[group.key] ??
-                            (group.isCurrentSection || group.isGeneral);
+                            (group.isCurrentSection || group.isGeneral || true);
 
                         return (
                             <div
                                 key={group.key}
-                                className="border-b border-slate-100 last:border-0"
+                                className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm transition-all"
                             >
+                                {/* Group Header Accordion Trigger */}
                                 <button
                                     type="button"
-                                    onClick={() =>
-                                        toggleResourceGroup(
-                                            group.key,
-                                            group.isCurrentSection || group.isGeneral
-                                        )
-                                    }
-                                    className="flex w-full items-start justify-between gap-3 bg-white px-4 py-3 transition-colors hover:bg-slate-50"
-                                >
-                                    <div className="min-w-0 flex-1 text-left">
-                                        <div className="flex flex-wrap items-center gap-2">
-                                            <h4 className="line-clamp-1 text-sm font-bold text-slate-800">
-                                                {group.title}
-                                            </h4>
-                                            <span className="rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-bold text-[#B91C1C]">
-                                                {group.resources.length} tài liệu
-                                            </span>
-                                            {group.isCurrentSection && (
-                                                <span className="rounded-full bg-slate-900 px-2 py-0.5 text-[11px] font-semibold text-white">
-                                                    Đang học
-                                                </span>
-                                            )}
-                                        </div>
-                                        <p className="mt-2 line-clamp-2 text-[11px] font-medium text-red-500">
-                                            {buildResourcePreview(group.resources)}
-                                        </p>
-                                    </div>
-                                    {isGroupOpen ? (
-                                        <ChevronUp className="mt-1 h-4 w-4 shrink-0 text-slate-400" />
-                                    ) : (
-                                        <ChevronDown className="mt-1 h-4 w-4 shrink-0 text-slate-400" />
-                                    )}
-                                </button>
-
-                                <div
-                                    className={`overflow-hidden transition-all duration-300 ${
-                                        isGroupOpen ? 'max-h-[2000px]' : 'max-h-0'
+                                    onClick={() => toggleResourceGroup(group.key, true)}
+                                    className={`flex w-full items-center justify-between gap-2.5 px-3.5 py-3 text-left transition-colors ${
+                                        isGroupOpen
+                                            ? 'bg-slate-50/90 border-b border-slate-100'
+                                            : 'bg-white hover:bg-slate-50/60'
                                     }`}
                                 >
-                                    <div className="space-y-3 border-t border-slate-100 bg-slate-50/70 p-3">
+                                    <div className="min-w-0 flex-1">
+                                        <div className="flex items-center gap-2">
+                                            <Folder className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                                            <h4 className="line-clamp-1 text-xs font-bold text-slate-800">
+                                                {group.title}
+                                            </h4>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="flex items-center gap-2">
+                                        <span className="rounded-full bg-red-50 border border-red-100 px-2 py-0.2 text-[10px] font-bold text-[#8B2E2E]">
+                                            {group.resources.length}
+                                        </span>
+                                        <div className={`flex h-6 w-6 items-center justify-center rounded-lg transition-colors ${
+                                            isGroupOpen ? 'bg-red-50 text-[#8B2E2E]' : 'bg-slate-100 text-slate-400'
+                                        }`}>
+                                            {isGroupOpen ? (
+                                                <ChevronUp className="h-3.5 w-3.5" />
+                                            ) : (
+                                                <ChevronDown className="h-3.5 w-3.5" />
+                                            )}
+                                        </div>
+                                    </div>
+                                </button>
+
+                                {/* Resources List in Group */}
+                                <div
+                                    className={`transition-all duration-300 ${
+                                        isGroupOpen ? 'block' : 'hidden'
+                                    }`}
+                                >
+                                    <div className="divide-y divide-slate-100 p-2 space-y-1.5">
                                         {group.resources.map((resource) => {
                                             const isCurrentResource =
                                                 resource.isCurrentContext ||
@@ -668,90 +569,57 @@ const PlayerSidebar = ({
                                             return (
                                                 <div
                                                     key={resource.id}
-                                                    className={`rounded-xl border p-3 ${
+                                                    className={`rounded-xl border p-2.5 transition-all flex items-start gap-2.5 ${
                                                         isCurrentResource
-                                                            ? 'border-red-200 bg-red-50'
-                                                            : 'border-slate-200 bg-white'
+                                                            ? 'border-red-200 bg-red-50/60'
+                                                            : 'border-slate-100 bg-white hover:border-slate-200'
                                                     }`}
                                                 >
-                                                    <div className="flex items-start gap-3">
-                                                        <div
-                                                            className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
-                                                                isCurrentResource
-                                                                    ? 'bg-red-100 text-[#B91C1C]'
-                                                                    : 'bg-slate-100 text-slate-500'
-                                                            }`}
+                                                    <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
+                                                        isCurrentResource
+                                                            ? 'bg-red-100 text-[#8B2E2E]'
+                                                            : 'bg-slate-100 text-slate-500'
+                                                    }`}>
+                                                        <FileText className="h-4 w-4" />
+                                                    </div>
+
+                                                    <div className="min-w-0 flex-1">
+                                                        <p
+                                                            onClick={() => onResourceSelect?.(resource)}
+                                                            className="text-xs font-bold text-slate-800 line-clamp-2 hover:text-[#8B2E2E] cursor-pointer transition-colors leading-snug"
+                                                            title={resource.name}
                                                         >
-                                                            <FileText className="h-5 w-5" />
-                                                        </div>
+                                                            {resource.name}
+                                                        </p>
 
-                                                        <div className="min-w-0 flex-1">
-                                                            <div className="flex flex-wrap items-start gap-2">
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() =>
-                                                                        onResourceSelect?.(resource)
-                                                                    }
-                                                                    className="line-clamp-2 flex-1 text-left text-sm font-semibold text-slate-800 transition-colors hover:text-[#B91C1C]"
-                                                                >
-                                                                    {resource.name}
-                                                                </button>
-                                                                {isCurrentResource && (
-                                                                    <span className="rounded-full bg-[#B91C1C] px-2 py-0.5 text-[11px] font-bold text-white">
-                                                                        Đang dùng
-                                                                    </span>
-                                                                )}
-                                                            </div>
+                                                        {resource.lessonTitle && (
+                                                            <p className="mt-1 text-[11px] text-slate-400 line-clamp-1">
+                                                                Bài: {resource.lessonTitle}
+                                                            </p>
+                                                        )}
+                                                    </div>
 
-                                                            {resource.lessonId && resource.lesson ? (
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() =>
-                                                                        onLessonSelect?.(
-                                                                            resource.lesson
-                                                                        )
-                                                                    }
-                                                                    className="mt-1 line-clamp-1 text-left text-xs font-medium text-slate-500 transition-colors hover:text-[#B91C1C]"
-                                                                >
-                                                                    {resource.lessonTitle ||
-                                                                        'Bài học gắn tài liệu'}
-                                                                </button>
-                                                            ) : (
-                                                                <p className="mt-1 text-xs font-medium text-slate-500">
-                                                                    {resource.isGeneral
-                                                                        ? 'Tài liệu chung của khóa học'
-                                                                        : 'Tài liệu theo phần này'}
-                                                                </p>
-                                                            )}
-
-                                                            {!group.isGeneral && (
-                                                                <p className="mt-2 text-[11px] font-medium uppercase tracking-wide text-slate-400">
-                                                                    {group.title}
-                                                                </p>
-                                                            )}
-                                                        </div>
-
-                                                        <div className="flex flex-col gap-1 flex-shrink-0">
-                                                            <a
-                                                                href={getViewerUrl(resource.url)}
-                                                                target="_blank"
-                                                                rel="noreferrer"
-                                                                className="inline-flex items-center justify-center px-2 py-1 rounded-lg bg-blue-50 border border-blue-200 text-[10px] font-bold text-blue-700 hover:bg-blue-100 transition-colors"
-                                                                title="Đọc tài liệu"
-                                                            >
-                                                                Đọc
-                                                            </a>
-                                                            <a
-                                                                href={resource.url}
-                                                                download
-                                                                target="_blank"
-                                                                rel="noreferrer"
-                                                                className="inline-flex items-center justify-center px-2 py-1 rounded-lg bg-slate-50 border border-slate-200 text-[10px] font-bold text-slate-600 hover:bg-slate-100 transition-colors"
-                                                                title="Tải xuống"
-                                                            >
-                                                                Tải
-                                                            </a>
-                                                        </div>
+                                                    <div className="flex items-center gap-1 shrink-0 pt-0.5">
+                                                        <a
+                                                            href={getViewerUrl(resource.url)}
+                                                            target="_blank"
+                                                            rel="noreferrer"
+                                                            className="inline-flex items-center justify-center px-2 py-1 rounded-lg bg-red-50 border border-red-100 text-[10px] font-bold text-[#8B2E2E] hover:bg-red-100 transition-colors"
+                                                            title="Xem tài liệu"
+                                                        >
+                                                            <Eye className="h-3 w-3 mr-0.5" />
+                                                            Xem
+                                                        </a>
+                                                        <a
+                                                            href={resource.url}
+                                                            download
+                                                            target="_blank"
+                                                            rel="noreferrer"
+                                                            className="inline-flex items-center justify-center p-1 rounded-lg bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100 transition-colors"
+                                                            title="Tải xuống"
+                                                        >
+                                                            <Download className="h-3 w-3" />
+                                                        </a>
                                                     </div>
                                                 </div>
                                             );
@@ -762,8 +630,8 @@ const PlayerSidebar = ({
                         );
                     })
                 ) : (
-                    <div className="px-4 py-10 text-center text-sm text-slate-400">
-                        Chưa có tài liệu đính kèm.
+                    <div className="py-12 text-center text-xs text-slate-400">
+                        Chưa có tài liệu nào.
                     </div>
                 )}
             </div>
