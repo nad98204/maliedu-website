@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
 import { Search, Loader2, BookOpen, FileText, ChevronRight, X } from 'lucide-react';
 import { db } from '../firebase';
+import { isPublicCatalogCourse } from '../utils/courseMarketing';
 
 const GlobalSearch = ({ className }) => {
     const [queryText, setQueryText] = useState('');
@@ -32,7 +33,7 @@ const GlobalSearch = ({ className }) => {
                 }));
 
                 // Filter & Sort in JS
-                courses = courses.filter(c => c.isPublished !== false && c.isForSale !== false)
+                courses = courses.filter(isPublicCatalogCourse)
                                 .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
                                 .slice(0, 50);
 

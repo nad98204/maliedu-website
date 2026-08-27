@@ -8,6 +8,7 @@ import { db, auth } from "../firebase";
 import { createOrder, formatPrice } from "../utils/orderService";
 import { useCart } from "../context/CartContext";
 import { trackMetaEvent } from "../utils/metaPixel";
+import { isLeadGenerationCourse, openCourseLeadLanding } from "../utils/courseMarketing";
 
 const Checkout = () => {
     const { courseId } = useParams();
@@ -60,7 +61,12 @@ const Checkout = () => {
                     const docRef = doc(db, "courses", courseId);
                     const docSnap = await getDoc(docRef);
                     if (docSnap.exists()) {
-                        setCourse({ id: docSnap.id, ...docSnap.data() });
+                        const courseData = { id: docSnap.id, ...docSnap.data() };
+                        if (isLeadGenerationCourse(courseData)) {
+                            openCourseLeadLanding({ course: courseData, navigate });
+                            return;
+                        }
+                        setCourse(courseData);
                     } else {
                         alert("Khóa học không tồn tại!");
                         navigate("/khoa-hoc");

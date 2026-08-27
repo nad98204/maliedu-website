@@ -16,6 +16,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from '../firebase';
 import PlayerSidebar from '../components/PlayerSidebar';
 import PlayerTabs from '../components/PlayerTabs';
+import RelatedCourses from '../components/RelatedCourses';
 import VideoWrapper from '../components/VideoWrapper';
 import {
     getLessonKey,
@@ -897,6 +898,11 @@ const CoursePlayer = () => {
                                     hasFullAccess={hasFullAccess}
                                     onLessonSelect={handleLessonSelect}
                                     onActiveTabChange={setActivePlayerTab}
+                                />
+                                <RelatedCourses
+                                    currentCourseId={course.id}
+                                    limit={2}
+                                    variant="player"
                                 />
                             </div>
                         </VideoWrapper>

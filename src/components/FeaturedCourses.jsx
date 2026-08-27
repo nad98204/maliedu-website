@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import CourseCard from './CourseCard';
+import { isPublicCatalogCourse } from '../utils/courseMarketing';
 
 export default function FeaturedCourses() {
     const [selectedCategory, setSelectedCategory] = useState('all');
@@ -29,15 +30,16 @@ export default function FeaturedCourses() {
             try {
                 const q = query(
                     collection(db, 'courses'),
-                    where('isPublished', '==', true),
-                    where('isForSale', '==', true)
+                    where('isPublished', '==', true)
                 );
 
                 const snapshot = await getDocs(q);
-                const data = snapshot.docs.map(doc => ({
-                    id: doc.id,
-                    ...doc.data()
-                }));
+                const data = snapshot.docs
+                    .map(doc => ({
+                        id: doc.id,
+                        ...doc.data()
+                    }))
+                    .filter(isPublicCatalogCourse);
 
                 // Client-side sort to avoid Firestore index requirement
                 data.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
@@ -88,7 +90,7 @@ export default function FeaturedCourses() {
                         <h2 className="flex flex-col items-center text-sm font-bold text-[#8B2E2E] uppercase tracking-wide m-0">
                             <span className="flex items-center gap-1">
                                 <TrendingUp className="w-4 h-4" />
-                                KHÓA HỌC ONLINE
+                                CHƯƠNG TRÌNH NỔI BẬT
                             </span>
                             <span>ĐƯỢC YÊU THÍCH NHẤT</span>
                         </h2>
@@ -101,7 +103,7 @@ export default function FeaturedCourses() {
                         <h2 className="inline-flex items-center justify-center gap-2 text-2xl font-bold text-[#8B2E2E] uppercase tracking-wide m-0 text-center">
                             <span className="flex items-center gap-2">
                                 <TrendingUp className="w-6 h-6" />
-                                KHÓA HỌC ONLINE
+                                CHƯƠNG TRÌNH NỔI BẬT
                             </span>
                             <span>ĐƯỢC YÊU THÍCH NHẤT</span>
                         </h2>

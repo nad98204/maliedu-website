@@ -38,9 +38,11 @@ import {
   ArrowRight,
   ChevronDown,
   Copy,
+  Pin,
+  ListOrdered,
 } from "lucide-react";
 
-import { db } from "../../firebase";
+import { crmFirestore, db } from "../../firebase";
 import RichTextEditor from "../../components/RichTextEditor";
 import { uploadFileToS3, uploadVideoToS3 } from "../../utils/s3UploadService";
 import AdminCategories from "./AdminCategories";
@@ -53,6 +55,10 @@ import {
   splitCourseForStorage,
 } from "../../utils/courseDataPrivacy";
 import { getPrivateCourseContent } from "../../utils/courseContentService";
+import {
+  isPublicCatalogCourse,
+  normalizeCourseLandingUrl,
+} from "../../utils/courseMarketing";
 
 // --- CẤU HÌNH THÔNG TIN GIẢNG VIÊN MẶC ĐỊNH ---
 // Anh/chị có thể sửa nội dung mặc định tại đây:
@@ -66,6 +72,50 @@ const DEFAULT_INSTRUCTOR = {
 // ------------------------------------------------
 
 const DEFAULT_SECTION_TITLE = "Nội dung khóa học";
+
+const DEFAULT_LEAD_LANDING_OPTIONS = [
+  { title: "Khơi Thông Dòng Tiền", path: "/dao-tao/khoi-thong-dong-tien" },
+  { title: "Luật Hấp Dẫn", path: "/dao-tao/luat-hap-dan" },
+  { title: "Vút Tốc Mục Tiêu", path: "/dao-tao/vut-toc-muc-tieu" },
+  { title: "Chinh Phục Mục Tiêu", path: "/dao-tao/chinh-phuc-muc-tieu" },
+];
+
+const mergeLeadLandingOptions = (dynamicOptions = []) => {
+  const optionsByPath = new Map(
+    DEFAULT_LEAD_LANDING_OPTIONS.map((option) => [option.path, option]),
+  );
+
+  dynamicOptions.forEach((option) => {
+    const path = normalizeCourseLandingUrl(option.path);
+    if (!path || optionsByPath.has(path)) return;
+    optionsByPath.set(path, { title: option.title || path, path });
+  });
+
+  return Array.from(optionsByPath.values());
+};
+
+const getCoursePopularityScore = (course) =>
+  Number(course.enrollmentCount || 0) * 1000 + Number(course.views || 0);
+
+const comparePublicCourseOrder = (courseA, courseB) => {
+  const pinnedDifference =
+    Number(Boolean(courseB.isPinned)) - Number(Boolean(courseA.isPinned));
+  if (pinnedDifference !== 0) return pinnedDifference;
+
+  const priorityDifference =
+    Number(courseB.listingPriority || 0) -
+    Number(courseA.listingPriority || 0);
+  if (priorityDifference !== 0) return priorityDifference;
+
+  const popularityDifference =
+    getCoursePopularityScore(courseB) - getCoursePopularityScore(courseA);
+  if (popularityDifference !== 0) return popularityDifference;
+
+  return (
+    Number(courseB.createdAt || courseB.updatedAt || 0) -
+    Number(courseA.createdAt || courseA.updatedAt || 0)
+  );
+};
 
 const createLocalId = (prefix) =>
   `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -309,6 +359,10 @@ const AdminCourses = () => {
     videoId: "",
     isPublished: true,
     isForSale: true, // true = bán trên web, false = miễn phí nhưng giới hạn số video
+    isLeadGenerationEnabled: false,
+    leadLandingUrl: "",
+    isPinned: false,
+    listingPriority: 0,
     freeLessonsCount: 3, // Số video đầu được xem miễn phí (nếu isForSale = false)
     curriculum: [],
     courseResources: [],
@@ -341,11 +395,7 @@ const AdminCourses = () => {
       setCourses(
         data
           .filter((course) => course.name?.trim())
-          .sort(
-            (courseA, courseB) =>
-              Number(courseB.createdAt || courseB.updatedAt || 0) -
-              Number(courseA.createdAt || courseA.updatedAt || 0),
-          ),
+          .sort(comparePublicCourseOrder),
       );
     } catch (error) {
       console.error("Error fetching courses:", error);
@@ -354,9 +404,38 @@ const AdminCourses = () => {
     }
   }, []);
 
+  const publicCourseRankById = useMemo(() => {
+    const rankEntries = courses
+      .filter(isPublicCatalogCourse)
+      .sort(comparePublicCourseOrder)
+      .map((course, index) => [course.id, index + 1]);
+
+    return new Map(rankEntries);
+  }, [courses]);
+
+  const orderedOnlineCourses = useMemo(() => {
+    const normalizedSearch = searchQuery.trim().toLocaleLowerCase("vi");
+    const matchingCourses = courses.filter(
+      (course) =>
+        (course.isForSale !== false || course.isLeadGenerationEnabled === true) &&
+        (!normalizedSearch ||
+          (course.name || "").toLocaleLowerCase("vi").includes(normalizedSearch)),
+    );
+
+    return [
+      ...matchingCourses
+        .filter((course) => course.isPublished === true)
+        .sort(comparePublicCourseOrder),
+      ...matchingCourses
+        .filter((course) => course.isPublished !== true)
+        .sort(comparePublicCourseOrder),
+    ];
+  }, [courses, searchQuery]);
+
   // Fetch Categories for Dropdown
   const [categories, setCategories] = useState([]);
   const [instructors, setInstructors] = useState([]); // NEW
+  const [leadLandingOptions, setLeadLandingOptions] = useState(DEFAULT_LEAD_LANDING_OPTIONS);
   useEffect(() => {
     const fetchCategories = async () => {
       try {
@@ -378,8 +457,26 @@ const AdminCourses = () => {
       }
     };
 
+    const fetchLeadLandingOptions = async () => {
+      try {
+        const snapshot = await getDocs(collection(crmFirestore, "landing_pages"));
+        const dynamicOptions = snapshot.docs.map((landingDoc) => {
+          const data = landingDoc.data();
+          return {
+            title: data.name || data.title || landingDoc.id,
+            path: data.slug || data.path || data.url || "",
+          };
+        });
+        setLeadLandingOptions(mergeLeadLandingOptions(dynamicOptions));
+      } catch (error) {
+        console.warn("Không thể tải danh sách Landing Page:", error);
+        setLeadLandingOptions(DEFAULT_LEAD_LANDING_OPTIONS);
+      }
+    };
+
     fetchCategories();
     fetchInstructors();
+    fetchLeadLandingOptions();
   }, []);
 
   useEffect(() => {
@@ -1027,6 +1124,10 @@ const AdminCourses = () => {
       videoId: "",
       isPublished: true,
       isForSale: true,
+      isLeadGenerationEnabled: false,
+      leadLandingUrl: "",
+      isPinned: false,
+      listingPriority: 0,
       freeLessonsCount: 3,
       curriculum: [],
       courseResources: [],
@@ -1061,6 +1162,10 @@ const AdminCourses = () => {
       videoId: course.videoId || "",
       isPublished: course.isPublished !== undefined ? course.isPublished : true,
       isForSale: course.isForSale !== undefined ? course.isForSale : true,
+      isLeadGenerationEnabled: Boolean(course.isLeadGenerationEnabled),
+      leadLandingUrl: course.leadLandingUrl || "",
+      isPinned: Boolean(course.isPinned),
+      listingPriority: Number(course.listingPriority || 0),
       freeLessonsCount: course.freeLessonsCount || 3,
 
       // Instructor
@@ -1122,6 +1227,10 @@ const AdminCourses = () => {
       videoId: course.videoId || "",
       isPublished: false,
       isForSale: course.isForSale !== undefined ? course.isForSale : true,
+      isLeadGenerationEnabled: Boolean(course.isLeadGenerationEnabled),
+      leadLandingUrl: course.leadLandingUrl || "",
+      isPinned: false,
+      listingPriority: 0,
       freeLessonsCount: course.freeLessonsCount || 3,
       instructorName: course.instructorName || "",
       instructorTitle: course.instructorTitle || "",
@@ -1216,6 +1325,14 @@ const AdminCourses = () => {
           : data.whatYouWillLearn.split("\n").filter((line) => line.trim() !== "")
         : [],
       courseResources: normalizedCourseResources,
+      isPinned: Boolean(data.isPinned),
+      listingPriority: Number(data.listingPriority || 0),
+      isLeadGenerationEnabled:
+        data.isForSale === false && Boolean(data.isLeadGenerationEnabled),
+      leadLandingUrl:
+        data.isForSale === false && data.isLeadGenerationEnabled
+          ? normalizeCourseLandingUrl(data.leadLandingUrl)
+          : "",
       price: data.isForSale ? Number(data.price) : 0,
       salePrice:
         data.isForSale && data.salePrice ? Number(data.salePrice) : null,
@@ -1224,6 +1341,17 @@ const AdminCourses = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (
+      formData.isForSale === false
+      && formData.isLeadGenerationEnabled
+      && !String(formData.leadLandingUrl || "").trim()
+    ) {
+      showToast("Vui lòng chọn Landing Page nhận đăng ký tư vấn", "error");
+      setActiveTab("info");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const courseData = {
@@ -1266,6 +1394,61 @@ const AdminCourses = () => {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const updateCourseListingSettings = async (course, updates, successMessage) => {
+    const previousCourses = courses;
+    const nextCourses = courses
+      .map((currentCourse) =>
+        currentCourse.id === course.id
+          ? { ...currentCourse, ...updates, updatedAt: Date.now() }
+          : currentCourse,
+      )
+      .sort(comparePublicCourseOrder);
+
+    setCourses(nextCourses);
+
+    try {
+      const batch = writeBatch(db);
+      batch.set(
+        doc(db, "courses", course.id),
+        { ...updates, updatedAt: Date.now() },
+        { merge: true },
+      );
+      await batch.commit();
+      showToast(successMessage);
+    } catch (error) {
+      console.error("Error updating course listing order:", error);
+      setCourses(previousCourses);
+      showToast("Không thể cập nhật thứ tự khóa học", "error");
+    }
+  };
+
+  const handleToggleCoursePin = (course) => {
+    const isPinned = !course.isPinned;
+    updateCourseListingSettings(
+      course,
+      { isPinned },
+      isPinned ? "Đã ghim khóa học lên đầu" : "Đã bỏ ghim khóa học",
+    );
+  };
+
+  const handleShiftCoursePriority = (course, direction) => {
+    const currentPriority = Number(course.listingPriority || 0);
+    const listingPriority = currentPriority + direction;
+    updateCourseListingSettings(
+      course,
+      { listingPriority },
+      direction > 0 ? "Đã tăng ưu tiên hiển thị" : "Đã giảm ưu tiên hiển thị",
+    );
+  };
+
+  const handleResetCourseListing = (course) => {
+    updateCourseListingSettings(
+      course,
+      { isPinned: false, listingPriority: 0 },
+      "Đã đặt lại ưu tiên hiển thị",
+    );
   };
 
   const handleDelete = async (courseId) => {
@@ -1395,9 +1578,10 @@ const AdminCourses = () => {
 
       {/* Toolbar: Tabs & Search integrated */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 p-1.5 bg-white border border-slate-100 rounded-3xl shadow-sm">
-        <div className="flex p-1 bg-slate-50 rounded-2xl w-fit">
+        <div className="flex max-w-full w-fit overflow-x-auto p-1 bg-slate-50 rounded-2xl [scrollbar-width:none]">
           {[
             { id: 'courses', label: 'Online' },
+            { id: 'course_order', label: 'Sắp xếp hiển thị' },
             { id: 'offline_courses', label: 'Offline' },
             { id: 'instructors', label: 'Giảng viên' },
             { id: 'categories', label: 'Chuyên mục' },
@@ -1417,7 +1601,7 @@ const AdminCourses = () => {
         </div>
 
         <div className="flex items-center gap-4 px-2">
-          {(mainTab === "courses" || mainTab === "offline_courses") && (
+          {(mainTab === "courses" || mainTab === "course_order" || mainTab === "offline_courses") && (
             <div className="relative group min-w-[300px]">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-secret-wax transition-colors" />
               <input
@@ -1521,6 +1705,11 @@ const AdminCourses = () => {
                                 </span>
                               )}
                             </div>
+                          ) : course.isLeadGenerationEnabled ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 text-amber-700 text-[11px] font-bold uppercase tracking-wider border border-amber-200">
+                              <MessageSquare className="h-3.5 w-3.5" />
+                              Thu Lead tư vấn
+                            </span>
                           ) : (
                             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-sky-50 text-sky-600 text-[11px] font-bold uppercase tracking-wider border border-sky-100">
                               <span className="h-1.5 w-1.5 rounded-full bg-sky-500 animate-pulse" />
@@ -1537,11 +1726,19 @@ const AdminCourses = () => {
                                 }`}
                             >
                               <span className={`h-1.5 w-1.5 rounded-full ${course.isPublished ? "bg-emerald-500" : "bg-rose-500"}`} />
-                              {course.isPublished ? "Đang bán" : "Tạm ẩn"}
+                              {course.isPublished
+                                ? course.isForSale !== false
+                                  ? "Đang bán"
+                                  : course.isLeadGenerationEnabled
+                                    ? "Đang quảng bá"
+                                    : "Đang hoạt động"
+                                : "Tạm ẩn"}
                             </span>
                             {course.isForSale === false && (
-                              <span className="text-[10px] font-medium text-slate-400 italic">
-                                Cần Admin cấp quyền
+                              <span className="max-w-[210px] truncate text-[10px] font-medium text-slate-400 italic" title={course.leadLandingUrl || "Cần Admin cấp quyền"}>
+                                {course.isLeadGenerationEnabled
+                                  ? `CTA → ${course.leadLandingUrl || "Chưa chọn Landing"}`
+                                  : "Cần Admin cấp quyền"}
                               </span>
                             )}
                           </div>
@@ -1576,7 +1773,7 @@ const AdminCourses = () => {
                   {courses.filter(c => mainTab === 'offline_courses' ? c.isForSale === false : c.isForSale !== false).length === 0 && (
                     <tr>
                       <td
-                        colSpan="4"
+                        colSpan="5"
                         className="py-16 text-center"
                       >
                         <div className="flex flex-col items-center gap-2">
@@ -1587,6 +1784,154 @@ const AdminCourses = () => {
                             Hệ thống chưa ghi nhận khóa học này.
                           </p>
                         </div>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {mainTab === "course_order" && (
+        <div className="space-y-5 animate-fade-in">
+          <div className="flex flex-col gap-4 rounded-3xl border border-amber-100 bg-gradient-to-r from-amber-50 to-white p-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <div className="rounded-2xl bg-amber-100 p-3 text-amber-700">
+                <ListOrdered className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="text-lg font-black text-slate-900">
+                  Sắp xếp khóa học ngoài website
+                </h2>
+                <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
+                  Thứ tự được tính theo: ghim trước, mức ưu tiên, số học viên đã mua và cuối cùng là lượt xem.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2 text-[10px] font-black uppercase tracking-wider">
+              <span className="rounded-lg bg-amber-100 px-2.5 py-1.5 text-amber-700">1. Ghim</span>
+              <span className="rounded-lg bg-indigo-50 px-2.5 py-1.5 text-indigo-700">2. Ưu tiên</span>
+              <span className="rounded-lg bg-emerald-50 px-2.5 py-1.5 text-emerald-700">3. Phổ biến</span>
+            </div>
+          </div>
+
+          <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[900px] text-left text-sm">
+                <thead className="border-b border-slate-100 bg-slate-50/70">
+                  <tr>
+                    <th className="px-5 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Vị trí</th>
+                    <th className="px-5 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Khóa học</th>
+                    <th className="px-5 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Độ phổ biến</th>
+                    <th className="px-5 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Ưu tiên</th>
+                    <th className="px-5 py-4 text-right text-[10px] font-black uppercase tracking-widest text-slate-400">Điều chỉnh</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {orderedOnlineCourses.map((course) => {
+                    const publicRank = publicCourseRankById.get(course.id);
+                    const priority = Number(course.listingPriority || 0);
+
+                    return (
+                      <tr key={course.id} className="transition-colors hover:bg-slate-50/60">
+                        <td className="px-5 py-4">
+                          {publicRank ? (
+                            <span className={`inline-flex h-9 min-w-9 items-center justify-center rounded-xl px-2 text-sm font-black ${publicRank <= 3 ? "bg-secret-wax text-white" : "bg-slate-100 text-slate-600"}`}>
+                              #{publicRank}
+                            </span>
+                          ) : (
+                            <span className="rounded-lg bg-rose-50 px-2.5 py-1.5 text-[10px] font-black uppercase tracking-wider text-rose-600">
+                              Tạm ẩn
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-5 py-4">
+                          <div className="flex items-center gap-3">
+                            <img
+                              src={course.thumbnailUrl || "https://via.placeholder.com/120?text=No+Image"}
+                              alt={course.name}
+                              className="h-12 w-16 rounded-xl object-cover ring-1 ring-slate-100"
+                            />
+                            <div className="min-w-0">
+                              <div className="max-w-[320px] truncate font-black text-slate-900">{course.name}</div>
+                              <div className="mt-1 flex items-center gap-2 text-[10px] font-bold text-slate-400">
+                                <span>/{course.slug}</span>
+                                <span className={`h-1.5 w-1.5 rounded-full ${course.isPublished ? "bg-emerald-500" : "bg-rose-400"}`} />
+                                <span>{course.isPublished ? "Đang bán" : "Tạm ẩn"}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-5 py-4">
+                          <div className="flex items-center gap-4 text-xs font-bold text-slate-600">
+                            <span className="inline-flex items-center gap-1.5" title="Số học viên đã mua">
+                              <Users className="h-4 w-4 text-emerald-600" />
+                              {Number(course.enrollmentCount || 0).toLocaleString("vi-VN")} học viên
+                            </span>
+                            <span className="inline-flex items-center gap-1.5" title="Lượt xem">
+                              <Eye className="h-4 w-4 text-blue-600" />
+                              {Number(course.views || 0).toLocaleString("vi-VN")} lượt xem
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-5 py-4">
+                          <div className="flex flex-wrap items-center gap-2">
+                            {course.isPinned && (
+                              <span className="inline-flex items-center gap-1 rounded-lg bg-amber-50 px-2.5 py-1.5 text-[10px] font-black uppercase tracking-wider text-amber-700 ring-1 ring-amber-200">
+                                <Pin className="h-3 w-3 fill-current" /> Đã ghim
+                              </span>
+                            )}
+                            <span className={`rounded-lg px-2.5 py-1.5 text-[10px] font-black uppercase tracking-wider ${priority > 0 ? "bg-emerald-50 text-emerald-700" : priority < 0 ? "bg-orange-50 text-orange-700" : "bg-slate-100 text-slate-500"}`}>
+                              Mức {priority > 0 ? "+" : ""}{priority}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-5 py-4">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleCoursePin(course)}
+                              className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-black transition ${course.isPinned ? "bg-amber-100 text-amber-800 hover:bg-amber-200" : "bg-slate-100 text-slate-600 hover:bg-amber-50 hover:text-amber-700"}`}
+                            >
+                              <Pin className={`h-3.5 w-3.5 ${course.isPinned ? "fill-current" : ""}`} />
+                              {course.isPinned ? "Bỏ ghim" : "Ghim"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleShiftCoursePriority(course, 1)}
+                              className="inline-flex items-center gap-1 rounded-xl bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-700 transition hover:bg-emerald-100"
+                              title="Tăng mức ưu tiên"
+                            >
+                              <ArrowUp className="h-3.5 w-3.5" /> Lên
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleShiftCoursePriority(course, -1)}
+                              className="inline-flex items-center gap-1 rounded-xl bg-orange-50 px-3 py-2 text-xs font-black text-orange-700 transition hover:bg-orange-100"
+                              title="Giảm mức ưu tiên"
+                            >
+                              <ArrowDown className="h-3.5 w-3.5" /> Xuống
+                            </button>
+                            {(course.isPinned || priority !== 0) && (
+                              <button
+                                type="button"
+                                onClick={() => handleResetCourseListing(course)}
+                                className="rounded-xl px-3 py-2 text-xs font-black text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
+                              >
+                                Đặt lại
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {orderedOnlineCourses.length === 0 && (
+                    <tr>
+                      <td colSpan="5" className="px-6 py-16 text-center text-sm font-bold text-slate-400">
+                        Không tìm thấy khóa học online phù hợp.
                       </td>
                     </tr>
                   )}
@@ -1758,8 +2103,8 @@ const AdminCourses = () => {
                           Khóa học bán trên web
                         </div>
                         <div className="text-slate-500">
-                          Bỏ tích nếu khóa học chỉ dành cho học viên đăng ký
-                          online/offline (admin cấp quyền)
+                          Bỏ tích để chuyển sang khóa Offline hoặc chương trình
+                          cần tư vấn trước khi đăng ký.
                         </div>
                       </div>
                     </div>
@@ -1798,35 +2143,91 @@ const AdminCourses = () => {
                     )}
 
                     {!formData.isForSale && (
-                      <div className="space-y-3">
-                        <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
-                          <p className="text-sm text-blue-800">
-                            <strong>Khóa học miễn phí:</strong> Khóa học này vẫn
-                            hiển thị trên trang bán hàng nhưng miễn phí. Học
-                            viên có thể xem {formData.freeLessonsCount ?? 0}{" "}
-                            video đầu tiên miễn phí, sau đó cần admin cấp quyền
-                            hoặc mua để xem tiếp.
-                          </p>
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium text-slate-700">
-                            Số video miễn phí
-                          </label>
+                      <div className="space-y-4 rounded-2xl border border-amber-200 bg-amber-50/60 p-5">
+                        <label className="flex cursor-pointer items-start gap-3">
                           <input
-                            type="number"
-                            name="freeLessonsCount"
-                            value={formData.freeLessonsCount}
+                            type="checkbox"
+                            name="isLeadGenerationEnabled"
+                            checked={Boolean(formData.isLeadGenerationEnabled)}
                             onChange={handleInputChange}
-                            min="0"
-                            max="10"
-                            className="w-full rounded-lg border border-slate-200 px-4 py-2 focus:ring-2 focus:ring-secret-wax/20 focus:border-secret-wax outline-none"
-                            placeholder="VD: 3"
+                            className="mt-0.5 h-5 w-5 rounded border-amber-300 text-secret-wax focus:ring-secret-wax"
                           />
-                          <p className="text-xs text-slate-500">
-                            Số lượng video đầu tiên mà học viên có thể xem miễn
-                            phí (1-10)
-                          </p>
-                        </div>
+                          <span>
+                            <span className="block text-sm font-black text-amber-950">
+                              Quảng bá tuyển sinh trên website
+                            </span>
+                            <span className="mt-1 block text-xs leading-5 text-amber-800/80">
+                              Khóa học được xuất hiện trên trang khóa học và các vị trí gợi ý. Nút đăng ký sẽ dẫn sang Landing Page để khách để lại thông tin, không qua thanh toán.
+                            </span>
+                          </span>
+                        </label>
+
+                        {formData.isLeadGenerationEnabled ? (
+                          <div className="space-y-3 border-t border-amber-200 pt-4">
+                            <div className="space-y-2">
+                              <label className="text-xs font-black uppercase tracking-wider text-amber-900">
+                                Landing Page nhận đăng ký <span className="text-rose-500">*</span>
+                              </label>
+                              <select
+                                value={leadLandingOptions.some((option) => option.path === formData.leadLandingUrl) ? formData.leadLandingUrl : ""}
+                                onChange={(event) => setFormData((current) => ({
+                                  ...current,
+                                  leadLandingUrl: event.target.value,
+                                }))}
+                                className="w-full rounded-xl border border-amber-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 outline-none transition focus:border-secret-wax focus:ring-4 focus:ring-secret-wax/5"
+                              >
+                                <option value="">-- Chọn nhanh Landing Page --</option>
+                                {leadLandingOptions.map((option) => (
+                                  <option key={option.path} value={option.path}>
+                                    {option.title} ({option.path})
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <div className="space-y-2">
+                              <label className="text-xs font-bold text-slate-600">
+                                Hoặc nhập đường dẫn Landing
+                              </label>
+                              <input
+                                type="text"
+                                name="leadLandingUrl"
+                                value={formData.leadLandingUrl || ""}
+                                onChange={handleInputChange}
+                                required
+                                className="w-full rounded-xl border border-amber-200 bg-white px-4 py-3 text-sm font-mono text-slate-700 outline-none transition focus:border-secret-wax focus:ring-4 focus:ring-secret-wax/5"
+                                placeholder="/dao-tao/khoa-chuyen-sau"
+                              />
+                              <p className="text-[11px] leading-5 text-amber-800/70">
+                                Có thể dùng đường dẫn trong website hoặc URL đầy đủ tới Landing bên ngoài.
+                              </p>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-3 border-t border-amber-200 pt-4">
+                            <p className="text-sm text-slate-600">
+                              Chế độ nội bộ: học viên chỉ xem được các bài học thử, sau đó cần Admin cấp quyền.
+                            </p>
+                            <div className="space-y-2">
+                              <label className="text-sm font-medium text-slate-700">
+                                Số video miễn phí
+                              </label>
+                              <input
+                                type="number"
+                                name="freeLessonsCount"
+                                value={formData.freeLessonsCount}
+                                onChange={handleInputChange}
+                                min="0"
+                                max="10"
+                                className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2 focus:border-secret-wax focus:ring-2 focus:ring-secret-wax/20 outline-none"
+                                placeholder="VD: 3"
+                              />
+                              <p className="text-xs text-slate-500">
+                                Số lượng video đầu tiên học viên được xem thử (0-10).
+                              </p>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
 
@@ -1895,13 +2296,20 @@ const AdminCourses = () => {
                       />
                       <div className="text-sm">
                         <div className="font-medium text-slate-900">
-                          Đang bán
+                          {formData.isForSale
+                            ? "Đang bán"
+                            : formData.isLeadGenerationEnabled
+                              ? "Hiển thị quảng bá"
+                              : "Đang hoạt động"}
                         </div>
                         <div className="text-slate-500">
-                          Tích vào để hiển thị khóa học lên web
+                          {formData.isForSale || formData.isLeadGenerationEnabled
+                            ? "Tích vào để hiển thị khóa học lên website"
+                            : "Tích vào để khóa học có thể được Admin cấp quyền"}
                         </div>
                       </div>
                     </div>
+
                   </div>
 
                   {/* Right Column: Media */}

@@ -470,6 +470,11 @@ if (db || usePublicFirestore) {
 
   courseDocuments.forEach((document) => {
     const data = document.data;
+    const isLeadGenerationCourse =
+      data.isForSale === false
+      && data.isLeadGenerationEnabled === true
+      && Boolean(String(data.leadLandingUrl || "").trim());
+    if (data.isForSale === false && !isLeadGenerationCourse) return;
     const slug = String(data.slug || document.id || "").trim();
     if (!slug) return;
     const routePath = `/khoa-hoc/${slug}`;

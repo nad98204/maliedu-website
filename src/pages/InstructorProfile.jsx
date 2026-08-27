@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router';
 import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
+import { isPublicCatalogCourse } from '../utils/courseMarketing';
 import CourseCard from '../components/CourseCard';
 import InstructorCard from '../components/InstructorCard';
 import { Star, Award, Quote } from 'lucide-react';
@@ -28,7 +29,7 @@ const InstructorProfile = () => {
                 const coursesSnap = await getDocs(query(collection(db, 'courses'), where('authorId', '==', id)));
                 const coursesData = coursesSnap.docs
                     .map(doc => ({ id: doc.id, ...doc.data() }))
-                    .filter(c => c.isPublished !== false && c.isForSale !== false);
+                    .filter(isPublicCatalogCourse);
 
                 // Sort manually
                 coursesData.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));

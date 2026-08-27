@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router';
 import { doc, getDoc, query, collection, where, getDocs } from 'firebase/firestore';
-import { ArrowRight, Globe, Star, Users, Check, Home, ChevronRight, PlayCircle, ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react';
+import { Globe, Star, Users, Check, PlayCircle, ChevronDown, ChevronUp, Eye } from 'lucide-react';
 import { onAuthStateChanged } from "firebase/auth";
 
 import { db, auth } from '../firebase';
@@ -15,6 +15,7 @@ import AuthModal from '../components/AuthModal';
 import { getLessonKey, getPreferredPreviewLesson, resolveCourseAccess } from '../utils/courseAccess';
 import { normalizeCloudinaryImage } from '../utils/imageUtils';
 import { trackMetaEvent } from '../utils/metaPixel';
+import { isLeadGenerationCourse, openCourseLeadLanding } from '../utils/courseMarketing';
 import { sanitizeRichHtml } from '../utils/sanitizeHtml';
 import NotFound from './NotFound';
 import { SITE_URL } from '../seo/routeSeo';
@@ -127,6 +128,11 @@ const CourseDetail = () => {
     const handleBuyClick = async () => {
         if (isEnrolled) {
             navigate(`/bai-giang/${course.id}`);
+            return;
+        }
+
+        if (isLeadGenerationCourse(course)) {
+            openCourseLeadLanding({ course, navigate });
             return;
         }
 
@@ -305,6 +311,20 @@ const CourseDetail = () => {
         : (typeof course?.whatYouWillLearn === 'string'
             ? course.whatYouWillLearn.split('\n').filter(l => l.trim())
             : []);
+    const studentCount = course.fakeStudentCount
+        || (realStudentCount !== null ? realStudentCount : course.enrollmentCount || 0);
+    const courseSummary = (course.description || '')
+        .replace(/&nbsp;|&#160;/gi, ' ')
+        .replace(/<[^>]*>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    const rawUpdatedAt = course.updatedAt?.toDate?.()
+        || course.createdAt?.toDate?.()
+        || course.updatedAt
+        || course.createdAt;
+    const updatedDate = rawUpdatedAt
+        ? new Date(rawUpdatedAt).toLocaleDateString('vi-VN')
+        : null;
 
     return (
         <div className="font-sans bg-slate-50 min-h-screen pb-20">
@@ -343,13 +363,15 @@ const CourseDetail = () => {
                             "name": course.instructorName || "Mali Edu",
                             "sameAs": SITE_URL
                         },
-                        "offers": {
-                            "@type": "Offer",
-                            "priceCurrency": "VND",
-                            "price": course.salePrice || course.price || 0,
-                            "availability": "https://schema.org/InStock",
-                            "url": `${SITE_URL}/khoa-hoc/${course.slug || course.id}`
-                        },
+                        ...(!isLeadGenerationCourse(course) ? {
+                            "offers": {
+                                "@type": "Offer",
+                                "priceCurrency": "VND",
+                                "price": course.salePrice || course.price || 0,
+                                "availability": "https://schema.org/InStock",
+                                "url": `${SITE_URL}/khoa-hoc/${course.slug || course.id}`
+                            }
+                        } : {}),
                         ...(course.instructorName ? {
                             "instructor": {
                                 "@type": "Person",
@@ -369,68 +391,65 @@ const CourseDetail = () => {
                 ]}
             />
 
-            {/* HERO SECTION (Blurred Thumbnail + Dark Red Overlay) */}
-            <div className="relative overflow-hidden bg-[#450a0a] pt-6 sm:pt-14 pb-[60px] sm:pb-[104px] border-b border-gray-100">
-                {/* Layer 1: Blurred Thumbnail Background */}
+            {/* HERO SECTION */}
+            <section className="relative overflow-hidden border-b border-[#6E2023] bg-gradient-to-br from-[#260809] via-[#541316] to-[#7B2528]">
                 <div
-                    className="absolute inset-0 z-0 bg-cover bg-center scale-110 blur-lg opacity-40 transition-opacity duration-1000"
-                    style={{ backgroundImage: `url(${normalizeCloudinaryImage(course.thumbnailUrl || '', 'f_auto,q_auto,w_800,e_blur:1000') || "https://via.placeholder.com/1920x600"})` }}
-                ></div>
+                    className="absolute inset-y-0 right-0 hidden w-[52%] bg-cover bg-center opacity-[0.16] lg:block"
+                    style={{ backgroundImage: `url(${normalizeCloudinaryImage(course.thumbnailUrl || '', 'f_auto,q_auto,w_1000') || "https://via.placeholder.com/1000x600"})` }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-r from-[#260809] via-[#3F0E10]/95 to-[#541316]/60" />
+                <div className="absolute -left-20 -top-28 h-72 w-72 rounded-full bg-amber-300/10 blur-3xl" />
+                <div className="absolute -bottom-36 right-1/4 h-80 w-80 rounded-full bg-red-300/10 blur-3xl" />
 
-                {/* Layer 2: Dark Red Overlay (Gradient for refinement) */}
-                <div className="absolute inset-0 z-10 bg-gradient-to-r from-[#450a0a]/90 via-[#450a0a]/70 to-[#450a0a]/30"></div>
+                <div className="relative z-10 mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8 lg:py-16">
+                    <Breadcrumb
+                        items={[
+                            { label: 'Khóa học', link: '/khoa-hoc' },
+                            { label: course.name }
+                        ]}
+                        className="mb-8 text-white/60"
+                    />
 
-                {/* Layer 3: Content */}
-                <div className="max-w-7xl mx-auto px-4 relative z-20">
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 items-start">
-                        <div className="lg:col-span-2 space-y-4">
-                            {/* Breadcrumb */}
-                            <Breadcrumb
-                                items={[
-                                    { label: 'Khóa học', link: '/khoa-hoc' },
-                                    { label: course.name }
-                                ]}
-                                className="text-white/70 mb-6 sm:mb-12"
-                            />
+                    <div className="max-w-3xl">
+                        <div className="mb-4 inline-flex items-center rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-amber-200 backdrop-blur-sm">
+                            {course.displayCategory || course.categoryName || 'Khóa học online'}
+                        </div>
 
-                            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold mb-4 leading-tight sm:leading-relaxed py-2 font-serif tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-yellow-400 to-amber-100">
-                                {course.name}
-                            </h1>
+                        <h1 className="text-3xl font-black leading-[1.12] tracking-tight text-white sm:text-4xl lg:text-5xl">
+                            {course.name}
+                        </h1>
 
-                            <div 
-                                className="text-sm sm:text-base font-light text-white/80 mb-8 leading-relaxed max-w-2xl break-words prose-invert line-clamp-3 md:line-clamp-none opacity-90"
-                                dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(course?.description ? course.description.replace(/&nbsp;/g, ' ') : '') }}
-                            ></div>
+                        <p className="mt-4 max-w-2xl text-sm font-medium leading-7 text-white/75 line-clamp-3 sm:text-base">
+                            {courseSummary}
+                        </p>
 
-                            <div className="flex flex-wrap items-center gap-3 sm:gap-6 text-sm font-medium">
-                                <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 shadow-sm">
-                                    <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                                    <span className="text-white font-bold">{course.fakeRating || "5.0"}</span>
-                                    <span className="text-white/60 text-xs">({course.fakeReviewCount || "0"} đánh giá)</span>
-                                </div>
-                                <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 shadow-sm text-white/90">
-                                    <Users className="w-4 h-4 text-white/80" />
-                                    <span className="text-xs sm:text-sm">
-                                        {course.fakeStudentCount
-                                            ? course.fakeStudentCount
-                                            : (realStudentCount !== null
-                                                ? realStudentCount
-                                                : (course.enrollmentCount || 0))
-                                        } học viên
-                                    </span>
-                                </div>
-                                <div className="flex items-center gap-2 text-white/50 text-[10px] sm:text-xs">
-                                    <Globe className="w-3 h-3" />
-                                    <span>Cập nhật: {new Date().toLocaleDateString('vi-VN')}</span>
-                                </div>
+                        <div className="mt-7 flex flex-wrap items-center gap-2.5 text-xs font-bold text-white/85 sm:text-sm">
+                            <div className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-3 py-2 backdrop-blur-sm">
+                                <Star className="h-4 w-4 fill-current text-amber-300" />
+                                <span>{course.fakeRating || "5.0"}</span>
+                                <span className="text-white/50">({course.fakeReviewCount || "0"} đánh giá)</span>
                             </div>
+                            <div className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-3 py-2 backdrop-blur-sm">
+                                <Users className="h-4 w-4 text-amber-200" />
+                                <span>{studentCount} học viên</span>
+                            </div>
+                            <div className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-3 py-2 backdrop-blur-sm">
+                                <Eye className="h-4 w-4 text-amber-200" />
+                                <span>{Number(course.views || 0).toLocaleString('vi-VN')} lượt xem</span>
+                            </div>
+                            {updatedDate && (
+                                <div className="inline-flex items-center gap-2 px-1.5 py-2 text-white/55">
+                                    <Globe className="h-3.5 w-3.5" />
+                                    <span>Cập nhật {updatedDate}</span>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
-            </div>
+            </section>
 
             {/* MAIN CONTENT GRID */}
-            <div className="max-w-7xl mx-auto px-4 py-4 sm:py-8 flex flex-col-reverse lg:grid lg:grid-cols-3 gap-4 sm:gap-8">
+            <div className="grid max-w-7xl mx-auto grid-cols-1 px-4 py-6 sm:px-6 sm:py-10 lg:grid-cols-3 gap-6 sm:gap-8">
 
                 {/* LEFT COLUMN (CONTENT) */}
                 <div className="lg:col-span-2 space-y-12 mt-2 lg:mt-0">
@@ -564,7 +583,7 @@ const CourseDetail = () => {
                 </div>
 
                 {/* RIGHT COLUMN (SIDEBAR) */}
-                <div className="lg:col-span-1 relative z-20 lg:sticky lg:top-8 h-fit -mt-[60px] lg:-mt-[76px]">
+                <div className="order-first lg:order-none lg:col-span-1 relative z-20 h-fit lg:sticky lg:top-24">
                     <CourseSidebar 
                         course={course} 
                         onBuyClick={handleBuyClick} 

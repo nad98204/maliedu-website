@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Sitemap tự động sinh lúc build – 2026-08-04 -->
-<!-- Tổng URL: 32 (tĩnh: 25, khóa học: 1, bài viết: 6, tuyển dụng: 0) -->
+<!-- Sitemap tự động sinh lúc build – 2026-08-27 -->
+<!-- Tổng URL: 43 (tĩnh: 25, khóa học: 1, bài viết: 17, tuyển dụng: 0) -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9
@@ -107,11 +107,43 @@
   </url>
   <url>
     <loc>https://luathapdan.vn/khoa-hoc/khoa-hoc-tu-thoi-mien</loc>
-    <lastmod>2026-07-20</lastmod>
+    <lastmod>2026-08-26</lastmod>
+  </url>
+  <url>
+    <loc>https://luathapdan.vn/tin-tuc/ban-do-luat-nhan-qua-va-hap-dan-hieu-dung-de-khong-thuc-hanh-sai</loc>
+    <lastmod>2026-08-05</lastmod>
+  </url>
+  <url>
+    <loc>https://luathapdan.vn/tin-tuc/noi-tich-cuc-moi-ngay-nhung-van-khong-co-ket-qua</loc>
+    <lastmod>2026-08-17</lastmod>
+  </url>
+  <url>
+    <loc>https://luathapdan.vn/tin-tuc/vi-sao-cang-ep-ban-than-cang-tri-hoan-bo-cuoc</loc>
+    <lastmod>2026-08-13</lastmod>
+  </url>
+  <url>
+    <loc>https://luathapdan.vn/tin-tuc/cam-on-nhung-nguoi-tung-keo-toi-xuong</loc>
+    <lastmod>2026-08-12</lastmod>
+  </url>
+  <url>
+    <loc>https://luathapdan.vn/tin-tuc/hay-tin-vao-dieu-ban-mong-muon-ngay-ca-khi-chua-nhin-thay-no</loc>
+    <lastmod>2026-08-09</lastmod>
+  </url>
+  <url>
+    <loc>https://luathapdan.vn/tin-tuc/nguoi-khon-ngoan-biet-khiem-nhuong-ke-kieu-ngao-de-tu-gioi-han-chinh-minh</loc>
+    <lastmod>2026-08-10</lastmod>
   </url>
   <url>
     <loc>https://luathapdan.vn/tin-tuc/thieu-ky-luat-bai-am-thi-giup-ban-kich-hoat-quyet-tam-va-hanh-dong</loc>
     <lastmod>2026-08-03</lastmod>
+  </url>
+  <url>
+    <loc>https://luathapdan.vn/tin-tuc/dat-muc-tieu-lon-nhung-khong-dat-duoc</loc>
+    <lastmod>2026-08-11</lastmod>
+  </url>
+  <url>
+    <loc>https://luathapdan.vn/tin-tuc/khi-mot-nguoi-phu-nu-bat-dau-thau-hieu-me-minh</loc>
+    <lastmod>2026-08-08</lastmod>
   </url>
   <url>
     <loc>https://luathapdan.vn/tin-tuc/nho-luat-hap-dan-toi-nhan-ra-om-2-con-ra-di-tay-trang-khong-phai-la-that-bai</loc>
@@ -128,6 +160,18 @@
   <url>
     <loc>https://luathapdan.vn/tin-tuc/tai-sao-cang-co-gang-tra-no-lai-cang-be-tac</loc>
     <lastmod>2026-08-04</lastmod>
+  </url>
+  <url>
+    <loc>https://luathapdan.vn/tin-tuc/tu-bo-nhung-loi-mon-cu-de-vuon-len-phien-ban-tot-hon</loc>
+    <lastmod>2026-08-06</lastmod>
+  </url>
+  <url>
+    <loc>https://luathapdan.vn/tin-tuc/6-thang-nua-cuoc-doi-ban-co-the-rat-khac-hom-nay</loc>
+    <lastmod>2026-08-07</lastmod>
+  </url>
+  <url>
+    <loc>https://luathapdan.vn/tin-tuc/lam-viec-cham-chi-nhung-khong-tien-len</loc>
+    <lastmod>2026-08-14</lastmod>
   </url>
   <url>
     <loc>https://luathapdan.vn/tin-tuc/nho-luat-hap-dan-tu-he-thong-suyt-gay-den-gan-40-nguoi-tu-nguyen-xin-lam-si</loc>
