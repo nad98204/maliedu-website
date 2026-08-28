@@ -30,6 +30,9 @@ const META_CAPI_ACCESS_TOKEN_SECRET = defineSecret("META_CAPI_ACCESS_TOKEN");
 const S3_ACCESS_KEY_SECRET = defineSecret("S3_ACCESS_KEY");
 const S3_SECRET_KEY_SECRET = defineSecret("S3_SECRET_KEY");
 const STORAGE_MEDIA_TOKEN_SECRET = defineSecret("STORAGE_MEDIA_TOKEN_SECRET");
+const SEPAY_WEBHOOK_SECRET = defineSecret("SEPAY_WEBHOOK_SECRET");
+const BUNNY_STREAM_API_KEY_SECRET = defineSecret("BUNNY_STREAM_API_KEY");
+const BUNNY_STREAM_TOKEN_KEY_SECRET = defineSecret("BUNNY_STREAM_TOKEN_KEY");
 const DISABLED_SECRET_VALUE = "__DISABLED__";
 
 const getMetaCapiAccessToken = () => {
@@ -87,6 +90,9 @@ const PROTECTED_MULTIPART_PATHS = new Set([
   "/api/s3-multipart/init",
   "/api/s3-multipart/sign-part",
 ]);
+const PROTECTED_BUNNY_STREAM_PATHS = new Set([
+  "/api/bunny-stream/create-upload",
+]);
 const PROTECTED_ADMIN_LANDING_PATHS = new Set([
   "/api/admin/landings",
   "/api/admin/landings/delete",
@@ -113,6 +119,8 @@ const RATE_LIMIT_POLICIES = new Map([
   ["/api/post-view", { limit: 120, windowMs: 60 * 1000 }],
   ["/api/course-view", { limit: 120, windowMs: 60 * 1000 }],
   ["/api/storage-share", { limit: 120, windowMs: 60 * 1000 }],
+  ["/api/bunny-stream/create-upload", { limit: 60, windowMs: 60 * 60 * 1000 }],
+  ["/api/bunny-stream/playback", { limit: 240, windowMs: 60 * 1000 }],
 ]);
 const rateLimitBuckets = new Map();
 
@@ -197,6 +205,14 @@ import { onRequestGet as onHealth } from "./api/s3-multipart/health.js";
 import { onRequestPost as onInit } from "./api/s3-multipart/init.js";
 import { onRequestPost as onSignPart } from "./api/s3-multipart/sign-part.js";
 import { createJsonResponse } from "./_lib/s3MultipartV3.js";
+import { createSePayWebhookHandler } from "./_lib/sepayWebhook.js";
+import {
+  createBunnyEmbedPlayback,
+  createBunnyUploadCredentials,
+  findLessonInCurriculum,
+  isActiveCourseAccess,
+  isBunnyLesson,
+} from "./_lib/bunnyStream.js";
 
 const ALLOWED_CRM_FUNNEL_PATHS = new Set([
   "funnels/ads",
@@ -1108,6 +1124,109 @@ const adminLandingHandlers = createAdminLandingHandlers({
   scheduleDocumentId: "khoi_thong_dong_tien_schedule",
 });
 
+const onSePayWebhook = createSePayWebhookHandler({
+  createJsonResponse,
+  getAuth: () => getAdminAuth(getDefaultApp()),
+  getDb: getFirestoreDb,
+  getSecret: () => SEPAY_WEBHOOK_SECRET.value(),
+});
+
+const getBunnyStreamEnv = () => ({
+  ...process.env,
+  BUNNY_STREAM_API_KEY: BUNNY_STREAM_API_KEY_SECRET.value(),
+  BUNNY_STREAM_TOKEN_KEY: BUNNY_STREAM_TOKEN_KEY_SECRET.value(),
+});
+
+const isAdminPlaybackUser = async (user) => {
+  const email = String(user?.email || "").trim().toLowerCase();
+  if (SUPER_ADMIN_EMAILS.has(email) && user?.email_verified === true) {
+    return true;
+  }
+  if (!user?.uid) return false;
+
+  const profile = await getFirestoreDb().collection("users").doc(user.uid).get();
+  return profile.exists && String(profile.data()?.role || "").toLowerCase() === "admin";
+};
+
+const onCreateBunnyUpload = async ({ request }) => {
+  const payload = await request.json();
+  return createJsonResponse(
+    await createBunnyUploadCredentials(getBunnyStreamEnv(), payload),
+  );
+};
+
+const onGetBunnyPlayback = async ({ request }) => {
+  const payload = await request.json();
+  const courseId = String(payload?.courseId || "").trim();
+  const lessonId = String(payload?.lessonId || "").trim();
+  const requestedVideoId = String(payload?.videoId || "").trim();
+
+  if (
+    !courseId ||
+    !lessonId ||
+    !requestedVideoId ||
+    courseId.includes("/") ||
+    courseId.length > 160 ||
+    lessonId.length > 200
+  ) {
+    throw createHttpError(400, "Invalid Bunny Stream playback request");
+  }
+
+  const db = getFirestoreDb();
+  const courseSnapshot = await db.collection("courses").doc(courseId).get();
+  if (!courseSnapshot.exists) {
+    throw createHttpError(404, "Course not found");
+  }
+
+  const publicCourse = courseSnapshot.data() || {};
+  const publicLesson = findLessonInCurriculum(publicCourse.curriculum, lessonId);
+  let allowedLesson =
+    publicCourse.isPublished !== false &&
+    publicLesson?.isFreePreview === true &&
+    isBunnyLesson(publicLesson)
+      ? publicLesson
+      : null;
+
+  if (!allowedLesson) {
+    const user = await verifyRequestUser(request);
+    const isAdmin = await isAdminPlaybackUser(user);
+
+    if (!isAdmin) {
+      const accessSnapshot = await db
+        .collection("course_access")
+        .doc(`${user.uid}_${courseId}`)
+        .get();
+      const access = accessSnapshot.exists ? accessSnapshot.data() || {} : null;
+      if (
+        !access ||
+        access.userId !== user.uid ||
+        access.courseId !== courseId ||
+        !isActiveCourseAccess(access)
+      ) {
+        throw createHttpError(403, "Bạn chưa có quyền xem bài học này");
+      }
+    }
+
+    const contentSnapshot = await db.collection("course_content").doc(courseId).get();
+    const privateCourse = contentSnapshot.exists ? contentSnapshot.data() || {} : {};
+    allowedLesson = findLessonInCurriculum(privateCourse.curriculum, lessonId);
+  }
+
+  if (
+    !isBunnyLesson(allowedLesson) ||
+    String(allowedLesson.videoId || "") !== requestedVideoId
+  ) {
+    throw createHttpError(404, "Bunny Stream lesson not found");
+  }
+
+  return createJsonResponse(
+    await createBunnyEmbedPlayback(
+      getBunnyStreamEnv(),
+      allowedLesson.videoId,
+    ),
+  );
+};
+
 const ROUTES = new Map([
   ["GET /api/admin/landings", adminLandingHandlers.getWorkspace],
   ["POST /api/admin/landings/delete", adminLandingHandlers.delete],
@@ -1116,6 +1235,7 @@ const ROUTES = new Map([
   ["POST /api/admin/landings/save", adminLandingHandlers.save],
   ["POST /api/admin/landings/schedule", adminLandingHandlers.saveSchedule],
   ["GET /api/bank-settings", onGetPublicBankSettings],
+  ["POST /api/payments/sepay/webhook", onSePayWebhook],
   ["POST /api/crm-leads", onCreateCrmLead],
   ["POST /api/newsletter", onCreateNewsletterSubscription],
   ["POST /api/orders", onCreateOrder],
@@ -1123,6 +1243,8 @@ const ROUTES = new Map([
   ["POST /api/post-feedback", onCreatePostFeedback],
   ["POST /api/post-view", onIncrementPostView],
   ["GET /api/storage-share", onGetStorageShare],
+  ["POST /api/bunny-stream/create-upload", onCreateBunnyUpload],
+  ["POST /api/bunny-stream/playback", onGetBunnyPlayback],
   ["GET /api/s3-multipart/health", onHealth],
   ["POST /api/s3-multipart/abort", onAbort],
   ["POST /api/s3-multipart/complete", onComplete],
@@ -1406,6 +1528,9 @@ export const uploadApi = onRequest(
       S3_ACCESS_KEY_SECRET,
       S3_SECRET_KEY_SECRET,
       STORAGE_MEDIA_TOKEN_SECRET,
+      SEPAY_WEBHOOK_SECRET,
+      BUNNY_STREAM_API_KEY_SECRET,
+      BUNNY_STREAM_TOKEN_KEY_SECRET,
     ],
   },
   async (request, response) => {
@@ -1469,6 +1594,7 @@ export const uploadApi = onRequest(
       let adminUser = null;
       if (
         PROTECTED_MULTIPART_PATHS.has(normalizedPath)
+        || PROTECTED_BUNNY_STREAM_PATHS.has(normalizedPath)
         || PROTECTED_ADMIN_LANDING_PATHS.has(normalizedPath)
       ) {
         adminUser = await requireAdminRequest(request);

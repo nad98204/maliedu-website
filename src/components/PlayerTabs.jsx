@@ -262,11 +262,17 @@ const PlayerTabs = ({
 
         const storedValue = window.localStorage.getItem(getLessonNoteStorageKey(lessonId));
 
+        if (!storedValue) {
+            setNote('');
+            setIsNoteReady(true);
+            return;
+        }
+
         try {
             const parsedValue = JSON.parse(storedValue);
-            setNote(parsedValue.content || '');
+            setNote(typeof parsedValue?.content === 'string' ? parsedValue.content : '');
         } catch {
-            setNote(storedValue);
+            setNote(typeof storedValue === 'string' ? storedValue : '');
         }
 
         setIsNoteReady(true);
@@ -278,8 +284,9 @@ const PlayerTabs = ({
         }
 
         const storageKey = getLessonNoteStorageKey(lessonId);
+        const safeNote = typeof note === 'string' ? note : '';
         const saveTimer = window.setTimeout(() => {
-            if (!note.trim()) {
+            if (!safeNote.trim()) {
                 window.localStorage.removeItem(storageKey);
                 return;
             }
@@ -287,7 +294,7 @@ const PlayerTabs = ({
             window.localStorage.setItem(
                 storageKey,
                 JSON.stringify({
-                    content: note,
+                    content: safeNote,
                     savedAt: new Date().toISOString()
                 })
             );

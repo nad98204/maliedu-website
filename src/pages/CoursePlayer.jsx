@@ -26,6 +26,7 @@ import {
     resolveCourseAccess,
 } from '../utils/courseAccess';
 import { loadFullCourse } from '../utils/courseContentService';
+import { getBunnyPlayback } from '../utils/bunnyStreamService';
 
 const DEFAULT_SECTION_TITLE = 'Nội dung khóa học';
 const getSectionIdentifier = (section, fallbackId = '') => section?.id || fallbackId;
@@ -61,6 +62,9 @@ const CoursePlayer = () => {
     const [hasFullAccess, setHasFullAccess] = useState(false);
     const [accessDenied, setAccessDenied] = useState(false);
     const [enrollmentId, setEnrollmentId] = useState(null);
+    const [bunnyPlaybackUrl, setBunnyPlaybackUrl] = useState(null);
+    const [bunnyPlaybackLoading, setBunnyPlaybackLoading] = useState(false);
+    const [bunnyPlaybackError, setBunnyPlaybackError] = useState('');
 
     const [playing, setPlaying] = useState(false);
     const [activePlayerTab, setActivePlayerTab] = useState('overview');
@@ -180,13 +184,26 @@ const CoursePlayer = () => {
                     requestedPreviewLessonKey
                 );
 
-                const access = currentUser
-                    ? await resolveCourseAccess({
-                          db,
-                          course: courseData,
-                          user: currentUser,
-                      })
-                    : { enrollment: null, hasFullAccess: false };
+                let access = { enrollment: null, hasFullAccess: false };
+
+                if (currentUser) {
+                    try {
+                        access = await resolveCourseAccess({
+                            db,
+                            course: courseData,
+                            user: currentUser,
+                        });
+                    } catch (accessError) {
+                        if (!previewRequested) {
+                            throw accessError;
+                        }
+
+                        console.warn(
+                            'Không thể kiểm tra quyền học; tiếp tục bằng chế độ học thử.',
+                            accessError
+                        );
+                    }
+                }
 
                 const enrollmentData = access.enrollment || null;
                 const canPreview = previewRequested && previewSections.length > 0;
@@ -281,6 +298,55 @@ const CoursePlayer = () => {
     );
 
     const currentLessonId = currentLesson?.id || currentLesson?.videoId;
+    const currentVideoProvider = currentLesson?.videoProvider === 'bunny' ? 'bunny' : 's3';
+
+    useEffect(() => {
+        let cancelled = false;
+
+        if (
+            currentVideoProvider !== 'bunny' ||
+            !course?.id ||
+            !currentLessonId ||
+            !currentLesson?.videoId
+        ) {
+            setBunnyPlaybackUrl(null);
+            setBunnyPlaybackLoading(false);
+            setBunnyPlaybackError('');
+            return undefined;
+        }
+
+        setBunnyPlaybackUrl(null);
+        setBunnyPlaybackError('');
+        setBunnyPlaybackLoading(true);
+
+        getBunnyPlayback({
+            courseId: course.id,
+            lessonId: currentLessonId,
+            videoId: currentLesson.videoId,
+            user: currentUser,
+        })
+            .then((result) => {
+                if (cancelled) return;
+                if (!result?.playbackUrl) {
+                    throw new Error('Bunny Stream không trả về đường dẫn phát video.');
+                }
+                setBunnyPlaybackUrl(result.playbackUrl);
+            })
+            .catch((error) => {
+                if (cancelled) return;
+                console.error('Không thể mở video Bunny Stream:', error);
+                setBunnyPlaybackError(
+                    error?.message || 'Không thể mở video Bunny Stream lúc này.',
+                );
+            })
+            .finally(() => {
+                if (!cancelled) setBunnyPlaybackLoading(false);
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [course?.id, currentLesson?.videoId, currentLessonId, currentUser, currentVideoProvider]);
 
     useEffect(() => {
         if (
@@ -848,7 +914,14 @@ const CoursePlayer = () => {
                 >
                     <div className="mx-auto max-w-[1600px] md:px-8 md:pt-8">
                         <VideoWrapper
-                            videoUrl={currentLesson?.videoId}
+                            videoUrl={
+                                currentVideoProvider === 'bunny'
+                                    ? bunnyPlaybackUrl
+                                    : currentLesson?.videoId
+                            }
+                            videoProvider={currentVideoProvider}
+                            videoLoading={bunnyPlaybackLoading}
+                            videoError={bunnyPlaybackError}
                             title={currentLesson?.title}
                             playing={playing}
                             setPlaying={setPlaying}

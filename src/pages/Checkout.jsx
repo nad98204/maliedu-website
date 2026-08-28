@@ -9,6 +9,7 @@ import { createOrder, formatPrice } from "../utils/orderService";
 import { useCart } from "../context/CartContext";
 import { trackMetaEvent } from "../utils/metaPixel";
 import { isLeadGenerationCourse, openCourseLeadLanding } from "../utils/courseMarketing";
+import AuthModal from "../components/AuthModal";
 import {
     formatAccessDuration,
     getActiveCourseAccessPlans,
@@ -27,6 +28,7 @@ const Checkout = () => {
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [user, setUser] = useState(null);
+    const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
     const [selectedPlanId, setSelectedPlanId] = useState("");
 
     const [formData, setFormData] = useState({
@@ -186,6 +188,10 @@ const Checkout = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (!user) {
+            setIsAuthModalOpen(true);
+            return;
+        }
         setSubmitting(true);
         try {
             const finalUserId = user?.uid || null;
@@ -344,7 +350,7 @@ const Checkout = () => {
                                         Chuyển khoản ngân hàng (QR Code)
                                     </div>
                                     <p className="text-sm text-slate-600 mt-1">
-                                        Quét mã QR để thanh toán nhanh chóng. Đơn hàng sẽ được kích hoạt sau khi admin xác nhận.
+                                        Quét mã QR để thanh toán. Hệ thống tự đối chiếu giao dịch và kích hoạt khóa học.
                                     </p>
                                 </div>
                             </div>
@@ -495,14 +501,20 @@ const Checkout = () => {
                                             <Loader2 className="w-5 h-5 animate-spin" /> Xử lý...
                                         </>
                                     ) : (
-                                        "ĐẶT HÀNG & THANH TOÁN"
+                                        user ? "ĐẶT HÀNG & THANH TOÁN" : "ĐĂNG NHẬP ĐỂ THANH TOÁN"
                                     )}
                                 </button>
+                                {!user && (
+                                    <p className="text-center text-xs leading-5 text-amber-700">
+                                        Bạn cần đăng nhập để hệ thống tự cấp đúng khóa học ngay sau khi nhận tiền.
+                                    </p>
+                                )}
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
+            <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
         </div>
     );
 };

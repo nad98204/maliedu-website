@@ -12,7 +12,7 @@ import {
 } from '../utils/courseMarketing';
 import { getCourseStartingPlan, getPlanEffectivePrice } from '../utils/coursePricing';
 
-const CourseCard = ({ course, featured = false }) => {
+const CourseCard = ({ course, featured = false, compact = false }) => {
     // Helper to strip HTML tags and normalize text
     const stripHtml = (html) => {
         if (!html) return '';
@@ -61,13 +61,14 @@ const CourseCard = ({ course, featured = false }) => {
     const actionLinkProps = isExternalCourseUrl(actionUrl)
         ? { href: actionUrl }
         : { to: actionUrl };
+    const courseDescription = stripHtml(course.description);
 
     return (
-        <article className={`group bg-white rounded-[28px] shadow-[0_12px_35px_rgba(15,23,42,0.06)] hover:shadow-[0_22px_50px_rgba(15,23,42,0.11)] transition-all duration-300 overflow-hidden border border-slate-200/80 h-full ${featured ? 'md:grid md:grid-cols-[minmax(0,1.08fr)_minmax(340px,0.92fr)]' : 'flex flex-col'}`}>
+        <article className={`group h-full overflow-hidden border border-slate-200/80 bg-white shadow-[0_10px_28px_rgba(15,23,42,0.07)] transition-all duration-300 hover:shadow-[0_22px_50px_rgba(15,23,42,0.11)] ${compact ? 'rounded-2xl sm:rounded-[20px]' : 'rounded-[28px]'} ${featured ? 'md:grid md:grid-cols-[minmax(0,1.08fr)_minmax(340px,0.92fr)]' : 'flex flex-col'}`}>
             {/* Image Container */}
             <Link
                 to={courseUrl}
-                className={`relative overflow-hidden block bg-slate-100 ${featured ? 'aspect-[16/10] md:aspect-auto md:min-h-[390px]' : 'aspect-[16/10]'}`}
+                className={`relative block overflow-hidden bg-slate-100 ${featured ? 'aspect-[16/10] md:aspect-auto md:min-h-[390px]' : compact ? 'aspect-[4/3] sm:aspect-[16/10]' : 'aspect-[16/10]'}`}
                 aria-label={`Xem khóa học ${course.name}`}
             >
                 <img
@@ -78,114 +79,102 @@ const CourseCard = ({ course, featured = false }) => {
                     height="375"
                     className="w-full h-full object-cover group-hover:scale-[1.04] transition-transform duration-500"
                 />
-
-                {/* Category Badge - Top Left */}
-                {(course.displayCategory || course.categoryName || course.category) && (
-                    <div className="absolute top-4 left-4 z-10">
-                        <span className="bg-[#2B6BE2] text-white text-[10px] font-black uppercase px-3 py-1.5 rounded-lg shadow-lg tracking-wider backdrop-blur-sm bg-opacity-90">
-                            {course.displayCategory || course.categoryName || course.category}
-                        </span>
-                    </div>
-                )}
-
-                {/* Sale Badge - Top Right */}
-                {startingPlan?.salePrice !== null && startingPlan?.price > startingPlan?.salePrice && (
-                    <div className="absolute top-4 right-4 z-10">
-                        <span className="bg-[#F85149] text-white text-[11px] font-black px-4 py-1.5 rounded-full shadow-lg tracking-wide uppercase">
-                            GIẢM {Math.round(((startingPlan.price - startingPlan.salePrice) / startingPlan.price) * 100)}%
-                        </span>
-                    </div>
-                )}
-
-                {isLeadCourse ? (
-                    <div className="absolute bottom-4 left-4 z-10 inline-flex items-center gap-2 rounded-full bg-amber-500 px-3.5 py-2 text-xs font-black text-amber-950 shadow-lg shadow-amber-950/20">
-                        <MessageCircleMore className="h-4 w-4" />
-                        Khóa học chuyên sâu
-                    </div>
-                ) : previewLessonCount > 0 && (
-                    <div className="absolute bottom-4 left-4 z-10 inline-flex items-center gap-2 rounded-full bg-emerald-600 px-3.5 py-2 text-xs font-black text-white shadow-lg shadow-emerald-950/20">
-                        <PlayCircle className="h-4 w-4" />
-                        Học thử {previewLessonCount} bài
-                    </div>
-                )}
             </Link>
 
             {/* Content */}
-            <div className={`flex flex-col flex-1 ${featured ? 'p-6 sm:p-8 lg:p-10' : 'p-5 sm:p-6'}`}>
+            <div className={`flex flex-1 flex-col ${featured ? 'p-6 sm:p-8 lg:p-10' : compact ? 'p-2.5 sm:p-3' : 'p-5 sm:p-6'}`}>
                 {featured && (
                     <p className="mb-3 text-xs font-black uppercase tracking-[0.18em] text-[#8B2E2E]">
                         {isLeadCourse ? 'Chương trình đào tạo chuyên sâu' : 'Khóa học dành cho bạn'}
                     </p>
                 )}
 
-                <Link to={courseUrl}>
-                    <h3 className={`${featured ? 'text-2xl sm:text-3xl' : 'text-xl'} font-black text-[#0F172A] mb-3 line-clamp-2 group-hover:text-[#8B2E2E] transition-colors leading-tight`}>
+                <Link to={courseUrl} className="block w-full">
+                    <h3 className={`${featured ? 'text-2xl sm:text-3xl' : compact ? 'mb-1.5 text-[13px] sm:text-lg' : 'text-xl'} ${compact ? '' : 'mb-3'} line-clamp-2 font-black leading-tight text-[#0F172A] transition-colors group-hover:text-[#8B2E2E]`}>
                         {course.name}
                     </h3>
                 </Link>
 
-                <p className={`${featured ? 'text-[15px] line-clamp-4 mb-6' : 'text-[13.5px] line-clamp-3 min-h-[3.75rem] mb-4'} text-slate-500 text-left leading-relaxed font-medium`}>
-                    {stripHtml(course.description)}
-                </p>
+                {compact ? (
+                    <>
+                        <p className="mb-3 min-h-[2.85rem] w-full line-clamp-3 text-left text-[10px] font-medium leading-[1.45] text-slate-500 sm:hidden">
+                            {courseDescription}
+                        </p>
+                        <p className="mb-4 hidden min-h-[2.6rem] w-full overflow-hidden text-left text-xs font-medium leading-[1.3rem] text-slate-500 sm:[-webkit-box-orient:vertical] sm:[-webkit-line-clamp:2] sm:[display:-webkit-box]">
+                            {courseDescription}
+                        </p>
+                    </>
+                ) : (
+                    <p className={`${featured ? 'mb-6 line-clamp-4 text-[15px]' : 'mb-4 min-h-[3.75rem] line-clamp-3 text-[13.5px]'} text-left font-medium leading-relaxed text-slate-500`}>
+                        {courseDescription}
+                    </p>
+                )}
 
                 {/* Metrics */}
-                <div className={`flex flex-wrap items-center gap-2 text-[12px] font-bold text-slate-600 ${featured ? 'mb-7' : 'mb-5 mt-auto'}`}>
-                    <div className="flex items-center gap-1.5 rounded-lg bg-slate-50 px-2.5 py-1.5" title="Lượt xem khóa học">
-                        <Eye className="h-4 w-4 text-[#9B2528]" />
-                        <span>{formatMetric(course.views)} lượt xem</span>
+                <div className={`flex flex-wrap items-center font-bold text-slate-600 ${compact ? 'mb-2.5 mt-auto gap-1 text-[9px] sm:mb-3 sm:gap-1.5 sm:text-[11px]' : `gap-2 text-[12px] ${featured ? 'mb-7' : 'mb-5 mt-auto'}`}`}>
+                    <div className={`flex items-center rounded-lg bg-slate-50 ${compact ? 'gap-1 px-1.5 py-1.5 sm:px-2' : 'gap-1.5 px-2.5 py-1.5'}`} title="Lượt xem khóa học">
+                        <Eye className={`${compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} text-[#9B2528]`} />
+                        <span>{formatMetric(course.views)}<span className={compact ? 'hidden 2xl:inline' : ''}> lượt xem</span></span>
                     </div>
-                    <div className="flex items-center gap-1.5 rounded-lg bg-slate-50 px-2.5 py-1.5" title="Số lượng học viên">
-                        <Users className="h-4 w-4 text-[#9B2528]" />
-                        <span>{formatMetric(studentCount)} học viên</span>
+                    <div className={`flex items-center rounded-lg bg-slate-50 ${compact ? 'gap-1 px-1.5 py-1.5 sm:px-2' : 'gap-1.5 px-2.5 py-1.5'}`} title="Số lượng học viên">
+                        <Users className={`${compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} text-[#9B2528]`} />
+                        <span>{formatMetric(studentCount)}<span className={compact ? 'hidden 2xl:inline' : ''}> học viên</span></span>
                     </div>
-                    <div className="flex items-center gap-1.5 rounded-lg bg-slate-50 px-2.5 py-1.5" title="Số bài học">
-                        <BookOpen className="h-4 w-4 text-[#9B2528]" />
-                        <span>{formatMetric(lessonCount)} bài học</span>
+                    <div className={`flex items-center rounded-lg bg-slate-50 ${compact ? 'gap-1 px-1.5 py-1.5 sm:px-2' : 'gap-1.5 px-2.5 py-1.5'}`} title="Số bài học">
+                        <BookOpen className={`${compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} text-[#9B2528]`} />
+                        <span>{formatMetric(lessonCount)}<span className={compact ? 'hidden 2xl:inline' : ''}> bài học</span></span>
                     </div>
                 </div>
 
                 {/* Footer: Price & Button */}
-                <div className={`pt-5 border-t border-slate-100 flex items-center justify-between gap-3 ${featured ? 'mt-auto' : ''}`}>
+                <div className={`mt-auto flex gap-3 border-t border-slate-100 ${compact ? 'flex-col items-stretch pt-2.5 sm:pt-3' : 'items-center justify-between pt-5'}`}>
                     <div className="flex flex-col">
                         {isLeadCourse ? (
                             <>
                                 <span className="text-[10px] font-black uppercase tracking-wider text-amber-600">
                                     Khóa học chuyên sâu
                                 </span>
-                                <span className="text-lg font-black text-[#8B2E2E]">
+                                <span className={`${compact ? 'text-base' : 'text-lg'} font-black text-[#8B2E2E]`}>
                                     Tư vấn lộ trình
                                 </span>
                             </>
                         ) : course.isForSale === false ? (
-                            <span className="text-xl font-black text-emerald-600">
+                            <span className={`${compact ? 'text-lg' : 'text-xl'} font-black text-emerald-600`}>
                                 Miễn phí
                             </span>
-                        ) : startingPlan?.salePrice !== null ? (
-                            <>
-                                <span className="text-[11px] text-slate-400 line-through font-bold mb-0.5 uppercase tracking-tighter">
-                                    {course.accessPlansEnabled ? 'Giá từ ' : ''}{formatPrice(startingPlan.price)}
-                                </span>
-                                <span className="text-[18px] md:text-[21px] font-black text-[#8B2E2E] leading-none whitespace-nowrap">
+                        ) : startingPlan?.salePrice !== null && startingPlan?.price > startingPlan?.salePrice ? (
+                            <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs text-slate-400 line-through font-bold">
+                                        {course.accessPlansEnabled ? 'Giá gốc ' : ''}{formatPrice(startingPlan.price)}
+                                    </span>
+                                    <span className="inline-flex items-center rounded-md bg-[#F85149] px-2 py-0.5 text-[11px] sm:text-xs font-black text-white shadow-sm">
+                                        GIẢM {Math.round(((startingPlan.price - startingPlan.salePrice) / startingPlan.price) * 100)}%
+                                    </span>
+                                </div>
+                                <div className={`${compact ? 'text-[18px] sm:text-[20px]' : 'text-[20px] md:text-[24px]'} whitespace-nowrap font-black leading-none text-[#8B2E2E]`}>
                                     {course.accessPlansEnabled ? 'Từ ' : ''}{formatPrice(startingPrice)}
-                                </span>
-                            </>
+                                </div>
+                            </div>
                         ) : (
-                            <span className="text-[18px] md:text-[21px] font-black text-[#8B2E2E] leading-none whitespace-nowrap">
+                            <span className={`${compact ? 'text-[18px] sm:text-[20px]' : 'text-[20px] md:text-[24px]'} whitespace-nowrap font-black leading-none text-[#8B2E2E]`}>
                                 {course.accessPlansEnabled ? 'Từ ' : ''}{formatPrice(startingPrice)}
                             </span>
                         )}
                     </div>
 
-                    <div className="flex shrink-0 flex-col items-stretch gap-2">
+                    <div className={`flex shrink-0 flex-col items-stretch gap-2 ${compact ? 'w-full' : ''}`}>
                         <ActionLink
                             {...actionLinkProps}
-                            className={`inline-flex items-center justify-center gap-2 rounded-xl bg-[#9B2528] text-white font-black shadow-lg shadow-red-950/10 hover:bg-[#7E1E21] hover:shadow-xl transition-all active:scale-[0.98] whitespace-nowrap ${featured ? 'px-5 py-3.5 text-sm' : 'px-4 md:px-5 py-2.5 text-[12px] md:text-[13px]'}`}
+                            className={`inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-[#9B2528] font-black text-white shadow-lg shadow-red-950/10 transition-all hover:bg-[#7E1E21] hover:shadow-xl active:scale-[0.98] ${featured ? 'px-5 py-3.5 text-sm' : compact ? 'w-full px-1.5 py-2.5 text-[10px] sm:px-3 sm:text-xs' : 'px-4 py-2.5 text-[12px] md:px-5 md:text-[13px]'}`}
                         >
-                            {isLeadCourse
-                                ? 'Đăng ký khóa học'
-                                : previewLessonCount > 0
-                                    ? 'Học thử miễn phí'
-                                    : 'Xem khóa học'}
+                            <span>
+                                {isLeadCourse
+                                    ? 'Đăng ký khóa học'
+                                    : previewLessonCount > 0
+                                        ? 'Học thử miễn phí'
+                                        : 'Xem khóa học'}
+                            </span>
                             {isLeadCourse
                                 ? <MessageCircleMore className="h-4 w-4" />
                                 : previewLessonCount > 0

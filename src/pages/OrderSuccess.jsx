@@ -257,11 +257,11 @@ const OrderSuccess = () => {
                 statusInterval = window.setInterval(async () => {
                     const updated = await fetchOrder();
                     setCheckCount(prev => prev + 1);
-                    if (updated?.status === 'completed') {
+                    if (updated?.status === 'completed' || updated?.status === 'payment_received') {
                         window.clearInterval(statusInterval);
                         statusInterval = null;
                     }
-                }, 30000);
+                }, 3000);
             }
         };
         init();
@@ -384,6 +384,7 @@ const OrderSuccess = () => {
     );
 
     const isCompleted = order.status === 'completed';
+    const isPaymentReceived = order.status === 'payment_received';
     const transferContent = bankSettings ? generateTransferContent(bankSettings, order.orderCode) : `MALI ${order.orderCode}`;
     const qrUrl = bankSettings?.accountNo ? generateQrUrl(bankSettings, order.amount, transferContent) : null;
 
@@ -402,25 +403,32 @@ const OrderSuccess = () => {
                 <div className="container max-w-4xl mx-auto px-4">
 
                     {/* Header */}
-                    <div className={`rounded-3xl p-8 text-center text-white mb-0 ${isCompleted ? 'bg-gradient-to-br from-green-500 to-emerald-600' : 'bg-gradient-to-br from-secret-wax to-orange-600'}`}>
+                    <div className={`rounded-3xl p-8 text-center text-white mb-0 ${isCompleted ? 'bg-gradient-to-br from-green-500 to-emerald-600' : isPaymentReceived ? 'bg-gradient-to-br from-blue-500 to-indigo-600' : 'bg-gradient-to-br from-secret-wax to-orange-600'}`}>
                         <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4 backdrop-blur-sm">
                             {isCompleted ? (
                                 <CheckCircle className="w-10 h-10 text-white" />
+                            ) : isPaymentReceived ? (
+                                <AlertCircle className="w-10 h-10 text-white" />
                             ) : (
                                 <Clock className="w-10 h-10 text-white" />
                             )}
                         </div>
                         <h1 className="text-3xl font-serif font-bold mb-2">
-                            {isCompleted ? "Đã kích hoạt khóa học! 🎉" : "Đặt hàng thành công!"}
+                            {isCompleted ? "Đã kích hoạt khóa học! 🎉" : isPaymentReceived ? "Đã nhận được thanh toán" : "Đặt hàng thành công!"}
                         </h1>
                         <p className="opacity-90 text-sm">
                             Mã đơn hàng: <span className="font-mono font-bold text-lg">{order.orderCode}</span>
                         </p>
-                        {!isCompleted && (
+                        {!isCompleted && !isPaymentReceived && (
                             <div className="mt-3 inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full text-sm">
                                 <Loader2 className="w-4 h-4 animate-spin" />
                                 Đang chờ xác nhận thanh toán...
                             </div>
+                        )}
+                        {isPaymentReceived && (
+                            <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-white/90">
+                                Email đặt hàng chưa có tài khoản học. Vui lòng đăng nhập/đăng ký đúng email rồi liên hệ hỗ trợ để hoàn tất cấp quyền.
+                            </p>
                         )}
                     </div>
 

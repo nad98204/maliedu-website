@@ -38,7 +38,10 @@ const cloudflareApiPlugin = () => ({
             else if (mod.onRequest) handler = mod.onRequest;
 
             if (handler) {
-               const env = loadEnv(server.config.mode, process.cwd(), 'VITE_');
+               // Server-side API handlers may use secrets without the VITE_ prefix.
+               // They are passed only to the local function context and are never
+               // exposed through import.meta.env in the browser bundle.
+               const env = loadEnv(server.config.mode, process.cwd(), '');
                const request = {
                   json: async () => JSON.parse(bodyStr || '{}'),
                   text: async () => bodyStr,

@@ -138,6 +138,8 @@ export const buildPublicCurriculum = (course, normalizedCurriculum) => {
 
       if (previewableIds.has(lesson.id) && lesson.videoId) {
         publicLesson.videoId = lesson.videoId;
+        publicLesson.videoProvider =
+          lesson.videoProvider === "bunny" ? "bunny" : "s3";
       }
 
       return publicLesson;

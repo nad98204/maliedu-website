@@ -18,6 +18,7 @@ import {
     where,
     getDocs,
     addDoc,
+    deleteField,
     orderBy,
     limit
 } from "firebase/firestore";
@@ -46,9 +47,7 @@ export const DEFAULT_BANK_SETTINGS = {
     // Phương thức xác minh tự động
     autoVerifyMethod: "manual", // "manual" | "sepay" | "casso" | "mbbank"
 
-    // SePay settings (https://sepay.vn - Free)
-    sepayApiKey: "",        // API Key của SePay
-    sepayAccountId: "",     // ID tài khoản trên SePay
+    // SePay dùng webhook HMAC; secret chỉ lưu trong Firebase Secret Manager.
 
     // Casso settings (https://casso.vn - Paid)
     cassoApiKey: "",        // API Key của Casso
@@ -163,8 +162,13 @@ export const getPublicBankSettings = async () => {
 export const saveBankSettings = async (settings) => {
     try {
         const docRef = doc(db, SETTINGS_COLLECTION, BANK_SETTINGS_DOC);
+        const safeSettings = { ...settings };
+        delete safeSettings.sepayApiKey;
+        delete safeSettings.sepayAccountId;
         await setDoc(docRef, {
-            ...settings,
+            ...safeSettings,
+            sepayApiKey: deleteField(),
+            sepayAccountId: deleteField(),
             updatedAt: serverTimestamp()
         }, { merge: true });
         return true;
@@ -226,38 +230,6 @@ export const getBankTransactions = async (limitCount = 50) => {
 };
 
 // ============================
-// XÁC MINH GIAO DỊCH VỚI SEPAY
-// ============================
-export const verifyWithSePay = async (settings) => {
-    if (!settings.sepayApiKey) {
-        throw new Error("Chưa cấu hình SePay API Key");
-    }
-
-    try {
-        // Gọi SePay API để lấy giao dịch gần đây
-        const response = await fetch(
-            `https://my.sepay.vn/userapi/transactions/list?account_number=${settings.accountNo}&limit=20`,
-            {
-                headers: {
-                    "Authorization": `Bearer ${settings.sepayApiKey}`,
-                    "Content-Type": "application/json"
-                }
-            }
-        );
-
-        if (!response.ok) {
-            throw new Error(`SePay API Error: ${response.status}`);
-        }
-
-        const data = await response.json();
-        return data.transactions || [];
-    } catch (error) {
-        console.error("SePay verify error:", error);
-        throw error;
-    }
-};
-
-// ============================
 // XÁC MINH GIAO DỊCH VỚI CASSO
 // ============================
 export const verifyWithCasso = async (settings) => {
@@ -312,7 +284,7 @@ export const matchTransactionToOrder = async (transaction, settings) => {
             // Kiểm tra nội dung CK và số tiền
             const contentMatch = description.includes(expectedContent) || 
                                  description.includes(order.orderCode?.toUpperCase());
-            const amountMatch = Math.abs(transAmount - expectedAmount) < 1000; // Sai số < 1000đ
+            const amountMatch = Number.isSafeInteger(transAmount) && transAmount === expectedAmount;
 
             if (contentMatch && amountMatch) {
                 return { matched: true, order, transaction };
@@ -341,8 +313,10 @@ export const runAutoVerification = async () => {
 
     try {
         if (settings.autoVerifyMethod === "sepay") {
-            transactions = await verifyWithSePay(settings);
-            source = "SePay";
+            return {
+                success: false,
+                message: "SePay được xác minh realtime bằng webhook trên máy chủ; hãy dùng nút Gửi thử trong SePay.",
+            };
         } else if (settings.autoVerifyMethod === "casso") {
             transactions = await verifyWithCasso(settings);
             source = "Casso";

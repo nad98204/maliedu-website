@@ -4,6 +4,9 @@ import { CheckCircle, ChevronDown, ChevronLeft, ChevronRight, Lock, Play, Settin
 
 const VideoWrapper = ({
     videoUrl,
+    videoProvider = 's3',
+    videoLoading = false,
+    videoError = '',
     title,
     onEnded,
     onDuration,
@@ -112,7 +115,28 @@ const VideoWrapper = ({
                     */}
                     <div className="relative w-full overflow-hidden rounded-xl bg-black shadow-sm" style={{ aspectRatio: '16/9', minHeight: '180px' }}>
                         <div className="absolute inset-0 flex items-center justify-center">
-                            {(isFile && !useHLS) ? (
+                            {videoLoading ? (
+                                <div className="flex flex-col items-center gap-3 text-white/80">
+                                    <div className="h-9 w-9 animate-spin rounded-full border-2 border-white/25 border-t-white" />
+                                    <p className="text-sm font-bold">Đang chuẩn bị video...</p>
+                                </div>
+                            ) : videoError ? (
+                                <div className="max-w-md px-6 text-center text-white">
+                                    <p className="text-sm font-extrabold">Chưa thể mở bài giảng</p>
+                                    <p className="mt-2 text-xs leading-relaxed text-white/65">{videoError}</p>
+                                </div>
+                            ) : videoProvider === 'bunny' && playableUrl ? (
+                                <iframe
+                                    key={playableUrl}
+                                    src={playableUrl}
+                                    title={title || 'Bài giảng Bunny Stream'}
+                                    className="h-full w-full border-0"
+                                    loading="eager"
+                                    allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture; fullscreen"
+                                    allowFullScreen
+                                    referrerPolicy="strict-origin-when-cross-origin"
+                                />
+                            ) : (isFile && !useHLS) ? (
                                 <video
                                     key={playableUrl} // Force re-render on URL change
                                     src={playableUrl}

@@ -42,11 +42,13 @@ import {
   ListOrdered,
   Clock3,
   Crown,
+  Sparkles,
 } from "lucide-react";
 
 import { crmFirestore, db } from "../../firebase";
 import RichTextEditor from "../../components/RichTextEditor";
 import { uploadFileToS3, uploadVideoToS3 } from "../../utils/s3UploadService";
+import { uploadVideoToBunny } from "../../utils/bunnyStreamService";
 import AdminCategories from "./AdminCategories";
 import AdminCoupons from "./AdminCoupons";
 import AdminInstructors from "./AdminInstructors"; // NEW IMPORT
@@ -175,6 +177,7 @@ const normalizeCurriculumForForm = (curriculum = []) => {
         createLocalId(`lesson-${sectionIndex}-${lessonIndex}`),
       ),
       isFreePreview: Boolean(lesson.isFreePreview),
+      videoProvider: lesson.videoProvider === "bunny" ? "bunny" : "s3",
     })),
   }));
 };
@@ -247,49 +250,99 @@ const AdminCourses = () => {
   const [quickAddExpanded, setQuickAddExpanded] = useState({}); // Key: sIdx, Value: boolean
   const [expandedResources, setExpandedResources] = useState({}); // Key: resource.id || idx, Value: boolean
   const [uploadTasks, setUploadTasks] = useState({}); // { 'key': { fileName, progress, status, error } }
+  const [uploadProviders, setUploadProviders] = useState({});
 
-  const handleStartUpload = async (sIdx, lIdx, file, isNew = false) => {
+  const getUploadProvider = (taskKey, fallbackProvider = "s3") =>
+    uploadProviders[taskKey] ||
+    (fallbackProvider === "bunny" ? "bunny" : "s3");
+
+  const setUploadProvider = (taskKey, provider) => {
+    setUploadProviders((current) => ({
+      ...current,
+      [taskKey]: provider === "bunny" ? "bunny" : "s3",
+    }));
+  };
+
+  const handleStartUpload = async (
+    sIdx,
+    lIdx,
+    file,
+    isNew = false,
+    requestedProvider = "s3",
+  ) => {
     if (!file) return;
     const taskKey = isNew ? `new-${sIdx}` : `${sIdx}-${lIdx}`;
+    const provider = requestedProvider === "bunny" ? "bunny" : "s3";
 
     setUploadTasks(prev => ({
       ...prev,
-      [taskKey]: { fileName: file.name, progress: 0, status: 'uploading' }
+      [taskKey]: { fileName: file.name, progress: 0, status: 'uploading', provider }
     }));
 
     try {
-      const videoUrl = await uploadVideoToS3(file, (percent) => {
-        setUploadTasks(prev => ({
-          ...prev,
-          [taskKey]: { ...prev[taskKey], progress: percent }
-        }));
-      });
+      const uploadedVideo = provider === "bunny"
+        ? await uploadVideoToBunny(file, (percent) => {
+          setUploadTasks(prev => ({
+            ...prev,
+            [taskKey]: { ...prev[taskKey], progress: percent }
+          }));
+        })
+        : {
+          videoId: await uploadVideoToS3(file, (percent) => {
+            setUploadTasks(prev => ({
+              ...prev,
+              [taskKey]: { ...prev[taskKey], progress: percent }
+            }));
+          }),
+          videoProvider: "s3",
+        };
+      const videoId = uploadedVideo?.videoId;
 
-      if (!videoUrl) {
-        throw new Error("Không nhận được đường dẫn sau khi tải lên thành công.");
+      if (!videoId) {
+        throw new Error("Không nhận được mã video sau khi tải lên thành công.");
       }
 
       if (isNew) {
         const input = document.getElementById(`lesson-video-${sIdx}`);
         if (input) {
-          input.value = videoUrl;
+          input.value = videoId;
           const durInput = document.getElementById(`lesson-duration-${sIdx}`);
-          if (durInput && !durInput.value) {
-            fetchVideoDuration(videoUrl).then(duration => {
+          if (provider === "s3" && durInput && !durInput.value) {
+            fetchVideoDuration(videoId).then(duration => {
               if (duration) durInput.value = duration;
             });
           }
         }
       } else {
-        handleUpdateLesson(sIdx, lIdx, "videoId", videoUrl);
+        setFormData((current) => {
+          const curriculum = [...(current.curriculum || [])];
+          const section = curriculum[sIdx];
+          const lesson = section?.lessons?.[lIdx];
+          if (!lesson) return current;
+
+          const lessons = [...section.lessons];
+          lessons[lIdx] = {
+            ...lesson,
+            videoId,
+            videoProvider: provider,
+            ...(provider === "bunny" ? { bunnyStatus: "processing" } : { bunnyStatus: "" }),
+          };
+          curriculum[sIdx] = { ...section, lessons };
+          return { ...current, curriculum };
+        });
       }
+
+      setUploadProvider(taskKey, provider);
 
       setUploadTasks(prev => {
         const next = { ...prev };
         delete next[taskKey];
         return next;
       });
-      showToast(`Tải lên "${file.name}" thành công!`, "success");
+      showToast(
+        `Tải "${file.name}" lên ${provider === "bunny" ? "Bunny Stream" : "S3"} thành công!`,
+        "success",
+      );
     } catch (err) {
       console.error("Lỗi chi tiết khi tải video:", err);
       setUploadTasks(prev => ({
@@ -395,6 +448,7 @@ const AdminCourses = () => {
     isLeadGenerationEnabled: false,
     leadLandingUrl: "",
     isPinned: false,
+    isSpecial: false,
     listingPriority: 0,
     freeLessonsCount: 3, // Số video đầu được xem miễn phí (nếu isForSale = false)
     curriculum: [],
@@ -553,6 +607,7 @@ const AdminCourses = () => {
           ...lesson,
           id: getLessonIdentifier(lesson, createLocalId("lesson")),
           isFreePreview: false,
+          videoProvider: lesson.videoProvider === "bunny" ? "bunny" : "s3",
         },
       ];
       setFormData((prev) => ({ ...prev, curriculum: newCurriculum }));
@@ -615,14 +670,17 @@ const AdminCourses = () => {
   };
 
   const handleUpdateLesson = (sIdx, lIdx, field, value) => {
-    const newCurriculum = [...formData.curriculum];
-    if (newCurriculum[sIdx] && newCurriculum[sIdx].lessons[lIdx]) {
-      newCurriculum[sIdx].lessons[lIdx] = {
-        ...newCurriculum[sIdx].lessons[lIdx],
-        [field]: value,
-      };
-      setFormData((prev) => ({ ...prev, curriculum: newCurriculum }));
-    }
+    setFormData((current) => {
+      const curriculum = [...(current.curriculum || [])];
+      const section = curriculum[sIdx];
+      const lesson = section?.lessons?.[lIdx];
+      if (!lesson) return current;
+
+      const lessons = [...section.lessons];
+      lessons[lIdx] = { ...lesson, [field]: value };
+      curriculum[sIdx] = { ...section, lessons };
+      return { ...current, curriculum };
+    });
   };
 
   const handleAddCourseResource = () => {
@@ -1258,6 +1316,7 @@ const AdminCourses = () => {
       isLeadGenerationEnabled: false,
       leadLandingUrl: "",
       isPinned: false,
+      isSpecial: false,
       listingPriority: 0,
       freeLessonsCount: 3,
       curriculum: [],
@@ -1305,6 +1364,7 @@ const AdminCourses = () => {
       isLeadGenerationEnabled: Boolean(course.isLeadGenerationEnabled),
       leadLandingUrl: course.leadLandingUrl || "",
       isPinned: Boolean(course.isPinned),
+      isSpecial: Boolean(course.isSpecial),
       listingPriority: Number(course.listingPriority || 0),
       freeLessonsCount: course.freeLessonsCount || 3,
 
@@ -1493,6 +1553,7 @@ const AdminCourses = () => {
       accessPlans: normalizedAccessPlans,
       defaultAccessPlanId: accessPlansEnabled ? defaultAccessPlan?.id || "" : "",
       isPinned: Boolean(data.isPinned),
+      isSpecial: Boolean(data.isSpecial),
       listingPriority: Number(data.listingPriority || 0),
       isLeadGenerationEnabled:
         data.isForSale === false && Boolean(data.isLeadGenerationEnabled),
@@ -1623,6 +1684,15 @@ const AdminCourses = () => {
       course,
       { isPinned },
       isPinned ? "Đã ghim khóa học lên đầu" : "Đã bỏ ghim khóa học",
+    );
+  };
+
+  const handleToggleCourseSpecial = (course) => {
+    const isSpecial = !course.isSpecial;
+    updateCourseListingSettings(
+      course,
+      { isSpecial },
+      isSpecial ? "Đã đánh dấu là Khóa học đặc biệt (Khung 2)" : "Đã bỏ đánh dấu Khóa học đặc biệt",
     );
   };
 
@@ -2093,6 +2163,11 @@ const AdminCourses = () => {
                                 <Pin className="h-3 w-3 fill-current" /> Đã ghim
                               </span>
                             )}
+                            {course.isSpecial && (
+                              <span className="inline-flex items-center gap-1 rounded-lg bg-red-50 px-2.5 py-1.5 text-[10px] font-black uppercase tracking-wider text-red-700 ring-1 ring-red-200">
+                                <Sparkles className="h-3 w-3 fill-current text-red-500" /> Đặc biệt
+                              </span>
+                            )}
                             <span className={`rounded-lg px-2.5 py-1.5 text-[10px] font-black uppercase tracking-wider ${priority > 0 ? "bg-emerald-50 text-emerald-700" : priority < 0 ? "bg-orange-50 text-orange-700" : "bg-slate-100 text-slate-500"}`}>
                               Mức {priority > 0 ? "+" : ""}{priority}
                             </span>
@@ -2100,6 +2175,15 @@ const AdminCourses = () => {
                         </td>
                         <td className="px-5 py-4">
                           <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleCourseSpecial(course)}
+                              className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-black transition ${course.isSpecial ? "bg-red-100 text-red-800 hover:bg-red-200" : "bg-slate-100 text-slate-600 hover:bg-red-50 hover:text-red-700"}`}
+                              title="Tự chỉnh hiển thị tại Khung 2 (Khóa học đặc biệt)"
+                            >
+                              <Sparkles className={`h-3.5 w-3.5 ${course.isSpecial ? "fill-current text-red-600" : ""}`} />
+                              {course.isSpecial ? "Đặc biệt" : "Đặt đặc biệt"}
+                            </button>
                             <button
                               type="button"
                               onClick={() => handleToggleCoursePin(course)}
@@ -2701,11 +2785,12 @@ const AdminCourses = () => {
                       <input
                         type="checkbox"
                         name="isPublished"
+                        id="isPublished"
                         checked={formData.isPublished}
                         onChange={handleInputChange}
-                        className="h-5 w-5 text-secret-wax focus:ring-secret-wax border-gray-300 rounded"
+                        className="h-5 w-5 text-secret-wax focus:ring-secret-wax border-gray-300 rounded cursor-pointer"
                       />
-                      <div className="text-sm">
+                      <label htmlFor="isPublished" className="text-sm cursor-pointer">
                         <div className="font-medium text-slate-900">
                           {formData.isForSale
                             ? "Đang bán"
@@ -2720,7 +2805,27 @@ const AdminCourses = () => {
                               : "Tích vào để hiển thị khóa học lên website"
                             : "Tích vào để khóa học có thể được Admin cấp quyền"}
                         </div>
-                      </div>
+                      </label>
+                    </div>
+
+                    <div className="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50/40 p-4">
+                      <input
+                        type="checkbox"
+                        name="isSpecial"
+                        id="isSpecial"
+                        checked={formData.isSpecial}
+                        onChange={handleInputChange}
+                        className="h-5 w-5 text-amber-600 focus:ring-amber-500 border-amber-300 rounded cursor-pointer"
+                      />
+                      <label htmlFor="isSpecial" className="text-sm cursor-pointer">
+                        <div className="font-bold text-slate-900 flex items-center gap-1.5">
+                          <Sparkles className="w-4 h-4 text-amber-500 fill-amber-400" />
+                          Khóa học đặc biệt (Hiển thị tại Khung 2 - Khóa học đặc biệt)
+                        </div>
+                        <div className="text-slate-500 text-xs">
+                          Tích chọn để tự chỉnh đưa khóa học này vào khung &quot;Khóa học đặc biệt&quot; trên trang danh sách khóa học
+                        </div>
+                      </label>
                     </div>
 
                   </div>
@@ -3105,7 +3210,32 @@ const AdminCourses = () => {
                                 />
                               </div>
                               <div className="md:col-span-4">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2 block">Video ID</label>
+                                <div className="mb-2 flex items-center justify-between gap-3">
+                                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Nguồn lưu video</label>
+                                  <div className="flex rounded-xl border border-slate-200 bg-white p-0.5">
+                                    {[
+                                      { value: "s3", label: "S3 cũ" },
+                                      { value: "bunny", label: "Bunny" },
+                                    ].map((option) => {
+                                      const taskKey = `new-${sIdx}`;
+                                      const isActive = getUploadProvider(taskKey) === option.value;
+                                      return (
+                                        <button
+                                          key={option.value}
+                                          type="button"
+                                          onClick={() => setUploadProvider(taskKey, option.value)}
+                                          className={`rounded-lg px-2.5 py-1 text-[9px] font-black uppercase tracking-wide transition-all ${
+                                            isActive
+                                              ? "bg-secret-wax text-white shadow-sm"
+                                              : "text-slate-400 hover:bg-slate-50 hover:text-slate-700"
+                                          }`}
+                                        >
+                                          {option.label}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
                                 <div className="flex gap-2">
                                   <input
                                     type="text"
@@ -3118,7 +3248,13 @@ const AdminCourses = () => {
                                       type="file"
                                       className="hidden"
                                       accept="video/*"
-                                      onChange={(e) => handleStartUpload(sIdx, null, e.target.files[0], true)}
+                                      onChange={(e) => handleStartUpload(
+                                        sIdx,
+                                        null,
+                                        e.target.files[0],
+                                        true,
+                                        getUploadProvider(`new-${sIdx}`),
+                                      )}
                                     />
                                     {uploadTasks[`new-${sIdx}`] ? (
                                       <div className="w-5 h-5 border-2 border-secret-wax/30 border-t-secret-wax rounded-full animate-spin" />
@@ -3158,7 +3294,12 @@ const AdminCourses = () => {
                                     const v = document.getElementById(`lesson-video-${sIdx}`);
                                     const d = document.getElementById(`lesson-duration-${sIdx}`);
                                     if (t.value && v.value) {
-                                      handleAddLessonToSection(sIdx, { title: t.value, videoId: v.value, duration: d.value });
+                                      handleAddLessonToSection(sIdx, {
+                                        title: t.value,
+                                        videoId: v.value,
+                                        videoProvider: getUploadProvider(`new-${sIdx}`),
+                                        duration: d.value,
+                                      });
                                       t.value = ""; v.value = ""; d.value = "";
                                     } else {
                                       showToast("Vui lòng nhập tên và video", "error");
@@ -3178,6 +3319,11 @@ const AdminCourses = () => {
                             {(section.lessons || []).map((lesson, lIdx) => {
                               const expKey = getLessonExpansionKey(lesson, sIdx, lIdx);
                               const isExp = Boolean(expandedLessons[expKey]);
+                              const uploadTaskKey = `${sIdx}-${lIdx}`;
+                              const lessonUploadProvider = getUploadProvider(
+                                uploadTaskKey,
+                                lesson.videoProvider,
+                              );
 
                               return (
                                 <div
@@ -3215,6 +3361,28 @@ const AdminCourses = () => {
 
                                     <div className="flex flex-wrap items-center justify-end gap-2">
                                       <div className="relative group/vid flex items-center gap-1">
+                                        <div className="mr-1 flex rounded-xl border border-slate-200 bg-slate-50 p-0.5">
+                                          {[
+                                            { value: "s3", label: "S3" },
+                                            { value: "bunny", label: "Bunny" },
+                                          ].map((option) => (
+                                            <button
+                                              key={option.value}
+                                              type="button"
+                                              onClick={() =>
+                                                setUploadProvider(uploadTaskKey, option.value)
+                                              }
+                                              className={`rounded-lg px-2 py-1.5 text-[9px] font-black uppercase tracking-wide transition-all ${
+                                                lessonUploadProvider === option.value
+                                                  ? "bg-secret-wax text-white shadow-sm"
+                                                  : "text-slate-400 hover:bg-white hover:text-slate-700"
+                                              }`}
+                                              title={option.value === "bunny" ? "Lưu và phát bằng Bunny Stream" : "Giữ cách lưu S3 hiện tại"}
+                                            >
+                                              {option.label}
+                                            </button>
+                                          ))}
+                                        </div>
                                         <input
                                           type="text"
                                           value={lesson.videoId}
@@ -3227,7 +3395,13 @@ const AdminCourses = () => {
                                             type="file"
                                             className="hidden"
                                             accept="video/*"
-                                            onChange={(e) => handleStartUpload(sIdx, lIdx, e.target.files[0], false)}
+                                            onChange={(e) => handleStartUpload(
+                                              sIdx,
+                                              lIdx,
+                                              e.target.files[0],
+                                              false,
+                                              lessonUploadProvider,
+                                            )}
                                           />
                                           {uploadTasks[`${sIdx}-${lIdx}`] ? (
                                             <div className="w-4 h-4 border-2 border-secret-wax/30 border-t-secret-wax rounded-full animate-spin" />

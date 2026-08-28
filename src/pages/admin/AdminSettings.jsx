@@ -33,7 +33,8 @@ import {
     EyeOff,
     Save,
     CheckCircle,
-    ExternalLink
+    ExternalLink,
+    Copy
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { getBankSettings, saveBankSettings, VIETNAM_BANKS, runAutoVerification } from '../../utils/bankPaymentService';
@@ -42,6 +43,7 @@ import {
     COURSE_ACCOUNT_MANAGER_MODULES,
     getAdminModuleLabel
 } from '../../utils/adminAccess';
+import { SITE_URL } from '../../seo/routeSeo';
 
 const slugify = (text) => {
     return text.toLowerCase()
@@ -68,6 +70,7 @@ const ACCESS_TAB_OPTIONS = [
 ];
 
 const AdminSettings = () => {
+    const sePayWebhookUrl = `${SITE_URL}/api/payments/sepay/webhook`;
     const [activeTab, setActiveTab] = useState('payment'); // 'users', 'system', 'payment'
     const [courses, setCourses] = useState([]);
     const [crmUsers, setCrmUsers] = useState([]);
@@ -150,6 +153,11 @@ const AdminSettings = () => {
 
     const updateBankSetting = (key, value) => {
         setBankSettings(prev => ({ ...prev, [key]: value }));
+    };
+
+    const copySePayValue = async (value, label) => {
+        await navigator.clipboard.writeText(value);
+        toast.success(`Đã sao chép ${label}`);
     };
 
     // 1. Lắng nghe Khóa Học từ Firestore (Shared across CRM & Web)
@@ -588,7 +596,7 @@ const AdminSettings = () => {
                                         <div className="p-2 bg-green-100 rounded-xl text-green-700"><Zap size={20} /></div>
                                         <div>
                                             <h4 className="font-bold text-slate-800">Xác minh Tự động</h4>
-                                            <p className="text-xs text-slate-500">Kết nối API để tự động duyệt đơn</p>
+                                            <p className="text-xs text-slate-500">Nhận giao dịch realtime và tự động cấp khóa học</p>
                                         </div>
                                     </div>
                                     <div className="p-5 space-y-4">
@@ -615,7 +623,7 @@ const AdminSettings = () => {
                                             <div className="grid grid-cols-1 gap-2">
                                                 {[
                                                     { value: 'manual', label: '👤 Thủ công', desc: 'Admin duyệt tay qua trang Quản lý Đơn hàng' },
-                                                    { value: 'sepay', label: '⚡ SePay Webhook', desc: 'Miễn phí - Realtime qua API SePay.vn' },
+                                                    { value: 'sepay', label: '⚡ SePay Webhook', desc: 'Realtime, hỗ trợ tài khoản MB Bank' },
                                                     { value: 'casso', label: '💎 Casso API', desc: 'Có phí - Realtime qua API Casso.vn' },
                                                 ].map(opt => (
                                                     <label key={opt.value} className={`flex items-start gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${bankSettings.autoVerifyMethod === opt.value ? 'border-green-500 bg-green-50' : 'border-slate-200 hover:border-slate-300'}`}>
@@ -645,24 +653,47 @@ const AdminSettings = () => {
                                                         sepay.vn <ExternalLink size={10} />
                                                     </a>
                                                 </div>
-                                                <div>
-                                                    <label className="block text-xs font-bold text-blue-700 mb-1">SePay API Key</label>
-                                                    <div className="flex gap-2">
-                                                        <input
-                                                            type={showSecrets.sepayKey ? 'text' : 'password'}
-                                                            value={bankSettings.sepayApiKey || ''}
-                                                            onChange={e => updateBankSetting('sepayApiKey', e.target.value)}
-                                                            className="flex-1 px-3 py-2 rounded-lg border border-blue-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-300 text-sm font-mono"
-                                                            placeholder="sep_live_xxxxxxxxxxxx"
-                                                        />
-                                                        <button type="button" onClick={() => toggleSecret('sepayKey')} className="px-3 py-2 bg-white border border-blue-200 rounded-lg text-blue-600 hover:bg-blue-50">
-                                                            {showSecrets.sepayKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                                                <div className="rounded-lg border border-blue-200 bg-white p-3">
+                                                    <label className="block text-xs font-bold text-blue-700 mb-1.5">URL WEBHOOK TIỀN VÀO</label>
+                                                    <div className="flex items-center gap-2">
+                                                        <code className="min-w-0 flex-1 break-all text-xs text-slate-700">{sePayWebhookUrl}</code>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => copySePayValue(sePayWebhookUrl, 'URL webhook')}
+                                                            className="shrink-0 rounded-lg border border-blue-200 p-2 text-blue-700 hover:bg-blue-50"
+                                                            title="Sao chép URL"
+                                                        >
+                                                            <Copy size={15} />
                                                         </button>
                                                     </div>
                                                 </div>
-                                                <p className="text-xs text-blue-600">
-                                                    💡 <strong>Hướng dẫn:</strong> Đăng nhập SePay → Tích hợp → API → Tạo API Key. Sau đó vào Webhook và trỏ về URL của bạn.
-                                                </p>
+                                                <div className="space-y-2 text-xs leading-5 text-blue-800">
+                                                    <p><strong>1.</strong> Tạo tài khoản SePay và kết nối tài khoản MB nhận tiền.</p>
+                                                    <p><strong>2.</strong> Tạo webhook loại <strong>Tiền vào</strong>, dữ liệu JSON, bật HMAC-SHA256 và chế độ thử nghiệm trước.</p>
+                                                    <p><strong>3.</strong> Dán URL ở trên. Secret HMAC phải trùng với secret đặt trong Firebase bằng lệnh:</p>
+                                                    <div className="flex items-center gap-2 rounded-lg bg-slate-900 p-2 text-white">
+                                                        <code className="min-w-0 flex-1 break-all">firebase functions:secrets:set SEPAY_WEBHOOK_SECRET</code>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => copySePayValue('firebase functions:secrets:set SEPAY_WEBHOOK_SECRET', 'lệnh Firebase')}
+                                                            className="shrink-0 rounded-md p-1.5 hover:bg-white/10"
+                                                        >
+                                                            <Copy size={14} />
+                                                        </button>
+                                                    </div>
+                                                    <p><strong>4.</strong> Bật “Tự động duyệt đơn hàng”, lưu cấu hình, thử một đơn nhỏ rồi mới chuyển webhook sang hoạt động thật.</p>
+                                                </div>
+                                                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-800">
+                                                    Không nhập secret/API key vào trang web. Secret chỉ được lưu trong Firebase Secret Manager để người mua không thể đọc được.
+                                                </div>
+                                                <a
+                                                    href="https://developer.sepay.vn/vi/sepay-webhooks/tao-webhook"
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="inline-flex items-center gap-1 text-xs font-bold text-blue-700 hover:underline"
+                                                >
+                                                    Mở hướng dẫn webhook chính thức <ExternalLink size={11} />
+                                                </a>
                                             </div>
                                         )}
 
@@ -697,7 +728,7 @@ const AdminSettings = () => {
                                         )}
 
                                         {/* Run Manual Check */}
-                                        {bankSettings.autoVerifyMethod !== 'manual' && (
+                                        {bankSettings.autoVerifyMethod === 'casso' && (
                                             <div className="pt-2">
                                                 <button
                                                     onClick={handleRunVerify}
