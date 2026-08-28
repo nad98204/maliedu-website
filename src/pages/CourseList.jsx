@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import {
     ArrowUpDown,
@@ -12,6 +13,7 @@ import {
     MoveHorizontal,
     Search as SearchIcon,
     Sparkles,
+    Share2,
     Clock,
     X as XIcon,
     Award,
@@ -462,6 +464,30 @@ const CourseList = () => {
             {/* Main Content Area */}
             <main id="courses-main-content" className="mx-auto max-w-7xl px-3 py-6 sm:px-6 lg:px-8 lg:py-10 space-y-8">
                 
+                {/* Affiliate Incentive Banner */}
+                <div className="rounded-2xl border border-amber-200 bg-gradient-to-r from-[#FFF9EE] via-[#FFF3DD] to-[#FCE8D5] p-3.5 sm:p-4 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 text-center sm:text-left">
+                        <div className="p-2.5 rounded-xl bg-red-100 text-[#9B2528] shrink-0 hidden sm:block">
+                            <Sparkles className="w-5 h-5 text-amber-500 fill-amber-400" />
+                        </div>
+                        <div>
+                            <h3 className="text-xs sm:text-sm font-black text-slate-950 flex items-center justify-center sm:justify-start gap-1.5">
+                                <span>🎁 Kiếm thu nhập cùng Mali Edu (Hoa hồng 30% - 50%)</span>
+                            </h3>
+                            <p className="text-[11px] sm:text-xs text-slate-600 font-medium mt-0.5">
+                                Đăng ký làm Cộng tác viên và lấy link tiếp thị cho mọi khóa học để nhận hoa hồng trọn đời.
+                            </p>
+                        </div>
+                    </div>
+                    <Link
+                        to="/affiliate"
+                        className="shrink-0 px-5 py-2.5 rounded-xl bg-[#9B2528] text-white font-black text-xs shadow-md hover:bg-[#7E1E21] transition-all flex items-center gap-1.5 hover:scale-105 active:scale-95"
+                    >
+                        <Share2 className="w-3.5 h-3.5" />
+                        <span>Lấy link tiếp thị / Xem hoa hồng</span>
+                    </Link>
+                </div>
+
                 {/* Filter and Category Bar */}
                 <div className="space-y-4">
                     {/* Category Tabs */}

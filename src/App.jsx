@@ -10,6 +10,7 @@ import {
 import { Toaster } from 'react-hot-toast';
 import ScrollToTop from "./components/ScrollToTop";
 import { CartProvider } from "./context/CartContext";
+import useAffiliateTracker from "./hooks/useAffiliateTracker";
 
 /** Chunk riêng: không cần trên funnel hideChrome hoặc tách Meta khỏi entry (giảm JS đầu tải / “unused”). */
 const Footer = lazy(() => import("./components/Footer"));
@@ -49,6 +50,7 @@ const Contact = lazy(() => import("./pages/Contact"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const LandingPageViewer = lazy(() => import("./pages/LandingPageViewer"));
+const AffiliatePortal = lazy(() => import("./pages/AffiliatePortal"));
 
 // Landing Templates
 /** Import trực tiếp — tránh barrel landing-templates kéo cả registry vào chunk */
@@ -94,6 +96,7 @@ const AdminLandingBuilder = lazy(() => import("./pages/admin/landing-builder/Adm
 const AdminSettings = lazy(() => import("./pages/admin/AdminSettings"));
 const AdminCoupons = lazy(() => import("./pages/admin/AdminCoupons"));
 const AdminStorage = lazy(() => import("./pages/admin/AdminStorage"));
+const AdminAffiliates = lazy(() => import("./pages/admin/AdminAffiliates"));
 
 const PageLoader = () => (
   <div className="flex h-[60vh] w-full items-center justify-center">
@@ -106,6 +109,7 @@ const PageLoader = () => (
 
 const AppShell = () => {
   const location = useLocation();
+  useAffiliateTracker();
   const isPlayerRoute = location.pathname.startsWith('/bai-giang/');
   const hideChromePaths = [
     "/dao-tao/khoi-thong-dong-tien",
@@ -177,6 +181,8 @@ const AppShell = () => {
             <Route path="/orders" element={<Navigate to="/lich-su-don-hang" replace />} />
             <Route path="/dat-hang-thanh-cong/:orderId" element={<OrderSuccess />} />
             <Route path="/ca-nhan" element={<Profile />} />
+            <Route path="/affiliate" element={<AffiliatePortal />} />
+            <Route path="/cong-tac-vien" element={<AffiliatePortal />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             
             {/* Admin Routes */}
@@ -214,6 +220,7 @@ const AppShell = () => {
               <Route path="settings" element={<AdminSettings />} />
               <Route path="coupons" element={<AdminCoupons />} />
               <Route path="storage" element={<AdminStorage />} />
+              <Route path="affiliates" element={<AdminAffiliates />} />
             </Route>
 
             <Route path="*" element={<NotFound />} />

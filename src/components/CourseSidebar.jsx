@@ -1,13 +1,20 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
     CheckCircle,
+    CheckCircle2,
+    Copy,
     Heart,
     LifeBuoy,
     MessageCircleMore,
     PlayCircle,
+    Share2,
     ShieldCheck,
+    Sparkles,
 } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { auth } from '../firebase';
+import { getAffiliateByUserId } from '../utils/affiliateService';
 import { formatPrice } from '../utils/orderService';
 import { HOTLINE } from '../menuData';
 import { getPreviewableLessonKeys } from '../utils/courseAccess';
@@ -31,6 +38,46 @@ const CourseSidebar = ({ course, onBuyClick, onPreviewClick, isEnrolled }) => {
     const [selectedPlanId, setSelectedPlanId] = useState(() => getDefaultCourseAccessPlan(course)?.id || '');
     const selectedPlan = getCourseAccessPlanById(course, selectedPlanId);
     const selectedPrice = getPlanEffectivePrice(selectedPlan);
+
+    const [affiliateProfile, setAffiliateProfile] = useState(null);
+    const [copiedAffLink, setCopiedAffLink] = useState(false);
+
+    useEffect(() => {
+        const checkAffiliate = async () => {
+            const user = auth.currentUser;
+            if (user) {
+                try {
+                    const aff = await getAffiliateByUserId(user.uid);
+                    setAffiliateProfile(aff);
+                } catch (e) {
+                    console.error(e);
+                }
+            }
+        };
+        checkAffiliate();
+    }, []);
+
+    const handleGetAffiliateLink = () => {
+        const user = auth.currentUser;
+        if (!user) {
+            toast('Vui lòng đăng nhập để kích hoạt & lấy link tiếp thị cá nhân!', { icon: '🔐' });
+            navigate('/affiliate');
+            return;
+        }
+
+        if (!affiliateProfile) {
+            toast('Bạn chưa kích hoạt mã CTV. Đang chuyển tới trang đăng ký đối tác...', { icon: '✨' });
+            navigate('/affiliate');
+            return;
+        }
+
+        const origin = window.location.origin;
+        const affLink = `${origin}/khoa-hoc/${course.slug || course.id}?ref=${affiliateProfile.affiliateCode}`;
+        navigator.clipboard.writeText(affLink);
+        setCopiedAffLink(true);
+        toast.success(`Đã sao chép link tiếp thị (Mã: ${affiliateProfile.affiliateCode})!`);
+        setTimeout(() => setCopiedAffLink(false), 3000);
+    };
 
     const handleBuyNow = () => {
         if (onBuyClick) {
@@ -178,15 +225,41 @@ const CourseSidebar = ({ course, onBuyClick, onPreviewClick, isEnrolled }) => {
                         )}
                     </div>
 
-                    <button
-                        onClick={() => setWishlist(!wishlist)}
-                        className={`mt-4 flex w-full items-center justify-center gap-2 rounded-xl py-2 text-xs font-bold transition-colors ${
-                            wishlist ? 'bg-rose-50 text-rose-600' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
-                        }`}
-                    >
-                        <Heart className={`h-4 w-4 ${wishlist ? 'fill-current' : ''}`} />
-                        {wishlist ? 'Đã thêm vào yêu thích' : 'Thêm vào yêu thích'}
-                    </button>
+                    {/* Compact Affiliate & Wishlist Row */}
+                    <div className="mt-3 flex items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={handleGetAffiliateLink}
+                            className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-amber-300/80 bg-gradient-to-r from-amber-50/80 to-amber-100/40 py-2.5 px-3 text-xs font-black text-[#9B2528] hover:bg-amber-100 transition-colors shadow-sm"
+                            title="Lấy link tiếp thị khóa học này để nhận hoa hồng 30%"
+                        >
+                            {copiedAffLink ? (
+                                <>
+                                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                    <span className="text-emerald-700">Đã chép link!</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Sparkles className="w-3.5 h-3.5 text-amber-500 fill-amber-400 shrink-0" />
+                                    <span>Lấy link tiếp thị ({course.affiliateCommissionPercent != null && course.affiliateCommissionPercent !== "" ? `${course.affiliateCommissionPercent}%` : "Hoa hồng"})</span>
+                                </>
+                            )}
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => setWishlist(!wishlist)}
+                            className={`flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2.5 text-xs font-bold transition-colors shrink-0 ${
+                                wishlist
+                                    ? 'border-rose-200 bg-rose-50 text-rose-600'
+                                    : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+                            }`}
+                            title={wishlist ? 'Đã thêm vào yêu thích' : 'Thêm vào yêu thích'}
+                        >
+                            <Heart className={`h-3.5 w-3.5 ${wishlist ? 'fill-current' : ''}`} />
+                            <span className="hidden sm:inline">{wishlist ? 'Đã thích' : 'Yêu thích'}</span>
+                        </button>
+                    </div>
 
                     <div className="my-5 h-px bg-slate-100" />
 

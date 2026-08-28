@@ -451,6 +451,7 @@ const AdminCourses = () => {
     isSpecial: false,
     listingPriority: 0,
     freeLessonsCount: 3, // Số video đầu được xem miễn phí (nếu isForSale = false)
+    affiliateCommissionPercent: "", // % hoa hồng Affiliate riêng
     curriculum: [],
     courseResources: [],
 
@@ -465,7 +466,7 @@ const AdminCourses = () => {
     fakeRating: "",
     fakeReviewCount: "",
     fakeStudentCount: "",
-    whatYouWillLearn: "", // New field
+    whatYouWillLearn: "",
   });
 
   // Fetch courses from Firebase
@@ -1319,6 +1320,7 @@ const AdminCourses = () => {
       isSpecial: false,
       listingPriority: 0,
       freeLessonsCount: 3,
+      affiliateCommissionPercent: "",
       curriculum: [],
       courseResources: [],
       instructorName: "",
@@ -1367,6 +1369,7 @@ const AdminCourses = () => {
       isSpecial: Boolean(course.isSpecial),
       listingPriority: Number(course.listingPriority || 0),
       freeLessonsCount: course.freeLessonsCount || 3,
+      affiliateCommissionPercent: course.affiliateCommissionPercent != null ? course.affiliateCommissionPercent : "",
 
       // Instructor
       instructorName: course.instructorName || "",
@@ -1569,6 +1572,10 @@ const AdminCourses = () => {
           ? defaultAccessPlan?.salePrice ?? null
           : data.salePrice ? Number(data.salePrice) : null
         : null,
+      affiliateCommissionPercent:
+        data.affiliateCommissionPercent !== "" && data.affiliateCommissionPercent !== null && data.affiliateCommissionPercent !== undefined
+          ? Number(data.affiliateCommissionPercent)
+          : null,
     };
   };
 
@@ -2622,6 +2629,35 @@ const AdminCourses = () => {
                         )}
                       </div>
                     )}
+
+                    {/* Cài đặt hoa hồng Affiliate cho khóa học */}
+                    <div className="rounded-2xl border border-amber-200 bg-amber-50/40 p-4 sm:p-5 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-sm font-black text-slate-800 flex items-center gap-1.5">
+                          <Sparkles className="w-4 h-4 text-amber-500 fill-amber-400" />
+                          <span>Tỷ lệ hoa hồng Affiliate (%) riêng cho khóa học này</span>
+                        </label>
+                        <span className="text-xs text-amber-800 font-bold bg-amber-100 px-2 py-0.5 rounded-full">
+                          Tùy chỉnh riêng
+                        </span>
+                      </div>
+                      <div className="relative max-w-xs">
+                        <input
+                          type="number"
+                          name="affiliateCommissionPercent"
+                          min="0"
+                          max="100"
+                          value={formData.affiliateCommissionPercent}
+                          onChange={handleInputChange}
+                          className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-base font-black text-slate-900 outline-none transition-all focus:border-[#9B2528] focus:ring-4 focus:ring-red-50"
+                          placeholder="Mặc định hệ thống (VD: 30)"
+                        />
+                        <span className="absolute right-4 top-1/2 -translate-y-1/2 font-black text-slate-400">%</span>
+                      </div>
+                      <p className="text-xs text-slate-500">
+                        Nhập % riêng nếu khóa học này có tỷ lệ hoa hồng khác (VD: 20%, 35%, 50%). Nếu để trống, hệ thống sẽ tự động áp dụng % hoa hồng chung.
+                      </p>
+                    </div>
 
                     {!formData.isForSale && (
                       <div className="space-y-4 rounded-2xl border border-amber-200 bg-amber-50/60 p-5">

@@ -162,6 +162,13 @@ const Footer = () => {
           <span>© 2026 Mali Edu. All rights reserved.</span>
           <div className="flex flex-wrap items-center justify-center gap-3">
             <Link
+              to="/affiliate"
+              className="text-[#f7b94a] font-bold hover:underline transition-colors"
+            >
+              Chương trình Tiếp thị liên kết (Affiliate)
+            </Link>
+            <span className="hidden sm:inline text-white/25">|</span>
+            <Link
               to="/chinh-sach-bao-mat"
               className="hover:text-[#f7b94a] transition-colors"
             >

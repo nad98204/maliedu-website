@@ -24,6 +24,10 @@ export const MENU_ITEMS = [
     label: "Khóa Học Online",
     path: "/khoa-hoc",
   },
+  {
+    label: "Cộng tác viên",
+    path: "/affiliate",
+  },
 
   {
     label: "Tin tức",

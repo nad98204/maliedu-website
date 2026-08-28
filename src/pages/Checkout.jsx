@@ -6,6 +6,7 @@ import { Loader2, ArrowLeft, ShieldCheck, CreditCard } from "lucide-react";
 
 import { db, auth } from "../firebase";
 import { createOrder, formatPrice } from "../utils/orderService";
+import { getActiveAffiliateRef } from "../utils/affiliateService";
 import { useCart } from "../context/CartContext";
 import { trackMetaEvent } from "../utils/metaPixel";
 import { isLeadGenerationCourse, openCourseLeadLanding } from "../utils/courseMarketing";
@@ -220,6 +221,8 @@ const Checkout = () => {
                 thumbnailUrl: course.thumbnailUrl
             }];
 
+            const activeAffiliateCode = await getActiveAffiliateRef();
+
             const orderData = {
                 userId: finalUserId,
                 userEmail: customerEmail,
@@ -236,6 +239,7 @@ const Checkout = () => {
                 originalAmount: isCartOrder ? totalAmount : getPlanEffectivePrice(selectedPlan),
                 couponCode: couponApplied ? couponApplied.code : null,
                 discountPercent: couponApplied ? couponApplied.discountPercent : 0,
+                affiliateCode: activeAffiliateCode || null,
             };
 
             const result = await createOrder(orderData);

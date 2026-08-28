@@ -28,6 +28,7 @@ import {
   Database,
   Megaphone,
   Sheet,
+  Share2,
 } from "lucide-react";
 
 import { auth, db } from "../firebase";
@@ -244,6 +245,24 @@ const AdminLayout = () => {
             </NavLink>
           )}
           {hasAccess("landing-builder") && (
+            <NavLink to="/admin/recruitment" className={getNavClasses} title={isCollapsed ? "Tuyển dụng" : ""}>
+              <Briefcase className="h-4 w-4 shrink-0 transition-colors" />
+              {!isCollapsed && <span className="truncate">Tuyển dụng</span>}
+            </NavLink>
+          )}
+          {hasAccess("testimonials") && (
+            <NavLink to="/admin/testimonials" className={getNavClasses} title={isCollapsed ? "Cảm nhận học viên" : ""}>
+              <MessageSquare className="h-4 w-4 shrink-0 transition-colors" />
+              {!isCollapsed && <span className="truncate">Cảm nhận học viên</span>}
+            </NavLink>
+          )}
+          {hasAccess("landings") && (
+            <NavLink to="/admin/landings" className={getNavClasses} title={isCollapsed ? "Quản lý Landing Page" : ""}>
+              <Globe className="h-4 w-4 shrink-0 transition-colors" />
+              {!isCollapsed && <span className="truncate">Quản lý Landing Page</span>}
+            </NavLink>
+          )}
+          {hasAccess("landing-builder") && (
             <NavLink to="/admin/landing-builder" className={getNavClasses} title={isCollapsed ? "Tạo Landing Page" : ""}>
               <Sparkles className="h-4 w-4 shrink-0 transition-colors" />
               {!isCollapsed && <span className="truncate">Tạo Landing Page</span>}
@@ -253,6 +272,12 @@ const AdminLayout = () => {
             <NavLink to="/admin/storage" className={getNavClasses} title={isCollapsed ? "Kho Lưu Trữ" : ""}>
               <Database className="h-4 w-4 shrink-0 transition-colors" />
               {!isCollapsed && <span className="truncate">Kho Lưu Trữ</span>}
+            </NavLink>
+          )}
+          {hasAccess("affiliates") && (
+            <NavLink to="/admin/affiliates" className={getNavClasses} title={isCollapsed ? "Tiếp thị liên kết (Affiliate)" : ""}>
+              <Share2 className="h-4 w-4 shrink-0 transition-colors" />
+              {!isCollapsed && <span className="truncate">Tiếp thị liên kết</span>}
             </NavLink>
           )}
           {hasAccess("settings") && (

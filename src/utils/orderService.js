@@ -22,6 +22,7 @@ import {
     calculateAccessExpiryDate,
     toDateValue,
 } from "./coursePricing";
+import { processAffiliateCommission } from "./affiliateService";
 
 const COLLECTION_NAME = "orders";
 const ORDER_API_PATH = "/api/orders";
@@ -267,6 +268,16 @@ export const approveOrder = async (orderId, orderData = null) => {
 
         // 1 commit duy nhất — toàn bộ thay đổi ghi song song
         await batch.commit();
+
+        // Xử lý tự động tính và cộng hoa hồng cho CTV Affiliate (nếu có mã ref / coupon)
+        try {
+            await processAffiliateCommission(orderId, {
+                ...order,
+                status: 'completed',
+            });
+        } catch (affError) {
+            console.warn("[Affiliate] Could not process commission for order:", orderId, affError);
+        }
 
         return { success: true, enrolledCount };
     } catch (error) {
