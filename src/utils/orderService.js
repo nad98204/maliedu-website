@@ -143,7 +143,10 @@ export const approveOrder = async (orderId, orderData = null) => {
         // Nếu caller chưa truyền orderData → mới đọc Firestore (1 lần duy nhất)
         const order = orderData || await getOrderById(orderId);
         if (!order) throw new Error("Order not found");
-        if (order.status === 'completed') return true;
+        if (order.status === 'completed') {
+            await processAffiliateCommission(orderId);
+            return { success: true, enrolledCount: 0 };
+        }
 
         const itemsToEnroll = order.items || [{
             id: order.courseId,
@@ -269,15 +272,8 @@ export const approveOrder = async (orderId, orderData = null) => {
         // 1 commit duy nhất — toàn bộ thay đổi ghi song song
         await batch.commit();
 
-        // Xử lý tự động tính và cộng hoa hồng cho CTV Affiliate (nếu có mã ref / coupon)
-        try {
-            await processAffiliateCommission(orderId, {
-                ...order,
-                status: 'completed',
-            });
-        } catch (affError) {
-            console.warn("[Affiliate] Could not process commission for order:", orderId, affError);
-        }
+        // Gọi máy chủ để ghi nhận ngay; trigger Firestore vẫn là lớp dự phòng tự động.
+        await processAffiliateCommission(orderId);
 
         return { success: true, enrolledCount };
     } catch (error) {

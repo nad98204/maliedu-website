@@ -48,6 +48,11 @@ import {
 } from "../../utils/affiliateService";
 import { formatPrice } from "../../utils/orderService";
 
+const formatAffiliateDate = (value) => {
+    const date = value?.toDate ? value.toDate() : new Date(value);
+    return Number.isFinite(date.getTime()) ? date.toLocaleString("vi-VN") : "Gần đây";
+};
+
 const AdminAffiliates = () => {
     const [activeTab, setActiveTab] = useState("settings"); // settings | affiliates | payouts | commissions
     const [loading, setLoading] = useState(true);
@@ -143,7 +148,7 @@ const AdminAffiliates = () => {
             await saveAffiliateSettings(updated);
             setSettings(updated);
             toast.success("Đã lưu cài đặt Affiliate thành công!");
-        } catch (error) {
+        } catch {
             toast.error("Lỗi khi lưu cài đặt.");
         }
     };
@@ -216,7 +221,7 @@ const AdminAffiliates = () => {
             toast.success(`Đã cập nhật CTV ${selectedAffiliate.affiliateCode}`);
             setSelectedAffiliate(null);
             await loadAllData();
-        } catch (error) {
+        } catch {
             toast.error("Lỗi khi cập nhật CTV.");
         } finally {
             setIsSavingAffiliate(false);
@@ -829,7 +834,7 @@ const AdminAffiliates = () => {
                                                         {formatPrice(pay.amount || 0)}
                                                     </div>
                                                     <div className="text-[10px] text-slate-400">
-                                                        {pay.createdAt?.toDate ? pay.createdAt.toDate().toLocaleString("vi-VN") : "Gần đây"}
+                                                        {formatAffiliateDate(pay.createdAt)}
                                                     </div>
                                                 </td>
                                                 <td className="py-4 text-xs">
@@ -949,7 +954,7 @@ const AdminAffiliates = () => {
                                                     </span>
                                                 </td>
                                                 <td className="py-3.5 text-xs text-slate-400 text-right">
-                                                    {comm.createdAt?.toDate ? comm.createdAt.toDate().toLocaleString("vi-VN") : "Gần đây"}
+                                                    {formatAffiliateDate(comm.createdAt)}
                                                 </td>
                                             </tr>
                                         ))}

@@ -8,14 +8,19 @@ const copySafeRequestHeaders = (requestHeaders = {}) => {
   return headers;
 };
 
-export const proxyFirebaseApiPost = async (context, pathname) => {
-  const payload = await context.request.json();
+export const proxyFirebaseApiRequest = async (context, pathname) => {
+  const incomingUrl = new URL(context.request.url);
+  const upstreamUrl = new URL(pathname, FIREBASE_API_ORIGIN);
+  upstreamUrl.search = incomingUrl.search;
+  const method = String(context.request.method || "GET").toUpperCase();
+  const hasBody = !["GET", "HEAD"].includes(method);
+  const payload = hasBody ? await context.request.text() : undefined;
   const upstreamResponse = await fetch(
-    new URL(pathname, FIREBASE_API_ORIGIN),
+    upstreamUrl,
     {
-      method: "POST",
+      method,
       headers: copySafeRequestHeaders(context.request.headers),
-      body: JSON.stringify(payload),
+      body: payload,
       redirect: "manual",
     },
   );
@@ -31,3 +36,6 @@ export const proxyFirebaseApiPost = async (context, pathname) => {
     headers,
   });
 };
+
+export const proxyFirebaseApiPost = async (context, pathname) =>
+  proxyFirebaseApiRequest(context, pathname);

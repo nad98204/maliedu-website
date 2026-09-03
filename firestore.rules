@@ -243,6 +243,16 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
+    // Sổ cái Affiliate chỉ được thay đổi qua API/Cloud Functions dùng Admin SDK.
+    // Không mở quyền trực tiếp cho trình duyệt, kể cả tài khoản admin.
+    match /affiliate_click_events/{documentId} { allow read, write: if false; }
+    match /affiliate_codes/{documentId} { allow read, write: if false; }
+    match /affiliate_commissions/{documentId} { allow read, write: if false; }
+    match /affiliate_coupon_codes/{documentId} { allow read, write: if false; }
+    match /affiliate_payouts/{documentId} { allow read, write: if false; }
+    match /affiliate_settings/{documentId} { allow read, write: if false; }
+    match /affiliates/{documentId} { allow read, write: if false; }
+
     match /{privateCollection}/{documentId} {
       allow read, write: if privateCollection in [
         "bank_transactions",

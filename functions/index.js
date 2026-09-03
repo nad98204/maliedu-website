@@ -11,6 +11,7 @@ import { Readable } from "node:stream";
 
 import { onRequest } from "firebase-functions/v2/https";
 import { onValueCreated } from "firebase-functions/v2/database";
+import { onDocumentUpdated } from "firebase-functions/v2/firestore";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { defineSecret } from "firebase-functions/params";
 import { initializeApp } from "firebase-admin/app";
@@ -19,6 +20,13 @@ import { getDatabase } from "firebase-admin/database";
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { hashData, normalizeNameForHash, sendMetaCapiEvent } from "./capi_helper.js";
 import { createAdminLandingHandlers } from "./_lib/adminLandings.js";
+import {
+  createAffiliateHandlers,
+  normalizeAffiliateCode,
+  processAffiliateCommission,
+  resolveCoupon,
+  resolveOrderAffiliate,
+} from "./_lib/affiliate.js";
 
 let defaultApp = null;
 let firestoreDb = null;
@@ -115,6 +123,8 @@ const RATE_LIMIT_POLICIES = new Map([
   ["/api/crm-leads", { limit: 8, windowMs: 10 * 60 * 1000 }],
   ["/api/newsletter", { limit: 5, windowMs: 60 * 60 * 1000 }],
   ["/api/orders", { limit: 10, windowMs: 10 * 60 * 1000 }],
+  ["/api/affiliate", { limit: 240, windowMs: 60 * 60 * 1000 }],
+  ["/api/coupons/validate", { limit: 60, windowMs: 10 * 60 * 1000 }],
   ["/api/post-feedback", { limit: 5, windowMs: 10 * 60 * 1000 }],
   ["/api/post-view", { limit: 120, windowMs: 60 * 1000 }],
   ["/api/course-view", { limit: 120, windowMs: 60 * 1000 }],
@@ -918,38 +928,35 @@ const onCreateOrder = async ({ request }) => {
   });
   const originalAmount = items.reduce((total, item) => total + item.price, 0);
 
+  const user = await verifyRequestUser(request, { required: false });
   let couponCode = String(body?.couponCode || "").trim().toUpperCase();
   let discountPercent = 0;
+  let resolvedCoupon = null;
   if (couponCode) {
     if (!/^[A-Z0-9_-]{2,40}$/.test(couponCode)) {
       return createJsonResponse({ error: "Invalid coupon" }, 400);
     }
-    const couponSnapshot = await getFirestoreDb()
-      .collection("coupons")
-      .where("code", "==", couponCode)
-      .where("isActive", "==", true)
-      .limit(1)
-      .get();
-    const coupon = couponSnapshot.empty ? null : couponSnapshot.docs[0].data();
-    const expiry = coupon?.expiryDate?.toDate?.() || (
-      coupon?.expiryDate ? new Date(coupon.expiryDate) : null
-    );
-    const percentage = Number(coupon?.discountPercent);
-    if (
-      !coupon ||
-      (expiry && (!Number.isFinite(expiry.getTime()) || expiry < new Date())) ||
-      !Number.isFinite(percentage) ||
-      percentage < 0 ||
-      percentage > 100
-    ) {
+    resolvedCoupon = await resolveCoupon(getFirestoreDb(), couponCode);
+    if (!resolvedCoupon) {
       return createJsonResponse({ error: "Coupon is invalid or expired" }, 400);
     }
-    discountPercent = percentage;
+    discountPercent = resolvedCoupon.discountPercent;
   } else {
     couponCode = null;
   }
 
-  const user = await verifyRequestUser(request, { required: false });
+  const rawAffiliateCode = String(body?.affiliateCode || "").trim();
+  const affiliateCode = rawAffiliateCode ? normalizeAffiliateCode(rawAffiliateCode) : "";
+  if (rawAffiliateCode && !affiliateCode) {
+    return createJsonResponse({ error: "Invalid affiliate code" }, 400);
+  }
+  const orderAffiliate = await resolveOrderAffiliate({
+    affiliateCode,
+    coupon: resolvedCoupon,
+    db: getFirestoreDb(),
+    userEmail: user?.email || customerEmail,
+    userId: user?.uid,
+  });
   const guestAccessToken = user ? null : randomBytes(32).toString("base64url");
   const amount = Math.max(
     0,
@@ -976,6 +983,11 @@ const onCreateOrder = async ({ request }) => {
     updatedAt: FieldValue.serverTimestamp(),
     userEmail: String(user?.email || customerEmail).toLowerCase(),
     userId: user?.uid || null,
+    ...(orderAffiliate ? {
+      affiliateAttributionType: orderAffiliate.attributionType,
+      affiliateCode: orderAffiliate.affiliateCode,
+      affiliateId: orderAffiliate.affiliateId,
+    } : {}),
     ...(guestAccessToken
       ? { guestAccessTokenHash: hashOrderAccessToken(guestAccessToken) }
       : {}),
@@ -1124,6 +1136,15 @@ const adminLandingHandlers = createAdminLandingHandlers({
   scheduleDocumentId: "khoi_thong_dong_tien_schedule",
 });
 
+const affiliateHandlers = createAffiliateHandlers({
+  createJsonResponse,
+  fieldValue: FieldValue,
+  getClientFingerprint: (request) => `${getClientIp(request)}|${getHeader(request.headers, "user-agent").slice(0, 500)}`,
+  getDb: getFirestoreDb,
+  requireAdmin: requireAdminRequest,
+  verifyUser: verifyRequestUser,
+});
+
 const onSePayWebhook = createSePayWebhookHandler({
   createJsonResponse,
   getAuth: () => getAdminAuth(getDefaultApp()),
@@ -1235,6 +1256,11 @@ const ROUTES = new Map([
   ["POST /api/admin/landings/save", adminLandingHandlers.save],
   ["POST /api/admin/landings/schedule", adminLandingHandlers.saveSchedule],
   ["GET /api/bank-settings", onGetPublicBankSettings],
+  ["GET /api/affiliate", affiliateHandlers.publicGet],
+  ["POST /api/affiliate", affiliateHandlers.publicPost],
+  ["GET /api/admin/affiliate", affiliateHandlers.adminGet],
+  ["POST /api/admin/affiliate", affiliateHandlers.adminPost],
+  ["POST /api/coupons/validate", affiliateHandlers.validateCoupon],
   ["POST /api/payments/sepay/webhook", onSePayWebhook],
   ["POST /api/crm-leads", onCreateCrmLead],
   ["POST /api/newsletter", onCreateNewsletterSubscription],
@@ -1624,6 +1650,27 @@ export const uploadApi = onRequest(
         response,
       );
     }
+  },
+);
+
+// Ghi nhận hoa hồng cho mọi cách hoàn tất đơn (SePay, Casso hoặc admin duyệt tay).
+// Transaction trong processAffiliateCommission dùng mã đơn + CTV làm khóa nên trigger
+// có chạy lại cũng không thể cộng hoa hồng hai lần.
+export const onOrderCompleted = onDocumentUpdated(
+  {
+    document: "orders/{orderId}",
+    region: "asia-southeast1",
+  },
+  async (event) => {
+    const before = event.data?.before?.data() || {};
+    const after = event.data?.after?.data() || {};
+    if (before.status === "completed" || after.status !== "completed") return;
+    await processAffiliateCommission({
+      db: getFirestoreDb(),
+      fieldValue: FieldValue,
+      orderData: after,
+      orderId: event.params.orderId,
+    });
   },
 );
 

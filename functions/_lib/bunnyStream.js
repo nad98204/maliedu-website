@@ -1,6 +1,6 @@
 const BUNNY_TUS_ENDPOINT = "https://video.bunnycdn.com/tusupload";
 const BUNNY_VIDEO_API_ORIGIN = "https://video.bunnycdn.com";
-const BUNNY_PLAYER_ORIGIN = "https://player.mediadelivery.net";
+const BUNNY_PLAYER_ORIGIN = "https://iframe.mediadelivery.net";
 const DEFAULT_UPLOAD_TTL_SECONDS = 24 * 60 * 60;
 const DEFAULT_PLAYBACK_TTL_SECONDS = 2 * 60 * 60;
 const MAX_TITLE_LENGTH = 180;

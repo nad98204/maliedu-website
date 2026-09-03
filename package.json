@@ -13,6 +13,7 @@
     "check:runtime-config": "node scripts/check-runtime-config.mjs",
     "backfill:lead-search": "node scripts/backfill-lead-search-keywords.mjs",
     "migrate:course-content": "node scripts/migrate-course-content.mjs",
+    "test:affiliate": "node --test functions/_lib/affiliate.test.js",
     "lint": "eslint .",
     "preview": "vite preview"
   },

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { Link } from "react-router";
 import { onAuthStateChanged } from "firebase/auth";
 import { collection, getDocs, orderBy, query } from "firebase/firestore";
 import {
@@ -67,8 +67,13 @@ const VIETNAM_BANKS = [
     "Khác (Điền rõ trong tên)"
 ];
 
+const formatAffiliateDate = (value, withTime = false) => {
+    const date = value?.toDate ? value.toDate() : new Date(value);
+    if (!Number.isFinite(date.getTime())) return "Gần đây";
+    return withTime ? date.toLocaleString("vi-VN") : date.toLocaleDateString("vi-VN");
+};
+
 const AffiliatePortal = () => {
-    const navigate = useNavigate();
     const [currentUser, setCurrentUser] = useState(null);
     const [authLoading, setAuthLoading] = useState(true);
     const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -164,12 +169,12 @@ const AffiliatePortal = () => {
 
     // Auto-suggest code from email or name
     useEffect(() => {
-        if (currentUser && !registerCode) {
+        if (currentUser) {
             const suggested = (currentUser.displayName || currentUser.email?.split("@")[0] || "MALI")
                 .toUpperCase()
                 .replace(/[^A-Z0-9]/g, "")
                 .slice(0, 10);
-            setRegisterCode(suggested);
+            setRegisterCode((current) => current || suggested);
         }
     }, [currentUser]);
 
@@ -259,7 +264,7 @@ const AffiliatePortal = () => {
             });
             toast.success("Đã cập nhật thông tin ngân hàng thành công!");
             await loadAffiliateData(currentUser.uid);
-        } catch (error) {
+        } catch {
             toast.error("Lỗi khi lưu thông tin ngân hàng.");
         } finally {
             setIsSavingBank(false);
@@ -276,10 +281,6 @@ const AffiliatePortal = () => {
         }
         return `${origin}/khoa-hoc/${selectedCourseSlug}?ref=${currentAffCode}`;
     }, [selectedCourseSlug, currentAffCode, origin]);
-
-    const activeCommissionRate = affiliate?.customCommissionPercent != null
-        ? affiliate.customCommissionPercent
-        : (settings?.defaultCommissionPercent || 30);
 
     return (
         <div className="min-h-screen bg-[#FDFBF7] text-slate-900 pt-24 pb-20">
@@ -871,7 +872,7 @@ const AffiliatePortal = () => {
                                                             </span>
                                                         </td>
                                                         <td className="py-3.5 text-xs text-slate-400 text-right">
-                                                            {comm.createdAt?.toDate ? comm.createdAt.toDate().toLocaleDateString("vi-VN") : "Gần đây"}
+                                                            {formatAffiliateDate(comm.createdAt)}
                                                         </td>
                                                     </tr>
                                                 ))}
@@ -942,7 +943,7 @@ const AffiliatePortal = () => {
                                                             </span>
                                                         </td>
                                                         <td className="py-3.5 text-xs text-slate-400 text-right">
-                                                            {pay.createdAt?.toDate ? pay.createdAt.toDate().toLocaleDateString("vi-VN") : "Mới đây"}
+                                                            {formatAffiliateDate(pay.createdAt)}
                                                         </td>
                                                     </tr>
                                                 ))}

@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router";
-import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { Loader2, ArrowLeft, ShieldCheck, CreditCard } from "lucide-react";
 
 import { db, auth } from "../firebase";
 import { createOrder, formatPrice } from "../utils/orderService";
-import { getActiveAffiliateRef } from "../utils/affiliateService";
+import { getActiveAffiliateRef, validateCouponCode } from "../utils/affiliateService";
 import { useCart } from "../context/CartContext";
 import { trackMetaEvent } from "../utils/metaPixel";
 import { isLeadGenerationCourse, openCourseLeadLanding } from "../utils/courseMarketing";
@@ -141,28 +141,7 @@ const Checkout = () => {
         if (!couponCode.trim()) return;
         setCheckingCoupon(true);
         try {
-            const q = query(
-                collection(db, "coupons"),
-                where("code", "==", couponCode.trim().toUpperCase()),
-                where("isActive", "==", true)
-            );
-            const snapshot = await getDocs(q);
-
-            if (snapshot.empty) {
-                alert("Mã giảm giá không hợp lệ hoặc đã hết hạn!");
-                setCouponApplied(null);
-                return;
-            }
-
-            const couponData = snapshot.docs[0].data();
-            const now = new Date();
-            const expiry = new Date(couponData.expiryDate);
-
-            if (now > expiry) {
-                alert("Mã giảm giá đã hết hạn!");
-                setCouponApplied(null);
-                return;
-            }
+            const couponData = await validateCouponCode(couponCode.trim().toUpperCase());
 
             setCouponApplied({
                 code: couponData.code,

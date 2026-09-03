@@ -119,6 +119,22 @@
         { "fieldPath": "isScheduled", "order": "ASCENDING" },
         { "fieldPath": "publishAt", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "affiliate_commissions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "affiliateId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "affiliate_payouts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "affiliateId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []
