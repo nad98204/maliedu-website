@@ -128,6 +128,14 @@ const OrderHistory = () => {
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-center">
                                                 {getStatusBadge(order.status)}
+                                                {order.status === "pending" && (
+                                                    <Link
+                                                        to={`/dat-hang-thanh-cong/${order.id}`}
+                                                        className="mt-2 flex items-center justify-center gap-1 text-xs font-bold text-secret-wax hover:underline"
+                                                    >
+                                                        Thanh toán tiếp <ArrowRight className="h-3.5 w-3.5" />
+                                                    </Link>
+                                                )}
                                             </td>
                                         </tr>
                                     ))}

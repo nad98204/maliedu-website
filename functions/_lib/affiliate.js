@@ -85,8 +85,8 @@ const serialize = (value) => {
 };
 
 const snapshotData = (snapshot) => ({
-  id: snapshot.id,
   ...serialize(snapshot.data() || {}),
+  id: snapshot.id,
 });
 
 const affiliateCouponDocumentId = (affiliateId) => `affiliate_${affiliateId}`;
@@ -121,6 +121,7 @@ const findAffiliateByField = async (db, field, value) => {
     .where(field, "==", value)
     .limit(2)
     .get();
+  if (snapshot.size > 1) throw httpError(409, "Mã Affiliate bị trùng. Vui lòng liên hệ quản trị viên.");
   if (snapshot.empty) return null;
   return snapshotData(snapshot.docs[0]);
 };
@@ -138,7 +139,9 @@ export const findAffiliateByCode = async (db, code) => {
       .collection(AFFILIATE_COLLECTIONS.affiliates)
       .doc(String(codeSnapshot.data().affiliateId))
       .get();
-    if (affiliateSnapshot.exists) return snapshotData(affiliateSnapshot);
+    if (affiliateSnapshot.exists && affiliateSnapshot.data()?.affiliateCode === normalizedCode) {
+      return snapshotData(affiliateSnapshot);
+    }
   }
 
   // Tương thích hồ sơ được tạo trước khi có registry mã duy nhất.
@@ -158,7 +161,9 @@ const findAffiliateByCoupon = async (db, code) => {
       .collection(AFFILIATE_COLLECTIONS.affiliates)
       .doc(String(codeSnapshot.data().affiliateId))
       .get();
-    if (affiliateSnapshot.exists) return snapshotData(affiliateSnapshot);
+    if (affiliateSnapshot.exists && affiliateSnapshot.data()?.couponCode === normalizedCode) {
+      return snapshotData(affiliateSnapshot);
+    }
   }
 
   return findAffiliateByField(db, "couponCode", normalizedCode);
@@ -171,9 +176,9 @@ export const resolveCoupon = async (db, rawCode) => {
   const couponSnapshot = await db
     .collection("coupons")
     .where("code", "==", code)
-    .where("isActive", "==", true)
     .limit(2)
     .get();
+  if (couponSnapshot.size > 1) return null;
   let coupon = couponSnapshot.empty ? null : couponSnapshot.docs[0].data() || {};
 
   if (!coupon) {
@@ -190,7 +195,13 @@ export const resolveCoupon = async (db, rawCode) => {
     }
   }
 
-  if (!coupon || coupon.isActive === false) return null;
+  if (!coupon || coupon.isActive !== true) return null;
+  if (coupon.affiliateId || coupon.source === "affiliate") {
+    const affiliate = await findAffiliateByCoupon(db, code);
+    if (!affiliate || affiliate.status !== "active"
+      || (coupon.affiliateId && coupon.affiliateId !== (affiliate.userId || affiliate.id))) return null;
+    coupon = { ...coupon, affiliateId: affiliate.userId || affiliate.id, affiliateCode: affiliate.affiliateCode };
+  }
   const expiry = coupon.expiryDate?.toDate?.()
     || (coupon.expiryDate ? new Date(coupon.expiryDate) : null);
   if (expiry && (!Number.isFinite(expiry.getTime()) || expiry < new Date())) return null;
@@ -269,13 +280,17 @@ export const calculateCommissionBreakdown = ({
   const paidTotal = Math.max(0, Math.round(asFiniteNumber(orderAmount, 0)));
   if (!grossTotal || !paidTotal) return { commissionAmount: 0, items: [] };
 
-  let allocated = 0;
+  // Largest-remainder allocation preserves the exact paid total, including tiny
+  // discounted orders; rounding every item independently can over-credit.
+  const allocations = normalizedItems.map((item, index) => {
+    const exact = (paidTotal * item.price) / grossTotal;
+    return { index, amount: Math.floor(exact), remainder: exact - Math.floor(exact) };
+  });
+  const remaining = paidTotal - allocations.reduce((total, item) => total + item.amount, 0);
+  const ranked = [...allocations].sort((a, b) => b.remainder - a.remainder || a.index - b.index);
+  for (let index = 0; index < remaining; index += 1) ranked[index].amount += 1;
   const breakdown = normalizedItems.map((item, index) => {
-    const isLast = index === normalizedItems.length - 1;
-    const netAmount = isLast
-      ? Math.max(0, paidTotal - allocated)
-      : Math.round((paidTotal * item.price) / grossTotal);
-    allocated += netAmount;
+    const netAmount = allocations[index].amount;
 
     const courseRate = courseRates[item.id];
     const rawRate = affiliate.customCommissionPercent != null
@@ -301,6 +316,12 @@ export const calculateCommissionBreakdown = ({
 
 export const processAffiliateCommission = async ({ db, fieldValue, orderId, orderData }) => {
   if (!orderId || !orderData || orderData.status !== "completed") return null;
+  // Events may arrive late or be delivered again. Always use the current order.
+  const orderRef = db.collection("orders").doc(orderId);
+  const sourceOrder = await orderRef.get();
+  if (!sourceOrder.exists || sourceOrder.data()?.status !== "completed") return null;
+  orderData = sourceOrder.data();
+  if (orderData.affiliateCommissionId) return { duplicate: true, id: orderData.affiliateCommissionId };
 
   let affiliateId = String(orderData.affiliateId || "").trim();
   let affiliate = null;
@@ -312,11 +333,11 @@ export const processAffiliateCommission = async ({ db, fieldValue, orderId, orde
       .get();
     if (snapshot.exists) affiliate = snapshotData(snapshot);
   }
-  if (!affiliate && orderData.couponCode) {
+  if (!orderData.affiliateAttributionVersion && !affiliateId && !affiliate && orderData.couponCode) {
     affiliate = await findAffiliateByCoupon(db, orderData.couponCode);
     if (affiliate) attributionType = "coupon";
   }
-  if (!affiliate && orderData.affiliateCode) {
+  if (!orderData.affiliateAttributionVersion && !affiliateId && !affiliate && orderData.affiliateCode) {
     affiliate = await findAffiliateByCode(db, orderData.affiliateCode);
     if (affiliate) attributionType = "ref_link";
   }
@@ -362,23 +383,40 @@ export const processAffiliateCommission = async ({ db, fieldValue, orderId, orde
 
   const commissionRef = db
     .collection(AFFILIATE_COLLECTIONS.commissions)
-    .doc(`${orderId}_${affiliateId}`);
+    .doc(orderId);
   const affiliateRef = db.collection(AFFILIATE_COLLECTIONS.affiliates).doc(affiliateId);
   const result = await db.runTransaction(async (transaction) => {
-    const [existingCommission, affiliateSnapshot] = await Promise.all([
-      transaction.get(commissionRef),
+    const [currentOrder, existingCommissions, affiliateSnapshot] = await Promise.all([
+      transaction.get(orderRef),
+      // Includes legacy records whose IDs were orderId_affiliateId or auto IDs.
+      transaction.get(db.collection(AFFILIATE_COLLECTIONS.commissions).where("orderId", "==", orderId).limit(1)),
       transaction.get(affiliateRef),
     ]);
-    if (existingCommission.exists) return { duplicate: true, ...snapshotData(existingCommission) };
+    if (!currentOrder.exists || currentOrder.data()?.status !== "completed") return null;
+    if (currentOrder.data()?.affiliateCommissionId) {
+      return { duplicate: true, id: currentOrder.data().affiliateCommissionId };
+    }
+    if (!existingCommissions.empty) {
+      const existingCommission = existingCommissions.docs[0];
+      transaction.update(orderRef, { affiliateCommissionId: existingCommission.id });
+      return { duplicate: true, ...snapshotData(existingCommission) };
+    }
+    if (!currentOrder.updateTime.isEqual(sourceOrder.updateTime)) {
+      throw new Error("Order changed during commission calculation; retry with current data.");
+    }
     if (!affiliateSnapshot.exists || affiliateSnapshot.data()?.status !== "active") return null;
 
     const record = {
       affiliateCode: affiliate.affiliateCode,
       affiliateId,
-      affiliateName: affiliate.name,
+      affiliateName: affiliate.name || "Cộng tác viên",
       attributionType,
       commissionAmount: calculation.commissionAmount,
       commissionItems: calculation.items,
+      commissionPercent: calculation.items.every((item) => item.commissionPercent === calculation.items[0].commissionPercent)
+        ? calculation.items[0].commissionPercent : null,
+      courseId: orderData.courseId || calculation.items[0]?.courseId || "",
+      courseName: orderData.courseName || calculation.items.map((item) => item.courseName).join(", "),
       createdAt: fieldValue.serverTimestamp(),
       customerEmail: orderData.customerEmail || orderData.userEmail || "",
       customerName: orderData.customerName || "Học viên",
@@ -388,6 +426,7 @@ export const processAffiliateCommission = async ({ db, fieldValue, orderId, orde
       status: "approved",
     };
     transaction.create(commissionRef, record);
+    transaction.update(orderRef, { affiliateCommissionId: commissionRef.id });
     transaction.update(affiliateRef, {
       "stats.balance": fieldValue.increment(calculation.commissionAmount),
       "stats.totalCommission": fieldValue.increment(calculation.commissionAmount),
@@ -412,9 +451,10 @@ const validateBankInfo = (bankInfo = {}) => {
 };
 
 const ensureCouponAvailable = async ({ db, affiliateId, couponCode }) => {
-  const [couponLock, couponMatches] = await Promise.all([
+  const [couponLock, couponMatches, legacyMatches] = await Promise.all([
     db.collection(AFFILIATE_COLLECTIONS.couponCodes).doc(couponCode).get(),
     db.collection("coupons").where("code", "==", couponCode).limit(3).get(),
+    db.collection(AFFILIATE_COLLECTIONS.affiliates).where("couponCode", "==", couponCode).limit(2).get(),
   ]);
   if (couponLock.exists && couponLock.data()?.affiliateId !== affiliateId) {
     throw httpError(409, `Mã giảm giá "${couponCode}" đã được sử dụng.`);
@@ -423,7 +463,9 @@ const ensureCouponAvailable = async ({ db, affiliateId, couponCode }) => {
     const data = item.data() || {};
     return data.affiliateId !== affiliateId;
   });
-  if (conflictingCoupon) throw httpError(409, `Mã giảm giá "${couponCode}" đã được sử dụng.`);
+  if (conflictingCoupon || legacyMatches.docs.some((item) => item.id !== affiliateId)) {
+    throw httpError(409, `Mã giảm giá "${couponCode}" đã được sử dụng.`);
+  }
 };
 
 const registerAffiliate = async ({ db, fieldValue, user, payload }) => {
@@ -496,30 +538,29 @@ const updateAffiliateCoupon = async ({ db, fieldValue, affiliateId, payload }) =
   const affiliateRef = db.collection(AFFILIATE_COLLECTIONS.affiliates).doc(affiliateId);
   const affiliateSnapshot = await affiliateRef.get();
   if (!affiliateSnapshot.exists) throw httpError(404, "Không tìm thấy cộng tác viên.");
-  const existing = affiliateSnapshot.data() || {};
   const couponCode = normalizeCouponCode(payload.couponCode);
   if (!couponCode) throw httpError(400, "Mã giảm giá không hợp lệ.");
   await ensureCouponAvailable({ db, affiliateId, couponCode });
 
-  const previousCouponCode = normalizeCouponCode(existing.couponCode);
-  const next = {
-    ...existing,
-    couponCode,
-    couponDiscountPercent: normalizePercent(payload.couponDiscountPercent, 10),
-    customCommissionPercent: payload.customCommissionPercent == null || payload.customCommissionPercent === ""
-      ? null
-      : normalizePercent(payload.customCommissionPercent),
-    status: ["active", "pending", "suspended"].includes(payload.status)
-      ? payload.status
-      : existing.status,
-  };
   const nextCouponLock = db.collection(AFFILIATE_COLLECTIONS.couponCodes).doc(couponCode);
-  const previousCouponLock = previousCouponCode
-    ? db.collection(AFFILIATE_COLLECTIONS.couponCodes).doc(previousCouponCode)
-    : null;
   const couponRef = db.collection("coupons").doc(affiliateCouponDocumentId(affiliateId));
 
   await db.runTransaction(async (transaction) => {
+    const current = await transaction.get(affiliateRef);
+    if (!current.exists) throw httpError(404, "Không tìm thấy cộng tác viên.");
+    const existing = current.data();
+    const previousCouponCode = normalizeCouponCode(existing.couponCode);
+    const previousCouponLock = previousCouponCode
+      ? db.collection(AFFILIATE_COLLECTIONS.couponCodes).doc(previousCouponCode)
+      : null;
+    const next = {
+      ...existing,
+      couponCode,
+      couponDiscountPercent: normalizePercent(payload.couponDiscountPercent, 10),
+      customCommissionPercent: payload.customCommissionPercent == null || payload.customCommissionPercent === ""
+        ? null : normalizePercent(payload.customCommissionPercent),
+      status: ["active", "pending", "paused", "suspended"].includes(payload.status) ? payload.status : existing.status,
+    };
     const lockSnapshots = await Promise.all([
       transaction.get(nextCouponLock),
       ...(previousCouponLock && previousCouponCode !== couponCode
@@ -591,7 +632,7 @@ const updateBank = async ({ db, fieldValue, payload, user }) => {
 };
 
 const requestPayout = async ({ db, fieldValue, payload, user }) => {
-  const amount = Math.round(asFiniteNumber(payload.amount, 0));
+  const amount = asFiniteNumber(payload.amount, 0);
   if (!Number.isSafeInteger(amount) || amount <= 0) throw httpError(400, "Số tiền rút không hợp lệ.");
   const settings = await getSettings(db);
   if (amount < settings.minPayoutAmount) {
@@ -673,13 +714,23 @@ const listForAffiliate = async ({ collectionName, db, userId, limit = 50 }) => {
   return snapshot.docs.map(snapshotData);
 };
 
-const listAll = async ({ collectionName, db, limit = MAX_PAGE_SIZE }) => {
-  const snapshot = await db
+const listAll = async ({ collectionName, db, cursor }) => {
+  let query = db
     .collection(collectionName)
     .orderBy("createdAt", "desc")
-    .limit(Math.min(MAX_PAGE_SIZE, limit))
-    .get();
-  return snapshot.docs.map(snapshotData);
+    .limit(MAX_PAGE_SIZE + 1);
+  if (cursor) {
+    if (!/^[A-Za-z0-9_-]{1,256}$/.test(cursor)) throw httpError(400, "Mốc phân trang không hợp lệ.");
+    const previous = await db.collection(collectionName).doc(cursor).get();
+    if (!previous.exists) throw httpError(409, "Danh sách đã thay đổi. Vui lòng tải lại.");
+    query = query.startAfter(previous);
+  }
+  const snapshot = await query.get();
+  const page = snapshot.docs.slice(0, MAX_PAGE_SIZE);
+  return {
+    items: page.map(snapshotData),
+    nextCursor: snapshot.size > MAX_PAGE_SIZE ? page.at(-1).id : null,
+  };
 };
 
 export const createAffiliateHandlers = ({
@@ -767,16 +818,14 @@ export const createAffiliateHandlers = ({
   adminGet: async ({ request }) => {
     await requireAdmin(request);
     const db = getDb();
-    const view = new URL(request.url).searchParams.get("view") || "all";
+    const params = new URL(request.url).searchParams;
+    const view = params.get("view") || "all";
+    const cursor = params.get("cursor");
     if (view === "settings") return createJsonResponse(await getSettings(db));
-    if (view === "affiliates") {
-      return createJsonResponse(await listAll({ collectionName: AFFILIATE_COLLECTIONS.affiliates, db }));
-    }
-    if (view === "payouts") {
-      return createJsonResponse(await listAll({ collectionName: AFFILIATE_COLLECTIONS.payouts, db }));
-    }
-    if (view === "commissions") {
-      return createJsonResponse(await listAll({ collectionName: AFFILIATE_COLLECTIONS.commissions, db }));
+    if (["affiliates", "payouts", "commissions"].includes(view)) {
+      const page = await listAll({ collectionName: AFFILIATE_COLLECTIONS[view], db, cursor });
+      // Keep the previous array response for cached clients during rollout.
+      return createJsonResponse(params.get("paginated") === "1" ? page : page.items);
     }
     throw httpError(400, "Admin Affiliate view không hợp lệ.");
   },

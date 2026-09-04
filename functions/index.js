@@ -976,6 +976,7 @@ const onCreateOrder = async ({ request }) => {
     customerNote,
     customerPhone,
     discountPercent,
+    affiliateAttributionVersion: 1,
     items,
     orderCode,
     originalAmount,
@@ -1654,12 +1655,13 @@ export const uploadApi = onRequest(
 );
 
 // Ghi nhận hoa hồng cho mọi cách hoàn tất đơn (SePay, Casso hoặc admin duyệt tay).
-// Transaction trong processAffiliateCommission dùng mã đơn + CTV làm khóa nên trigger
+// Transaction trong processAffiliateCommission dùng mã đơn làm khóa nên trigger
 // có chạy lại cũng không thể cộng hoa hồng hai lần.
 export const onOrderCompleted = onDocumentUpdated(
   {
     document: "orders/{orderId}",
     region: "asia-southeast1",
+    retry: true,
   },
   async (event) => {
     const before = event.data?.before?.data() || {};

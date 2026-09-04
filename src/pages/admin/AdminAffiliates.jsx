@@ -41,7 +41,7 @@ import {
     getAllAffiliates,
     getAllCommissions,
     getAllPayoutRequests,
-    getAffiliateSettings,
+    getAdminAffiliateSettings,
     processPayoutStatus,
     saveAffiliateSettings,
     updateAffiliateByAdmin
@@ -102,7 +102,7 @@ const AdminAffiliates = () => {
         setLoading(true);
         try {
             const [sett, affList, payList, commList, coursesSnap] = await Promise.all([
-                getAffiliateSettings(),
+                getAdminAffiliateSettings(),
                 getAllAffiliates(),
                 getAllPayoutRequests(),
                 getAllCommissions(),
@@ -145,8 +145,9 @@ const AdminAffiliates = () => {
                 cookieDurationDays: isForeverCookie ? 0 : Number(settings.cookieDurationDays),
                 minPayoutAmount: Number(settings.minPayoutAmount),
             };
-            await saveAffiliateSettings(updated);
-            setSettings(updated);
+            const saved = await saveAffiliateSettings(updated);
+            setSettings(saved);
+            setIsForeverCookie(saved.cookieDurationDays === 0);
             toast.success("Đã lưu cài đặt Affiliate thành công!");
         } catch {
             toast.error("Lỗi khi lưu cài đặt.");
@@ -200,8 +201,8 @@ const AdminAffiliates = () => {
         setSelectedAffiliate(aff);
         setEditCommissionPercent(aff.customCommissionPercent != null ? String(aff.customCommissionPercent) : "");
         setEditCouponCode(aff.couponCode || "");
-        setEditCouponDiscount(String(aff.couponDiscountPercent || 10));
-        setEditStatus(aff.status || "active");
+        setEditCouponDiscount(String(aff.couponDiscountPercent ?? 10));
+        setEditStatus(aff.status === "suspended" ? "paused" : (aff.status || "active"));
     };
 
     // Save Edit Affiliate
@@ -214,15 +215,15 @@ const AdminAffiliates = () => {
             const updatePayload = {
                 customCommissionPercent: editCommissionPercent !== "" ? Number(editCommissionPercent) : null,
                 couponCode: editCouponCode.trim().toUpperCase(),
-                couponDiscountPercent: Number(editCouponDiscount) || 10,
+                couponDiscountPercent: editCouponDiscount === "" ? 10 : Number(editCouponDiscount),
                 status: editStatus,
             };
             await updateAffiliateByAdmin(selectedAffiliate.id, updatePayload);
             toast.success(`Đã cập nhật CTV ${selectedAffiliate.affiliateCode}`);
             setSelectedAffiliate(null);
             await loadAllData();
-        } catch {
-            toast.error("Lỗi khi cập nhật CTV.");
+        } catch (error) {
+            toast.error(error.message || "Lỗi khi cập nhật CTV.");
         } finally {
             setIsSavingAffiliate(false);
         }
@@ -280,7 +281,7 @@ const AdminAffiliates = () => {
 
     // Helper generate VietQR image URL
     const getVietQrUrl = (bankName, accNumber, accHolder, amount, memo) => {
-        const cleanAcc = (accNumber || "").replace(/\D/g, "");
+        const cleanAcc = String(accNumber || "").replace(/\s/g, "");
         // Map common bank short names to VietQR bank code
         const bankMap = {
             "techcombank": "TCB",
@@ -297,7 +298,7 @@ const AdminAffiliates = () => {
             "agribank": "VBA",
         };
         const normalizedBank = (bankName || "").toLowerCase().trim();
-        let bankCode = "TCB";
+        let bankCode = null;
         for (const [key, code] of Object.entries(bankMap)) {
             if (normalizedBank.includes(key)) {
                 bankCode = code;
@@ -305,10 +306,21 @@ const AdminAffiliates = () => {
             }
         }
 
+        // Never silently substitute a different recipient bank or alter its account number.
+        if (!bankCode || !/^[0-9]{5,40}$/.test(cleanAcc)) return null;
+
         const encodedHolder = encodeURIComponent(accHolder || "");
         const encodedMemo = encodeURIComponent(memo || "Thanh toan hoa hong MaliEdu");
         return `https://img.vietqr.io/image/${bankCode}-${cleanAcc}-compact2.png?amount=${amount}&addInfo=${encodedMemo}&accountName=${encodedHolder}`;
     };
+
+    const payoutQrUrl = qrPayout ? getVietQrUrl(
+        qrPayout.bankInfo?.bankName,
+        qrPayout.bankInfo?.accountNumber,
+        qrPayout.bankInfo?.accountHolder,
+        qrPayout.amount,
+        `Hoa hong ${qrPayout.affiliateCode}`,
+    ) : null;
 
     return (
         <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
@@ -725,7 +737,7 @@ const AdminAffiliates = () => {
                                                     </div>
                                                     {aff.couponCode && (
                                                         <div className="text-[11px] text-purple-700 font-bold mt-1">
-                                                            Coupon: {aff.couponCode} (-{aff.couponDiscountPercent || 10}%)
+                                                            Coupon: {aff.couponCode} (-{aff.couponDiscountPercent ?? 10}%)
                                                         </div>
                                                     )}
                                                 </td>
@@ -754,7 +766,7 @@ const AdminAffiliates = () => {
                                                             ? "bg-emerald-50 text-emerald-700"
                                                             : "bg-rose-50 text-rose-700"
                                                     }`}>
-                                                        {aff.status === "active" ? "Hoạt động" : "Tạm khóa"}
+                                                        {aff.status === "active" ? "Hoạt động" : aff.status === "pending" ? "Chờ duyệt" : "Tạm khóa"}
                                                     </span>
                                                 </td>
                                                 <td className="py-4 text-right">
@@ -938,7 +950,7 @@ const AdminAffiliates = () => {
                                                 </td>
                                                 <td className="py-3.5 text-xs">
                                                     <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 font-bold text-[11px]">
-                                                        {comm.commissionPercent}%
+                                                        {comm.commissionPercent != null ? `${comm.commissionPercent}%` : "Theo từng khóa"}
                                                     </span>
                                                 </td>
                                                 <td className="py-3.5 font-black text-[#9B2528] text-right">
@@ -1037,6 +1049,7 @@ const AdminAffiliates = () => {
                                     className="w-full h-11 px-3.5 rounded-xl border border-slate-200 font-bold text-slate-900 outline-none focus:border-[#9B2528]"
                                 >
                                     <option value="active">✅ Đang hoạt động (Active)</option>
+                                    <option value="pending">Chờ duyệt (Pending)</option>
                                     <option value="paused">⛔ Tạm khóa (Paused)</option>
                                 </select>
                             </div>
@@ -1078,17 +1091,11 @@ const AdminAffiliates = () => {
                         </div>
 
                         <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 flex justify-center">
-                            <img
-                                src={getVietQrUrl(
-                                    qrPayout.bankInfo?.bankName,
-                                    qrPayout.bankInfo?.accountNumber,
-                                    qrPayout.bankInfo?.accountHolder,
-                                    qrPayout.amount,
-                                    `Hoa hong ${qrPayout.affiliateCode}`
-                                )}
+                            {payoutQrUrl ? <img
+                                src={payoutQrUrl}
                                 alt="VietQR"
                                 className="w-64 h-auto rounded-xl shadow-sm"
-                            />
+                            /> : <p className="text-sm text-slate-600">Chưa hỗ trợ tạo QR cho tài khoản này. Vui lòng chuyển khoản theo thông tin bên dưới và kiểm tra tên người nhận trong ứng dụng ngân hàng.</p>}
                         </div>
 
                         <div className="text-xs space-y-1 text-left bg-amber-50 p-3 rounded-xl border border-amber-200">

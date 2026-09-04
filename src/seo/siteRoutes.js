@@ -370,13 +370,13 @@ export const ROUTE_SEO = {
     url: "/dang-ky",
   }),
   "/gio-hang": noindex({
-    title: "Giỏ hàng",
-    description: "Giỏ hàng khóa học Mali Edu.",
+    title: "Khám phá khóa học",
+    description: "Đường dẫn cũ chuyển tiếp tới danh sách khóa học Mali Edu.",
     url: "/gio-hang",
   }),
   "/cart": noindex({
-    title: "Giỏ hàng",
-    description: "Đường dẫn chuyển tiếp tới giỏ hàng Mali Edu.",
+    title: "Khám phá khóa học",
+    description: "Đường dẫn cũ chuyển tiếp tới danh sách khóa học Mali Edu.",
     url: "/cart",
   }),
   "/lich-su-don-hang": noindex({

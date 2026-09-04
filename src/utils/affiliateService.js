@@ -92,6 +92,11 @@ export const saveAffiliateSettings = async (settings) => requestJson(ADMIN_AFFIL
     method: "POST",
 });
 
+// Admin must see a load failure, not silently edit fallback financial settings.
+export const getAdminAffiliateSettings = () => requestJson(
+    `${ADMIN_AFFILIATE_API}?view=settings`, { authenticated: true },
+);
+
 export const getAffiliateByUserId = async (userId) => {
     if (!userId || auth.currentUser?.uid !== userId) return null;
     return requestJson(`${AFFILIATE_API}?view=profile`, { authenticated: true });
@@ -160,10 +165,22 @@ export const getAffiliatePayouts = async (userId) => {
     return requestJson(`${AFFILIATE_API}?view=payouts`, { authenticated: true });
 };
 
-export const getAllAffiliates = async () => requestJson(
-    `${ADMIN_AFFILIATE_API}?view=affiliates`,
-    { authenticated: true },
-);
+const getAllAdminPages = async (view) => {
+    const items = [];
+    let cursor = null;
+    do {
+        const params = new URLSearchParams({ view, paginated: "1" });
+        if (cursor) params.set("cursor", cursor);
+        const page = await requestJson(`${ADMIN_AFFILIATE_API}?${params}`, { authenticated: true });
+        // Also accepts the previous API shape during a rolling deployment.
+        if (Array.isArray(page)) return [...items, ...page];
+        items.push(...page.items);
+        cursor = page.nextCursor;
+    } while (cursor);
+    return items;
+};
+
+export const getAllAffiliates = () => getAllAdminPages("affiliates");
 
 export const updateAffiliateByAdmin = async (affiliateId, updateData) => requestJson(
     ADMIN_AFFILIATE_API,
@@ -174,15 +191,9 @@ export const updateAffiliateByAdmin = async (affiliateId, updateData) => request
     },
 );
 
-export const getAllPayoutRequests = async () => requestJson(
-    `${ADMIN_AFFILIATE_API}?view=payouts`,
-    { authenticated: true },
-);
+export const getAllPayoutRequests = () => getAllAdminPages("payouts");
 
-export const getAllCommissions = async () => requestJson(
-    `${ADMIN_AFFILIATE_API}?view=commissions`,
-    { authenticated: true },
-);
+export const getAllCommissions = () => getAllAdminPages("commissions");
 
 export const processPayoutStatus = async (
     payoutId,

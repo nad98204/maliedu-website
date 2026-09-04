@@ -16,7 +16,7 @@ import {
   X,
   Youtube,
   BookOpen,
-  ShoppingCart,
+  GraduationCap,
   Clock,
   Shield,
   Layout,
@@ -25,7 +25,7 @@ import {
 
 import { auth, db } from "../firebase";
 import { HOTLINE, MENU_ITEMS, SOCIALS } from "../menuData";
-import { useCart } from "../context/CartContext";
+import usePendingOrderCount from "../hooks/usePendingOrderCount";
 import GlobalSearch from "./GlobalSearch";
 import AuthModal from "./AuthModal";
 import { logoutSession } from "../utils/sessionService";
@@ -47,7 +47,7 @@ const COURSE_MENU_OPTIONS = [
   {
     label: "Mua khóa học mới",
     path: "/khoa-hoc",
-    Icon: ShoppingCart,
+    Icon: GraduationCap,
   },
   {
     label: "Khóa học tôi đã mua",
@@ -64,7 +64,7 @@ const Header = () => {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [coursesMenuOpen, setCoursesMenuOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
-  const { cartCount = 0, pendingCount = 0, totalBadgeCount = 0 } = useCart() || {};
+  const pendingCount = usePendingOrderCount(currentUser?.uid);
   const [pendingBannerDismissed, setPendingBannerDismissed] = useState(false);
   const navigate = useNavigate();
   const coursesMenuRef = useRef(null);
@@ -226,23 +226,6 @@ const Header = () => {
               <Briefcase className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0" />
               Tuyển dụng
             </Link>
-
-            {currentUser && (
-              <Link
-                to="/gio-hang"
-                className="relative inline-flex items-center whitespace-nowrap gap-1.5 px-2 py-1 text-[10px] sm:gap-2 sm:px-3 sm:py-1.5 sm:text-xs rounded-full bg-secret-paper text-secret-wax font-medium shadow-sm hover:bg-white transition mr-1"
-              >
-                <ShoppingCart className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0" />
-                Giỏ hàng
-                {totalBadgeCount > 0 && (
-                  <span className="ml-0.5 inline-flex items-center justify-center min-w-[1.25rem] h-3.5 px-1 text-[9px] sm:h-4 sm:text-[10px] font-bold leading-none text-white rounded-full"
-                    style={{ background: pendingCount > 0 && cartCount === 0 ? '#f97316' : '#dc2626' }}
-                  >
-                    {totalBadgeCount}
-                  </span>
-                )}
-              </Link>
-            )}
 
             {currentUser ? (
               <div className="relative">
@@ -456,7 +439,7 @@ const Header = () => {
             </div>
             <div className="flex items-center gap-2 shrink-0">
               <Link
-                to="/gio-hang"
+                to="/lich-su-don-hang"
                 onClick={() => setPendingBannerDismissed(true)}
                 className="inline-flex items-center gap-1 px-3 py-1 bg-white text-orange-600 text-xs font-bold rounded-full hover:bg-orange-50 transition-colors"
               >
@@ -507,21 +490,12 @@ const Header = () => {
 
               {currentUser && (
                 <Link
-                  to="/gio-hang"
+                  to="/lich-su-don-hang"
                   onClick={closeMobileMenu}
                   className="flex items-center gap-3 px-2 py-2 text-secret-ink font-medium hover:text-secret-wax transition"
                 >
-                  <div className="relative">
-                    <ShoppingCart className="h-5 w-5" />
-                    {totalBadgeCount > 0 && (
-                      <span className="absolute -top-2 -right-2 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-white rounded-full"
-                        style={{ background: pendingCount > 0 && cartCount === 0 ? '#f97316' : '#dc2626' }}
-                      >
-                        {totalBadgeCount}
-                      </span>
-                    )}
-                  </div>
-                  Giỏ hàng
+                  <Clock className="h-5 w-5" />
+                  Lịch sử đơn hàng
                   {pendingCount > 0 && (
                     <span className="ml-auto text-xs font-bold text-orange-500 bg-orange-50 px-2 py-0.5 rounded-full border border-orange-200">
                       {pendingCount} chưa TT

@@ -1,4 +1,4 @@
-import { Home, Info, GraduationCap, PlayCircle, Newspaper, Layout, BookOpen, ShoppingCart } from "lucide-react";
+import { Home, Info, GraduationCap, PlayCircle, Newspaper, Layout, BookOpen } from "lucide-react";
 import { Link, useLocation } from "react-router";
 import { useState, useEffect } from "react";
 import { onAuthStateChanged } from "firebase/auth";
@@ -30,7 +30,7 @@ const NAV_ITEMS = [
             {
                 label: "Mua khóa học mới",
                 path: "/khoa-hoc",
-                icon: ShoppingCart,
+                icon: GraduationCap,
                 description: "Xem các khóa học đang có",
             },
             {

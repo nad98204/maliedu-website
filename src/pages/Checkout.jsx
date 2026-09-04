@@ -7,7 +7,6 @@ import { Loader2, ArrowLeft, ShieldCheck, CreditCard } from "lucide-react";
 import { db, auth } from "../firebase";
 import { createOrder, formatPrice } from "../utils/orderService";
 import { getActiveAffiliateRef, validateCouponCode } from "../utils/affiliateService";
-import { useCart } from "../context/CartContext";
 import { trackMetaEvent } from "../utils/metaPixel";
 import { isLeadGenerationCourse, openCourseLeadLanding } from "../utils/courseMarketing";
 import AuthModal from "../components/AuthModal";
@@ -23,7 +22,6 @@ const Checkout = () => {
     const { courseId } = useParams();
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
-    const { cartItems, clearCart, totalAmount } = useCart();
 
     const [course, setCourse] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -43,71 +41,58 @@ const Checkout = () => {
     const [couponApplied, setCouponApplied] = useState(null); // { code: 'MALI20', discountPercent: 20 }
     const [checkingCoupon, setCheckingCoupon] = useState(false);
     const selectedPlan = useMemo(() => {
-        if (!course || course.id === 'cart') return null;
+        if (!course) return null;
         return getCourseAccessPlanById(course, selectedPlanId);
     }, [course, selectedPlanId]);
     const accessPlans = useMemo(() => (
-        !course || course.id === 'cart' ? [] : getActiveCourseAccessPlans(course)
+        !course ? [] : getActiveCourseAccessPlans(course)
     ), [course]);
     const finalPrice = useMemo(() => {
         if (!course) return 0;
-        const basePrice = course.id === 'cart'
-            ? totalAmount
-            : getPlanEffectivePrice(selectedPlan || getDefaultCourseAccessPlan(course));
+        const basePrice = getPlanEffectivePrice(selectedPlan || getDefaultCourseAccessPlan(course));
         if (!couponApplied) return basePrice;
         const discountAmount = basePrice * (couponApplied.discountPercent / 100);
-        return Math.max(0, basePrice - discountAmount);
-    }, [course, couponApplied, selectedPlan, totalAmount]);
+        return Math.max(0, Math.round(basePrice - discountAmount));
+    }, [course, couponApplied, selectedPlan]);
 
     useEffect(() => {
-        // Fetch Course Info or Load Cart
-        const fetchCourseOrCart = async () => {
-            if (courseId === 'cart') {
-                if (cartItems.length === 0) {
-                    alert("Giỏ hàng trống!");
-                    navigate("/khoa-hoc");
-                    return;
-                }
-                // Mock a "course" object for compatibility or just use items
-                setCourse({
-                    id: 'cart',
-                    name: `Đơn hàng (${cartItems.length} khóa học)`,
-                    price: totalAmount,
-                    salePrice: totalAmount,
-                    thumbnailUrl: cartItems[0]?.thumbnailUrl // Use first item thumb
-                });
-                setLoading(false);
-            } else {
-                try {
-                    const docRef = doc(db, "courses", courseId);
-                    const docSnap = await getDoc(docRef);
-                    if (docSnap.exists()) {
-                        const courseData = { id: docSnap.id, ...docSnap.data() };
-                        if (isLeadGenerationCourse(courseData)) {
-                            openCourseLeadLanding({ course: courseData, navigate });
-                            return;
-                        }
-                        setCourse(courseData);
-                        const requestedPlanId = searchParams.get('plan');
-                        setSelectedPlanId(getCourseAccessPlanById(courseData, requestedPlanId)?.id || '');
-                    } else {
-                        alert("Khóa học không tồn tại!");
-                        navigate("/khoa-hoc");
+        let active = true;
+        const fetchCourse = async () => {
+            setLoading(true);
+            setCourse(null);
+            setCouponApplied(null);
+            try {
+                const docSnap = await getDoc(doc(db, "courses", courseId));
+                if (!active) return;
+                if (docSnap.exists()) {
+                    const courseData = { ...docSnap.data(), id: docSnap.id };
+                    if (isLeadGenerationCourse(courseData)) {
+                        openCourseLeadLanding({ course: courseData, navigate });
+                        return;
                     }
-                } catch (error) {
-                    console.error("Error fetching course:", error);
-                } finally {
-                    setLoading(false);
+                    setCourse(courseData);
+                    const requestedPlanId = searchParams.get('plan');
+                    setSelectedPlanId(getCourseAccessPlanById(courseData, requestedPlanId)?.id || '');
+                } else {
+                    alert("Khóa học không tồn tại!");
+                    navigate("/khoa-hoc");
                 }
+            } catch (error) {
+                console.error("Error fetching course:", error);
+            } finally {
+                if (active) setLoading(false);
             }
         };
 
-        if (courseId) fetchCourseOrCart();
+        if (courseId) fetchCourse();
+        return () => { active = false; };
+    }, [courseId, navigate, searchParams]);
 
+    useEffect(() => {
         // Check Auth and autofill
         const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+            setUser(currentUser);
             if (currentUser) {
-                setUser(currentUser);
                 setFormData(prev => ({
                     ...prev,
                     fullName: currentUser.displayName || "",
@@ -117,20 +102,20 @@ const Checkout = () => {
         });
 
         return () => unsubscribe();
-    }, [courseId, navigate, cartItems, totalAmount, searchParams]);
+    }, []);
 
     useEffect(() => {
         if (course) {
             trackMetaEvent("InitiateCheckout", {
                 content_name: course.name || "Checkout",
-                content_ids: course.id === 'cart' ? cartItems.map(i => i.id) : [course.id],
+                content_ids: [course.id],
                 content_type: 'product',
-                num_items: course.id === 'cart' ? cartItems.length : 1,
+                num_items: 1,
                 value: finalPrice,
                 currency: 'VND'
             });
         }
-    }, [cartItems, course, finalPrice]);
+    }, [course, finalPrice]);
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -151,7 +136,8 @@ const Checkout = () => {
 
         } catch (error) {
             console.error("Error checking coupon:", error);
-            alert("Lỗi khi kiểm tra mã giảm giá");
+            setCouponApplied(null);
+            alert(error.message || "Lỗi khi kiểm tra mã giảm giá");
         } finally {
             setCheckingCoupon(false);
         }
@@ -177,20 +163,7 @@ const Checkout = () => {
             const finalUserId = user?.uid || null;
             const customerEmail = user?.email || formData.email;
 
-            const isCartOrder = courseId === 'cart';
-            // Prepare items array
-            const orderItems = isCartOrder ? cartItems.map(item => {
-                const plan = getCourseAccessPlanById(item, item.accessPlanId);
-                return {
-                    id: item.id,
-                    name: item.name,
-                    accessPlanId: plan.id,
-                    accessPlanName: plan.name,
-                    accessDuration: formatAccessDuration(plan),
-                    price: getPlanEffectivePrice(plan),
-                    thumbnailUrl: item.thumbnailUrl
-                };
-            }) : [{
+            const orderItems = [{
                 id: course.id,
                 name: course.name,
                 accessPlanId: selectedPlan.id,
@@ -212,20 +185,16 @@ const Checkout = () => {
                 customerNote: formData.note,
                 // Order Info
                 items: orderItems,
-                courseId: isCartOrder ? 'cart-order' : course.id, // Legacy compatibility
-                courseName: isCartOrder ? `Đơn hàng gồm ${cartItems.length} khóa học` : course.name,
+                courseId: course.id,
+                courseName: course.name,
                 amount: calculateFinalPrice(), // Final amount after coupon
-                originalAmount: isCartOrder ? totalAmount : getPlanEffectivePrice(selectedPlan),
+                originalAmount: getPlanEffectivePrice(selectedPlan),
                 couponCode: couponApplied ? couponApplied.code : null,
                 discountPercent: couponApplied ? couponApplied.discountPercent : 0,
                 affiliateCode: activeAffiliateCode || null,
             };
 
             const result = await createOrder(orderData);
-
-            if (isCartOrder) {
-                clearCart();
-            }
 
             navigate(`/dat-hang-thanh-cong/${result.id}`);
         } catch (error) {
@@ -347,29 +316,6 @@ const Checkout = () => {
                                 <h3 className="font-bold text-slate-900">Tóm tắt đơn hàng</h3>
                             </div>
                             <div className="p-6 space-y-6">
-                                {courseId === 'cart' ? (
-                                    <div className="space-y-4 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
-                                        {cartItems.map((item) => {
-                                            const itemPlan = getCourseAccessPlanById(item, item.accessPlanId);
-                                            return (
-                                            <div key={`${item.id}-${itemPlan.id}`} className="flex gap-4">
-                                                <img
-                                                    src={item.thumbnailUrl || "https://via.placeholder.com/150"}
-                                                    alt={item.name}
-                                                    className="w-16 h-16 rounded-lg object-cover bg-slate-100 shrink-0"
-                                                />
-                                                <div className="flex-1 min-w-0">
-                                                    <h4 className="font-semibold text-slate-900 line-clamp-2 text-xs">{item.name}</h4>
-                                                    <p className="mt-0.5 text-[11px] text-slate-500">{itemPlan.name} · {formatAccessDuration(itemPlan)}</p>
-                                                    <p className="text-xs text-red-600 font-bold mt-1">
-                                                        {formatPrice(getPlanEffectivePrice(itemPlan))}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                            );
-                                        })}
-                                    </div>
-                                ) : (
                                     <div className="flex gap-4">
                                         <img
                                             src={course.thumbnailUrl || "https://via.placeholder.com/150"}
@@ -381,9 +327,8 @@ const Checkout = () => {
                                             <p className="text-xs text-slate-500 mt-1">{selectedPlan.name} · {formatAccessDuration(selectedPlan)}</p>
                                         </div>
                                     </div>
-                                )}
 
-                                {courseId !== 'cart' && course.accessPlansEnabled && accessPlans.length > 1 && (
+                                {course.accessPlansEnabled && accessPlans.length > 1 && (
                                     <div className="space-y-2">
                                         <label className="text-xs font-black uppercase tracking-wider text-slate-500">Gói quyền học</label>
                                         <select
@@ -407,7 +352,7 @@ const Checkout = () => {
                                     <div className="flex justify-between text-sm">
                                         <span className="text-slate-600">Giá gốc</span>
                                         <span className="text-slate-400 line-through">
-                                            {formatPrice(courseId === 'cart' ? totalAmount : selectedPlan.price)}
+                                            {formatPrice(selectedPlan.price)}
                                         </span>
                                     </div>
                                     <div className="flex justify-between text-sm font-medium">
@@ -416,7 +361,7 @@ const Checkout = () => {
                                             {couponApplied ? (
                                                 <>
                                                     <span className="block text-sm text-slate-400 line-through">
-                                                        {formatPrice(courseId === 'cart' ? totalAmount : getPlanEffectivePrice(selectedPlan))}
+                                                        {formatPrice(getPlanEffectivePrice(selectedPlan))}
                                                     </span>
                                                     <span className="text-red-600 text-lg">
                                                         {formatPrice(calculateFinalPrice())}

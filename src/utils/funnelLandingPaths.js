@@ -1,5 +1,5 @@
 /**
- * Route landing phễu: không cần Firebase (giỏ hàng / tra cứu pixel Firestore) ngay khi load.
+ * Route landing phễu: không cần Firebase (tra cứu pixel Firestore) ngay khi load.
  * Đồng bộ logic ẩn chrome trong App.jsx (hideChromePaths + khoi-thong-leader).
  */
 export function isFunnelLandingPath(pathname) {

@@ -115,6 +115,14 @@ const AffiliatePortal = () => {
     // Check Auth State
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
+            setAffiliate(null);
+            setCommissions([]);
+            setPayouts([]);
+            setEditBankName("");
+            setEditAccountNumber("");
+            setEditAccountHolder("");
+            setIsPayoutModalOpen(false);
+            setRegisterCode("");
             setCurrentUser(user);
             setAuthLoading(false);
             if (user) {
@@ -145,6 +153,7 @@ const AffiliatePortal = () => {
         setLoadingData(true);
         try {
             const affProfile = await getAffiliateByUserId(uid);
+            if (auth.currentUser?.uid !== uid) return;
             setAffiliate(affProfile);
 
             if (affProfile) {
@@ -156,14 +165,15 @@ const AffiliatePortal = () => {
                     getAffiliateCommissions(uid),
                     getAffiliatePayouts(uid)
                 ]);
+                if (auth.currentUser?.uid !== uid) return;
                 setCommissions(commList);
                 setPayouts(payList);
             }
         } catch (error) {
             console.error("Error loading affiliate profile:", error);
-            toast.error("Không thể tải thông tin đối tác.");
+            if (auth.currentUser?.uid === uid) toast.error("Không thể tải thông tin đối tác.");
         } finally {
-            setLoadingData(false);
+            if (auth.currentUser?.uid === uid) setLoadingData(false);
         }
     };
 
@@ -513,6 +523,13 @@ const AffiliatePortal = () => {
                     /* CASE 3: ĐÃ LÀ ĐỐI TÁC -> HIỂN THỊ DASHBOARD THỰC THỤ */
                     <div className="space-y-8">
 
+                        {affiliate.status !== "active" && (
+                            <div role="status" className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
+                                <p className="font-bold">{affiliate.status === "pending" ? "Tài khoản CTV đang chờ duyệt" : "Tài khoản CTV đang tạm khóa"}</p>
+                                <p className="mt-1">Link giới thiệu và mã giảm giá chỉ hoạt động khi tài khoản được quản trị viên kích hoạt.</p>
+                            </div>
+                        )}
+
                         {/* Top Overview Cards */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                             {/* Card 1: Số dư ví */}
@@ -778,7 +795,7 @@ const AffiliatePortal = () => {
                                             {affiliate.couponCode || `${affiliate.affiliateCode}10`}
                                         </div>
                                         <span className="inline-block px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200">
-                                            Giảm ngay {affiliate.couponDiscountPercent || 10}% cho người mua
+                                            Giảm ngay {affiliate.couponDiscountPercent ?? 10}% cho người mua
                                         </span>
                                     </div>
 
@@ -856,7 +873,7 @@ const AffiliatePortal = () => {
                                                         </td>
                                                         <td className="py-3.5 text-xs">
                                                             <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 font-bold text-[11px]">
-                                                                {comm.commissionPercent}%
+                                                                {comm.commissionPercent != null ? `${comm.commissionPercent}%` : "Theo từng khóa"}
                                                             </span>
                                                         </td>
                                                         <td className="py-3.5 font-black text-[#9B2528] text-right">

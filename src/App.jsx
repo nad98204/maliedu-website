@@ -9,7 +9,6 @@ import {
 } from "react-router";
 import { Toaster } from 'react-hot-toast';
 import ScrollToTop from "./components/ScrollToTop";
-import { CartProvider } from "./context/CartContext";
 import useAffiliateTracker from "./hooks/useAffiliateTracker";
 
 /** Chunk riêng: không cần trên funnel hideChrome hoặc tách Meta khỏi entry (giảm JS đầu tải / “unused”). */
@@ -42,7 +41,6 @@ const CourseTaiLieu = lazy(() => import("./pages/CourseTaiLieu"));
 const CourseGhiChep = lazy(() => import("./pages/CourseGhiChep"));
 const Register = lazy(() => import("./pages/Register"));
 const Checkout = lazy(() => import("./pages/Checkout"));
-const Cart = lazy(() => import("./pages/Cart"));
 const OrderHistory = lazy(() => import("./pages/OrderHistory"));
 const OrderSuccess = lazy(() => import("./pages/OrderSuccess"));
 const Profile = lazy(() => import("./pages/Profile"));
@@ -149,6 +147,7 @@ const AppShell = () => {
             <Route path="/dao-tao/vut-toc-muc-tieu" element={<VutTocMucTieu />} />
             <Route path="/dao-tao/chinh-phuc-muc-tieu" element={<VutTocMucTieu />} />
             <Route path="/landing/:templateId" element={<LandingPageViewer />} />
+            <Route path="/thanh-toan/cart" element={<Navigate to="/khoa-hoc" replace />} />
             <Route path="/thanh-toan/:courseId" element={<Checkout />} />
             <Route path="/mongcoaching" element={<LinkBio />} />
             <Route path="/xem/:fileId" element={<MediaShare />} />
@@ -175,8 +174,8 @@ const AppShell = () => {
             <Route path="/dang-ky" element={<Register />} />
             <Route path="/lien-he" element={<Contact />} />
             <Route path="/chinh-sach-bao-mat" element={<PrivacyPolicy />} />
-            <Route path="/gio-hang" element={<Cart />} />
-            <Route path="/cart" element={<Navigate to="/gio-hang" replace />} />
+            <Route path="/gio-hang" element={<Navigate to="/khoa-hoc" replace />} />
+            <Route path="/cart" element={<Navigate to="/khoa-hoc" replace />} />
             <Route path="/lich-su-don-hang" element={<OrderHistory />} />
             <Route path="/orders" element={<Navigate to="/lich-su-don-hang" replace />} />
             <Route path="/dat-hang-thanh-cong/:orderId" element={<OrderSuccess />} />
@@ -253,14 +252,12 @@ const AppShell = () => {
 function App() {
   return (
     <BrowserRouter>
-      <CartProvider>
-          <Suspense fallback={null}>
-            <FacebookPixelTracker />
-          </Suspense>
-          <ScrollToTop />
-          <AppShell />
-          <Toaster position="top-center" />
-      </CartProvider>
+      <Suspense fallback={null}>
+        <FacebookPixelTracker />
+      </Suspense>
+      <ScrollToTop />
+      <AppShell />
+      <Toaster position="top-center" />
     </BrowserRouter>
   );
 }
