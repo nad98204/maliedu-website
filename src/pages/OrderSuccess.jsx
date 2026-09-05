@@ -385,6 +385,8 @@ const OrderSuccess = () => {
 
     const isCompleted = order.status === 'completed';
     const isPaymentReceived = order.status === 'payment_received';
+    const isHypnosis = order.productType === 'hypnosis' || Boolean(order.trackId) || (order.items || []).some(i => i.productType === 'hypnosis');
+    const targetTrackId = order.trackId || order.courseId || order.items?.[0]?.id;
     const transferContent = bankSettings ? generateTransferContent(bankSettings, order.orderCode) : `MALI ${order.orderCode}`;
     const qrUrl = bankSettings?.accountNo ? generateQrUrl(bankSettings, order.amount, transferContent) : null;
 
@@ -414,7 +416,11 @@ const OrderSuccess = () => {
                             )}
                         </div>
                         <h1 className="text-3xl font-serif font-bold mb-2">
-                            {isCompleted ? "Đã kích hoạt khóa học! 🎉" : isPaymentReceived ? "Đã nhận được thanh toán" : "Đặt hàng thành công!"}
+                            {isCompleted
+                                ? (isHypnosis ? "Đã mở khóa bài thôi miên! 🎉" : "Đã kích hoạt khóa học! 🎉")
+                                : isPaymentReceived
+                                    ? "Đã nhận được thanh toán"
+                                    : "Đặt hàng thành công!"}
                         </h1>
                         <p className="opacity-90 text-sm">
                             Mã đơn hàng: <span className="font-mono font-bold text-lg">{order.orderCode}</span>
@@ -440,15 +446,20 @@ const OrderSuccess = () => {
                                     <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
                                         <CheckCircle className="w-12 h-12 text-green-500" />
                                     </div>
-                                    <h2 className="text-2xl font-bold text-slate-900 mb-3">Khóa học đã được kích hoạt!</h2>
+                                    <h2 className="text-2xl font-bold text-slate-900 mb-3">
+                                        {isHypnosis ? "Bản thôi miên đã sẵn sàng!" : "Khóa học đã được kích hoạt!"}
+                                    </h2>
                                     <p className="text-slate-500 mb-8">
-                                        Chúc mừng bạn đã trở thành học viên của khóa học <strong>{order.courseName}</strong>.
-                                        Bạn có thể bắt đầu học ngay bây giờ.
+                                        {isHypnosis ? (
+                                            <>Chúc mừng bạn đã sở hữu bản thôi miên <strong>{order.trackTitle || order.courseName}</strong>. Bạn có thể lắng nghe ngay bây giờ.</>
+                                        ) : (
+                                            <>Chúc mừng bạn đã trở thành học viên của khóa học <strong>{order.courseName}</strong>. Bạn có thể bắt đầu học ngay bây giờ.</>
+                                        )}
                                     </p>
                                     <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                                        <Link to="/khoa-hoc-cua-toi"
+                                        <Link to={isHypnosis ? `/thoi-mien-cua-toi?autoPlay=${targetTrackId}` : "/khoa-hoc-cua-toi"}
                                             className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-secret-wax text-white font-bold rounded-xl shadow-lg hover:bg-secret-ink transition-all">
-                                            Vào học ngay
+                                            {isHypnosis ? "Vào nghe thôi miên ngay" : "Vào học ngay"}
                                         </Link>
                                         <Link to="/" className="inline-flex items-center justify-center gap-2 px-6 py-3 border border-slate-200 text-slate-600 font-medium rounded-xl hover:bg-slate-50 transition-all">
                                             <Home className="w-4 h-4" /> Về trang chủ
@@ -545,7 +556,11 @@ const OrderSuccess = () => {
                                                 <Zap className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
                                                 <div>
                                                     <p className="text-sm font-bold text-green-800">Xác minh tự động đang hoạt động</p>
-                                                    <p className="text-xs text-green-600 mt-0.5">Khóa học sẽ kích hoạt tự động trong vài phút.</p>
+                                                    <p className="text-xs text-green-600 mt-0.5">
+                                                        {isHypnosis
+                                                            ? "Bản thôi miên sẽ kích hoạt tự động trong vài phút."
+                                                            : "Khóa học sẽ kích hoạt tự động trong vài phút."}
+                                                    </p>
                                                 </div>
                                             </div>
                                         )}
@@ -606,12 +621,12 @@ const OrderSuccess = () => {
                                             <h4 className="font-bold text-slate-900 mb-4 pb-2 border-b border-slate-200">📋 Chi tiết đơn hàng</h4>
                                             <div className="space-y-3 text-sm">
                                                 <div className="flex justify-between">
-                                                    <span className="text-slate-500">Khóa học</span>
-                                                    <span className="font-medium text-slate-900 text-right max-w-[55%] leading-tight">{order.courseName}</span>
+                                                    <span className="text-slate-500">{isHypnosis ? "Bản thôi miên" : "Khóa học"}</span>
+                                                    <span className="font-medium text-slate-900 text-right max-w-[55%] leading-tight">{order.trackTitle || order.courseName}</span>
                                                 </div>
                                                 {order.items?.[0]?.accessPlanName && (
                                                     <div className="flex justify-between">
-                                                        <span className="text-slate-500">Gói quyền học</span>
+                                                        <span className="text-slate-500">{isHypnosis ? "Gói sở hữu" : "Gói quyền học"}</span>
                                                         <span className="font-bold text-secret-wax text-right max-w-[55%]">{order.items[0].accessPlanName}</span>
                                                     </div>
                                                 )}

@@ -902,30 +902,90 @@ const onCreateOrder = async ({ request }) => {
     return createJsonResponse({ error: "Duplicate course selection" }, 400);
   }
 
-  const courseRefs = uniqueItemIds.map((id) =>
-    getFirestoreDb().collection("courses").doc(id),
+  const SAMPLE_HYPNOSIS_MAP = {
+    "tm-1": { title: "Thôi Miên Cài Đặt Tiềm Thức Hút Tiền Trong Giấc Ngủ", price: 0, thumbnailUrl: "https://images.unsplash.com/photo-1518241353330-0f7941c2d9b5?auto=format&fit=crop&w=600&h=600&q=80" },
+    "tm-2": { title: "Sóng Não Delta - Ru Ngủ Sâu & Tái Tạo Tế Bào", price: 0, thumbnailUrl: "https://images.unsplash.com/photo-1511295742362-92c96b124e52?auto=format&fit=crop&w=600&h=600&q=80" },
+    "tm-3": { title: "Ám Thị 21 Ngày Khơi Thông Tắc Nghẽn Năng Lượng Tiền", price: 199000, originalPrice: 499000, thumbnailUrl: "https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=600&h=600&q=80" },
+    "tm-4": { title: "Thôi Miên Chữa Lành Đứa Trẻ Bên Trong & An Yên", price: 0, thumbnailUrl: "https://images.unsplash.com/photo-1506126613408-eca07ce68773?auto=format&fit=crop&w=600&h=600&q=80" },
+    "tm-5": { title: "Bản Thôi Miên Bậc Thầy: Bứt Phá Mục Tiêu & Tự Tin", price: 299000, originalPrice: 599000, thumbnailUrl: "https://images.unsplash.com/photo-1470813740244-df37b8c1edcb?auto=format&fit=crop&w=600&h=600&q=80" },
+    "tm-6": { title: "Thôi Miên Buổi Sáng - Đón Nhận May Mắn & Phép Màu", price: 0, thumbnailUrl: "https://images.unsplash.com/photo-1470240731273-7821a6eeb6bd?auto=format&fit=crop&w=600&h=600&q=80" },
+    "tm-7": { title: "Combo 21 Ngày Tái Lập Trình Tiềm Thức Toàn Diện", price: 499000, originalPrice: 990000, thumbnailUrl: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=600&h=600&q=80" },
+  };
+
+  const parseNumericPrice = (val) => {
+    if (typeof val === "number") return val;
+    const num = String(val || "").replace(/\D/g, "");
+    return num ? parseInt(num, 10) : 0;
+  };
+
+  const resolvedItems = await Promise.all(
+    requestedItems.map(async (requestedItem) => {
+      const id = String(requestedItem?.id || requestedItem?.courseId || "").trim();
+      
+      // 1. Try finding in courses collection
+      const courseDoc = await getFirestoreDb().collection("courses").doc(id).get();
+      if (courseDoc.exists) {
+        const course = courseDoc.data() || {};
+        const accessPlan = resolveOrderAccessPlan(course, requestedItem?.accessPlanId);
+        return {
+          id: courseDoc.id,
+          name: String(course.name || "Khóa học").slice(0, 300),
+          price: accessPlan.price,
+          originalPrice: accessPlan.originalPrice,
+          accessPlanId: accessPlan.id,
+          accessPlanName: accessPlan.name,
+          accessType: accessPlan.accessType,
+          durationValue: accessPlan.durationValue,
+          durationUnit: accessPlan.durationUnit,
+          productType: "course",
+          thumbnailUrl: String(course.thumbnailUrl || "").slice(0, 2048),
+        };
+      }
+
+      // 2. Try finding in hypnosis_audios collection
+      const hypnosisDoc = await getFirestoreDb().collection("hypnosis_audios").doc(id).get();
+      if (hypnosisDoc.exists) {
+        const hData = hypnosisDoc.data() || {};
+        const price = parseNumericPrice(hData.price);
+        const originalPrice = parseNumericPrice(hData.originalPrice) || price;
+        return {
+          id: hypnosisDoc.id,
+          name: String(hData.title || "Bản thôi miên").slice(0, 300),
+          price,
+          originalPrice,
+          accessPlanId: "lifetime-audio",
+          accessPlanName: "Nghe trọn đời",
+          accessType: "lifetime",
+          productType: "hypnosis",
+          thumbnailUrl: String(hData.coverImageSquare || hData.coverImage || "").slice(0, 2048),
+        };
+      }
+
+      // 3. Fallback for sample hypnosis tracks
+      if (SAMPLE_HYPNOSIS_MAP[id]) {
+        const sample = SAMPLE_HYPNOSIS_MAP[id];
+        return {
+          id,
+          name: sample.title,
+          price: sample.price,
+          originalPrice: sample.originalPrice || sample.price,
+          accessPlanId: "lifetime-audio",
+          accessPlanName: "Nghe trọn đời",
+          accessType: "lifetime",
+          productType: "hypnosis",
+          thumbnailUrl: sample.thumbnailUrl || "",
+        };
+      }
+
+      return null;
+    })
   );
-  const courseSnapshots = await getFirestoreDb().getAll(...courseRefs);
-  if (courseSnapshots.some((snapshot) => !snapshot.exists)) {
-    return createJsonResponse({ error: "Course not found" }, 404);
+
+  if (resolvedItems.some((item) => !item)) {
+    return createJsonResponse({ error: "Product not found" }, 404);
   }
 
-  const items = courseSnapshots.map((snapshot, index) => {
-    const course = snapshot.data() || {};
-    const accessPlan = resolveOrderAccessPlan(course, requestedItems[index]?.accessPlanId);
-    return {
-      id: snapshot.id,
-      name: String(course.name || "Khóa học").slice(0, 300),
-      price: accessPlan.price,
-      originalPrice: accessPlan.originalPrice,
-      accessPlanId: accessPlan.id,
-      accessPlanName: accessPlan.name,
-      accessType: accessPlan.accessType,
-      durationValue: accessPlan.durationValue,
-      durationUnit: accessPlan.durationUnit,
-      thumbnailUrl: String(course.thumbnailUrl || "").slice(0, 2048),
-    };
-  });
+  const items = resolvedItems;
   const originalAmount = items.reduce((total, item) => total + item.price, 0);
 
   const user = await verifyRequestUser(request, { required: false });
@@ -963,13 +1023,17 @@ const onCreateOrder = async ({ request }) => {
     Math.round(originalAmount * (1 - discountPercent / 100)),
   );
   const orderCode = `MALI-${String(Date.now()).slice(-6)}${randomInt(10, 100)}`;
+  const isHypnosisOrder = items.some((item) => item.productType === "hypnosis");
   const order = {
     amount,
     couponCode,
     courseId: items.length === 1 ? items[0].id : "cart-order",
     courseName: items.length === 1
       ? items[0].name
-      : `Đơn hàng gồm ${items.length} khóa học`,
+      : `Đơn hàng gồm ${items.length} ${isHypnosisOrder ? "bản thôi miên" : "sản phẩm"}`,
+    productType: isHypnosisOrder ? "hypnosis" : "course",
+    trackId: isHypnosisOrder ? items[0].id : null,
+    trackTitle: isHypnosisOrder ? items[0].name : null,
     createdAt: FieldValue.serverTimestamp(),
     customerEmail,
     customerName,

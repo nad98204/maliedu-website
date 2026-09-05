@@ -21,6 +21,7 @@ export const ADMIN_MODULES = [
   { key: "storage", label: "Kho lưu trữ", path: "/admin/storage" },
   { key: "referral-customers", label: "Khách hàng giới thiệu", path: "/admin/referral-customers" },
   { key: "affiliates", label: "Tiếp thị liên kết (Affiliate)", path: "/admin/affiliates" },
+  { key: "hypnosis", label: "Thôi miên tiềm thức", path: "/admin/hypnosis" },
 ];
 
 export const COURSE_ACCOUNT_MANAGER_MODULES = ["dashboard", "students"];

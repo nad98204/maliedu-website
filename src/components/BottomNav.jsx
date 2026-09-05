@@ -1,4 +1,4 @@
-import { Home, Info, GraduationCap, PlayCircle, Newspaper, Layout, BookOpen } from "lucide-react";
+import { Home, Info, GraduationCap, PlayCircle, Headphones, Layout, BookOpen } from "lucide-react";
 import { Link, useLocation } from "react-router";
 import { useState, useEffect } from "react";
 import { onAuthStateChanged } from "firebase/auth";
@@ -41,7 +41,23 @@ const NAV_ITEMS = [
             },
         ],
     },
-    { id: 'news', label: "Tin tức", icon: Newspaper, path: "/tin-tuc" },
+    {
+        id: 'hypnosis', label: "Thôi miên", icon: Headphones, path: "/thoi-mien",
+        children: [
+            {
+                label: "Mua bản thôi miên mới",
+                path: "/thoi-mien",
+                icon: Headphones,
+                description: "Xem các bản thôi miên đang có",
+            },
+            {
+                label: "Thôi miên tôi đã mua",
+                path: "/thoi-mien-cua-toi",
+                icon: BookOpen,
+                description: "Các bản thu độc quyền của bạn",
+            },
+        ],
+    },
 ];
 
 const BottomNav = () => {

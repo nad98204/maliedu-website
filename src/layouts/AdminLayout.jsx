@@ -29,6 +29,7 @@ import {
   Megaphone,
   Sheet,
   Share2,
+  Headphones,
 } from "lucide-react";
 
 import { auth, db } from "../firebase";
@@ -202,6 +203,12 @@ const AdminLayout = () => {
               {!isCollapsed && <span className="truncate">Khóa học Online</span>}
             </NavLink>
           )}
+          {hasAccess("hypnosis") && (
+            <NavLink to="/admin/hypnosis" className={getNavClasses} title={isCollapsed ? "Thôi miên tiềm thức" : ""}>
+              <Headphones className="h-4 w-4 shrink-0 transition-colors" />
+              {!isCollapsed && <span className="truncate">Thôi miên tiềm thức</span>}
+            </NavLink>
+          )}
           {hasAccess("orders") && (
             <NavLink to="/admin/orders" className={getNavClasses} title={isCollapsed ? "Quản lý Đơn hàng" : ""}>
               <CreditCard className="h-4 w-4 shrink-0 transition-colors" />
@@ -227,24 +234,6 @@ const AdminLayout = () => {
             </NavLink>
           )}
           {hasAccess("recruitment") && (
-            <NavLink to="/admin/recruitment" className={getNavClasses} title={isCollapsed ? "Tuyển dụng" : ""}>
-              <Briefcase className="h-4 w-4 shrink-0 transition-colors" />
-              {!isCollapsed && <span className="truncate">Tuyển dụng</span>}
-            </NavLink>
-          )}
-          {hasAccess("testimonials") && (
-            <NavLink to="/admin/testimonials" className={getNavClasses} title={isCollapsed ? "Cảm nhận học viên" : ""}>
-              <MessageSquare className="h-4 w-4 shrink-0 transition-colors" />
-              {!isCollapsed && <span className="truncate">Cảm nhận học viên</span>}
-            </NavLink>
-          )}
-          {hasAccess("landings") && (
-            <NavLink to="/admin/landings" className={getNavClasses} title={isCollapsed ? "Quản lý Landing Page" : ""}>
-              <Globe className="h-4 w-4 shrink-0 transition-colors" />
-              {!isCollapsed && <span className="truncate">Quản lý Landing Page</span>}
-            </NavLink>
-          )}
-          {hasAccess("landing-builder") && (
             <NavLink to="/admin/recruitment" className={getNavClasses} title={isCollapsed ? "Tuyển dụng" : ""}>
               <Briefcase className="h-4 w-4 shrink-0 transition-colors" />
               {!isCollapsed && <span className="truncate">Tuyển dụng</span>}

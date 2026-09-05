@@ -321,16 +321,12 @@ const MyCourses = () => {
                     <div className="absolute -left-16 -bottom-16 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
 
                     <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-                        <div className="space-y-2 max-w-2xl">
-                            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-50 border border-red-100 text-[#8B2E2E] text-xs font-black uppercase tracking-wider">
-                                <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-                                <span>Học Viện Trực Tuyến MaliEdu</span>
-                            </div>
+                        <div className="space-y-1.5 max-w-2xl">
                             <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight text-slate-900">
                                 Khóa học của tôi
                             </h1>
                             <p className="text-sm sm:text-base font-medium text-slate-600 leading-relaxed">
-                                Xin chào, <span className="font-bold text-slate-900">{user?.displayName || user?.email?.split('@')[0] || "Học viên"}</span>! Chúc bạn có những giờ học hiệu quả và bứt phá mục tiêu.
+                                Xin chào, <span className="font-bold text-slate-900">{user?.displayName || user?.email?.split('@')[0] || "Học viên"}</span>!
                             </p>
                         </div>
 

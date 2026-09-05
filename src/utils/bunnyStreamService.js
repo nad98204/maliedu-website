@@ -56,20 +56,23 @@ const requestJson = async (
   return data;
 };
 
-const validateVideoFile = (file) => {
+const validateMediaFile = (file) => {
   if (!(file instanceof File) || file.size <= 0) {
-    throw new Error("Vui lòng chọn một tệp video hợp lệ.");
+    throw new Error("Vui lòng chọn một tệp hợp lệ.");
   }
-  if (!String(file.type || "").startsWith("video/")) {
-    throw new Error("Bunny Stream chỉ nhận tệp video.");
+  const type = String(file.type || "").toLowerCase();
+  const isVideo = type.startsWith("video/");
+  const isAudio = type.startsWith("audio/") || /\.(mp3|wav|m4a|ogg|aac|flac|wma)$/i.test(file.name || "");
+  if (!isVideo && !isAudio) {
+    throw new Error("Bunny Stream chỉ nhận tệp video hoặc âm thanh (MP3, WAV, M4A, OGG,...).");
   }
   if (file.size > MAX_VIDEO_BYTES) {
-    throw new Error("Video vượt quá dung lượng tối đa 100 GB.");
+    throw new Error("Tệp vượt quá dung lượng tối đa cho phép.");
   }
 };
 
 export const uploadVideoToBunny = async (file, onProgress) => {
-  validateVideoFile(file);
+  validateMediaFile(file);
   const credentials = await requestJson(
     "/create-upload",
     {

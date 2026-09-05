@@ -30,8 +30,12 @@ export const MENU_ITEMS = [
   },
 
   {
-    label: "Tin tức",
-    path: "/tin-tuc",
+    label: "Thôi miên",
+    path: "/thoi-mien",
+    children: [
+      { label: "Mua bản thôi miên mới", path: "/thoi-mien" },
+      { label: "Thôi miên tôi đã mua", path: "/thoi-mien-cua-toi" },
+    ],
   },
   {
     label: "Liên hệ",

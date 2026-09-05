@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { Search, CheckCircle, XCircle, Clock, Check, RefreshCw, Loader2 } from "lucide-react";
 import { toast } from "react-hot-toast";
 
@@ -43,7 +43,7 @@ const AdminOrders = () => {
                 o.id === orderId ? { ...o, status: 'completed' } : o
             ));
 
-            toast.success("✅ Đã kích hoạt khóa học cho học viên!", { id: toastId, duration: 4000 });
+            toast.success("✅ Đã kích hoạt khóa học/thôi miên cho học viên!", { id: toastId, duration: 4000 });
         } catch (error) {
             console.error("Approve error:", error);
             toast.error("Lỗi duyệt đơn: " + error.message, { id: toastId });
@@ -64,7 +64,7 @@ const AdminOrders = () => {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900">Quản lý Đơn hàng</h1>
-                    <p className="text-slate-500">Xem và duyệt các đơn hàng đăng ký khóa học.</p>
+                    <p className="text-slate-500">Xem và duyệt các đơn hàng đăng ký khóa học & bài thôi miên.</p>
                 </div>
                 <div className="flex items-center gap-2">
                     <button
@@ -103,7 +103,7 @@ const AdminOrders = () => {
                             <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider">
                                 <th className="px-6 py-4">Mã đơn</th>
                                 <th className="px-6 py-4">Khách hàng</th>
-                                <th className="px-6 py-4">Khóa học</th>
+                                <th className="px-6 py-4">Sản phẩm</th>
                                 <th className="px-6 py-4">Tổng tiền</th>
                                 <th className="px-6 py-4">Ngày tạo</th>
                                 <th className="px-6 py-4">Trạng thái</th>
@@ -135,7 +135,14 @@ const AdminOrders = () => {
                                             <div className="text-xs text-slate-500">{order.customerPhone}</div>
                                         </td>
                                         <td className="px-6 py-4 text-sm text-slate-700 max-w-xs">
-                                            <div className="font-bold text-slate-800">{order.courseName}</div>
+                                            <div className="flex items-center gap-1.5 flex-wrap">
+                                                {(order.productType === 'hypnosis' || order.trackId) && (
+                                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-700 border border-purple-200 shrink-0">
+                                                        🎧 Thôi miên
+                                                    </span>
+                                                )}
+                                                <span className="font-bold text-slate-800">{order.trackTitle || order.courseName}</span>
+                                            </div>
                                             {(order.items || []).map((item) => item.accessPlanName && (
                                                 <div key={`${item.id}-${item.accessPlanId}`} className="mt-1 text-[11px] font-bold text-secret-wax">
                                                     {item.name}: {item.accessPlanName}

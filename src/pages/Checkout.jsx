@@ -17,12 +17,12 @@ import {
     getDefaultCourseAccessPlan,
     getPlanEffectivePrice,
 } from "../utils/coursePricing";
+import { INITIAL_TRACKS } from "../data/hypnosisTracksData";
 
 const Checkout = () => {
     const { courseId } = useParams();
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
-
     const [course, setCourse] = useState(null);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
@@ -55,12 +55,56 @@ const Checkout = () => {
         return Math.max(0, Math.round(basePrice - discountAmount));
     }, [course, couponApplied, selectedPlan]);
 
+    const buildHypnosisPayload = (hData) => {
+        const parseNumeric = (val) => {
+            if (typeof val === 'number') return val;
+            const n = String(val || '').replace(/\D/g, '');
+            return n ? parseInt(n, 10) : 0;
+        };
+
+        const currentPrice = parseNumeric(hData.price);
+        const originalPrice = parseNumeric(hData.originalPrice);
+
+        // In coursePricing logic:
+        // price: the listed/original price (shown crossed out if salePrice exists)
+        // salePrice: the effective discounted price
+        const hasDiscount = originalPrice > 0 && originalPrice > currentPrice;
+        const basePrice = hasDiscount ? originalPrice : currentPrice;
+        const effectiveSalePrice = hasDiscount ? currentPrice : null;
+
+        return {
+            id: hData.id,
+            name: hData.title || hData.name || "Bản thôi miên",
+            thumbnailUrl: hData.coverImageSquare || hData.coverImage || hData.thumbnailUrl || "",
+            isHypnosis: true,
+            author: hData.author || "Master Coach Mong",
+            price: basePrice,
+            salePrice: effectiveSalePrice,
+            originalPrice: hasDiscount ? originalPrice : (currentPrice ? currentPrice * 2 : 0),
+            accessPlansEnabled: true,
+            accessPlans: [
+                {
+                    id: 'lifetime-audio',
+                    name: 'Nghe & Sở hữu trọn đời',
+                    price: basePrice,
+                    salePrice: effectiveSalePrice,
+                    accessType: 'lifetime',
+                    isActive: true,
+                    isRecommended: true,
+                }
+            ],
+            defaultAccessPlanId: 'lifetime-audio'
+        };
+    };
+
     useEffect(() => {
         let active = true;
         const fetchCourse = async () => {
             setLoading(true);
             setCourse(null);
             setCouponApplied(null);
+
+            // 1. Kiểm tra khóa học trong Firestore
             try {
                 const docSnap = await getDoc(doc(db, "courses", courseId));
                 if (!active) return;
@@ -73,18 +117,49 @@ const Checkout = () => {
                     setCourse(courseData);
                     const requestedPlanId = searchParams.get('plan');
                     setSelectedPlanId(getCourseAccessPlanById(courseData, requestedPlanId)?.id || '');
-                } else {
-                    alert("Khóa học không tồn tại!");
-                    navigate("/khoa-hoc");
+                    return;
                 }
-            } catch (error) {
-                console.error("Error fetching course:", error);
-            } finally {
-                if (active) setLoading(false);
+            } catch (courseErr) {
+                console.warn("Could not query courses collection:", courseErr);
+            }
+
+            // 2. Kiểm tra bản thôi miên trong Firestore (hypnosis_audios)
+            try {
+                const hypnosisSnap = await getDoc(doc(db, "hypnosis_audios", courseId));
+                if (!active) return;
+                if (hypnosisSnap.exists()) {
+                    const hypnosisCourseData = buildHypnosisPayload({ ...hypnosisSnap.data(), id: hypnosisSnap.id });
+                    setCourse(hypnosisCourseData);
+                    setSelectedPlanId('lifetime-audio');
+                    return;
+                }
+            } catch (hypnosisErr) {
+                console.warn("Could not query hypnosis_audios collection:", hypnosisErr);
+            }
+
+            // 3. Kiểm tra bản thôi miên trong INITIAL_TRACKS mẫu
+            const sampleTrack = INITIAL_TRACKS.find(t => t.id === courseId);
+            if (sampleTrack) {
+                const hypnosisCourseData = buildHypnosisPayload(sampleTrack);
+                setCourse(hypnosisCourseData);
+                setSelectedPlanId('lifetime-audio');
+                return;
+            }
+
+            // 4. Không tìm thấy sản phẩm
+            if (active) {
+                setCourse(null);
             }
         };
 
-        if (courseId) fetchCourse();
+        if (courseId) {
+            fetchCourse().finally(() => {
+                if (active) setLoading(false);
+            });
+        } else {
+            setLoading(false);
+        }
+
         return () => { active = false; };
     }, [courseId, navigate, searchParams]);
 
@@ -163,14 +238,16 @@ const Checkout = () => {
             const finalUserId = user?.uid || null;
             const customerEmail = user?.email || formData.email;
 
+            const isHypnosis = Boolean(course.isHypnosis);
             const orderItems = [{
                 id: course.id,
                 name: course.name,
-                accessPlanId: selectedPlan.id,
-                accessPlanName: selectedPlan.name,
-                accessDuration: formatAccessDuration(selectedPlan),
+                accessPlanId: selectedPlan?.id || 'lifetime-audio',
+                accessPlanName: selectedPlan?.name || (isHypnosis ? 'Nghe & Sở hữu trọn đời' : 'Truy cập vĩnh viễn'),
+                accessDuration: isHypnosis ? 'Trọn đời' : formatAccessDuration(selectedPlan),
                 price: getPlanEffectivePrice(selectedPlan),
-                thumbnailUrl: course.thumbnailUrl
+                thumbnailUrl: course.thumbnailUrl,
+                productType: isHypnosis ? 'hypnosis' : 'course',
             }];
 
             const activeAffiliateCode = await getActiveAffiliateRef();
@@ -187,6 +264,9 @@ const Checkout = () => {
                 items: orderItems,
                 courseId: course.id,
                 courseName: course.name,
+                productType: isHypnosis ? 'hypnosis' : 'course',
+                trackId: isHypnosis ? course.id : null,
+                trackTitle: isHypnosis ? course.name : null,
                 amount: calculateFinalPrice(), // Final amount after coupon
                 originalAmount: getPlanEffectivePrice(selectedPlan),
                 couponCode: couponApplied ? couponApplied.code : null,
@@ -211,7 +291,35 @@ const Checkout = () => {
         </div>
     );
 
-    if (!course) return null;
+    if (!course) {
+        return (
+            <div className="min-h-screen bg-slate-50 pt-28 pb-20 flex items-center justify-center">
+                <div className="max-w-md w-full mx-4 bg-white rounded-2xl p-8 text-center shadow-sm border border-slate-100">
+                    <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <ArrowLeft className="w-8 h-8" />
+                    </div>
+                    <h3 className="text-xl font-bold text-slate-900 mb-2">Không tìm thấy sản phẩm</h3>
+                    <p className="text-sm text-slate-500 mb-6">
+                        Sản phẩm hoặc bản thôi miên bạn đang tìm không tồn tại hoặc đã ngừng phát hành.
+                    </p>
+                    <div className="flex flex-col gap-3">
+                        <button
+                            onClick={() => navigate("/thoi-mien")}
+                            className="w-full py-3 bg-secret-wax text-white font-medium rounded-xl hover:bg-secret-ink transition-colors"
+                        >
+                            Khám phá Thư viện Thôi miên
+                        </button>
+                        <button
+                            onClick={() => navigate("/khoa-hoc")}
+                            className="w-full py-3 bg-slate-100 text-slate-700 font-medium rounded-xl hover:bg-slate-200 transition-colors"
+                        >
+                            Xem Danh sách Khóa học
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-slate-50 pt-28 pb-20">
@@ -271,7 +379,11 @@ const Checkout = () => {
                                         className="w-full px-4 py-3 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-secret-wax/20 focus:border-secret-wax transition-all"
                                         placeholder="email@example.com"
                                     />
-                                    <p className="text-xs text-slate-500">Thông tin khóa học sẽ được gửi qua email này và dùng để kích hoạt tài khoản.</p>
+                                    <p className="text-xs text-slate-500">
+                                        {course.isHypnosis
+                                            ? "Bản thôi miên sẽ được lưu vào tài khoản và thông tin gửi qua email này."
+                                            : "Thông tin khóa học sẽ được gửi qua email này và dùng để kích hoạt tài khoản."}
+                                    </p>
                                 </div>
 
                                 <div className="space-y-2">
@@ -302,7 +414,7 @@ const Checkout = () => {
                                         Chuyển khoản ngân hàng (QR Code)
                                     </div>
                                     <p className="text-sm text-slate-600 mt-1">
-                                        Quét mã QR để thanh toán. Hệ thống tự đối chiếu giao dịch và kích hoạt khóa học.
+                                        Quét mã QR để thanh toán. Hệ thống tự đối chiếu giao dịch và kích hoạt {course.isHypnosis ? "bản thôi miên" : "khóa học"}.
                                     </p>
                                 </div>
                             </div>
@@ -316,17 +428,17 @@ const Checkout = () => {
                                 <h3 className="font-bold text-slate-900">Tóm tắt đơn hàng</h3>
                             </div>
                             <div className="p-6 space-y-6">
-                                    <div className="flex gap-4">
-                                        <img
-                                            src={course.thumbnailUrl || "https://via.placeholder.com/150"}
-                                            alt={course.name}
-                                            className="w-20 h-20 rounded-lg object-cover bg-slate-100"
-                                        />
-                                        <div className="flex-1">
-                                            <h4 className="font-semibold text-slate-900 line-clamp-2 text-sm">{course.name}</h4>
-                                            <p className="text-xs text-slate-500 mt-1">{selectedPlan.name} · {formatAccessDuration(selectedPlan)}</p>
-                                        </div>
+                                <div className="flex gap-4">
+                                    <img
+                                        src={course.thumbnailUrl || "https://via.placeholder.com/150"}
+                                        alt={course.name}
+                                        className="w-20 h-20 rounded-lg object-cover bg-slate-100"
+                                    />
+                                    <div className="flex-1">
+                                        <h4 className="font-semibold text-slate-900 line-clamp-2 text-sm">{course.name}</h4>
+                                        <p className="text-xs text-slate-500 mt-1">{selectedPlan?.name || (course.isHypnosis ? 'Nghe & Sở hữu trọn đời' : 'Truy cập vĩnh viễn')} · {formatAccessDuration(selectedPlan)}</p>
                                     </div>
+                                </div>
 
                                 {course.accessPlansEnabled && accessPlans.length > 1 && (
                                     <div className="space-y-2">
@@ -352,7 +464,7 @@ const Checkout = () => {
                                     <div className="flex justify-between text-sm">
                                         <span className="text-slate-600">Giá gốc</span>
                                         <span className="text-slate-400 line-through">
-                                            {formatPrice(selectedPlan.price)}
+                                            {formatPrice(selectedPlan?.price ?? course?.price)}
                                         </span>
                                     </div>
                                     <div className="flex justify-between text-sm font-medium">
@@ -361,7 +473,7 @@ const Checkout = () => {
                                             {couponApplied ? (
                                                 <>
                                                     <span className="block text-sm text-slate-400 line-through">
-                                                        {formatPrice(getPlanEffectivePrice(selectedPlan))}
+                                                        {formatPrice(getPlanEffectivePrice(selectedPlan || course))}
                                                     </span>
                                                     <span className="text-red-600 text-lg">
                                                         {formatPrice(calculateFinalPrice())}
@@ -434,7 +546,7 @@ const Checkout = () => {
                                 </button>
                                 {!user && (
                                     <p className="text-center text-xs leading-5 text-amber-700">
-                                        Bạn cần đăng nhập để hệ thống tự cấp đúng khóa học ngay sau khi nhận tiền.
+                                        Bạn cần đăng nhập để hệ thống tự cấp đúng {course.isHypnosis ? "bài thôi miên" : "khóa học"} ngay sau khi nhận tiền.
                                     </p>
                                 )}
                             </div>

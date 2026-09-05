@@ -359,6 +359,21 @@ export const createSePayWebhookHandler = ({
 
     const now = new Date();
     enrollmentLookups.forEach(({ courseId, enrollmentRef, item }, index) => {
+      if (item.productType === "hypnosis" || initialOrder.productType === "hypnosis") {
+        transaction.set(db.collection("user_audios").doc(`${buyer.uid}_${courseId}`), {
+          userId: buyer.uid,
+          userEmail: buyer.email || "",
+          trackId: courseId,
+          trackTitle: String(item.name || item.courseName || initialOrder.courseName || "Bản thôi miên").slice(0, 300),
+          price: item.price || initialOrder.amount || 0,
+          isFree: false,
+          orderId: orderRef.id,
+          status: "active",
+          createdAt: FieldValue.serverTimestamp(),
+        }, { merge: true });
+        return;
+      }
+
       const accessSnapshot = accessSnapshots[index];
       const enrollmentSnapshot = enrollmentSnapshots[index];
       const metadata = buildAccessMetadata({

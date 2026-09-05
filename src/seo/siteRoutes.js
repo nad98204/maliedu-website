@@ -165,6 +165,21 @@ export const ROUTE_SEO = {
     robots: INDEX_ROBOTS,
     sitemap: false,
   },
+  "/thoi-mien": indexable(
+    {
+      title: "Kho Thôi Miên & Thiền Tiềm Thức",
+      description:
+        "Lắng nghe các bản thôi miên trị liệu, ám thị tiềm thức và thiền định cao cấp cùng Mong Coaching để khơi thông tâm trí, thu hút tài chính và ngủ sâu an lành.",
+      url: "/thoi-mien",
+    },
+    "0.8",
+    "daily",
+  ),
+  "/thoi-mien-cua-toi": noindex({
+    title: "Bản Thôi Miên Tôi Đã Mua",
+    description: "Kho lưu trữ các bản thôi miên độc quyền bạn đã đăng ký sở hữu trên Mali Edu.",
+    url: "/thoi-mien-cua-toi",
+  }),
   "/tin-tuc": indexable(
     {
       title: "Tin tức & Sự kiện",

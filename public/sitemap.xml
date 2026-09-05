@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Sitemap tự động sinh lúc build – 2026-08-27 -->
-<!-- Tổng URL: 43 (tĩnh: 25, khóa học: 1, bài viết: 17, tuyển dụng: 0) -->
+<!-- Sitemap tự động sinh lúc build – 2026-09-05 -->
+<!-- Tổng URL: 44 (tĩnh: 26, khóa học: 1, bài viết: 17, tuyển dụng: 0) -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9
@@ -35,6 +35,10 @@
   </url>
   <url>
     <loc>https://luathapdan.vn/dao-tao/chinh-phuc-muc-tieu</loc>
+    <lastmod>2026-07-31</lastmod>
+  </url>
+  <url>
+    <loc>https://luathapdan.vn/thoi-mien</loc>
     <lastmod>2026-07-31</lastmod>
   </url>
   <url>
@@ -107,7 +111,7 @@
   </url>
   <url>
     <loc>https://luathapdan.vn/khoa-hoc/khoa-hoc-tu-thoi-mien</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-09-03</lastmod>
   </url>
   <url>
     <loc>https://luathapdan.vn/tin-tuc/ban-do-luat-nhan-qua-va-hap-dan-hieu-dung-de-khong-thuc-hanh-sai</loc>

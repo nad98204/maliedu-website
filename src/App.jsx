@@ -50,6 +50,7 @@ const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const LandingPageViewer = lazy(() => import("./pages/LandingPageViewer"));
 const AffiliatePortal = lazy(() => import("./pages/AffiliatePortal"));
+const ThoiMien = lazy(() => import("./pages/ThoiMien"));
 
 // Landing Templates
 /** Import trực tiếp — tránh barrel landing-templates kéo cả registry vào chunk */
@@ -96,6 +97,7 @@ const AdminSettings = lazy(() => import("./pages/admin/AdminSettings"));
 const AdminCoupons = lazy(() => import("./pages/admin/AdminCoupons"));
 const AdminStorage = lazy(() => import("./pages/admin/AdminStorage"));
 const AdminAffiliates = lazy(() => import("./pages/admin/AdminAffiliates"));
+const AdminHypnosis = lazy(() => import("./pages/admin/AdminHypnosis"));
 
 const PageLoader = () => (
   <div className="flex h-[60vh] w-full items-center justify-center">
@@ -158,6 +160,8 @@ const AppShell = () => {
             <Route path="/gioi-thieu" element={<GioiThieu />} />
             <Route path="/dao-tao" element={<DaoTao />} />
             <Route path="/gioi-thieu/mong-coaching" element={<MongCoaching />} />
+            <Route path="/thoi-mien" element={<ThoiMien />} />
+            <Route path="/thoi-mien-cua-toi" element={<ThoiMien isPurchasedOnly={true} />} />
             <Route path="/tin-tuc" element={<News />} />
             <Route path="/tin-tuc/:slug" element={<NewsDetail />} />
             <Route path="/bai-viet/:slug" element={<LegacyPostRedirect />} />
@@ -203,6 +207,7 @@ const AppShell = () => {
               <Route path="dashboard" element={<AdminDashboard />} />
               <Route path="banners" element={<AdminBanners />} />
               <Route path="courses" element={<AdminCourses />} />
+              <Route path="hypnosis" element={<AdminHypnosis />} />
               <Route path="categories" element={<AdminCategories />} />
               <Route path="orders" element={<AdminOrders />} />
               <Route path="reviews" element={<AdminReviews />} />

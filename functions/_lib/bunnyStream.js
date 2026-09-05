@@ -77,8 +77,10 @@ const validateUploadMetadata = (payload = {}) => {
   if (!Number.isSafeInteger(fileSize) || fileSize <= 0 || fileSize > MAX_VIDEO_BYTES) {
     throw createHttpError(400, "Invalid or oversized video file");
   }
-  if (!fileType.startsWith("video/") || fileType.length > 128) {
-    throw createHttpError(400, "Only video files can be uploaded to Bunny Stream");
+  const isVideo = fileType.startsWith("video/");
+  const isAudio = fileType.startsWith("audio/") || /\.(mp3|wav|m4a|ogg|aac|flac|wma)$/i.test(payload.title || payload.fileName || "");
+  if ((!isVideo && !isAudio) || fileType.length > 128) {
+    throw createHttpError(400, "Only video and audio files can be uploaded to Bunny Stream");
   }
 
   return {

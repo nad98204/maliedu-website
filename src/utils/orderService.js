@@ -148,16 +148,28 @@ export const approveOrder = async (orderId, orderData = null) => {
             return { success: true, enrolledCount: 0 };
         }
 
-        const itemsToEnroll = order.items || [{
+        const itemsToProcess = order.items || [{
             id: order.courseId,
-            name: order.courseName
+            name: order.courseName,
+            productType: order.productType
         }];
+
+        const courseItems = [];
+        const hypnosisItems = [];
+
+        itemsToProcess.forEach(item => {
+            if (item.productType === 'hypnosis' || order.productType === 'hypnosis') {
+                hypnosisItems.push(item);
+            } else {
+                courseItems.push(item);
+            }
+        });
 
         const enrollmentsRef = collection(db, "enrollments");
 
-        // ── Bước 1: Check tất cả enrollment SONG SONG (Promise.all) ──────────
+        // ── Bước 1: Check tất cả enrollment SONG SONG (Promise.all) cho khóa học ──────────
         const checkResults = await Promise.all(
-            itemsToEnroll.map(async item => {
+            courseItems.map(async item => {
                 const cId = item.id || item.courseId;
                 const q = query(
                     enrollmentsRef,
@@ -268,6 +280,27 @@ export const approveOrder = async (orderId, orderData = null) => {
                 );
             }
         });
+
+        // Cấp quyền nghe bản thôi miên vào user_audios
+        if (order.userId && hypnosisItems.length > 0) {
+            hypnosisItems.forEach(item => {
+                const trackId = item.id || item.courseId || order.trackId;
+                if (!trackId) return;
+                const userAudioRef = doc(db, "user_audios", `${order.userId}_${trackId}`);
+                batch.set(userAudioRef, {
+                    userId: order.userId,
+                    userEmail: order.userEmail || "",
+                    trackId: trackId,
+                    trackTitle: item.name || item.courseName || order.trackTitle || order.courseName || "Bản thôi miên",
+                    price: item.price || order.amount || 0,
+                    isFree: false,
+                    orderId: orderId,
+                    status: "active",
+                    createdAt: now,
+                }, { merge: true });
+                enrolledCount++;
+            });
+        }
 
         // 1 commit duy nhất — toàn bộ thay đổi ghi song song
         await batch.commit();
