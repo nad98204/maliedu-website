@@ -19,17 +19,6 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@editorjs/delimiter": "^1.4.2",
-    "@editorjs/editorjs": "^2.31.1",
-    "@editorjs/embed": "^2.8.0",
-    "@editorjs/header": "^2.8.8",
-    "@editorjs/image": "^2.10.3",
-    "@editorjs/list": "^2.0.9",
-    "@editorjs/marker": "^1.4.0",
-    "@editorjs/paragraph": "^2.11.7",
-    "@editorjs/quote": "^2.7.6",
-    "@editorjs/table": "^2.4.5",
-    "@editorjs/warning": "^1.4.1",
     "@tiptap/extension-image": "^3.22.4",
     "@tiptap/extension-link": "^3.22.4",
     "@tiptap/extension-placeholder": "^3.22.4",
@@ -57,6 +46,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
+    "@firebase/rules-unit-testing": "^5.0.2",
     "@google-cloud/firestore": "^8.7.0",
     "@tailwindcss/typography": "^0.5.19",
     "@types/react": "^19.2.5",

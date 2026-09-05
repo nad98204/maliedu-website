@@ -39,7 +39,7 @@ import toast from "react-hot-toast";
 import { auth, db } from "../firebase";
 import SEO from "../components/SEO";
 import AuthModal from "../components/AuthModal";
-import { INITIAL_TRACKS } from "../data/hypnosisTracksData";
+import { getHypnosisCatalog } from "../utils/hypnosisService";
 import {
     createPayoutRequest,
     getAffiliateByUserId,
@@ -147,17 +147,12 @@ const AffiliatePortal = () => {
                 const [appSettings, coursesSnap, hypnosisSnap] = await Promise.all([
                     getAffiliateSettings(),
                     getDocs(query(collection(db, "courses"), orderBy("createdAt", "desc"))),
-                    getDocs(collection(db, "hypnosis_audios"))
+                    getHypnosisCatalog()
                 ]);
                 setSettings(appSettings);
                 setCourses(coursesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
 
-                let hypList = [];
-                if (!hypnosisSnap.empty) {
-                    hypList = hypnosisSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                } else {
-                    hypList = [...INITIAL_TRACKS];
-                }
+                const hypList = hypnosisSnap.filter(track => track.available);
                 setHypnosisTracks(hypList.filter(t => !t.isFree && t.isAffiliateEnabled !== false));
             } catch (err) {
                 console.error("Error loading courses/hypnosis/settings:", err);

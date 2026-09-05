@@ -158,7 +158,7 @@ export const approveOrder = async (orderId, orderData = null) => {
         const hypnosisItems = [];
 
         itemsToProcess.forEach(item => {
-            if (item.productType === 'hypnosis' || order.productType === 'hypnosis') {
+            if (item.productType === 'hypnosis' || (!item.productType && order.productType === 'hypnosis')) {
                 hypnosisItems.push(item);
             } else {
                 courseItems.push(item);
@@ -281,26 +281,8 @@ export const approveOrder = async (orderId, orderData = null) => {
             }
         });
 
-        // Cấp quyền nghe bản thôi miên vào user_audios
-        if (order.userId && hypnosisItems.length > 0) {
-            hypnosisItems.forEach(item => {
-                const trackId = item.id || item.courseId || order.trackId;
-                if (!trackId) return;
-                const userAudioRef = doc(db, "user_audios", `${order.userId}_${trackId}`);
-                batch.set(userAudioRef, {
-                    userId: order.userId,
-                    userEmail: order.userEmail || "",
-                    trackId: trackId,
-                    trackTitle: item.name || item.courseName || order.trackTitle || order.courseName || "Bản thôi miên",
-                    price: item.price || order.amount || 0,
-                    isFree: false,
-                    orderId: orderId,
-                    status: "active",
-                    createdAt: now,
-                }, { merge: true });
-                enrolledCount++;
-            });
-        }
+        // The order-completed server trigger grants hypnosis access.
+        enrolledCount += hypnosisItems.length;
 
         // 1 commit duy nhất — toàn bộ thay đổi ghi song song
         await batch.commit();

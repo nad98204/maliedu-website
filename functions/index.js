@@ -12,7 +12,6 @@ import { Readable } from "node:stream";
 import { onRequest } from "firebase-functions/v2/https";
 import { onValueCreated } from "firebase-functions/v2/database";
 import { onDocumentUpdated } from "firebase-functions/v2/firestore";
-import { onSchedule } from "firebase-functions/v2/scheduler";
 import { defineSecret } from "firebase-functions/params";
 import { initializeApp } from "firebase-admin/app";
 import { getAuth as getAdminAuth } from "firebase-admin/auth";
@@ -20,6 +19,7 @@ import { getDatabase } from "firebase-admin/database";
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { hashData, normalizeNameForHash, sendMetaCapiEvent } from "./capi_helper.js";
 import { createAdminLandingHandlers } from "./_lib/adminLandings.js";
+import { createHypnosisHandlers, grantHypnosisOrderAccess, hypnosisMedia, hypnosisSecurityReady, hypnosisPrice } from "./_lib/hypnosis.js";
 import {
   createAffiliateHandlers,
   normalizeAffiliateCode,
@@ -121,16 +121,17 @@ const PUBLIC_BANK_SETTING_FIELDS = [
 ];
 const RATE_LIMIT_POLICIES = new Map([
   ["/api/crm-leads", { limit: 8, windowMs: 10 * 60 * 1000 }],
-  ["/api/newsletter", { limit: 5, windowMs: 60 * 60 * 1000 }],
   ["/api/orders", { limit: 10, windowMs: 10 * 60 * 1000 }],
   ["/api/affiliate", { limit: 240, windowMs: 60 * 60 * 1000 }],
   ["/api/coupons/validate", { limit: 60, windowMs: 10 * 60 * 1000 }],
-  ["/api/post-feedback", { limit: 5, windowMs: 10 * 60 * 1000 }],
-  ["/api/post-view", { limit: 120, windowMs: 60 * 1000 }],
   ["/api/course-view", { limit: 120, windowMs: 60 * 1000 }],
   ["/api/storage-share", { limit: 120, windowMs: 60 * 1000 }],
   ["/api/bunny-stream/create-upload", { limit: 60, windowMs: 60 * 60 * 1000 }],
   ["/api/bunny-stream/playback", { limit: 240, windowMs: 60 * 1000 }],
+  ["/api/hypnosis/catalog", { limit: 120, windowMs: 60 * 1000 }],
+  ["/api/hypnosis/library", { limit: 60, windowMs: 60 * 1000 }],
+  ["/api/hypnosis/claim", { limit: 30, windowMs: 60 * 1000 }],
+  ["/api/hypnosis/playback", { limit: 120, windowMs: 60 * 1000 }],
 ]);
 const rateLimitBuckets = new Map();
 
@@ -599,48 +600,6 @@ const onGetStorageShare = async ({ request }) => {
   });
 };
 
-const onIncrementPostView = async ({ request }) => {
-  const body = await request.json();
-  const postId = String(body?.postId || "").trim();
-  const viewerId = String(body?.viewerId || "").trim();
-
-  if (!/^[A-Za-z0-9]{1,128}$/.test(postId) || !/^[A-Za-z0-9-]{16,64}$/.test(viewerId)) {
-    return createJsonResponse({ error: "Invalid view payload" }, 400);
-  }
-
-  const postRef = getFirestoreDb().collection("posts").doc(postId);
-  const viewRef = getFirestoreDb().collection("post_view_events").doc(`${postId}_${viewerId}`);
-
-  const result = await getFirestoreDb().runTransaction(async (transaction) => {
-    const [postSnapshot, viewSnapshot] = await Promise.all([
-      transaction.get(postRef),
-      transaction.get(viewRef),
-    ]);
-
-    if (!postSnapshot.exists) return { status: 404, body: { error: "Post not found" } };
-    const post = postSnapshot.data() || {};
-    const publishAt = post.publishAt?.toDate?.();
-    if (!post.isPublished || (publishAt && publishAt > new Date())) {
-      return { status: 404, body: { error: "Post not found" } };
-    }
-
-    const currentViews = Number(post.views || 0);
-    if (viewSnapshot.exists) {
-      return { status: 200, body: { counted: false, views: currentViews } };
-    }
-
-    transaction.set(viewRef, {
-      postId,
-      createdAt: FieldValue.serverTimestamp(),
-      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-    });
-    transaction.update(postRef, { views: FieldValue.increment(1) });
-    return { status: 200, body: { counted: true, views: currentViews + 1 } };
-  });
-
-  return createJsonResponse(result.body, result.status);
-};
-
 const onIncrementCourseView = async ({ request }) => {
   const body = await request.json();
   const courseId = String(body?.courseId || "").trim();
@@ -696,69 +655,6 @@ const onGetPublicBankSettings = async () => {
   );
 
   return createJsonResponse(settings);
-};
-
-const onCreatePostFeedback = async ({ request }) => {
-  const body = await request.json();
-  const postId = String(body?.postId || "").trim();
-  const name = String(body?.name || "Ẩn danh").trim().slice(0, 100);
-  const message = String(body?.message || "").trim();
-
-  if (
-    !/^[A-Za-z0-9]{1,128}$/.test(postId) ||
-    name.length < 1 ||
-    message.length < 20 ||
-    message.length > 3000
-  ) {
-    return createJsonResponse({ error: "Invalid feedback" }, 400);
-  }
-
-  const postSnapshot = await getFirestoreDb().collection("posts").doc(postId).get();
-  const post = postSnapshot.exists ? postSnapshot.data() || {} : {};
-  const publishAt = post.publishAt?.toDate?.();
-  if (!postSnapshot.exists || !post.isPublished || (publishAt && publishAt > new Date())) {
-    return createJsonResponse({ error: "Post not found" }, 404);
-  }
-
-  await getFirestoreDb().collection("post_feedback").add({
-    createdAt: FieldValue.serverTimestamp(),
-    isApproved: false,
-    message,
-    name,
-    postId,
-    postSlug: String(post.slug || "").slice(0, 200),
-    postTitle: String(post.title || "").slice(0, 300),
-    source: "news_detail",
-    status: "pending",
-  });
-
-  return createJsonResponse({ success: true }, 201);
-};
-
-const onCreateNewsletterSubscription = async ({ request }) => {
-  const body = await request.json();
-  const email = String(body?.email || "").trim().toLowerCase();
-  const sourceSlug = String(body?.sourceSlug || "").trim().slice(0, 200);
-  if (
-    email.length > 254 ||
-    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
-    !/^[a-zA-Z0-9/_-]{0,200}$/.test(sourceSlug)
-  ) {
-    return createJsonResponse({ error: "Invalid email" }, 400);
-  }
-
-  const subscriberId = createHash("sha256").update(email).digest("hex");
-  await getFirestoreDb().collection("newsletter_subscribers").doc(subscriberId).set(
-    {
-      email,
-      lastSubscribedAt: FieldValue.serverTimestamp(),
-      source: "news_detail",
-      sourceSlug,
-    },
-    { merge: true },
-  );
-
-  return createJsonResponse({ success: true }, 201);
 };
 
 const toSerializableValue = (value) => {
@@ -902,16 +798,6 @@ const onCreateOrder = async ({ request }) => {
     return createJsonResponse({ error: "Duplicate course selection" }, 400);
   }
 
-  const SAMPLE_HYPNOSIS_MAP = {
-    "tm-1": { title: "Thôi Miên Cài Đặt Tiềm Thức Hút Tiền Trong Giấc Ngủ", price: 0, thumbnailUrl: "https://images.unsplash.com/photo-1518241353330-0f7941c2d9b5?auto=format&fit=crop&w=600&h=600&q=80" },
-    "tm-2": { title: "Sóng Não Delta - Ru Ngủ Sâu & Tái Tạo Tế Bào", price: 0, thumbnailUrl: "https://images.unsplash.com/photo-1511295742362-92c96b124e52?auto=format&fit=crop&w=600&h=600&q=80" },
-    "tm-3": { title: "Ám Thị 21 Ngày Khơi Thông Tắc Nghẽn Năng Lượng Tiền", price: 199000, originalPrice: 499000, thumbnailUrl: "https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=600&h=600&q=80" },
-    "tm-4": { title: "Thôi Miên Chữa Lành Đứa Trẻ Bên Trong & An Yên", price: 0, thumbnailUrl: "https://images.unsplash.com/photo-1506126613408-eca07ce68773?auto=format&fit=crop&w=600&h=600&q=80" },
-    "tm-5": { title: "Bản Thôi Miên Bậc Thầy: Bứt Phá Mục Tiêu & Tự Tin", price: 299000, originalPrice: 599000, thumbnailUrl: "https://images.unsplash.com/photo-1470813740244-df37b8c1edcb?auto=format&fit=crop&w=600&h=600&q=80" },
-    "tm-6": { title: "Thôi Miên Buổi Sáng - Đón Nhận May Mắn & Phép Màu", price: 0, thumbnailUrl: "https://images.unsplash.com/photo-1470240731273-7821a6eeb6bd?auto=format&fit=crop&w=600&h=600&q=80" },
-    "tm-7": { title: "Combo 21 Ngày Tái Lập Trình Tiềm Thức Toàn Diện", price: 499000, originalPrice: 990000, thumbnailUrl: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=600&h=600&q=80" },
-  };
-
   const parseNumericPrice = (val) => {
     if (typeof val === "number") return val;
     const num = String(val || "").replace(/\D/g, "");
@@ -946,7 +832,12 @@ const onCreateOrder = async ({ request }) => {
       const hypnosisDoc = await getFirestoreDb().collection("hypnosis_audios").doc(id).get();
       if (hypnosisDoc.exists) {
         const hData = hypnosisDoc.data() || {};
-        const price = parseNumericPrice(hData.price);
+        const media = hypnosisMedia(hData, getBunnyStreamEnv().BUNNY_STREAM_LIBRARY_ID);
+        if (hData.isPublished === false || !media || (media.provider === "bunny" && !hypnosisSecurityReady(getBunnyStreamEnv()))) {
+          throw createHttpError(409, "Bản thôi miên chưa sẵn sàng để bán.");
+        }
+        const price = hData.isFree === true ? 0 : hypnosisPrice(hData.price);
+        if (price === null || (hData.isFree !== true && price <= 0)) throw createHttpError(409, "Giá bản thôi miên không hợp lệ.");
         const originalPrice = parseNumericPrice(hData.originalPrice) || price;
         return {
           id: hypnosisDoc.id,
@@ -963,27 +854,6 @@ const onCreateOrder = async ({ request }) => {
           affiliateCommissionPercent: hData.affiliateCommissionPercent != null ? Number(hData.affiliateCommissionPercent) : null,
           affiliateCommissionAmount: parseNumericPrice(hData.affiliateCommissionAmount),
           affiliateBuyerDiscountPercent: Number(hData.affiliateBuyerDiscountPercent) || 0,
-        };
-      }
-
-      // 3. Fallback for sample hypnosis tracks
-      if (SAMPLE_HYPNOSIS_MAP[id]) {
-        const sample = SAMPLE_HYPNOSIS_MAP[id];
-        return {
-          id,
-          name: sample.title,
-          price: sample.price,
-          originalPrice: sample.originalPrice || sample.price,
-          accessPlanId: "lifetime-audio",
-          accessPlanName: "Nghe trọn đời",
-          accessType: "lifetime",
-          productType: "hypnosis",
-          thumbnailUrl: sample.thumbnailUrl || "",
-          isAffiliateEnabled: true,
-          affiliateCommissionType: "percent",
-          affiliateCommissionPercent: 30,
-          affiliateCommissionAmount: 0,
-          affiliateBuyerDiscountPercent: 0,
         };
       }
 
@@ -1049,7 +919,7 @@ const onCreateOrder = async ({ request }) => {
     Math.round(originalAmount * (1 - discountPercent / 100)),
   );
   const orderCode = `MALI-${String(Date.now()).slice(-6)}${randomInt(10, 100)}`;
-  const isHypnosisOrder = items.some((item) => item.productType === "hypnosis");
+  const isHypnosisOrder = items.every((item) => item.productType === "hypnosis");
   const order = {
     amount,
     couponCode,
@@ -1339,7 +1209,21 @@ const onGetBunnyPlayback = async ({ request }) => {
   );
 };
 
+const hypnosisHandlers = createHypnosisHandlers({
+  getDb: getFirestoreDb,
+  verifyUser: verifyRequestUser,
+  fieldValue: FieldValue,
+  getEnv: getBunnyStreamEnv,
+  signPlayback: createBunnyEmbedPlayback,
+  json: createJsonResponse,
+});
+
 const ROUTES = new Map([
+  ["GET /api/hypnosis/catalog", hypnosisHandlers.catalog],
+  ["GET /api/hypnosis/library", hypnosisHandlers.library],
+  ["POST /api/hypnosis/claim", hypnosisHandlers.claim],
+  ["POST /api/hypnosis/playback", hypnosisHandlers.playback],
+  ["POST /api/admin/hypnosis", hypnosisHandlers.adminPost],
   ["GET /api/admin/landings", adminLandingHandlers.getWorkspace],
   ["POST /api/admin/landings/delete", adminLandingHandlers.delete],
   ["POST /api/admin/landings/repair-sources", adminLandingHandlers.repairSources],
@@ -1354,11 +1238,8 @@ const ROUTES = new Map([
   ["POST /api/coupons/validate", affiliateHandlers.validateCoupon],
   ["POST /api/payments/sepay/webhook", onSePayWebhook],
   ["POST /api/crm-leads", onCreateCrmLead],
-  ["POST /api/newsletter", onCreateNewsletterSubscription],
   ["POST /api/orders", onCreateOrder],
   ["POST /api/course-view", onIncrementCourseView],
-  ["POST /api/post-feedback", onCreatePostFeedback],
-  ["POST /api/post-view", onIncrementPostView],
   ["GET /api/storage-share", onGetStorageShare],
   ["POST /api/bunny-stream/create-upload", onCreateBunnyUpload],
   ["POST /api/bunny-stream/playback", onGetBunnyPlayback],
@@ -1757,61 +1638,14 @@ export const onOrderCompleted = onDocumentUpdated(
     const before = event.data?.before?.data() || {};
     const after = event.data?.after?.data() || {};
     if (before.status === "completed" || after.status !== "completed") return;
+    await grantHypnosisOrderAccess({
+      db: getFirestoreDb(), fieldValue: FieldValue, order: after, orderId: event.params.orderId,
+    });
     await processAffiliateCommission({
       db: getFirestoreDb(),
       fieldValue: FieldValue,
       orderData: after,
       orderId: event.params.orderId,
     });
-  },
-);
-
-export const publishScheduledPosts = onSchedule(
-  {
-    schedule: "every 1 minutes",
-    timeZone: "Asia/Bangkok",
-    region: "asia-southeast1",
-  },
-  async () => {
-    const postsCollection = getFirestoreDb().collection("posts");
-    const now = new Date();
-    let candidateSnapshot;
-
-    try {
-      candidateSnapshot = await postsCollection
-        .where("isScheduled", "==", true)
-        .where("publishAt", "<=", now)
-        .orderBy("publishAt", "asc")
-        .limit(100)
-        .get();
-    } catch (error) {
-      const isMissingIndex = Number(error?.code) === 9
-        || String(error?.message || "").includes("requires an index");
-      if (!isMissingIndex) throw error;
-
-      console.warn("Scheduled-post index is unavailable; using safe fallback query.");
-      candidateSnapshot = await postsCollection
-        .where("isScheduled", "==", true)
-        .limit(500)
-        .get();
-    }
-
-    const duePosts = candidateSnapshot.docs.filter((postSnapshot) => {
-      const publishAt = postSnapshot.data().publishAt?.toDate?.();
-      return publishAt && publishAt <= now;
-    });
-    if (duePosts.length === 0) return;
-
-    const batch = getFirestoreDb().batch();
-    duePosts.forEach((postSnapshot) => {
-      const post = postSnapshot.data();
-      batch.update(postSnapshot.ref, {
-        isPublished: true,
-        isScheduled: false,
-        publishedAt: post.publishAt || FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp(),
-      });
-    });
-    await batch.commit();
   },
 );

@@ -19,7 +19,6 @@ import { HERO_SLIDES } from "../../data/heroData";
 
 const BANNER_POSITIONS = [
   { value: "home_hero", label: "Banner Slide Trang chủ" },
-  { value: "news_sidebar", label: "Sidebar Tin tức" },
 ];
 
 const DEFAULT_LANDING_OPTIONS = [
@@ -262,9 +261,7 @@ const AdminBanners = () => {
     setIsSubmitting(true);
 
     try {
-      const uploadFolder = formState.position === "news_sidebar"
-        ? "banners/news-sidebar"
-        : "banners/home-hero";
+      const uploadFolder = "banners/home-hero";
       let finalImageUrl = formState.imageUrl;
       if (file) finalImageUrl = await uploadFileToS3(file, undefined, { folder: uploadFolder });
       
@@ -471,10 +468,8 @@ const AdminBanners = () => {
 
   const displayedBanners = banners.filter((banner) => {
     const bannerPosition = getBannerPosition(banner);
-    const matchesPosition = positionFilter === "all" || bannerPosition === positionFilter;
-    const hasPreviewImage = bannerPosition === "news_sidebar"
-      ? Boolean(banner.imageUrl || banner.mobileImageUrl)
-      : previewDevice === "desktop"
+    const matchesPosition = bannerPosition === "home_hero" && (positionFilter === "all" || bannerPosition === positionFilter);
+    const hasPreviewImage = previewDevice === "desktop"
         ? Boolean(banner.imageUrl)
         : Boolean(banner.mobileImageUrl);
 
@@ -482,9 +477,6 @@ const AdminBanners = () => {
   });
 
   const getBannerPreviewImage = (banner) => {
-    if (getBannerPosition(banner) === "news_sidebar") {
-      return banner.imageUrl || banner.mobileImageUrl || "";
-    }
     return previewDevice === "desktop" ? banner.imageUrl : banner.mobileImageUrl;
   };
 
@@ -547,9 +539,6 @@ const AdminBanners = () => {
                     <option key={position.value} value={position.value}>{position.label}</option>
                   ))}
                 </select>
-                {formState.position === "news_sidebar" && (
-                  <p className="text-xs text-slate-500">Khuyến nghị ảnh dọc tỷ lệ 4:5. Ảnh được lưu trong thư mục S3 banners/news-sidebar.</p>
-                )}
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
@@ -832,7 +821,7 @@ const AdminBanners = () => {
                   className="flex flex-col rounded-xl border border-slate-100 p-4 shadow-sm bg-white"
                 >
                   <div className={`relative w-full overflow-hidden rounded-md bg-slate-100 flex items-center justify-center ${
-                    getBannerPosition(banner) === "news_sidebar" || previewDevice === "mobile"
+                    previewDevice === "mobile"
                       ? "aspect-[4/5]"
                       : "aspect-video"
                   }`}>
@@ -844,12 +833,8 @@ const AdminBanners = () => {
                   </div>
                   <div className="mt-4 space-y-3 flex-1 flex flex-col justify-end">
                     <div>
-                      <span className={`mb-2 inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${
-                        getBannerPosition(banner) === "news_sidebar"
-                          ? "bg-blue-50 text-blue-700"
-                          : "bg-amber-50 text-amber-700"
-                      }`}>
-                        {getBannerPosition(banner) === "news_sidebar" ? "Sidebar Tin tức" : "Slide Trang chủ"}
+                      <span className={`mb-2 inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold bg-amber-50 text-amber-700`}>
+                        Slide Trang chủ
                       </span>
                       <h3 className="text-sm font-semibold text-slate-900">
                         {banner.title}

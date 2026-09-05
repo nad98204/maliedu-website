@@ -33,11 +33,13 @@ import {
     User,
     Award,
     Percent,
-    Tag
+    Tag,
+    BookOpen
 } from 'lucide-react';
-import { collection, getDocs, doc, setDoc, deleteDoc, serverTimestamp, query, orderBy } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 import { db } from '../../firebase';
+import { saveHypnosisTrack, deleteHypnosisTrack, previewHypnosisTrack } from '../../utils/hypnosisService';
 import { uploadFileToS3 } from '../../utils/s3UploadService';
 import { uploadVideoToBunny } from '../../utils/bunnyStreamService';
 import { HYPNOSIS_CATEGORIES, INITIAL_TRACKS, DEFAULT_HYPNOSIS_EXPERTS } from '../../data/hypnosisTracksData';
@@ -70,12 +72,18 @@ const DEFAULT_FORM_DATA = {
     coverImage: 'https://images.unsplash.com/photo-1518241353330-0f7941c2d9b5?auto=format&fit=crop&w=600&q=80',
     audioUrl: '',
     audioProvider: 'bunny', // 'bunny', 'url'
+    isPublished: true,
     brainwave: 'Sóng não Theta (5.5Hz) & Tần số Solfeggio 888Hz',
     frequency: '888Hz Tần số kích hoạt may mắn & tài lộc dồi dào',
     recommendedCycle: 'Nghe liên tục 21 đêm trước khi ngủ',
     bestTime: '15 - 30 phút trước khi chìm vào giấc ngủ đêm',
     audioQuality: '320kbps Studio Lossless (Không nén)',
     targetAudience: 'Người kinh doanh, người hay lo lắng về tiền bạc, muốn mở rộng dung lượng tài chính.',
+    detailedGuide: '', // Hướng dẫn chuyên sâu tổng hợp
+    guidePreparation: '', // 1. Chuẩn bị không gian & Kỹ thuật thở
+    guideRoutine: '', // 2. Lộ trình thực hành & Tần suất tối ưu
+    guidePhenomena: '', // 3. Hiện tượng tâm thức thường gặp & Giải đáp
+    guideBonus: '', // 4. Bài tập thực hành bổ trợ & Lời dặn Master Coach
     effects: [
         'Cài đặt tư duy thịnh vượng vào tầng tiềm thức sâu nhất mỗi đêm khi ngủ.',
         'Xóa bỏ nỗi sợ vô thức về nợ nần, thiếu thốn và rào cản tài chính từ quá khứ.',
@@ -108,6 +116,9 @@ export default function AdminHypnosis() {
     // Audio preview inside list
     const [playingTrackId, setPlayingTrackId] = useState(null);
     const listAudioRef = useRef(null);
+    const [listPlayback, setListPlayback] = useState(null);
+    const [formPlayback, setFormPlayback] = useState(null);
+    const previewRequestRef = useRef(0);
 
     // Upload state
     const [audioUploadProgress, setAudioUploadProgress] = useState(null);
@@ -154,7 +165,7 @@ export default function AdminHypnosis() {
             const q = query(collection(db, 'hypnosis_audios'));
             const snap = await getDocs(q);
             if (!snap.empty) {
-                const loaded = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                const loaded = snap.docs.map(d => ({ ...d.data(), id: d.id, audioUrl: d.data().audioUrl || d.data().videoId || '' }));
                 setTracks(loaded);
             } else {
                 setTracks([]);
@@ -180,11 +191,7 @@ export default function AdminHypnosis() {
         setIsSeeding(true);
         try {
             for (const item of INITIAL_TRACKS) {
-                await setDoc(doc(db, 'hypnosis_audios', item.id), {
-                    ...item,
-                    createdAt: serverTimestamp(),
-                    updatedAt: serverTimestamp()
-                }, { merge: true });
+                await saveHypnosisTrack({ ...item, audioUrl: item.isFree ? item.audioUrl : '', videoId: '', isPublished: item.isFree }, true);
             }
             toast.success('🎉 Đã đồng bộ thành công các bản thôi miên mẫu vào CSDL!');
             await fetchTracks();
@@ -200,7 +207,7 @@ export default function AdminHypnosis() {
     const handleDeleteTrack = async (id, title) => {
         if (!window.confirm(`Bạn có chắc chắn muốn xóa bản thôi miên "${title}" không?`)) return;
         try {
-            await deleteDoc(doc(db, 'hypnosis_audios', id));
+            await deleteHypnosisTrack(id);
             toast.success(`Đã xóa "${title}" thành công!`);
             setTracks(prev => prev.filter(t => t.id !== id));
         } catch (err) {
@@ -210,10 +217,16 @@ export default function AdminHypnosis() {
 
     // Open Modal for Create
     const handleOpenCreate = () => {
+        setFormPlayback(null);
         setIsEditing(false);
         setFormData({
             ...DEFAULT_FORM_DATA,
             id: `tm-${Date.now()}`,
+            detailedGuide: '',
+            guidePreparation: '',
+            guideRoutine: '',
+            guidePhenomena: '',
+            guideBonus: '',
             effects: [...DEFAULT_FORM_DATA.effects],
             howToUse: [...DEFAULT_FORM_DATA.howToUse],
             precautions: [...DEFAULT_FORM_DATA.precautions]
@@ -224,6 +237,7 @@ export default function AdminHypnosis() {
 
     // Open Modal for Edit
     const handleOpenEdit = (track) => {
+        setFormPlayback(null);
         setIsEditing(true);
         setFormData({
             ...DEFAULT_FORM_DATA,
@@ -242,6 +256,11 @@ export default function AdminHypnosis() {
             coverImageSquare: track.coverImageSquare || track.coverImage || '',
             coverImageBanner: track.coverImageBanner || track.coverImage || '',
             coverImage: track.coverImageSquare || track.coverImage || '',
+            detailedGuide: track.detailedGuide || '',
+            guidePreparation: track.guidePreparation || '',
+            guideRoutine: track.guideRoutine || '',
+            guidePhenomena: track.guidePhenomena || '',
+            guideBonus: track.guideBonus || '',
             effects: Array.isArray(track.effects) && track.effects.length > 0 ? [...track.effects] : [...DEFAULT_FORM_DATA.effects],
             howToUse: Array.isArray(track.howToUse) && track.howToUse.length > 0 ? [...track.howToUse] : [...DEFAULT_FORM_DATA.howToUse],
             precautions: Array.isArray(track.precautions) && track.precautions.length > 0 ? [...track.precautions] : [...DEFAULT_FORM_DATA.precautions]
@@ -284,9 +303,10 @@ export default function AdminHypnosis() {
                 throw new Error("Không nhận được mã tệp sau khi tải lên Bunny Cloud.");
             }
 
-            // Lưu liên kết phát Bunny Stream (Library ID: 738609)
-            const bunnyPlaybackUrl = `https://iframe.mediadelivery.net/embed/738609/${videoId}`;
+            // Store only the video ID; the server selects the library and signs playback.
+            const bunnyPlaybackUrl = videoId;
 
+            setFormPlayback(null);
             setFormData(prev => ({
                 ...prev,
                 audioUrl: bunnyPlaybackUrl,
@@ -378,12 +398,11 @@ export default function AdminHypnosis() {
             coverImageBanner: bannerImg,
             coverImage: squareImg || bannerImg,
             id: trackId,
-            updatedAt: serverTimestamp(),
-            ...(isEditing ? {} : { createdAt: serverTimestamp() })
+            isPublished: formData.isPublished !== false
         };
 
         try {
-            await setDoc(doc(db, 'hypnosis_audios', trackId), payload, { merge: true });
+            await saveHypnosisTrack(payload);
             toast.success(isEditing ? 'Cập nhật bản thôi miên thành công!' : 'Thêm bản thôi miên mới thành công!');
             setIsModalOpen(false);
             await fetchTracks();
@@ -491,29 +510,38 @@ export default function AdminHypnosis() {
         return { total, free, paid, totalListens };
     }, [tracks]);
 
-    // Handle play in list
-    const toggleListPlay = (track) => {
-        const audio = listAudioRef.current;
-        if (!audio) return;
-
-        if (playingTrackId === track.id) {
-            audio.pause();
-            setPlayingTrackId(null);
-        } else {
-            audio.src = track.audioUrl;
-            audio.play().then(() => {
-                setPlayingTrackId(track.id);
-            }).catch(() => {
-                toast.error('Không thể phát file âm thanh này.');
-                setPlayingTrackId(null);
-            });
+    const toggleListPlay = async (track) => {
+        const requestId = ++previewRequestRef.current;
+        listAudioRef.current?.pause();
+        setListPlayback(null);
+        if (playingTrackId === track.id) { setPlayingTrackId(null); return; }
+        setPlayingTrackId(track.id);
+        try {
+            const result = await previewHypnosisTrack(track);
+            if (requestId !== previewRequestRef.current) return;
+            setListPlayback(result);
+            if (result.provider !== 'bunny' && listAudioRef.current) {
+                listAudioRef.current.src = result.playbackUrl;
+                await listAudioRef.current.play();
+            }
+        } catch (error) {
+            if (requestId === previewRequestRef.current) { toast.error(error.message); setPlayingTrackId(null); }
         }
     };
+
+    useEffect(() => {
+        const audio = listAudioRef.current;
+        const previewRequest = previewRequestRef;
+        return () => { previewRequest.current++; audio?.pause(); };
+    }, []);
 
     return (
         <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
             {/* Hidden audio tag for list previews */}
             <audio ref={listAudioRef} onEnded={() => setPlayingTrackId(null)} />
+            {listPlayback?.provider === 'bunny' && playingTrackId && (
+                <iframe src={listPlayback.playbackUrl + '&autoplay=true'} title="Nghe thử bản thôi miên" allow="autoplay; encrypted-media" className="w-full h-24 rounded-xl" />
+            )}
 
             {/* Header Section */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white p-5 rounded-3xl border border-slate-200 shadow-sm">
@@ -706,9 +734,16 @@ export default function AdminHypnosis() {
                                                         <h4 className="font-bold text-slate-900 line-clamp-1">
                                                             {track.title}
                                                         </h4>
-                                                        <p className="text-[11px] text-slate-500 line-clamp-1 mt-0.5">
-                                                            {track.benefit || 'Chưa có mô tả ngắn'}
-                                                        </p>
+                                                        <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                                                            <p className="text-[11px] text-slate-500 line-clamp-1">
+                                                                {track.benefit || 'Chưa có mô tả ngắn'}
+                                                            </p>
+                                                            {track.detailedGuide && (
+                                                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-800 border border-amber-200 shrink-0">
+                                                                    <BookOpen className="w-2.5 h-2.5" /> Có hướng dẫn
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </td>
@@ -967,15 +1002,15 @@ export default function AdminHypnosis() {
                                                     Hoặc dán trực tiếp đường dẫn URL âm thanh từ Bunny Cloud (Stream / CDN):
                                                 </label>
                                                 <input
-                                                    type="url"
+                                                    type="text"
                                                     value={formData.audioUrl}
-                                                    onChange={(e) => setFormData({ ...formData, audioUrl: e.target.value, audioProvider: 'bunny' })}
+                                                    onChange={(e) => { setFormPlayback(null); setFormData({ ...formData, audioUrl: e.target.value, videoId: '', audioProvider: 'url' }); }}
                                                     placeholder="https://... hoặc Video ID Bunny Stream"
                                                     className="w-full px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs font-medium focus:border-[#9B2528] outline-none"
                                                 />
                                                 <div className="text-[11px] text-amber-800 bg-amber-50 p-2.5 rounded-lg border border-amber-200/80 flex items-start gap-1.5 leading-relaxed">
                                                     <span className="shrink-0 text-xs">💡</span>
-                                                    <span><strong>Hỗ trợ nghe khi tắt màn hình:</strong> Để người dùng có thể khóa màn hình điện thoại / nghe trước khi ngủ mượt mà kèm bảng điều khiển màn hình khóa, khuyến khích sử dụng <strong>đường dẫn tệp âm thanh trực tiếp (.mp3, .m4a, Bunny Storage hoặc CDN)</strong>. Nếu nhúng Iframe Video, hệ điều hành iOS/Android sẽ tự động dừng phát khi tắt màn hình.</span>
+                                                    <span>Bản trả phí cần tải lên Bunny Stream hoặc nhập Video ID đúng thư viện. Link MP3/M4A trực tiếp chỉ dùng cho bản miễn phí. Chưa có tệp âm thanh thì bản ghi được lưu ở trạng thái nháp.</span>
                                                 </div>
                                             </div>
 
@@ -985,19 +1020,22 @@ export default function AdminHypnosis() {
                                                     <span className="text-xs font-bold text-slate-700 shrink-0">
                                                         Nghe thử tệp:
                                                     </span>
-                                                    {formData.audioUrl.includes('iframe.mediadelivery.net') ? (
-                                                        <iframe
-                                                            src={formData.audioUrl}
-                                                            title="Bunny Preview"
-                                                            className="w-full h-12 rounded-lg border-0"
-                                                            allow="autoplay"
-                                                        />
-                                                    ) : (
-                                                        <audio controls src={formData.audioUrl} className="w-full h-8" />
-                                                    )}
+                                                    <button type="button" className="text-xs font-bold text-[#9B2528]" onClick={async () => {
+                                                        try { setFormPlayback(await previewHypnosisTrack(formData)); }
+                                                        catch (error) { toast.error(error.message); }
+                                                    }}>Mở nghe thử</button>
+                                                    {formPlayback?.provider === 'bunny' ? (
+                                                        <iframe src={formPlayback.playbackUrl} title="Bunny Preview" className="w-full h-24 rounded-lg border-0" allow="autoplay; encrypted-media" />
+                                                    ) : formPlayback?.playbackUrl ? (
+                                                        <audio controls src={formPlayback.playbackUrl} className="w-full h-8" />
+                                                    ) : null}
                                                 </div>
                                             )}
 
+                                            <label className="flex items-center gap-2 text-xs font-bold text-slate-700">
+                                                <input type="checkbox" checked={formData.isPublished !== false} onChange={e => setFormData({ ...formData, isPublished: e.target.checked })} />
+                                                Hiển thị trong cửa hàng khi có tệp âm thanh
+                                            </label>
                                             {/* Duration auto/manual */}
                                             <div className="grid grid-cols-2 gap-3 pt-1">
                                                 <div>
@@ -1658,126 +1696,263 @@ export default function AdminHypnosis() {
                             {/* TAB 4: TÁC DỤNG & HƯỚNG DẪN */}
                             {activeFormTab === 'guide' && (
                                 <div className="space-y-6">
-                                    {/* Effects List */}
-                                    <div className="space-y-3">
-                                        <div className="flex items-center justify-between">
-                                            <label className="text-xs font-black text-slate-900 uppercase flex items-center gap-1.5">
-                                                <Sparkles className="w-4 h-4 text-emerald-600" />
-                                                <span>Các tác dụng chuyển hóa (Effects)</span>
-                                            </label>
-                                            <button
-                                                type="button"
-                                                onClick={handleAddEffect}
-                                                className="text-[11px] font-bold text-[#9B2528] hover:underline flex items-center gap-1"
-                                            >
-                                                <Plus className="w-3 h-3" /> Thêm tác dụng
-                                            </button>
-                                        </div>
-
-                                        <div className="space-y-2">
-                                            {formData.effects.map((eff, idx) => (
-                                                <div key={idx} className="flex items-center gap-2">
-                                                    <input
-                                                        type="text"
-                                                        value={eff}
-                                                        onChange={(e) => handleUpdateEffect(idx, e.target.value)}
-                                                        placeholder="VD: Cài đặt niềm tin giàu có vào tiềm thức..."
-                                                        className="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-xs font-medium"
-                                                    />
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleRemoveEffect(idx)}
-                                                        className="p-2 text-slate-400 hover:text-red-600"
-                                                    >
-                                                        <Trash2 className="w-3.5 h-3.5" />
-                                                    </button>
+                                    {/* PHẦN A: THÔNG TIN BÁN HÀNG NGOÀI CỬA HÀNG */}
+                                    <div className="rounded-2xl border border-slate-200/90 bg-white p-4 sm:p-5 shadow-sm space-y-5">
+                                        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                                            <div>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="px-2 py-0.5 rounded-md bg-blue-100 text-blue-800 text-[10px] font-black uppercase tracking-wider">
+                                                        Phần A • Ngoài cửa hàng
+                                                    </span>
+                                                    <h3 className="text-xs sm:text-sm font-black text-slate-900 uppercase">
+                                                        Thông tin giới thiệu & Bán hàng (Hiển thị công khai)
+                                                    </h3>
                                                 </div>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    {/* How To Use Steps */}
-                                    <div className="space-y-3 pt-2 border-t border-slate-100">
-                                        <div className="flex items-center justify-between">
-                                            <label className="text-xs font-black text-slate-900 uppercase flex items-center gap-1.5">
-                                                <HelpCircle className="w-4 h-4 text-blue-600" />
-                                                <span>Các bước hướng dẫn lắng nghe</span>
-                                            </label>
-                                            <button
-                                                type="button"
-                                                onClick={handleAddHowToUse}
-                                                className="text-[11px] font-bold text-[#9B2528] hover:underline flex items-center gap-1"
-                                            >
-                                                <Plus className="w-3 h-3" /> Thêm bước
-                                            </button>
+                                                <p className="text-[11px] text-slate-500 mt-0.5">
+                                                    Giới thiệu tác dụng, cách nghe cơ bản và cảnh báo an toàn để khách hàng tìm hiểu và ra quyết định mua.
+                                                </p>
+                                            </div>
                                         </div>
 
-                                        <div className="space-y-2.5">
-                                            {formData.howToUse.map((stepItem, idx) => (
-                                                <div key={idx} className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
-                                                    <div className="flex items-center justify-between gap-2">
+                                        {/* Effects List */}
+                                        <div className="space-y-3">
+                                            <div className="flex items-center justify-between">
+                                                <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                                                    <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                                                    <span>Các tác dụng chuyển hóa (Effects)</span>
+                                                </label>
+                                                <button
+                                                    type="button"
+                                                    onClick={handleAddEffect}
+                                                    className="text-[11px] font-bold text-[#9B2528] hover:underline flex items-center gap-1"
+                                                >
+                                                    <Plus className="w-3 h-3" /> Thêm tác dụng
+                                                </button>
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                {formData.effects.map((eff, idx) => (
+                                                    <div key={idx} className="flex items-center gap-2">
                                                         <input
                                                             type="text"
-                                                            value={stepItem.step}
-                                                            onChange={(e) => handleUpdateHowToUse(idx, 'step', e.target.value)}
-                                                            placeholder="Tên bước (VD: Bước 1: Đeo tai nghe)"
-                                                            className="w-1/2 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-bold"
+                                                            value={eff}
+                                                            onChange={(e) => handleUpdateEffect(idx, e.target.value)}
+                                                            placeholder="VD: Cài đặt niềm tin giàu có vào tiềm thức..."
+                                                            className="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-xs font-medium"
                                                         />
                                                         <button
                                                             type="button"
-                                                            onClick={() => handleRemoveHowToUse(idx)}
-                                                            className="text-slate-400 hover:text-red-600 p-1"
+                                                            onClick={() => handleRemoveEffect(idx)}
+                                                            className="p-2 text-slate-400 hover:text-red-600"
                                                         >
                                                             <Trash2 className="w-3.5 h-3.5" />
                                                         </button>
                                                     </div>
-                                                    <textarea
-                                                        rows={2}
-                                                        value={stepItem.desc}
-                                                        onChange={(e) => handleUpdateHowToUse(idx, 'desc', e.target.value)}
-                                                        placeholder="Mô tả chi tiết bước thực hành..."
-                                                        className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-normal"
-                                                    />
-                                                </div>
-                                            ))}
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {/* How To Use Steps */}
+                                        <div className="space-y-3 pt-2 border-t border-slate-100">
+                                            <div className="flex items-center justify-between">
+                                                <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                                                    <HelpCircle className="w-3.5 h-3.5 text-blue-600" />
+                                                    <span>Các bước lắng nghe cơ bản (How to use)</span>
+                                                </label>
+                                                <button
+                                                    type="button"
+                                                    onClick={handleAddHowToUse}
+                                                    className="text-[11px] font-bold text-[#9B2528] hover:underline flex items-center gap-1"
+                                                >
+                                                    <Plus className="w-3 h-3" /> Thêm bước
+                                                </button>
+                                            </div>
+
+                                            <div className="space-y-2.5">
+                                                {formData.howToUse.map((stepItem, idx) => (
+                                                    <div key={idx} className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+                                                        <div className="flex items-center justify-between gap-2">
+                                                            <input
+                                                                type="text"
+                                                                value={stepItem.step}
+                                                                onChange={(e) => handleUpdateHowToUse(idx, 'step', e.target.value)}
+                                                                placeholder="Tên bước (VD: Bước 1: Đeo tai nghe)"
+                                                                className="w-1/2 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-bold"
+                                                            />
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleRemoveHowToUse(idx)}
+                                                                className="text-slate-400 hover:text-red-600 p-1"
+                                                            >
+                                                                <Trash2 className="w-3.5 h-3.5" />
+                                                            </button>
+                                                        </div>
+                                                        <textarea
+                                                            rows={2}
+                                                            value={stepItem.desc}
+                                                            onChange={(e) => handleUpdateHowToUse(idx, 'desc', e.target.value)}
+                                                            placeholder="Mô tả chi tiết bước thực hành..."
+                                                            className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-normal"
+                                                        />
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {/* Precautions */}
+                                        <div className="space-y-3 pt-2 border-t border-slate-100">
+                                            <div className="flex items-center justify-between">
+                                                <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                                                    <AlertTriangle className="w-3.5 h-3.5 text-red-600" />
+                                                    <span>Lưu ý quan trọng & An toàn</span>
+                                                </label>
+                                                <button
+                                                    type="button"
+                                                    onClick={handleAddPrecaution}
+                                                    className="text-[11px] font-bold text-[#9B2528] hover:underline flex items-center gap-1"
+                                                >
+                                                    <Plus className="w-3 h-3" /> Thêm lưu ý
+                                                </button>
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                {formData.precautions.map((prec, idx) => (
+                                                    <div key={idx} className="flex items-center gap-2">
+                                                        <input
+                                                            type="text"
+                                                            value={prec}
+                                                            onChange={(e) => handleUpdatePrecaution(idx, e.target.value)}
+                                                            placeholder="Cảnh báo an toàn (VD: Không nghe khi lái xe...)"
+                                                            className="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-xs font-medium"
+                                                        />
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleRemovePrecaution(idx)}
+                                                            className="p-2 text-slate-400 hover:text-red-600"
+                                                        >
+                                                            <Trash2 className="w-3.5 h-3.5" />
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
                                         </div>
                                     </div>
 
-                                    {/* Precautions */}
-                                    <div className="space-y-3 pt-2 border-t border-slate-100">
-                                        <div className="flex items-center justify-between">
-                                            <label className="text-xs font-black text-slate-900 uppercase flex items-center gap-1.5">
-                                                <AlertTriangle className="w-4 h-4 text-red-600" />
-                                                <span>Lưu ý quan trọng & An toàn</span>
-                                            </label>
-                                            <button
-                                                type="button"
-                                                onClick={handleAddPrecaution}
-                                                className="text-[11px] font-bold text-[#9B2528] hover:underline flex items-center gap-1"
-                                            >
-                                                <Plus className="w-3 h-3" /> Thêm lưu ý
-                                            </button>
+                                    {/* PHẦN B: CẨM NANG HƯỚNG DẪN CHUYÊN SÂU DÀNH CHO HỌC VIÊN ĐÃ MUA */}
+                                    <div className="rounded-2xl border-2 border-amber-300 bg-gradient-to-br from-amber-50/90 via-orange-50/40 to-amber-50/70 p-4 sm:p-5 shadow-sm space-y-4">
+                                        <div className="flex items-start justify-between gap-3 border-b border-amber-200/80 pb-3">
+                                            <div>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="px-2 py-0.5 rounded-md bg-amber-200 text-amber-900 text-[10px] font-black uppercase tracking-wider">
+                                                        Phần B • Tab đã mua
+                                                    </span>
+                                                    <h3 className="text-xs sm:text-sm font-black text-amber-950 uppercase flex items-center gap-1.5">
+                                                        <BookOpen className="w-4 h-4 text-amber-700" />
+                                                        <span>Cẩm nang hướng dẫn chuyên sâu cho học viên</span>
+                                                    </h3>
+                                                </div>
+                                                <p className="text-[11px] text-amber-900/80 mt-1 leading-relaxed">
+                                                    Nội dung này <strong>chỉ hiển thị khi học viên bấm nút [📖 Hướng dẫn] trong tab "Đã mua"</strong>. Phân chia thành nhiều kiểu hướng dẫn chuyên sâu khoa học.
+                                                </p>
+                                            </div>
+                                            <span className="shrink-0 px-2 py-1 rounded-lg bg-amber-600 text-white text-[10px] font-black shadow-sm">
+                                                💎 Độc quyền
+                                            </span>
                                         </div>
 
-                                        <div className="space-y-2">
-                                            {formData.precautions.map((prec, idx) => (
-                                                <div key={idx} className="flex items-center gap-2">
-                                                    <input
-                                                        type="text"
-                                                        value={prec}
-                                                        onChange={(e) => handleUpdatePrecaution(idx, e.target.value)}
-                                                        placeholder="Cảnh báo an toàn (VD: Không nghe khi lái xe...)"
-                                                        className="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-xs font-medium"
-                                                    />
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleRemovePrecaution(idx)}
-                                                        className="p-2 text-slate-400 hover:text-red-600"
-                                                    >
-                                                        <Trash2 className="w-3.5 h-3.5" />
-                                                    </button>
-                                                </div>
-                                            ))}
+                                        {/* 1. Chuẩn bị không gian & Kỹ thuật thở */}
+                                        <div className="space-y-1.5">
+                                            <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                                                <span>🧘 1. Chuẩn bị không gian & Kỹ thuật thở kích hoạt sóng não:</span>
+                                            </label>
+                                            <p className="text-[10px] text-slate-500">
+                                                Hướng dẫn môi trường (ánh sáng, tai nghe stereo, chế độ điện thoại) và bài tập thở 4-7-8 hoặc thở cơ hoành để hạ tần số Beta về Theta/Delta.
+                                            </p>
+                                            <textarea
+                                                rows={4}
+                                                value={formData.guidePreparation || ''}
+                                                onChange={(e) => setFormData({ ...formData, guidePreparation: e.target.value })}
+                                                placeholder="VD:
+- Chuẩn bị: Phòng tối, nhiệt độ dễ chịu, đeo tai nghe stereo 2 bên để kích hoạt sóng não Binaural Beats.
+- Kỹ thuật thở: Nằm ngửa thư giãn, hít sâu 4 giây căng bụng, giữ 2-4 giây, thở ra êm trong 6-8 giây. Lặp lại 3-5 chu kỳ để cơ bắp buông lỏng hoàn toàn..."
+                                                className="w-full p-3 rounded-xl border border-amber-200 bg-white text-xs font-normal focus:border-amber-500 outline-none text-slate-800 shadow-sm"
+                                            />
+                                        </div>
+
+                                        {/* 2. Lộ trình thực hành 21 ngày */}
+                                        <div className="space-y-1.5">
+                                            <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                                                <span>📅 2. Lộ trình thực hành 21 ngày & Khung giờ vàng:</span>
+                                            </label>
+                                            <p className="text-[10px] text-slate-500">
+                                                Hướng dẫn thời điểm vàng (tối trước khi ngủ hoặc sáng sớm) và chu kỳ 21 ngày tái lập trình mạng neuron tiềm thức.
+                                            </p>
+                                            <textarea
+                                                rows={4}
+                                                value={formData.guideRoutine || ''}
+                                                onChange={(e) => setFormData({ ...formData, guideRoutine: e.target.value })}
+                                                placeholder="VD:
+- Khung giờ vàng: 15-30 phút trước khi ngủ (khi cửa sổ tiềm thức mở rộng nhất).
+- Lộ trình 21 ngày:
+  + Ngày 1 - 7: Giải tỏa áp lực và các rào cản căng thẳng cũ.
+  + Ngày 8 - 14: Cài đặt rãnh tư duy mới và niềm tin gốc rễ.
+  + Ngày 15 - 21: Đồng hóa năng lượng và tạo lực hút thực tế..."
+                                                className="w-full p-3 rounded-xl border border-amber-200 bg-white text-xs font-normal focus:border-amber-500 outline-none text-slate-800 shadow-sm"
+                                            />
+                                        </div>
+
+                                        {/* 3. Hiện tượng tâm thức thường gặp */}
+                                        <div className="space-y-1.5">
+                                            <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                                                <span>🌊 3. Hiện tượng tâm thức thường gặp & Giải thích khoa học:</span>
+                                            </label>
+                                            <p className="text-[10px] text-slate-500">
+                                                Giải đáp các thắc mắc học viên hay lo lắng (ngủ quên khi nghe, người nặng trĩu/bồng bềnh, tê rần ở trán, cảm xúc muốn khóc...).
+                                            </p>
+                                            <textarea
+                                                rows={4}
+                                                value={formData.guidePhenomena || ''}
+                                                onChange={(e) => setFormData({ ...formData, guidePhenomena: e.target.value })}
+                                                placeholder="VD:
+- Ngủ quên sau 10 phút: Hoàn toàn tự nhiên và rất tốt. Tiềm thức không bao giờ ngủ và vẫn hấp thu 100% ám thị.
+- Người nặng trĩu hoặc bồng bềnh: Trạng thái thả lỏng cơ sâu (Physical Relaxation) trong thôi miên.
+- Tê rần ở trán/đỉnh đầu: Tần số sóng não kích thích vỏ não trước trán..."
+                                                className="w-full p-3 rounded-xl border border-amber-200 bg-white text-xs font-normal focus:border-amber-500 outline-none text-slate-800 shadow-sm"
+                                            />
+                                        </div>
+
+                                        {/* 4. Bài tập thực hành bổ trợ & Lời dặn Master Coach */}
+                                        <div className="space-y-1.5">
+                                            <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                                                <span>✍️ 4. Bài tập bổ trợ & Lời dặn từ Master Coach:</span>
+                                            </label>
+                                            <p className="text-[10px] text-slate-500">
+                                                Kỹ thuật neo cảm xúc (NLP Anchoring), bài tập viết sổ tay biết ơn/khẳng định, lời nhắn nhủ tâm huyết từ Coach.
+                                            </p>
+                                            <textarea
+                                                rows={4}
+                                                value={formData.guideBonus || ''}
+                                                onChange={(e) => setFormData({ ...formData, guideBonus: e.target.value })}
+                                                placeholder="VD:
+- Kỹ thuật Neo cảm xúc: Khi cảm xúc dâng trào trong lúc nghe, chạm ngón cái và trỏ trong 3 giây.
+- Bài tập sáng: Viết 3 điều biết ơn vào sổ tay ngay sau khi thức dậy.
+- Lời dặn Coach: Hãy tin tưởng vào trí tuệ của tiềm thức và kiên trì mỗi đêm..."
+                                                className="w-full p-3 rounded-xl border border-amber-200 bg-white text-xs font-normal focus:border-amber-500 outline-none text-slate-800 shadow-sm"
+                                            />
+                                        </div>
+
+                                        {/* 5. Ghi chú bổ sung / Toàn văn cẩm nang */}
+                                        <div className="space-y-1.5 pt-2 border-t border-amber-200/60">
+                                            <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                                                <span>📖 5. Toàn văn cẩm nang / Ghi chú bổ sung thêm (Nếu có):</span>
+                                            </label>
+                                            <textarea
+                                                rows={4}
+                                                value={formData.detailedGuide || ''}
+                                                onChange={(e) => setFormData({ ...formData, detailedGuide: e.target.value })}
+                                                placeholder="Nội dung ghi chú hoặc cẩm nang toàn văn bổ sung khác nếu muốn..."
+                                                className="w-full p-3 rounded-xl border border-amber-200 bg-white text-xs font-normal focus:border-amber-500 outline-none text-slate-800 shadow-sm"
+                                            />
                                         </div>
                                     </div>
                                 </div>
@@ -1786,7 +1961,7 @@ export default function AdminHypnosis() {
                             {/* Modal Actions Footer */}
                             <div className="pt-4 border-t border-slate-200 flex items-center justify-between">
                                 <span className="text-[11px] text-slate-400 font-medium">
-                                    Dữ liệu được lưu trực tiếp vào Firestore `hypnosis_audios`
+                                    Nội dung được lưu qua máy chủ; chỉ tài khoản có quyền quản lý thôi miên mới truy cập được tệp âm thanh.
                                 </span>
                                 <div className="flex items-center gap-2">
                                     <button

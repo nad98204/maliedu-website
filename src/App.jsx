@@ -5,7 +5,6 @@ import {
   Route,
   Routes,
   useLocation,
-  useParams,
 } from "react-router";
 import { Toaster } from 'react-hot-toast';
 import ScrollToTop from "./components/ScrollToTop";
@@ -27,9 +26,6 @@ const AdminLayout = lazy(() => import("./layouts/AdminLayout"));
 const Home = lazy(() => import("./pages/Home"));
 const GioiThieu = lazy(() => import("./pages/GioiThieu"));
 const DaoTao = lazy(() => import("./pages/DaoTao"));
-const News = lazy(() => import("./pages/News"));
-const NewsDetail = lazy(() => import("./pages/NewsDetail"));
-const PostList = lazy(() => import("./pages/PostList"));
 const Testimonials = lazy(() => import("./pages/Testimonials"));
 const Recruitment = lazy(() => import("./pages/Recruitment"));
 const RecruitmentDetail = lazy(() => import("./pages/RecruitmentDetail"));
@@ -45,7 +41,6 @@ const Checkout = lazy(() => import("./pages/Checkout"));
 const OrderHistory = lazy(() => import("./pages/OrderHistory"));
 const OrderSuccess = lazy(() => import("./pages/OrderSuccess"));
 const Profile = lazy(() => import("./pages/Profile"));
-const Contact = lazy(() => import("./pages/Contact"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const LandingPageViewer = lazy(() => import("./pages/LandingPageViewer"));
@@ -69,11 +64,6 @@ const LinkBio = lazy(() => import("./pages/LinkBio"));
 const MediaShare = lazy(() => import("./pages/MediaShare"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
-const LegacyPostRedirect = () => {
-  const { slug } = useParams();
-  return <Navigate to={slug ? `/tin-tuc/${slug}` : "/tin-tuc"} replace />;
-};
-
 // Admin Pages
 const AdminLogin = lazy(() => import("./pages/admin/Login"));
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
@@ -86,9 +76,6 @@ const AdminStudents = lazy(() => import("./pages/admin/AdminStudents"));
 const AdminDataAds = lazy(() => import("./pages/admin/AdminDataAds"));
 const AdminInstructors = lazy(() => import("./pages/admin/AdminInstructors"));
 const AdminRecruitment = lazy(() => import("./pages/admin/AdminRecruitment"));
-const AdminPosts = lazy(() => import("./pages/admin/AdminPosts"));
-const AdminPostFeedback = lazy(() => import("./pages/admin/AdminPostFeedback"));
-const AdminKnowledge = lazy(() => import("./pages/admin/AdminKnowledge"));
 const AdminTestimonials = lazy(() => import("./pages/admin/AdminTestimonials"));
 const AdminLandings = lazy(() => import("./pages/admin/AdminLandings"));
 const AdminReferralCustomers = lazy(() => import("./pages/admin/AdminReferralCustomers"));
@@ -162,10 +149,6 @@ const AppShell = () => {
             <Route path="/gioi-thieu/mong-coaching" element={<MongCoaching />} />
             <Route path="/thoi-mien" element={<ThoiMien />} />
             <Route path="/thoi-mien-cua-toi" element={<ThoiMien isPurchasedOnly={true} />} />
-            <Route path="/tin-tuc" element={<News />} />
-            <Route path="/tin-tuc/:slug" element={<NewsDetail />} />
-            <Route path="/bai-viet/:slug" element={<LegacyPostRedirect />} />
-            <Route path="/kien-thuc/:slug" element={<PostList />} />
             <Route path="/cam-nhan/:category?" element={<Testimonials />} />
             <Route path="/tuyen-dung" element={<Recruitment />} />
             <Route path="/tuyen-dung/:slug" element={<RecruitmentDetail />} />
@@ -177,7 +160,6 @@ const AppShell = () => {
             <Route path="/tai-lieu/:courseId" element={<CourseTaiLieu />} />
             <Route path="/ghi-chep/:courseId" element={<CourseGhiChep />} />
             <Route path="/dang-ky" element={<Register />} />
-            <Route path="/lien-he" element={<Contact />} />
             <Route path="/chinh-sach-bao-mat" element={<PrivacyPolicy />} />
             <Route path="/gio-hang" element={<Navigate to="/khoa-hoc" replace />} />
             <Route path="/cart" element={<Navigate to="/khoa-hoc" replace />} />
@@ -216,9 +198,6 @@ const AppShell = () => {
               <Route path="referral-customers" element={<AdminReferralCustomers />} />
               <Route path="instructors" element={<AdminInstructors />} />
               <Route path="recruitment" element={<AdminRecruitment />} />
-              <Route path="posts" element={<AdminPosts />} />
-              <Route path="posts/feedback" element={<AdminPostFeedback />} />
-              <Route path="knowledge" element={<AdminKnowledge />} />
               <Route path="testimonials" element={<AdminTestimonials />} />
               <Route path="landings" element={<AdminLandings />} />
               <Route path="landing-builder" element={<AdminLandingBuilder />} />

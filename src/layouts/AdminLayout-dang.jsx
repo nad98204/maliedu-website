@@ -1,6 +1,6 @@
 import { NavLink, Outlet, useNavigate } from "react-router";
 import { signOut } from "firebase/auth";
-import { BookOpen, GraduationCap, Users } from "lucide-react";
+import { GraduationCap, Users } from "lucide-react";
 
 import { auth } from "../firebase";
 
@@ -35,13 +35,6 @@ const AdminLayout = () => {
           </NavLink>
           <NavLink to="/admin/banners" className={getNavClasses}>
             Quan ly Banner
-          </NavLink>
-          <NavLink to="/admin/posts" className={getNavClasses}>
-            Tin Tức & Bài Viết
-          </NavLink>
-          <NavLink to="/admin/knowledge" className={getNavClasses}>
-            <BookOpen className="h-4 w-4" />
-            Kho Kiến Thức
           </NavLink>
           <NavLink to="/admin/courses" className={getNavClasses}>
             <GraduationCap className="h-4 w-4" />

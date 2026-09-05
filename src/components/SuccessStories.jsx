@@ -631,10 +631,10 @@ const SuccessStories = () => {
             Xem thêm cảm nhận
           </Link>
           <Link
-            to="/lien-he"
+            to="/khoa-hoc"
             className="px-8 py-3 rounded-full bg-[#6b0f1a] text-white font-semibold hover:bg-[#7a1220] transition-all duration-300 shadow-md hover:shadow-lg"
           >
-            Đăng ký tư vấn
+            Khám phá khóa học
           </Link>
         </div>
       </div>

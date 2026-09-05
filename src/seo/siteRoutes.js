@@ -180,16 +180,6 @@ export const ROUTE_SEO = {
     description: "Kho lưu trữ các bản thôi miên độc quyền bạn đã đăng ký sở hữu trên Mali Edu.",
     url: "/thoi-mien-cua-toi",
   }),
-  "/tin-tuc": indexable(
-    {
-      title: "Tin tức & Sự kiện",
-      description:
-        "Cập nhật những tin tức mới nhất, kiến thức chuyển hóa và câu chuyện thành công tại Mali Edu.",
-      url: "/tin-tuc",
-    },
-    "0.8",
-    "daily",
-  ),
   "/khoa-hoc": indexable(
     {
       title: "Danh sách khóa học",
@@ -242,15 +232,6 @@ export const ROUTE_SEO = {
     "0.7",
     "weekly",
   ),
-  "/lien-he": indexable(
-    {
-      title: "Liên hệ Mali Edu",
-      description:
-        "Liên hệ Mali Edu để được tư vấn về chương trình đào tạo, khóa học và hành trình phát triển bản thân phù hợp.",
-      url: "/lien-he",
-    },
-    "0.6",
-  ),
   "/chinh-sach-bao-mat": indexable(
     {
       title: "Chính sách bảo mật",
@@ -260,58 +241,6 @@ export const ROUTE_SEO = {
     },
     "0.5",
     "yearly",
-  ),
-  "/kien-thuc/luat-nhan-qua-hap-dan": indexable({
-    title: "Luật Nhân Quả & Luật Hấp Dẫn",
-    description:
-      "Kiến thức nền tảng về Luật Nhân Quả, Luật Hấp Dẫn và cách ứng dụng vào hành trình chuyển hóa bản thân.",
-    url: "/kien-thuc/luat-nhan-qua-hap-dan",
-  }),
-  "/kien-thuc/tiem-thuc-niem-tin": indexable({
-    title: "Tiềm Thức & Tái Lập Trình Niềm Tin",
-    description:
-      "Hiểu cơ chế vận hành của tiềm thức và thực hành tái lập trình những niềm tin đang giới hạn cuộc sống.",
-    url: "/kien-thuc/tiem-thuc-niem-tin",
-  }),
-  "/kien-thuc/chua-lanh-noi-tam": indexable({
-    title: "Chữa Lành Nội Tâm",
-    description:
-      "Kiến thức và thực hành giúp nhận diện tổn thương, chữa lành nội tâm và xây dựng mối quan hệ lành mạnh với chính mình.",
-    url: "/kien-thuc/chua-lanh-noi-tam",
-  }),
-  "/kien-thuc/thien-thuc-hanh": indexable({
-    title: "Thiền Dẫn & Thực Hành Năng Lượng",
-    description:
-      "Các bài viết và hướng dẫn thiền, thực hành năng lượng giúp nuôi dưỡng sự bình an và tỉnh thức.",
-    url: "/kien-thuc/thien-thuc-hanh",
-  }),
-  "/kien-thuc/nang-luong-tien": indexable({
-    title: "Năng Lượng Tiền & Thịnh Vượng",
-    description:
-      "Khám phá mối quan hệ với tiền, tháo gỡ niềm tin giới hạn và xây dựng tư duy thịnh vượng bền vững.",
-    url: "/kien-thuc/nang-luong-tien",
-  }),
-  "/kien-thuc/muc-tieu-hieu-suat": indexable({
-    title: "Mục Tiêu, Kỷ Luật & Hiệu Suất",
-    description:
-      "Phương pháp thiết lập mục tiêu, duy trì kỷ luật và nâng cao hiệu suất bằng sự kết hợp giữa nội lực và hành động.",
-    url: "/kien-thuc/muc-tieu-hieu-suat",
-  }),
-  "/kien-thuc/kinh-doanh-tinh-thuc": indexable({
-    title: "Kinh Doanh Bằng Bản Thể & Gieo Giá Trị",
-    description:
-      "Góc nhìn về kinh doanh tỉnh thức, xây dựng giá trị thật và phát triển bền vững từ bản thể.",
-    url: "/kien-thuc/kinh-doanh-tinh-thuc",
-  }),
-  "/kien-thuc/video-podcast": indexable(
-    {
-      title: "Video & Podcast Chuyển Hóa",
-      description:
-        "Tổng hợp video và podcast đồng hành cùng hành trình phát triển bản thân, chữa lành và kiến tạo thịnh vượng.",
-      url: "/kien-thuc/video-podcast",
-    },
-    "0.7",
-    "weekly",
   ),
 
   // Public campaign pages keep self-canonicals but stay out of the main sitemap.
@@ -432,8 +361,6 @@ export const ROUTE_SEO = {
 };
 
 export const DYNAMIC_CONTENT_ROUTES = [
-  { prefix: "/tin-tuc/", collection: "posts", requirePublished: true },
-  { prefix: "/bai-viet/", collection: "posts", requirePublished: true },
   { prefix: "/khoa-hoc/", collection: "courses", requirePublished: true },
   { prefix: "/tuyen-dung/", collection: "jobs", requirePublished: false },
   { prefix: "/giang-vien/", collection: "instructors", requirePublished: false },

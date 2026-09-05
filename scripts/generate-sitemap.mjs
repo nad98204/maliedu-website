@@ -188,7 +188,6 @@ const generatedOn = new Date().toISOString().split("T")[0];
 const counters = {
   static: 0,
   courses: 0,
-  posts: 0,
   jobs: 0,
 };
 
@@ -259,7 +258,7 @@ const formatCurrencyVnd = (value) => {
     : "";
 };
 
-const dynamicLinks = { courses: [], posts: [], jobs: [] };
+const dynamicLinks = { courses: [], jobs: [] };
 
 const addManifestRoute = (routePath, input = {}) => {
   const normalizedPath = normalizeRoutePath(routePath);
@@ -441,14 +440,10 @@ const fetchCollection = (collectionName, options) =>
 
 if (db || usePublicFirestore) {
   let courseDocuments = [];
-  let postDocuments = [];
   let jobDocuments = [];
 
   try {
-    [courseDocuments, postDocuments] = await Promise.all([
-      fetchCollection("courses", { publishedOnly: true }),
-      fetchCollection("posts", { publishedOnly: true }),
-    ]);
+    courseDocuments = await fetchCollection("courses", { publishedOnly: true });
   } catch (error) {
     if (!allowStaticOnly) {
       throw new Error(
@@ -528,63 +523,6 @@ if (db || usePublicFirestore) {
       label: displayedPrice ? `${courseTitle} – ${displayedPrice}` : courseTitle,
     });
     counters.courses += 1;
-  });
-
-  postDocuments.forEach((document) => {
-    const data = document.data;
-    const slug = String(data.slug || document.id || "").trim();
-    if (!slug) return;
-    const routePath = `/tin-tuc/${slug}`;
-    const postTitle = data.seoTitle || data.title || "Bài viết";
-    const postDescription =
-      data.seoDescription ||
-      data.excerpt ||
-      data.summary ||
-      "Bài viết mới từ Mali Edu.";
-    const publicationValue = data.publishedAt || data.publishAt || data.createdAt;
-    const publishedAt = toDateString(publicationValue);
-    const modifiedAt = toDateString(data.updatedAt || publicationValue);
-    addDynamicRoute({
-      path: routePath,
-      title: postTitle,
-      description: postDescription,
-      image: data.thumbnailUrl || data.imageUrl,
-      type: "article",
-      lastmod: modifiedAt,
-      prerenderBodyHtml: createPrerenderBodyHtml({
-        title: postTitle,
-        description: toPlainText(postDescription),
-        content: data.content,
-        links: [{ href: "/tin-tuc", label: "Xem thêm bài viết từ Mali Edu" }],
-      }),
-      createJsonLd: (seo) => [
-        {
-          "@context": "https://schema.org",
-          "@type": "NewsArticle",
-          headline: seo.title,
-          description: seo.description,
-          image: [seo.image],
-          ...(publishedAt ? { datePublished: publishedAt } : {}),
-          ...(modifiedAt ? { dateModified: modifiedAt } : {}),
-          author: {
-            "@type": "Person",
-            name: data.author || "Mali Edu",
-          },
-          publisher: organizationSchema,
-          mainEntityOfPage: {
-            "@type": "WebPage",
-            "@id": seo.url,
-          },
-        },
-        createBreadcrumbSchema([
-          { name: "Trang chủ", url: `${SITE_URL}/` },
-          { name: "Tin tức", url: `${SITE_URL}/tin-tuc` },
-          { name: seo.title, url: seo.url },
-        ]),
-      ],
-    });
-    dynamicLinks.posts.push({ href: routePath, label: postTitle });
-    counters.posts += 1;
   });
 
   jobDocuments.forEach((document) => {
@@ -681,17 +619,11 @@ setPrerenderBody("/", {
     { href: "/dao-tao/khoi-thong-dong-tien", label: "Chương trình Khơi Thông Dòng Tiền" },
     { href: "/dao-tao/vut-toc-muc-tieu", label: "Chương trình Vút Tốc Mục Tiêu" },
     ...dynamicLinks.courses,
-    ...dynamicLinks.posts,
-    { href: "/lien-he", label: "Đăng ký tư vấn cùng Mali Edu" },
   ],
 });
 setPrerenderBody("/khoa-hoc", {
   content: "Danh sách khóa học trực tuyến đang được xuất bản tại Mali Edu.",
   links: dynamicLinks.courses,
-});
-setPrerenderBody("/tin-tuc", {
-  content: "Các bài viết, câu chuyện học viên và kiến thức chuyển hóa mới nhất từ Mali Edu.",
-  links: dynamicLinks.posts,
 });
 setPrerenderBody("/tuyen-dung", {
   content:
@@ -728,7 +660,7 @@ const urlEntry = ({ loc, lastmod }) =>
 const sitemapXml = [
   '<?xml version="1.0" encoding="UTF-8"?>',
   `<!-- Sitemap tự động sinh lúc build – ${generatedOn} -->`,
-  `<!-- Tổng URL: ${sitemapEntries.size} (tĩnh: ${counters.static}, khóa học: ${counters.courses}, bài viết: ${counters.posts}, tuyển dụng: ${counters.jobs}) -->`,
+  `<!-- Tổng URL: ${sitemapEntries.size} (tĩnh: ${counters.static}, khóa học: ${counters.courses}, tuyển dụng: ${counters.jobs}) -->`,
   '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"',
   '  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"',
   '  xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9',

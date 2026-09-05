@@ -5,8 +5,12 @@ import { useLocation } from "react-router";
 const FloatingContact = () => {
     const location = useLocation();
     
-    // Hide contact buttons on admin pages
-    if (location.pathname.startsWith("/admin")) {
+    // Ẩn nút liên hệ trên trang quản trị admin và các trang nghe thôi miên / thiền định
+    // để tránh che khuất thanh phát nhạc, nút bấm mở nghe và làm gián đoạn người nghe
+    if (
+        location.pathname.startsWith("/admin") ||
+        location.pathname.startsWith("/thoi-mien")
+    ) {
         return null;
     }
 

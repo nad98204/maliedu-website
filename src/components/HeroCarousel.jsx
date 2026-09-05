@@ -39,11 +39,11 @@ const getAspectRatioFromDimensions = (width, height) => {
 
 const normalizeCtaLink = (value) => {
   const rawValue = String(value || "").trim();
-  if (!rawValue || rawValue === "#") return "/lien-he";
+  if (!rawValue || rawValue === "#") return "/khoa-hoc";
 
   try {
     const url = new URL(rawValue, "https://luathapdan.vn");
-    if (!["http:", "https:"].includes(url.protocol)) return "/lien-he";
+    if (!["http:", "https:"].includes(url.protocol)) return "/khoa-hoc";
     if (
       ["luathapdan.edu.vn", "www.luathapdan.edu.vn", "localhost", "127.0.0.1"].includes(
         url.hostname,
@@ -55,7 +55,7 @@ const normalizeCtaLink = (value) => {
       ? `${url.pathname}${url.search}${url.hash}` || "/"
       : url.toString();
   } catch {
-    return "/lien-he";
+    return "/khoa-hoc";
   }
 };
 

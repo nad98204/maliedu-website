@@ -359,7 +359,7 @@ export const createSePayWebhookHandler = ({
 
     const now = new Date();
     enrollmentLookups.forEach(({ courseId, enrollmentRef, item }, index) => {
-      if (item.productType === "hypnosis" || initialOrder.productType === "hypnosis") {
+      if (item.productType === "hypnosis" || (!item.productType && initialOrder.productType === "hypnosis")) {
         transaction.set(db.collection("user_audios").doc(`${buyer.uid}_${courseId}`), {
           userId: buyer.uid,
           userEmail: buyer.email || "",

@@ -17,7 +17,7 @@ import {
     getDefaultCourseAccessPlan,
     getPlanEffectivePrice,
 } from "../utils/coursePricing";
-import { INITIAL_TRACKS } from "../data/hypnosisTracksData";
+import { getHypnosisCatalog } from "../utils/hypnosisService";
 
 const Checkout = () => {
     const { courseId } = useParams();
@@ -131,27 +131,18 @@ const Checkout = () => {
                 console.warn("Could not query courses collection:", courseErr);
             }
 
-            // 2. Kiểm tra bản thôi miên trong Firestore (hypnosis_audios)
+            // Only real, available products from the sanitized server catalog can be purchased.
             try {
-                const hypnosisSnap = await getDoc(doc(db, "hypnosis_audios", courseId));
+                const tracks = await getHypnosisCatalog();
                 if (!active) return;
-                if (hypnosisSnap.exists()) {
-                    const hypnosisCourseData = buildHypnosisPayload({ ...hypnosisSnap.data(), id: hypnosisSnap.id });
-                    setCourse(hypnosisCourseData);
+                const track = tracks.find(item => item.id === courseId && item.available);
+                if (track) {
+                    setCourse(buildHypnosisPayload(track));
                     setSelectedPlanId('lifetime-audio');
                     return;
                 }
-            } catch (hypnosisErr) {
-                console.warn("Could not query hypnosis_audios collection:", hypnosisErr);
-            }
-
-            // 3. Kiểm tra bản thôi miên trong INITIAL_TRACKS mẫu
-            const sampleTrack = INITIAL_TRACKS.find(t => t.id === courseId);
-            if (sampleTrack) {
-                const hypnosisCourseData = buildHypnosisPayload(sampleTrack);
-                setCourse(hypnosisCourseData);
-                setSelectedPlanId('lifetime-audio');
-                return;
+            } catch (error) {
+                console.warn('Could not load hypnosis catalog:', error);
             }
 
             // 4. Không tìm thấy sản phẩm

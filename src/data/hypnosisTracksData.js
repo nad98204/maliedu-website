@@ -76,6 +76,67 @@ export const INITIAL_TRACKS = [
         recommendedCycle: 'Nghe liên tục 21 đêm trước khi ngủ',
         bestTime: '15 - 30 phút trước khi chìm vào giấc ngủ đêm',
         targetAudience: 'Người kinh doanh, người hay lo lắng về tiền bạc, muốn mở rộng dung lượng tài chính.',
+        detailedGuide: `🌟 HƯỚNG DẪN LẮNG NGHE CHUYÊN SÂU TỪ MASTER COACH MONG:
+
+1. Chuẩn bị trường năng lượng trước khi nghe:
+- Uống 1 ngụm nước ấm nhỏ trước khi nằm xuống 10 phút.
+- Đặt điện thoại ở chế độ "Không làm phiền" (Do Not Disturb) để tránh gián đoạn sóng não.
+- Tắt đèn, giữ phòng thoáng đãng, thơm dịu (tinh dầu trầm hoặc oải hương nếu có).
+
+2. Kỹ thuật thở kích hoạt sóng não Theta:
+- Nằm ngửa tự nhiên, hai tay thả lỏng buông xuôi dọc cơ thể.
+- Hít vào chậm bằng mũi trong 4 giây, cảm nhận bụng phồng lên.
+- Giữ nhẹ hơi thở trong 2 giây.
+- Thở ra bằng miệng thật êm trong 6 giây, tưởng tượng mọi căng thẳng tài chính đang tan biến. Lặp lại chu kỳ thở này 3-5 lần.
+
+3. Hiện tượng thường gặp khi đi vào thôi miên:
+- Cảm giác cơ thể nặng trĩu hoặc bồng bềnh nhẹ tênh: Đây là dấu hiệu cơ bắp hoàn toàn buông lỏng và vỏ não chủ động đang nhường chỗ cho tiềm thức.
+- Ngủ quên sau 10-15 phút: Đây là trạng thái hoàn hảo nhất. Tiềm thức không bao giờ ngủ, các câu ám thị thịnh vượng sẽ được cài đặt trực tiếp vào tầng tiềm thức sâu nhất.
+
+4. Ghi chú chuyển hóa từ Chuyên gia:
+- Hãy duy trì lắng nghe tối thiểu 21 đêm liên tiếp. Sau khi thức dậy mỗi sáng, hãy giữ trạng thái mỉm cười và cảm nhận lòng biết ơn với mọi điều nhỏ bé trong ngày.`,
+        guidePreparation: `1. Chuẩn bị không gian & thiết bị:
+- Tắt đèn, giữ phòng ngủ thoáng mát (22 - 25°C), thơm dịu (tinh dầu trầm hoặc oải hương).
+- Đeo tai nghe stereo 2 bên để công nghệ sóng não (Binaural Beats) tác động đồng pha vào hai bán cầu não.
+- Bật chế độ "Không làm phiền" (Do Not Disturb) trên điện thoại để tránh bị gián đoạn.
+- Uống 1 ngụm nước ấm nhỏ trước khi nằm xuống 10 phút để thanh lọc điện giải.
+
+2. Kỹ thuật thở kích hoạt sóng não Theta:
+- Nằm ngửa tự nhiên, hai tay buông lỏng dọc thân người.
+- Hít vào chậm bằng mũi trong 4 giây, cảm nhận bụng phồng lên.
+- Giữ nhẹ hơi thở trong 2 - 4 giây.
+- Thở ra bằng miệng thật êm trong 6 - 8 giây, tưởng tượng mọi căng thẳng tài chính đang tan biến.
+- Lặp lại chu kỳ thở này 3-5 lần cho đến khi cơ bắp buông lỏng hoàn toàn.`,
+        guideRoutine: `1. Khung giờ vàng để đón nhận ám thị:
+- 15 - 30 phút trước khi chìm vào giấc ngủ đêm (khi rào cản phân tích của vỏ não hạ xuống, tiềm thức mở toang cửa sổ để tiếp nhận).
+- Buổi sáng sớm khi vừa thức dậy (10 phút đầu ngày khi còn mơ màng giữa Alpha và Theta).
+
+2. Lộ trình 21 ngày tái lập trình tiềm thức:
+- Tuần 1 (Ngày 1 - 7): Thanh lọc các nỗi sợ vô thức về nợ nần, thiếu thốn và các vết thương tài chính từ quá khứ.
+- Tuần 2 (Ngày 8 - 14): Cài đặt 10 niềm tin giàu có của triệu phú vào tầng tiềm thức sâu nhất.
+- Tuần 3 (Ngày 15 - 21): Đồng hóa năng lượng, mở rộng dung lượng đón nhận và kích hoạt sự thu hút dòng tiền thực tế.
+- Lời dặn: Duy trì liên tục tối thiểu 21 đêm không ngắt quãng.`,
+        guidePhenomena: `Các hiện tượng tâm thức thường gặp & Giải thích khoa học:
+
+1. Ngủ quên sau 10 - 15 phút:
+- Hoàn toàn tự nhiên và rất tốt! Tiềm thức không bao giờ ngủ, khi ý thức tạm ngủ thì tiềm thức tiếp nhận 100% ám thị mà không bị sự nghi ngờ hay phán xét cản trở.
+
+2. Cơ thể nặng trĩu hoặc bồng bềnh nhẹ tênh:
+- Dấu hiệu cơ bắp hoàn toàn buông lỏng và vỏ não chủ động đang nhường chỗ cho tiềm thức (trạng thái Trance thôi miên sâu).
+
+3. Cảm giác tê rần ở trán (luân xa 6):
+- Tần số 888Hz và sóng não Theta kích thích các thụ thể thần kinh vỏ não trước trán, khơi thông trực giác về tài chính.
+
+4. Cảm xúc trỗi dậy, thở phào nhẹ nhõm:
+- Hiện tượng thanh lọc cảm xúc (Catharsis), những gánh nặng tiền bạc vô thức đang được giải phóng.`,
+        guideBonus: `1. Kỹ thuật Neo cảm xúc (NLP Anchoring):
+- Khi nghe đến đoạn cảm giác giàu có và biết ơn dâng trào mạnh mẽ, hãy chạm nhẹ đầu ngón cái và ngón trỏ vào nhau giữ 3-5 giây. Ban ngày khi cần tự tin tài chính, chỉ cần bấm 2 ngón tay lại để triệu hồi cảm giác này.
+
+2. Bài tập thực hành buổi sáng:
+- Mỗi sáng thức dậy, dành 3 phút viết ra 3 điều biết ơn về dòng tiền và đọc to: "Tôi biết ơn vì tiền bạc đang chảy vào cuộc đời tôi từ nhiều nguồn bất ngờ và hạnh phúc."
+
+3. Lời nhắn từ Master Coach Mong:
+- "Hãy kiên trì như người gieo hạt giống. Đừng đào hạt lên xem mỗi ngày, hãy tưới tẩm bằng niềm tin và cảm xúc tích cực mỗi đêm!"`,
         effects: [
             'Cài đặt 10 tư duy thịnh vượng của triệu phú vào tầng tiềm thức sâu nhất mỗi đêm khi ngủ.',
             'Xóa bỏ nỗi sợ vô thức về nợ nần, thiếu thốn và rào cản tài chính từ quá khứ.',
@@ -118,6 +179,56 @@ export const INITIAL_TRACKS = [
         recommendedCycle: 'Nghe mỗi tối trước khi ngủ',
         bestTime: 'Ngay khi nằm lên giường chuẩn bị ngủ',
         targetAudience: 'Người bị mất ngủ, ngủ không sâu giấc, hay thức giấc nửa đêm hoặc mệt mỏi sau ngày dài.',
+        detailedGuide: `🌙 HƯỚNG DẪN PHỤC HỒI & RU NGỦ CHUYÊN SÂU TỪ COACH TUỆ NGHI:
+
+1. Nguyên lý tác động của Sóng Não Delta & Tần số 528Hz:
+- Bản thu kết hợp công nghệ âm thanh 2 tai (Binaural Beats) ở tần số Delta (1.5 - 3Hz) cùng tần số Solfeggio 528Hz - tần số tái tạo năng lượng sinh học và chữa lành tế bào.
+- Não bộ sẽ được dẫn dắt tự nhiên từ nhịp Beta (lo âu, suy nghĩ) chuyển dần sang Alpha (thư giãn) và chìm hẳn vào Delta (ngủ sâu, phục hồi).
+
+2. Tư thế & Cách đặt thiết bị tối ưu:
+- Nếu đeo tai nghe: Sử dụng tai nghe chụp êm hoặc tai nghe nhét vừa vặn, mức âm lượng 30% - 40% (chỉ cần vừa nghe thấy giọng thì thầm).
+- Nếu dùng loa ngoài: Đặt điện thoại cách đầu giường khoảng 1 - 1.5 mét, mức âm lượng vừa phải đủ lấp đầy không gian phòng ngủ.
+
+3. Quy trình 3 bước buông xả trước khi ngủ:
+- Bước 1: Khép hờ mắt, buông lỏng hoàn toàn cơ mặt, vầng trán và khóe mắt.
+- Bước 2: Thả lỏng bờ vai và các ngón tay. Mỗi lần thở ra, cảm nhận cơ thể đang lún sâu xuống chiếc nệm êm ái.
+- Bước 3: Đừng cố gắng phân tích lời nói hay giai điệu. Hãy để giọng dẫn đưa bạn xuôi theo dòng chảy bình an của vũ trụ.
+
+4. Lưu ý cho người khó ngủ kinh niên:
+- Hãy kiên trì nghe liên tục trong 7-14 ngày để đồng hồ sinh học được tái lập trình. Bạn sẽ thức dậy với cảm giác đầu óc trong trẻo, cơ thể nhẹ nhàng và tràn đầy năng lượng tươi mới.`,
+        guidePreparation: `1. Chuẩn bị không gian phòng ngủ:
+- Giữ phòng tối hoàn toàn hoặc dùng bịt mắt ngủ mềm mại, hạ nhiệt độ phòng mát mẻ.
+- Tắt thông báo điện thoại, đặt mức âm lượng tai nghe 30% - 40% (chỉ cần nghe thì thầm êm ái).
+- Tránh tiếp xúc màn hình xanh (điện thoại, laptop) trước khi nghe ít nhất 15 phút.
+
+2. Kỹ thuật thở 4-7-8 kích hoạt sóng não Delta:
+- Đặt đầu lưỡi chạm nhẹ sau răng cửa trên.
+- Hít sâu bằng mũi trong 4 giây.
+- Giữ hơi thở tĩnh lặng trong 7 giây.
+- Thở ra thật chậm bằng miệng trong 8 giây tạo tiếng xì êm dịu.
+- Lặp lại 4 chu kỳ thở để kích hoạt hệ thần kinh phó giao cảm, đưa cơ thể chìm vào giấc ngủ tự nhiên.`,
+        guideRoutine: `1. Khung giờ vàng:
+- Ngay khi nằm lên giường chuẩn bị ngủ (22:00 - 23:30 là khung giờ lý tưởng nhất của gan và túi mật thải độc).
+
+2. Lộ trình thực hành phục hồi giấc ngủ:
+- Ngày 1 - 3: Giúp não bộ cắt đứt thói quen suy nghĩ miên man khi nằm xuống giường.
+- Ngày 4 - 7: Nhịp sinh học được ổn định, thời gian chìm vào giấc ngủ rút ngắn xuống dưới 15 phút.
+- Ngày 8 - 21: Phục hồi chu kỳ giấc ngủ sâu (Deep Sleep & REM), tế bào và hệ miễn dịch được tái tạo toàn diện mỗi đêm.`,
+        guidePhenomena: `Các hiện tượng thường gặp & Giải đáp khoa học:
+
+1. Ngủ quên sau 5 - 10 phút:
+- Hoàn toàn bình thường! Sóng Delta có tác dụng ru ngủ cực mạnh. Bạn không cần phải cố gắng nghe hết bài, việc ngủ thiếp đi chứng tỏ sóng não đã đồng bộ thành công.
+
+2. Giấc mơ sống động hơn hoặc mơ thấy điều kỳ lạ:
+- Khi sóng não Delta được kích hoạt sâu, tiềm thức đang dọn dẹp các mớ hỗn độn thông tin ban ngày (hiện tượng xả rác tâm trí). Sau vài đêm, giấc ngủ sẽ hoàn toàn êm đềm không mộng mị.
+
+3. Thức dậy sớm hơn bình thường nhưng không thấy mệt:
+- Chất lượng giấc ngủ sâu tăng lên giúp cơ thể phục hồi nhanh gấp 2 lần, bạn thức dậy với tinh thần sảng khoái và tỉnh táo.`,
+        guideBonus: `1. Bài tập buông xả trước khi ngủ:
+- Hãy nói thầm với chính mình: "Ngày hôm nay đã trọn vẹn. Tôi buông bỏ mọi việc và trao cơ thể cho giấc ngủ chữa lành."
+
+2. Lời dặn từ Coach Tuệ Nghi:
+- "Đừng ép mình phải ngủ ngay lập tức. Hãy tận hưởng từng âm thanh êm dịu và để cơ thể tự khắc trôi vào trạng thái ngủ say ngọt ngào nhất."`,
         effects: [
             'Cắt đứt ngay lập tức những suy nghĩ miên man và âu lo dồn ứ sau ngày dài làm việc.',
             'Kích thích cơ thể sản sinh Melatonin tự nhiên, giúp chìm vào giấc ngủ êm ái sau 10-15 phút.',
@@ -150,13 +261,60 @@ export const INITIAL_TRACKS = [
         coverImage: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=600&q=80',
         coverImageSquare: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=600&h=600&q=80',
         coverImageBanner: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=1200&h=675&q=80',
-        audioUrl: 'https://actions.google.com/sounds/v1/ambiences/outdoor_ambience.ogg',
+        audioUrl: '', // Paid samples require a real protected upload before publication.
         tags: ['Cao Cấp', 'Khơi Thông'],
         brainwave: 'Sóng não Theta (5Hz) & Tần số Solfeggio 432Hz',
         frequency: '432Hz Hòa hợp rung động tự nhiên & Vũ trụ',
         recommendedCycle: '21 ngày liên tục vào sáng sớm hoặc tối',
         bestTime: 'Sáng sớm khi mới thức dậy hoặc tối trước khi ngủ',
         targetAudience: 'Người gặp bế tắc doanh thu, nỗ lực nhiều nhưng tiền vào rồi lại ra, có ký ức sợ thiếu tiền.',
+        detailedGuide: `💎 HƯỚNG DẪN KHƠI THÔNG DÒNG TIỀN CHUYÊN SÂU TỪ MASTER COACH MONG:
+
+1. Lộ trình 21 ngày chuyển hóa tiềm thức tài chính:
+- Giai đoạn 1 (Ngày 1 - 7): Thanh lọc các ký ức tiêu cực, vết thương tài chính và cảm giác sợ hãi thiếu thốn từ quá khứ.
+- Giai đoạn 2 (Ngày 8 - 14): Tái cấu trúc tư duy, cài đặt niềm tin xứng đáng đón nhận sự thịnh vượng dồi dào.
+- Giai đoạn 3 (Ngày 15 - 21): Đồng pha tần số rung động với trường năng lượng tiền bạc, kích hoạt sự thu hút may mắn tự nhiên.
+
+2. Thời điểm lắng nghe hiệu quả nhất:
+- Buổi sáng: Ngay khi vừa thức dậy, khi tâm trí còn trong trạng thái mơ màng (nửa tỉnh nửa mê).
+- Buổi tối: 15-20 phút trước khi chìm vào giấc ngủ.
+
+3. Bài tập thực hành song hành (Tăng hiệu quả x3 lần):
+- Mỗi sáng sau khi nghe, hãy mở sổ tay và viết xuống: "Tôi biết ơn vì tiền bạc đang chảy vào cuộc đời tôi từ nhiều nguồn bất ngờ và hạnh phúc."
+- Khi chi tiêu bất kỳ khoản tiền nào, hãy gửi gắm lời chúc phúc đến người nhận tiền và tin tưởng dòng tiền sẽ quay trở lại gấp nhiều lần.`,
+        guidePreparation: `1. Chuẩn bị trường năng lượng thịnh vượng:
+- Đeo tai nghe stereo chất lượng cao để cảm nhận trường sóng Solfeggio 432Hz cộng hưởng tự nhiên.
+- Chuẩn bị một cốc nước ấm, một cuốn sổ tay nhỏ và một cây bút bên cạnh giường.
+- Tắt mọi thông báo, giữ tâm thái háo hức và biết ơn như một đứa trẻ chuẩn bị nhận quà.
+
+2. Kỹ thuật thở khai mở luân xa tim & đón nhận:
+- Đặt bàn tay phải lên ngực trái (trái tim), bàn tay trái ngửa ra tự nhiên trên đùi hoặc nệm.
+- Hít sâu vào trong 4 giây, hình dung luồng ánh sáng vàng kim đang tràn ngập lồng ngực.
+- Giữ hơi thở trong 3 giây và nói thầm: "Tôi xứng đáng với sự giàu có dồi dào".
+- Thở ra chậm trong 6 giây, buông bỏ mọi nỗi sợ thiếu thốn. Lặp lại 3 lần.`,
+        guideRoutine: `1. Khung giờ vàng:
+- Sáng sớm (khi vừa mở mắt): Lúc này tiềm thức chưa bị các âu lo thực tế chen vào, bài thôi miên sẽ cài đặt tần số đón nhận tài lộc cho toàn bộ ngày làm việc.
+- Tối trước khi ngủ: Củng cố niềm tin thịnh vượng trong suốt giấc ngủ đêm.
+
+2. Lộ trình 21 ngày:
+- Tuần 1: Nhận diện và gột rửa các vết thương tiền bạc quá khứ (ký ức nợ nần, cãi vã vì tiền).
+- Tuần 2: Chuyển đổi từ tâm thức "chật vật tranh giành" sang tâm thức "dòng tiền tự do tuôn chảy".
+- Tuần 3: Kích hoạt luật hấp dẫn, đón nhận các cơ hội kinh doanh, quý nhân và dòng tiền bất ngờ.`,
+        guidePhenomena: `Các hiện tượng chuyển hóa tâm thức:
+
+1. Thấy nhẹ nhõm, không còn cảm giác thắt nghẹn ở ngực khi nghĩ về các khoản chi:
+- Dấu hiệu luân xa tim và các rào cản sợ hãi đã được giải phóng.
+
+2. Xuất hiện những ý tưởng kinh doanh mới bất chợt trong ngày:
+- Sóng Theta kích thích trực giác kinh doanh và sự kết nối giữa các vùng não sáng tạo.
+
+3. Dòng tiền nhỏ bắt đầu quay trở lại (được tặng quà, khách hàng cũ mua lại):
+- Sự phản hồi của vũ trụ khi tần số rung động bên trong bạn đã thay đổi sang trạng thái dư dả.`,
+        guideBonus: `1. Bài tập chuyển hóa dòng tiền ra vào:
+- Mỗi khi thanh toán hóa đơn hoặc chuyển tiền, hãy mỉm cười và thầm chúc phúc: "Số tiền này đi để làm giàu cho xã hội và sẽ quay về với tôi gấp mười lần."
+
+2. Lời dặn từ Master Coach Mong:
+- "Tiền bạc là một dạng năng lượng yêu thương. Khi bên trong bạn tràn đầy sự trân trọng và không còn sợ hãi, dòng tiền sẽ tự khắc tìm đến bạn một cách tự nhiên nhất."`,
         effects: [
             'Tháo gỡ các tắc nghẽn vô thức và niềm tin sai lệch về tiền bạc từ thời thơ ấu.',
             'Chuyển đổi tâm thức từ "chật vật kiếm tiền" sang "đón nhận dòng tiền hạnh phúc".',
@@ -211,7 +369,7 @@ export const INITIAL_TRACKS = [
         coverImage: 'https://images.unsplash.com/photo-1506126613408-eca07ce68773?auto=format&fit=crop&w=600&q=80',
         coverImageSquare: 'https://images.unsplash.com/photo-1506126613408-eca07ce68773?auto=format&fit=crop&w=600&h=600&q=80',
         coverImageBanner: 'https://images.unsplash.com/photo-1506126613408-eca07ce68773?auto=format&fit=crop&w=1200&h=675&q=80',
-        audioUrl: 'https://actions.google.com/sounds/v1/weather/thunderstorm.ogg',
+        audioUrl: '', // Paid samples require a real protected upload before publication.
         tags: ['Mục Tiêu', 'Tự Tin'],
         brainwave: 'Sóng não Alpha (10Hz) & Tần số 417Hz Xóa bỏ rào cản',
         frequency: '417Hz Hóa giải trở ngại & kích hoạt nội lực',
@@ -269,7 +427,7 @@ export const INITIAL_TRACKS = [
         coverImage: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=600&q=80',
         coverImageSquare: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=600&h=600&q=80',
         coverImageBanner: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=1200&h=675&q=80',
-        audioUrl: 'https://actions.google.com/sounds/v1/ambiences/outdoor_ambience.ogg',
+        audioUrl: '', // Paid samples require a real protected upload before publication.
         tags: ['Combo VIP', '21 Ngày', 'Trọn Gói'],
         brainwave: 'Hệ thống đa tầng sóng: Alpha - Theta - Delta chuẩn hóa',
         frequency: 'Chuỗi tần số Solfeggio 432Hz - 528Hz - 888Hz',
@@ -374,6 +532,67 @@ export const getTrackDetails = (track, allTracks = []) => {
         .filter(t => t.id !== track.id && (t.category === track.category || t.isFree))
         .slice(0, 3);
 
+    // Default In-Depth Guides for Purchased tab (Chuyên sâu)
+    const defaultGuidePreparation = track.guidePreparation || (
+        track.category === 'sleep'
+            ? `1. Chuẩn bị không gian phòng ngủ:
+- Giữ phòng tối hoàn toàn hoặc dùng bịt mắt ngủ mềm mại, hạ nhiệt độ phòng mát mẻ (22 - 25°C).
+- Tắt thông báo điện thoại, đặt mức âm lượng tai nghe 30% - 40% (chỉ cần nghe thì thầm êm ái).
+- Tránh tiếp xúc màn hình xanh (điện thoại, laptop) trước khi nghe ít nhất 15 phút.
+
+2. Kỹ thuật thở 4-7-8 kích hoạt sóng não Delta:
+- Đặt đầu lưỡi chạm nhẹ sau răng cửa trên.
+- Hít sâu bằng mũi trong 4 giây.
+- Giữ hơi thở tĩnh lặng trong 7 giây.
+- Thở ra thật chậm bằng miệng trong 8 giây tạo tiếng xì êm dịu.
+- Lặp lại 4 chu kỳ thở để kích hoạt hệ thần kinh phó giao cảm, đưa cơ thể chìm vào giấc ngủ tự nhiên.`
+            : `1. Chuẩn bị không gian & thiết bị:
+- Tắt đèn, giữ phòng ngủ thoáng mát (22 - 25°C), thơm dịu (tinh dầu trầm hoặc oải hương nếu có).
+- Đeo tai nghe stereo 2 bên để công nghệ sóng não (Binaural Beats) tác động đồng pha vào hai bán cầu não.
+- Bật chế độ "Không làm phiền" (Do Not Disturb) trên điện thoại để tránh bị gián đoạn.
+- Uống 1 ngụm nước ấm nhỏ trước khi nằm xuống 10 phút để thanh lọc điện giải.
+
+2. Kỹ thuật thở kích hoạt sóng não Theta:
+- Nằm ngửa tự nhiên, hai tay buông lỏng dọc thân người.
+- Hít vào chậm bằng mũi trong 4 giây, cảm nhận bụng phồng lên.
+- Giữ nhẹ hơi thở trong 2 - 4 giây.
+- Thở ra bằng miệng thật êm trong 6 - 8 giây, giải tỏa toàn bộ căng thẳng ra khỏi các lỗ chân lông.
+- Lặp lại chu kỳ thở này 3-5 lần cho đến khi toàn thân lún sâu vào sự tĩnh lặng.`
+    );
+
+    const defaultGuideRoutine = track.guideRoutine || `1. Khung giờ vàng để đón nhận ám thị:
+- 15 - 30 phút trước khi chìm vào giấc ngủ đêm (khi rào cản phân tích của vỏ não hạ xuống, tiềm thức mở toang cửa sổ để tiếp nhận).
+- Hoặc buổi sáng sớm khi vừa thức dậy (10 phút đầu ngày khi sóng não còn dao động giữa Alpha và Theta).
+
+2. Lộ trình 21 ngày tái lập trình tiềm thức:
+- Tuần 1 (Ngày 1 - 7): Thanh lọc căng thẳng và các phản xạ sợ hãi tiêu cực tích tụ lâu ngày.
+- Tuần 2 (Ngày 8 - 14): Cài đặt rãnh tư duy mới và những niềm tin tích cực vào tầng tiềm thức sâu nhất.
+- Tuần 3 (Ngày 15 - 21): Đồng hóa năng lượng, củng cố mạng neuron mới và kích hoạt sự thu hút thực tế.
+- Lời dặn: Hãy kiên trì duy trì liên tục tối thiểu 21 ngày không ngắt quãng để tạo rãnh neuron thần kinh bền vững.`;
+
+    const defaultGuidePhenomena = track.guidePhenomena || `Các hiện tượng tâm thức thường gặp & Giải thích khoa học:
+
+1. Ngủ quên sau 10 - 15 phút:
+- Hoàn toàn tự nhiên và rất tốt! Tiềm thức không bao giờ ngủ, khi ý thức tạm ngủ thì tiềm thức tiếp nhận 100% ám thị mà không bị sự nghi ngờ hay phán xét cản trở.
+
+2. Cơ thể nặng trĩu hoặc bồng bềnh nhẹ tênh:
+- Dấu hiệu cơ bắp hoàn toàn buông lỏng và vỏ não chủ động đang nhường chỗ cho tiềm thức (trạng thái Trance thôi miên sâu).
+
+3. Cảm giác tê rần ở trán (luân xa 6) hoặc đỉnh đầu:
+- Tần số âm thanh và sóng não kích thích tuần hoàn máu và thụ thể thần kinh tại vỏ não trước trán, khơi thông trực giác và cảm giác bình an.
+
+4. Cảm xúc trỗi dậy, thở phào nhẹ nhõm:
+- Hiện tượng thanh lọc cảm xúc (Catharsis), những u uất hoặc tắc nghẽn vô thức dồn nén từ lâu đang được giải phóng êm ái.`;
+
+    const defaultGuideBonus = track.guideBonus || `1. Kỹ thuật Neo cảm xúc (NLP Anchoring):
+- Khi nghe đến đoạn cảm xúc tích cực dâng trào mạnh mẽ, hãy chạm nhẹ đầu ngón cái và ngón trỏ vào nhau giữ trong 3 - 5 giây. Ban ngày khi cần định tâm, chỉ cần bấm 2 ngón tay lại để kích hoạt trạng thái bình an, tự tin.
+
+2. Bài tập thực hành buổi sáng (3 phút):
+- Ngay sau khi thức dậy, hãy dành 3 phút viết ra 3 điều biết ơn và 3 câu khẳng định tương ứng với mục tiêu của bạn.
+
+3. Lời dặn từ Master Coach:
+- "Hãy kiên trì gieo hạt giống tốt vào tiềm thức mỗi đêm. Hãy tin tưởng vào trí tuệ bên trong bạn và để chuyển hóa diễn ra một cách tự nhiên nhất."`;
+
     return {
         ...track,
         brainwave: track.brainwave || defaultBrainwave,
@@ -385,6 +604,11 @@ export const getTrackDetails = (track, allTracks = []) => {
         effects: defaultEffects,
         howToUse: defaultHowToUse,
         precautions: defaultPrecautions,
+        guidePreparation: defaultGuidePreparation,
+        guideRoutine: defaultGuideRoutine,
+        guidePhenomena: defaultGuidePhenomena,
+        guideBonus: defaultGuideBonus,
+        detailedGuide: track.detailedGuide || '',
         coverImageSquare: track.coverImageSquare || track.coverImage,
         coverImageBanner: track.coverImageBanner || track.coverImageSquare || track.coverImage,
         coverImage: track.coverImageSquare || track.coverImage,

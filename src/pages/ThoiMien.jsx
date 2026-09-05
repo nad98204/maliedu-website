@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { 
     Headphones, 
     Play, 
@@ -45,21 +45,23 @@ import {
     Copy
 } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router';
-import { collection, getDocs, doc, setDoc, query, where, serverTimestamp } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import toast from 'react-hot-toast';
-import { auth, db } from '../firebase';
+import { auth } from '../firebase';
+import { getHypnosisCatalog, getHypnosisLibrary, claimHypnosisTrack, getHypnosisPlayback } from '../utils/hypnosisService';
 import SEO from '../components/SEO';
+import AuthModal from '../components/AuthModal';
 import { getAffiliateByUserId } from '../utils/affiliateService';
 
 import { 
     HYPNOSIS_CATEGORIES as CATEGORIES, 
-    INITIAL_TRACKS, 
     DEFAULT_HYPNOSIS_EXPERTS, 
     getTrackDetails 
 } from '../data/hypnosisTracksData';
 
-const LOCAL_STORAGE_OWNED_KEY = 'maliedu_owned_audio_ids';
+
+
+const playbackExpired = (expires) => Boolean(expires && expires * 1000 <= Date.now());
 
 const formatTime = (seconds) => {
     if (isNaN(seconds) || seconds < 0) return '00:00';
@@ -73,16 +75,13 @@ const ThoiMien = ({ isPurchasedOnly = false }) => {
     const navigate = useNavigate();
     const isPurchasedView = isPurchasedOnly || location.pathname === '/thoi-mien-cua-toi' || location.search.includes('tab=purchased');
 
-    const [tracks, setTracks] = useState(INITIAL_TRACKS);
+    const [tracks, setTracks] = useState([]);
     const [viewMode, setViewMode] = useState('grid'); // 'grid' (2 cột) hoặc 'list' (danh sách gọn)
-    const [ownedTrackIds, setOwnedTrackIds] = useState(() => {
-        try {
-            const cached = localStorage.getItem(LOCAL_STORAGE_OWNED_KEY);
-            return cached ? JSON.parse(cached) : [];
-        } catch {
-            return [];
-        }
-    });
+    const [ownedTrackIds, setOwnedTrackIds] = useState([]);
+    const [libraryLoading, setLibraryLoading] = useState(true);
+    const [catalogLoading, setCatalogLoading] = useState(true);
+    const [playback, setPlayback] = useState(null);
+    const [playbackRequest, setPlaybackRequest] = useState(0);
 
     const [activeCategory, setActiveCategory] = useState('all');
     const [selectedExpert, setSelectedExpert] = useState('all');
@@ -94,14 +93,21 @@ const ThoiMien = ({ isPurchasedOnly = false }) => {
     const [isMuted, setIsMuted] = useState(false);
     const [selectedPaidTrack, setSelectedPaidTrack] = useState(null);
     const [selectedDetailTrack, setSelectedDetailTrack] = useState(null);
+    const [selectedGuideTrack, setSelectedGuideTrack] = useState(null);
+    const [activeGuideTab, setActiveGuideTab] = useState('preparation');
     const [user, setUser] = useState(null);
     const [authLoading, setAuthLoading] = useState(true);
+    const [authModalOpen, setAuthModalOpen] = useState(false);
     const [userAffiliateProfile, setUserAffiliateProfile] = useState(null);
     const [copiedTrackId, setCopiedTrackId] = useState(null);
 
     const activeDetailData = useMemo(() => {
         return selectedDetailTrack ? getTrackDetails(selectedDetailTrack, tracks) : null;
     }, [selectedDetailTrack, tracks]);
+
+    const activeGuideData = useMemo(() => {
+        return selectedGuideTrack ? getTrackDetails(selectedGuideTrack, tracks) : null;
+    }, [selectedGuideTrack, tracks]);
 
     // Lay danh sach chuyen gia duy nhat
     const availableExperts = useMemo(() => {
@@ -132,38 +138,26 @@ const ThoiMien = ({ isPurchasedOnly = false }) => {
 
     const audioRef = useRef(null);
 
-    const isBunnyStream = useMemo(() => {
-        const url = currentTrack?.audioUrl || '';
-        return Boolean(
-            url && (url.includes('iframe.mediadelivery.net') || /^[0-9a-f]{8}-[0-9a-f]{4}/i.test(url))
-        );
-    }, [currentTrack]);
-
+    const isBunnyStream = playback?.provider === 'bunny';
     const bunnyIframeUrl = useMemo(() => {
-        if (!currentTrack?.audioUrl) return '';
-        const raw = currentTrack.audioUrl;
-        if (raw.includes('iframe.mediadelivery.net')) {
-            const sep = raw.includes('?') ? '&' : '?';
-            return `${raw}${sep}autoplay=true`;
-        }
-        if (/^[0-9a-f]{8}-[0-9a-f]{4}/i.test(raw)) {
-            return `https://iframe.mediadelivery.net/embed/738609/${raw}?autoplay=true`;
-        }
-        return '';
-    }, [currentTrack]);
-
-    // Save to localStorage whenever ownedTrackIds change
-    useEffect(() => {
-        try {
-            localStorage.setItem(LOCAL_STORAGE_OWNED_KEY, JSON.stringify(ownedTrackIds));
-        } catch {
-            // ignore
-        }
-    }, [ownedTrackIds]);
+        if (!isBunnyStream || !playback?.playbackUrl || playback.userId !== user?.uid) return '';
+        const url = new URL(playback.playbackUrl);
+        url.searchParams.set('autoplay', 'true');
+        return url.toString();
+    }, [isBunnyStream, playback, user?.uid]);
 
     // Check user auth
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+            audioRef.current?.pause();
+            audioRef.current?.removeAttribute('src');
+            setCurrentTrack(null);
+            setSelectedGuideTrack(null);
+            setPlayback(null);
+            setIsPlaying(false);
+            setOwnedTrackIds([]);
+            setLibraryLoading(Boolean(currentUser));
+            try { localStorage.removeItem('maliedu_owned_audio_ids'); } catch { /* old cache is never trusted */ }
             setUser(currentUser);
             setAuthLoading(false);
         });
@@ -238,86 +232,78 @@ const ThoiMien = ({ isPurchasedOnly = false }) => {
             setCopiedTrackId(track.id);
             toast.success(`Đã sao chép link tiếp thị (Mã CTV: ${profile.affiliateCode})!`);
             setTimeout(() => setCopiedTrackId(null), 3000);
-        } catch (err) {
+        } catch {
             toast.error('Không thể tự động sao chép link.');
         }
     };
 
-    // Load from Firestore if available
+    // Only sanitized catalog metadata is public. Do not substitute sellable sample data on errors.
     useEffect(() => {
-        const fetchHypnosisTracks = async () => {
-            try {
-                const q = query(collection(db, 'hypnosis_audios'));
-                const snap = await getDocs(q);
-                if (!snap.empty) {
-                    const loaded = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-                    setTracks(loaded);
-                }
-            } catch (err) {
-                // Keep initial tracks on fallback
-            }
-        };
-        fetchHypnosisTracks();
+        const controller = new AbortController();
+        getHypnosisCatalog(controller.signal).then(setTracks).catch(error => {
+            if (!controller.signal.aborted) toast.error(error.message);
+        }).finally(() => { if (!controller.signal.aborted) setCatalogLoading(false); });
+        return () => controller.abort();
     }, []);
 
-    // Sync owned tracks from Firestore if user is logged in
     useEffect(() => {
-        const fetchUserPurchased = async () => {
-            if (!user?.uid) return;
-            try {
-                const q = query(
-                    collection(db, 'user_audios'),
-                    where('userId', '==', user.uid)
-                );
-                const snap = await getDocs(q);
-                if (!snap.empty) {
-                    const firestoreIds = snap.docs.map(d => d.data().trackId).filter(Boolean);
-                    setOwnedTrackIds(prev => Array.from(new Set([...prev, ...firestoreIds])));
-                }
-            } catch (err) {
-                // Keep current state
-            }
-        };
-
-        fetchUserPurchased();
+        const controller = new AbortController();
+        // Auth observer has already cleared the previous account and set loading.
+        if (!user?.uid) return () => controller.abort();
+        getHypnosisLibrary(user, controller.signal).then(ids => {
+            if (!controller.signal.aborted) setOwnedTrackIds(Array.isArray(ids) ? ids : []);
+        }).catch(error => {
+            if (!controller.signal.aborted) toast.error(error.message);
+        }).finally(() => { if (!controller.signal.aborted) setLibraryLoading(false); });
+        return () => controller.abort();
     }, [user]);
 
-    // Handle AutoPlay when navigating from purchase
     useEffect(() => {
-        if (!isPurchasedView) return;
-        const searchParams = new URLSearchParams(location.search);
-        const autoPlayId = searchParams.get('autoPlay');
-        if (autoPlayId) {
-            const target = tracks.find(t => t.id === autoPlayId);
-            if (target) {
-                setCurrentTrack(target);
-                setCurrentTime(0);
-                setIsPlaying(true);
-            }
-        }
-    }, [location.search, isPurchasedView, tracks]);
+        if (!isPurchasedView || authLoading || libraryLoading || catalogLoading || !user) return;
+        const id = new URLSearchParams(location.search).get('autoPlay');
+        if (!id) return;
+        const target = tracks.find(track => track.id === id);
+        if (!target || !ownedTrackIds.includes(id)) return;
+        // Synchronize the requested route only after server ownership has loaded.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setCurrentTrack(target);
+        setCurrentTime(0);
+    }, [location.search, isPurchasedView, tracks, ownedTrackIds, user, authLoading, libraryLoading, catalogLoading]);
 
-    // Audio element events (Only active on purchased view)
+    // Every playback must be authorized by the server, even if client state is forged.
+    useEffect(() => {
+        const controller = new AbortController();
+        // Stop the previous source immediately when its authorization context changes.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setPlayback(null);
+        setIsPlaying(false);
+        audioRef.current?.pause();
+        audioRef.current?.removeAttribute('src');
+        if (!isPurchasedView || !user || !currentTrack || !ownedTrackIds.includes(currentTrack.id)) {
+            return () => controller.abort();
+        }
+        getHypnosisPlayback(currentTrack.id, user, controller.signal).then(result => {
+            if (!controller.signal.aborted && auth.currentUser?.uid === user.uid) {
+                setPlayback({ ...result, userId: user.uid });
+                if (result.provider === 'bunny') setIsPlaying(true);
+            }
+        }).catch(error => {
+            if (!controller.signal.aborted) toast.error(error.message);
+        });
+        return () => controller.abort();
+    }, [currentTrack, user, isPurchasedView, ownedTrackIds, playbackRequest]);
+
     useEffect(() => {
         const audio = audioRef.current;
-
-        if (isPurchasedView && currentTrack?.audioUrl) {
-            if (isBunnyStream) {
-                audio?.pause();
-                setIsPlaying(true);
-            } else if (audio) {
-                audio.src = currentTrack.audioUrl;
-                audio.play().then(() => {
-                    setIsPlaying(true);
-                }).catch(() => {
-                    setIsPlaying(false);
-                });
+        let active = true;
+        if (isPurchasedView && playback?.playbackUrl && playback.userId === user?.uid) {
+            if (!isBunnyStream && audio) {
+                audio.src = playback.playbackUrl;
+                audio.play().then(() => { if (active) setIsPlaying(true); }).catch(() => { if (active) setIsPlaying(false); });
             }
-        } else {
-            audio?.pause();
-            setIsPlaying(false);
         }
-    }, [currentTrack, isPurchasedView, isBunnyStream]);
+        return () => { active = false; audio?.pause(); audio?.removeAttribute('src'); };
+    }, [playback, isPurchasedView, isBunnyStream, user?.uid]);
 
     const handleTimeUpdate = () => {
         if (audioRef.current) {
@@ -334,15 +320,20 @@ const ThoiMien = ({ isPurchasedOnly = false }) => {
         }
     };
 
-    const handleSkip = (seconds) => {
+    const handleSkip = useCallback((seconds) => {
         if (audioRef.current) {
             const nextTime = Math.min(Math.max(0, audioRef.current.currentTime + seconds), duration || Infinity);
             audioRef.current.currentTime = nextTime;
             setCurrentTime(nextTime);
         }
-    };
+    }, [duration]);
 
     const togglePlay = () => {
+        if (!playback || !user || playback.userId !== user.uid) return;
+        if (!isPlaying && playbackExpired(playback.expires)) {
+            setPlaybackRequest(value => value + 1);
+            return;
+        }
         if (isBunnyStream) {
             setIsPlaying(!isPlaying);
             return;
@@ -434,7 +425,7 @@ const ThoiMien = ({ isPurchasedOnly = false }) => {
         } catch (e) {
             console.error('MediaSession setup error:', e);
         }
-    }, [currentTrack, isBunnyStream, duration]);
+    }, [currentTrack, isBunnyStream, duration, handleSkip]);
 
     // Đồng bộ trạng thái phát (playing / paused) lên MediaSession Lock Screen
     useEffect(() => {
@@ -462,66 +453,27 @@ const ThoiMien = ({ isPurchasedOnly = false }) => {
         }
     }, [currentTime, duration]);
 
-    // ACTION: Nhận bản miễn phí (mua 0đ) -> Tự động chuyển qua mục "Đã mua" và phát ngay!
     const handleClaimFreeTrack = async (track) => {
-        const updated = Array.from(new Set([...ownedTrackIds, track.id]));
-        setOwnedTrackIds(updated);
-
-        if (user?.uid) {
-            try {
-                await setDoc(doc(db, 'user_audios', `${user.uid}_${track.id}`), {
-                    userId: user.uid,
-                    userEmail: user.email || '',
-                    trackId: track.id,
-                    trackTitle: track.title,
-                    price: 0,
-                    isFree: true,
-                    createdAt: serverTimestamp(),
-                }, { merge: true });
-            } catch (e) {
-                console.warn('Could not save user audio to firestore:', e);
-            }
+        if (!user) {
+            toast.error('Vui lòng đăng nhập để nhận bản miễn phí.');
+            setAuthModalOpen(true);
+            return;
         }
-
-        toast.success(`🎉 Đã nhận "${track.title}"! Đang mở bài...`);
-        navigate(`/thoi-mien-cua-toi?autoPlay=${track.id}`);
+        if (track.available === false) { toast.error('Bản ghi chưa sẵn sàng để nghe.'); return; }
+        const uid = user.uid;
+        try {
+            await claimHypnosisTrack(track.id, user);
+            if (auth.currentUser?.uid !== uid) return;
+            setOwnedTrackIds(previous => Array.from(new Set([...previous, track.id])));
+            toast.success('Đã nhận bản miễn phí.');
+            navigate('/thoi-mien-cua-toi?autoPlay=' + encodeURIComponent(track.id));
+        } catch (error) { toast.error(error.message); }
     };
 
-    // ACTION: Mua bản cao cấp -> Tự động chuyển qua mục "Đã mua" và phát ngay!
-    const handleUnlockPaidTrack = async (track) => {
-        const updated = Array.from(new Set([...ownedTrackIds, track.id]));
-        setOwnedTrackIds(updated);
-
-        if (user?.uid) {
-            try {
-                await setDoc(doc(db, 'user_audios', `${user.uid}_${track.id}`), {
-                    userId: user.uid,
-                    userEmail: user.email || '',
-                    trackId: track.id,
-                    trackTitle: track.title,
-                    price: track.price || 'Trả phí',
-                    isFree: false,
-                    createdAt: serverTimestamp(),
-                }, { merge: true });
-            } catch (e) {
-                console.warn('Could not save user audio to firestore:', e);
-            }
-        }
-
-        setSelectedPaidTrack(null);
-        toast.success(`💎 Đã mở khóa "${track.title}"! Đang mở bài...`);
-        navigate(`/thoi-mien-cua-toi?autoPlay=${track.id}`);
-    };
-
-    // ACTION: Nghe bài hát (chỉ dùng trong màn hình ĐÃ MUA)
     const handlePlayOwnedTrack = (track) => {
-        if (currentTrack?.id === track.id) {
-            togglePlay();
-        } else {
-            setCurrentTrack(track);
-            setCurrentTime(0);
-            setIsPlaying(true);
-        }
+        if (!user || !ownedTrackIds.includes(track.id)) { toast.error('Bạn chưa có quyền nghe bản này.'); return; }
+        if (currentTrack?.id === track.id) togglePlay();
+        else { setCurrentTrack(track); setCurrentTime(0); }
     };
 
     // Lọc danh sách bài:
@@ -573,6 +525,7 @@ const ThoiMien = ({ isPurchasedOnly = false }) => {
                 url={isPurchasedView ? "/thoi-mien-cua-toi" : "/thoi-mien"}
             />
 
+            <AuthModal isOpen={authModalOpen} onClose={() => setAuthModalOpen(false)} />
             {/* Hidden Audio & Bunny Stream Player (Chỉ phát ở mục Đã mua) */}
             {isPurchasedView && !isBunnyStream && (
                 <audio
@@ -778,7 +731,14 @@ const ThoiMien = ({ isPurchasedOnly = false }) => {
                             return (
                                 <div
                                     key={track.id}
-                                    onClick={() => setSelectedDetailTrack(track)}
+                                    onClick={() => {
+                                        if (isPurchasedView) {
+                                            setSelectedGuideTrack(track);
+                                            setActiveGuideTab('preparation');
+                                        } else {
+                                            setSelectedDetailTrack(track);
+                                        }
+                                    }}
                                     className={`group flex flex-col justify-between rounded-2xl border bg-white p-2.5 sm:p-3.5 transition-all duration-300 hover:shadow-md cursor-pointer hover:border-[#9B2528]/40 ${
                                         isThisSelected && isPurchasedView
                                             ? 'border-red-500 ring-2 ring-red-500/10 shadow-md' 
@@ -875,40 +835,57 @@ const ThoiMien = ({ isPurchasedOnly = false }) => {
                                     {/* Action Button */}
                                     <div className="mt-2.5 pt-2 border-t border-slate-100" onClick={(e) => e.stopPropagation()}>
                                         {isPurchasedView ? (
-                                            <button
-                                                onClick={() => handlePlayOwnedTrack(track)}
-                                                className={`w-full py-1.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 ${
-                                                    isThisPlaying 
-                                                        ? 'bg-red-50 text-[#9B2528]' 
-                                                        : 'bg-slate-900 text-white hover:bg-[#9B2528]'
-                                                }`}
-                                            >
-                                                {isThisPlaying ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
-                                                <span>{isThisPlaying ? 'Tạm dừng' : 'Nghe ngay'}</span>
-                                            </button>
+                                            <div className="grid grid-cols-2 gap-1.5 w-full">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handlePlayOwnedTrack(track)}
+                                                    className={`py-1.5 px-1.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 shadow-sm active:scale-95 ${
+                                                        isThisPlaying 
+                                                            ? 'bg-red-50 text-[#9B2528] border border-red-200' 
+                                                            : 'bg-slate-900 text-white hover:bg-[#9B2528]'
+                                                    }`}
+                                                >
+                                                    {isThisPlaying ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3 fill-current" />}
+                                                    <span>{isThisPlaying ? 'Tạm dừng' : 'Nghe ngay'}</span>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setSelectedGuideTrack(track);
+                                                        setActiveGuideTab('preparation');
+                                                    }}
+                                                    className="py-1.5 px-1.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 border border-amber-300/80 bg-amber-50 text-amber-900 hover:bg-amber-100 hover:border-amber-400 shadow-sm active:scale-95"
+                                                    title="Xem cẩm nang hướng dẫn chuyên sâu"
+                                                >
+                                                    <BookOpen className="w-3 h-3 text-amber-700 shrink-0" />
+                                                    <span>Hướng dẫn</span>
+                                                </button>
+                                            </div>
                                         ) : isOwned ? (
                                             <Link
                                                 to={`/thoi-mien-cua-toi?autoPlay=${track.id}`}
-                                                className="w-full py-1.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-center"
+                                                className="w-full py-1.5 px-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-center border border-emerald-200 shadow-sm"
                                             >
-                                                <Check className="w-3 h-3" />
-                                                <span>Mở nghe</span>
+                                                <Check className="w-3.5 h-3.5" />
+                                                <span>Đã có • Mở nghe</span>
                                             </Link>
                                         ) : track.isFree ? (
                                             <button
+                                                disabled={!track.available}
                                                 onClick={() => handleClaimFreeTrack(track)}
                                                 className="w-full py-1.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 bg-[#9B2528] text-white hover:bg-[#7E1E21] shadow-sm active:scale-95"
                                             >
                                                 <Unlock className="w-3 h-3" />
-                                                <span>Nhận 0đ</span>
+                                                <span>{track.available ? 'Nhận 0đ' : 'Chưa sẵn sàng'}</span>
                                             </button>
                                         ) : (
                                             <button
+                                                disabled={!track.available}
                                                 onClick={() => navigate(`/thanh-toan/${track.id}`)}
                                                 className="w-full py-1.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 bg-gradient-to-r from-amber-500 to-amber-600 text-white hover:from-amber-600 hover:to-amber-700 shadow-sm active:scale-95"
                                             >
                                                 <Lock className="w-3 h-3" />
-                                                <span>Mua • {track.price}</span>
+                                                <span>{track.available ? `Mua • ${track.price}` : 'Chưa sẵn sàng'}</span>
                                             </button>
                                         )}
                                     </div>
@@ -964,7 +941,14 @@ const ThoiMien = ({ isPurchasedOnly = false }) => {
                             return (
                                 <div
                                     key={track.id}
-                                    onClick={() => setSelectedDetailTrack(track)}
+                                    onClick={() => {
+                                        if (isPurchasedView) {
+                                            setSelectedGuideTrack(track);
+                                            setActiveGuideTab('preparation');
+                                        } else {
+                                            setSelectedDetailTrack(track);
+                                        }
+                                    }}
                                     className={`group flex items-center justify-between gap-3 p-2.5 sm:p-3 rounded-2xl border bg-white transition hover:shadow-sm cursor-pointer hover:border-[#9B2528]/40 ${
                                         isThisSelected && isPurchasedView
                                             ? 'border-red-500 ring-2 ring-red-500/10' 
@@ -1036,38 +1020,55 @@ const ThoiMien = ({ isPurchasedOnly = false }) => {
                                     {/* Right: Action Button */}
                                     <div className="shrink-0 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                                         {isPurchasedView ? (
-                                            <button
-                                                onClick={() => handlePlayOwnedTrack(track)}
-                                                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 ${
-                                                    isThisPlaying ? 'bg-red-50 text-[#9B2528]' : 'bg-slate-900 text-white hover:bg-[#9B2528]'
-                                                }`}
-                                            >
-                                                {isThisPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
-                                                <span className="hidden sm:inline">{isThisPlaying ? 'Tạm dừng' : 'Nghe ngay'}</span>
-                                            </button>
+                                            <div className="flex items-center gap-1.5">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handlePlayOwnedTrack(track)}
+                                                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 ${
+                                                        isThisPlaying ? 'bg-red-50 text-[#9B2528]' : 'bg-slate-900 text-white hover:bg-[#9B2528]'
+                                                    }`}
+                                                >
+                                                    {isThisPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 fill-current" />}
+                                                    <span className="hidden sm:inline">{isThisPlaying ? 'Tạm dừng' : 'Nghe ngay'}</span>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setSelectedGuideTrack(track);
+                                                        setActiveGuideTab('preparation');
+                                                    }}
+                                                    className="px-2.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 border border-amber-300/80 bg-amber-50 text-amber-900 hover:bg-amber-100 shadow-sm active:scale-95"
+                                                    title="Xem cẩm nang hướng dẫn chuyên sâu"
+                                                >
+                                                    <BookOpen className="w-3.5 h-3.5 text-amber-700" />
+                                                    <span className="hidden sm:inline">Hướng dẫn</span>
+                                                </button>
+                                            </div>
                                         ) : isOwned ? (
                                             <Link
                                                 to={`/thoi-mien-cua-toi?autoPlay=${track.id}`}
-                                                className="px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                                                className="px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 shadow-sm"
                                             >
-                                                <Check className="w-3 h-3" />
-                                                <span>Đã có • Nghe</span>
+                                                <Check className="w-3.5 h-3.5" />
+                                                <span>Đã có • Mở nghe</span>
                                             </Link>
                                         ) : track.isFree ? (
                                             <button
+                                                disabled={!track.available}
                                                 onClick={() => handleClaimFreeTrack(track)}
                                                 className="px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 bg-[#9B2528] text-white hover:bg-[#7E1E21] shadow-sm active:scale-95"
                                             >
                                                 <Unlock className="w-3 h-3" />
-                                                <span>Nhận 0đ</span>
+                                                <span>{track.available ? 'Nhận 0đ' : 'Chưa sẵn sàng'}</span>
                                             </button>
                                         ) : (
                                             <button
+                                                disabled={!track.available}
                                                 onClick={() => navigate(`/thanh-toan/${track.id}`)}
                                                 className="px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 bg-gradient-to-r from-amber-500 to-amber-600 text-white hover:from-amber-600 shadow-sm active:scale-95"
                                             >
                                                 <Lock className="w-3 h-3" />
-                                                <span>{track.price}</span>
+                                                <span>{track.available ? track.price : 'Chưa sẵn sàng'}</span>
                                             </button>
                                         )}
 
@@ -1139,23 +1140,51 @@ const ThoiMien = ({ isPurchasedOnly = false }) => {
 
             {/* Sticky Audio Player Bar (CHỈ HIỂN THỊ TRONG MỤC ĐÃ MUA) */}
             {isPurchasedView && currentTrack && (
-                <div className="fixed bottom-16 lg:bottom-0 left-0 right-0 z-40 bg-slate-950/95 backdrop-blur-xl border-t border-white/10 text-white px-4 py-3 shadow-[0_-10px_30px_rgba(0,0,0,0.3)] transition-all">
+                <div className="fixed bottom-16 lg:bottom-0 left-0 right-0 z-[55] bg-slate-950/95 backdrop-blur-xl border-t border-white/10 text-white px-4 py-3 shadow-[0_-10px_30px_rgba(0,0,0,0.3)] transition-all">
                     <div className="mx-auto max-w-7xl flex flex-col sm:flex-row items-center justify-between gap-2.5 sm:gap-4">
                         
                         {/* Track Info */}
-                        <div className="flex items-center gap-3 w-full sm:w-auto">
-                            <img
-                                src={currentTrack.coverImageSquare || currentTrack.coverImage}
-                                alt={currentTrack.title}
-                                className="w-11 h-11 rounded-xl object-cover border border-white/10 shrink-0"
-                            />
-                            <div className="min-w-0 flex-1">
-                                <h4 className="text-xs sm:text-sm font-bold truncate text-white">
-                                    {currentTrack.title}
-                                </h4>
-                                <p className="text-[11px] text-amber-300 truncate font-medium">
-                                    {currentTrack.author}
-                                </p>
+                        <div className="flex items-center justify-between sm:justify-start gap-3 w-full sm:w-auto">
+                            <div className="flex items-center gap-3 min-w-0 flex-1 sm:flex-initial">
+                                <img
+                                    src={currentTrack.coverImageSquare || currentTrack.coverImage}
+                                    alt={currentTrack.title}
+                                    className="w-11 h-11 rounded-xl object-cover border border-white/10 shrink-0"
+                                />
+                                <div className="min-w-0 flex-1">
+                                    <h4 className="text-xs sm:text-sm font-bold truncate text-white">
+                                        {currentTrack.title}
+                                    </h4>
+                                    <p className="text-[11px] text-amber-300 truncate font-medium">
+                                        {currentTrack.author}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Nút Hướng dẫn & Đóng player trên mobile */}
+                            <div className="flex items-center gap-1 shrink-0 sm:hidden">
+                                <button
+                                    onClick={() => {
+                                        setSelectedGuideTrack(currentTrack);
+                                        setActiveGuideTab('preparation');
+                                    }}
+                                    className="p-1.5 text-amber-300 hover:text-white transition rounded-lg hover:bg-white/10 flex items-center gap-1 text-[10px] font-bold border border-white/10 bg-white/5 px-2"
+                                    title="Xem cẩm nang hướng dẫn chuyên sâu"
+                                >
+                                    <BookOpen className="w-3.5 h-3.5" />
+                                    <span>Hướng dẫn</span>
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        audioRef.current?.pause();
+                                        setCurrentTrack(null);
+                                        setIsPlaying(false);
+                                    }}
+                                    className="p-1.5 text-slate-400 hover:text-white transition rounded-lg hover:bg-white/10"
+                                    title="Đóng trình phát"
+                                >
+                                    <X className="w-4 h-4" />
+                                </button>
                             </div>
                         </div>
 
@@ -1200,8 +1229,21 @@ const ThoiMien = ({ isPurchasedOnly = false }) => {
                             </div>
                         </div>
 
-                        {/* Additional controls */}
-                        <div className="hidden sm:flex items-center gap-3">
+                        {/* Additional controls (Desktop) */}
+                        <div className="hidden sm:flex items-center gap-2.5">
+                            {/* Nút xem Hướng dẫn nhanh khi đang nghe */}
+                            <button
+                                onClick={() => {
+                                    setSelectedGuideTrack(currentTrack);
+                                    setActiveGuideTab('preparation');
+                                }}
+                                className="px-2.5 py-1.5 text-xs font-bold text-amber-300 hover:text-white bg-white/10 hover:bg-white/15 transition rounded-lg flex items-center gap-1.5 border border-white/10 shrink-0"
+                                title="Xem cẩm nang hướng dẫn chuyên sâu của bài này"
+                            >
+                                <BookOpen className="w-3.5 h-3.5 text-amber-400" />
+                                <span>Hướng dẫn</span>
+                            </button>
+
                             <button
                                 onClick={toggleMute}
                                 className="p-2 text-slate-400 hover:text-white transition rounded-lg hover:bg-white/5"
@@ -1368,6 +1410,42 @@ const ThoiMien = ({ isPurchasedOnly = false }) => {
                                         {activeDetailData.targetAudience}
                                     </div>
                                 )}
+                            </div>
+
+                            {/* ĐẶC QUYỀN MỞ KHÓA CẨM NANG CHUYÊN SÂU KHI SỞ HỮU */}
+                            <div className="rounded-2xl bg-gradient-to-br from-amber-500/10 via-amber-100/40 to-orange-500/10 border-2 border-amber-300/80 p-4 sm:p-5 shadow-sm space-y-2.5">
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="flex items-center gap-2">
+                                        <div className="p-1.5 rounded-lg bg-amber-600 text-white shadow-sm shrink-0">
+                                            <BookOpen className="w-4 h-4" />
+                                        </div>
+                                        <div>
+                                            <h3 className="text-xs sm:text-sm font-black text-amber-950 uppercase tracking-wide">
+                                                Cẩm nang thực hành chuyên sâu độc quyền
+                                            </h3>
+                                            <span className="text-[10px] font-bold text-amber-800 bg-amber-200/90 px-2 py-0.5 rounded-md">
+                                                💎 Đặc quyền dành riêng cho người sở hữu
+                                            </span>
+                                        </div>
+                                    </div>
+                                    {ownedTrackIds.includes(activeDetailData.id) && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setSelectedGuideTrack(activeDetailData);
+                                                setSelectedDetailTrack(null);
+                                                setActiveGuideTab('preparation');
+                                            }}
+                                            className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition shadow-sm shrink-0 flex items-center gap-1 active:scale-95"
+                                        >
+                                            <BookOpen className="w-3.5 h-3.5" />
+                                            <span>Mở cẩm nang</span>
+                                        </button>
+                                    )}
+                                </div>
+                                <p className="text-xs text-amber-900/90 leading-relaxed font-normal">
+                                    Học viên sau khi sở hữu sẽ được mở khóa: Kỹ thuật thở 4-7-8 kích hoạt sóng não Theta/Delta, lộ trình 21 ngày tái lập trình mạng neuron tiềm thức, giải mã các hiện tượng tâm thức thường gặp (ngủ quên, nặng trĩu cơ thể...) và bài tập neo cảm xúc NLP từ Master Coach.
+                                </p>
                             </div>
 
                             {/* 4. Hướng Dẫn Cách Sử Dụng (Cách dùng chuẩn khoa học) */}
@@ -1596,12 +1674,12 @@ const ThoiMien = ({ isPurchasedOnly = false }) => {
                                     <button
                                         onClick={() => {
                                             setSelectedDetailTrack(null);
-                                            navigate(`/thoi-mien-cua-toi?autoPlay=${activeDetailData.id}`);
+                                            handlePlayOwnedTrack(activeDetailData);
                                         }}
                                         className="px-6 sm:px-8 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs sm:text-sm shadow-md transition active:scale-95 flex items-center gap-2"
                                     >
                                         <Play className="w-4 h-4 fill-current" />
-                                        <span>Mở nghe ngay</span>
+                                        <span>{currentTrack?.id === activeDetailData.id && isPlaying ? 'Tạm dừng' : 'Mở nghe ngay'}</span>
                                     </button>
                                 ) : activeDetailData.isFree ? (
                                     <button
@@ -1648,6 +1726,7 @@ const ThoiMien = ({ isPurchasedOnly = false }) => {
                                         </a>
                                         <button
                                             onClick={() => {
+                                                if (!activeDetailData.available) { toast.error('Bản ghi chưa sẵn sàng để bán.'); return; }
                                                 const targetId = activeDetailData.id;
                                                 setSelectedDetailTrack(null);
                                                 navigate(`/thanh-toan/${targetId}`);
@@ -1659,6 +1738,400 @@ const ThoiMien = ({ isPurchasedOnly = false }) => {
                                         </button>
                                     </div>
                                 )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* MODAL CẨM NANG HƯỚNG DẪN CHUYÊN SÂU DÀNH CHO HỌC VIÊN ĐÃ SỞ HỮU */}
+            {selectedGuideTrack && activeGuideData && (
+                <div className="fixed inset-0 z-[95] flex items-end sm:items-center justify-center bg-black/85 backdrop-blur-md p-0 sm:p-4 animate-fade-in">
+                    <div className="relative w-full max-w-2xl sm:max-w-3xl rounded-t-[28px] sm:rounded-3xl bg-[#FAF8F5] text-slate-800 shadow-2xl h-[92vh] sm:h-[88vh] flex flex-col overflow-hidden border border-amber-900/20">
+                        
+                        {/* Header */}
+                        <div className="shrink-0 z-20 flex items-center justify-between border-b border-amber-200/70 bg-white/95 px-4 py-3 sm:px-6 sm:py-3.5 backdrop-blur-md">
+                            <div className="flex items-center gap-2.5 min-w-0 pr-3">
+                                <div className="p-1.5 rounded-lg bg-amber-600 text-white shadow-sm shrink-0">
+                                    <BookOpen className="w-4 h-4" />
+                                </div>
+                                <div className="min-w-0">
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="shrink-0 rounded-md bg-amber-100 text-amber-900 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider">
+                                            Cẩm nang chuyên sâu • Học viên sở hữu
+                                        </span>
+                                        <span className="text-[10px] text-slate-400 truncate hidden sm:inline">
+                                            {activeGuideData.segment || 'Thôi Miên Tiềm Thức'}
+                                        </span>
+                                    </div>
+                                    <h2 className="text-xs sm:text-sm font-bold text-slate-900 truncate">
+                                        {activeGuideData.title}
+                                    </h2>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setSelectedGuideTrack(null)}
+                                aria-label="Đóng cẩm nang"
+                                className="shrink-0 rounded-full p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        {/* Quick Player Bar inside Guidebook (Nghe trực tiếp trong cẩm nang) */}
+                        <div className="shrink-0 bg-slate-900 text-white px-4 py-2.5 sm:px-6 sm:py-3 flex items-center justify-between gap-3 shadow-inner">
+                            <div className="flex items-center gap-3 min-w-0 flex-1">
+                                <img
+                                    src={activeGuideData.coverImageSquare || activeGuideData.coverImage}
+                                    alt={activeGuideData.title}
+                                    className="w-9 h-9 sm:w-11 sm:h-11 rounded-lg object-cover border border-white/10 shrink-0"
+                                />
+                                <div className="min-w-0 flex-1">
+                                    <span className="text-[10px] font-bold text-amber-400 flex items-center gap-1">
+                                        <Radio className="w-2.5 h-2.5 shrink-0" />
+                                        <span className="truncate">{activeGuideData.brainwave}</span>
+                                    </span>
+                                    <h4 className="text-xs sm:text-sm font-bold text-white truncate">
+                                        {activeGuideData.title}
+                                    </h4>
+                                    <span className="text-[10px] text-slate-400 truncate block">
+                                        {activeGuideData.authorInfo?.name || activeGuideData.author} • {activeGuideData.duration}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* Direct Play/Pause Button */}
+                            <button
+                                type="button"
+                                onClick={() => handlePlayOwnedTrack(activeGuideData)}
+                                className={`px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-md active:scale-95 shrink-0 ${
+                                    currentTrack?.id === activeGuideData.id && isPlaying
+                                        ? 'bg-amber-500 text-slate-950 hover:bg-amber-400'
+                                        : 'bg-white text-slate-900 hover:bg-amber-50'
+                                }`}
+                            >
+                                {currentTrack?.id === activeGuideData.id && isPlaying ? (
+                                    <>
+                                        <Pause className="w-3.5 h-3.5 fill-current" />
+                                        <span>Tạm dừng</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
+                                        <span>Phát bài này</span>
+                                    </>
+                                )}
+                            </button>
+                        </div>
+
+                        {/* Navigation Tabs (Các kiểu hướng dẫn chuyên sâu) */}
+                        <div className="shrink-0 bg-white border-b border-slate-200/90 px-3 sm:px-6 flex items-center gap-1 sm:gap-2 overflow-x-auto [scrollbar-width:none] py-2">
+                            <button
+                                type="button"
+                                onClick={() => setActiveGuideTab('preparation')}
+                                className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition flex items-center gap-1.5 ${
+                                    activeGuideTab === 'preparation'
+                                        ? 'bg-amber-100 text-amber-950 border border-amber-300 shadow-sm'
+                                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                                }`}
+                            >
+                                <span>🧘</span>
+                                <span>Chuẩn bị & Thở</span>
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => setActiveGuideTab('routine')}
+                                className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition flex items-center gap-1.5 ${
+                                    activeGuideTab === 'routine'
+                                        ? 'bg-amber-100 text-amber-950 border border-amber-300 shadow-sm'
+                                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                                }`}
+                            >
+                                <span>📅</span>
+                                <span>Lộ trình 21 ngày</span>
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => setActiveGuideTab('phenomena')}
+                                className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition flex items-center gap-1.5 ${
+                                    activeGuideTab === 'phenomena'
+                                        ? 'bg-amber-100 text-amber-950 border border-amber-300 shadow-sm'
+                                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                                }`}
+                            >
+                                <span>🌊</span>
+                                <span>Hiện tượng tâm thức</span>
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => setActiveGuideTab('bonus')}
+                                className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition flex items-center gap-1.5 ${
+                                    activeGuideTab === 'bonus'
+                                        ? 'bg-amber-100 text-amber-950 border border-amber-300 shadow-sm'
+                                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                                }`}
+                            >
+                                <span>✍️</span>
+                                <span>Bài tập & Lời dặn</span>
+                            </button>
+
+                            {activeGuideData.detailedGuide && (
+                                <button
+                                    type="button"
+                                    onClick={() => setActiveGuideTab('full')}
+                                    className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition flex items-center gap-1.5 ${
+                                        activeGuideTab === 'full'
+                                            ? 'bg-amber-100 text-amber-950 border border-amber-300 shadow-sm'
+                                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                                    }`}
+                                >
+                                    <span>📜</span>
+                                    <span>Toàn văn cẩm nang</span>
+                                </button>
+                            )}
+                        </div>
+
+                        {/* Scrollable Guidebook Content */}
+                        <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-5 [scrollbar-width:thin]">
+                            
+                            {/* TAB 1: CHUẨN BỊ & KỸ THUẬT THỞ */}
+                            {activeGuideTab === 'preparation' && (
+                                <div className="space-y-4 animate-fade-in">
+                                    <div className="rounded-2xl bg-white border border-amber-200/80 p-4 sm:p-5 shadow-sm space-y-3">
+                                        <div className="flex items-center gap-2 border-b border-slate-100 pb-2.5">
+                                            <div className="p-2 rounded-xl bg-amber-50 text-amber-700">
+                                                <Activity className="w-4 h-4" />
+                                            </div>
+                                            <div>
+                                                <h3 className="text-xs sm:text-sm font-black text-slate-900 uppercase">
+                                                    Quy trình chuẩn bị & Kỹ thuật thở kích hoạt sóng não
+                                                </h3>
+                                                <p className="text-[11px] text-slate-500">
+                                                    Hạ tần số từ nhịp Beta (căng thẳng) về trạng thái Theta/Delta để đón nhận ám thị
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <div className="text-xs sm:text-sm text-slate-700 leading-relaxed whitespace-pre-line font-medium bg-amber-50/40 p-4 rounded-xl border border-amber-100">
+                                            {activeGuideData.guidePreparation}
+                                        </div>
+                                    </div>
+
+                                    {/* Technical Spec Box */}
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
+                                        <div className="rounded-xl bg-white border border-slate-200 p-3">
+                                            <span className="text-[10px] font-bold text-slate-400 uppercase block">Tần số âm thanh</span>
+                                            <span className="text-xs sm:text-sm font-black text-slate-800 mt-0.5 block">{activeGuideData.frequency}</span>
+                                        </div>
+                                        <div className="rounded-xl bg-white border border-slate-200 p-3">
+                                            <span className="text-[10px] font-bold text-slate-400 uppercase block">Chất lượng âm thanh</span>
+                                            <span className="text-xs sm:text-sm font-black text-emerald-700 mt-0.5 block">{activeGuideData.audioQuality}</span>
+                                        </div>
+                                        <div className="rounded-xl bg-white border border-slate-200 p-3 col-span-2 sm:col-span-1">
+                                            <span className="text-[10px] font-bold text-slate-400 uppercase block">Thời lượng bài thu</span>
+                                            <span className="text-xs sm:text-sm font-black text-slate-800 mt-0.5 block">{activeGuideData.duration}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* TAB 2: LỘ TRÌNH 21 NGÀY & KHUNG GIỜ VÀNG */}
+                            {activeGuideTab === 'routine' && (
+                                <div className="space-y-4 animate-fade-in">
+                                    <div className="rounded-2xl bg-white border border-amber-200/80 p-4 sm:p-5 shadow-sm space-y-3">
+                                        <div className="flex items-center gap-2 border-b border-slate-100 pb-2.5">
+                                            <div className="p-2 rounded-xl bg-emerald-50 text-emerald-700">
+                                                <Calendar className="w-4 h-4" />
+                                            </div>
+                                            <div>
+                                                <h3 className="text-xs sm:text-sm font-black text-slate-900 uppercase">
+                                                    Lộ trình 21 ngày & Khung giờ vàng đón nhận
+                                                </h3>
+                                                <p className="text-[11px] text-slate-500">
+                                                    Khoa học tái lập trình mạng neuron tiềm thức (Neuroplasticity)
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <div className="text-xs sm:text-sm text-slate-700 leading-relaxed whitespace-pre-line font-medium bg-emerald-50/30 p-4 rounded-xl border border-emerald-100">
+                                            {activeGuideData.guideRoutine}
+                                        </div>
+                                    </div>
+
+                                    {/* 21-Day Tracker Simulation Box */}
+                                    <div className="rounded-2xl bg-white border border-slate-200/90 p-4 shadow-sm space-y-2.5">
+                                        <div className="flex items-center justify-between">
+                                            <h4 className="text-xs font-black text-slate-900 uppercase">
+                                                Chu kỳ 21 ngày chuyển hóa thần kinh
+                                            </h4>
+                                            <span className="text-[11px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
+                                                Mỗi ngày 1 lần
+                                            </span>
+                                        </div>
+                                        <div className="grid grid-cols-7 gap-1.5 pt-1">
+                                            {Array.from({ length: 21 }).map((_, idx) => (
+                                                <div
+                                                    key={idx}
+                                                    className="h-8 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center text-[10px] font-bold text-slate-600 hover:border-amber-400 hover:bg-amber-50 transition"
+                                                    title={`Ngày ${idx + 1}`}
+                                                >
+                                                    N{idx + 1}
+                                                </div>
+                                            ))}
+                                        </div>
+                                        <p className="text-[10px] text-slate-400 italic">
+                                            * Khuyến nghị: Đánh dấu vào sổ tay hoặc ghi chú mỗi ngày bạn hoàn thành buổi nghe.
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* TAB 3: HIỆN TƯỢNG TÂM THỨC THƯỜNG GẶP */}
+                            {activeGuideTab === 'phenomena' && (
+                                <div className="space-y-4 animate-fade-in">
+                                    <div className="rounded-2xl bg-white border border-amber-200/80 p-4 sm:p-5 shadow-sm space-y-3">
+                                        <div className="flex items-center gap-2 border-b border-slate-100 pb-2.5">
+                                            <div className="p-2 rounded-xl bg-blue-50 text-blue-700">
+                                                <HelpCircle className="w-4 h-4" />
+                                            </div>
+                                            <div>
+                                                <h3 className="text-xs sm:text-sm font-black text-slate-900 uppercase">
+                                                    Các hiện tượng tâm thức thường gặp & Giải thích khoa học
+                                                </h3>
+                                                <p className="text-[11px] text-slate-500">
+                                                    Giải đáp chi tiết để học viên an tâm buông lỏng và đón nhận
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <div className="text-xs sm:text-sm text-slate-700 leading-relaxed whitespace-pre-line font-medium bg-blue-50/30 p-4 rounded-xl border border-blue-100">
+                                            {activeGuideData.guidePhenomena}
+                                        </div>
+                                    </div>
+
+                                    {/* Safety Box */}
+                                    <div className="rounded-2xl bg-red-50/60 border border-red-200 p-3.5 space-y-2">
+                                        <div className="flex items-center gap-1.5 text-red-900 text-xs font-bold">
+                                            <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+                                            <span>Nhắc nhở an toàn quan trọng</span>
+                                        </div>
+                                        <p className="text-[11px] text-red-800 leading-relaxed">
+                                            Tuyệt đối không nghe bài thôi miên này khi đang lái xe, vận hành máy móc hoặc làm những công việc đòi hỏi sự tỉnh táo cao độ.
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* TAB 4: BÀI TẬP BỔ TRỢ & LỜI DẶN COACH */}
+                            {activeGuideTab === 'bonus' && (
+                                <div className="space-y-4 animate-fade-in">
+                                    <div className="rounded-2xl bg-white border border-amber-200/80 p-4 sm:p-5 shadow-sm space-y-3">
+                                        <div className="flex items-center gap-2 border-b border-slate-100 pb-2.5">
+                                            <div className="p-2 rounded-xl bg-purple-50 text-purple-700">
+                                                <Sparkles className="w-4 h-4" />
+                                            </div>
+                                            <div>
+                                                <h3 className="text-xs sm:text-sm font-black text-slate-900 uppercase">
+                                                    Bài tập thực hành bổ trợ & Lời dặn từ Chuyên gia
+                                                </h3>
+                                                <p className="text-[11px] text-slate-500">
+                                                    Gia tăng hiệu quả chuyển hóa gấp nhiều lần qua kỹ thuật neo cảm xúc và bài tập sáng
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <div className="text-xs sm:text-sm text-slate-700 leading-relaxed whitespace-pre-line font-medium bg-purple-50/30 p-4 rounded-xl border border-purple-100">
+                                            {activeGuideData.guideBonus}
+                                        </div>
+                                    </div>
+
+                                    {/* Author Card inside Guide */}
+                                    <div className="rounded-2xl bg-white border border-slate-200 p-4 flex items-center gap-3.5 shadow-sm">
+                                        <img
+                                            src={activeGuideData.authorInfo?.avatar || activeGuideData.authorAvatar}
+                                            alt={activeGuideData.authorInfo?.name}
+                                            className="w-12 h-12 rounded-full object-cover border-2 border-amber-200 shrink-0"
+                                        />
+                                        <div className="min-w-0 flex-1">
+                                            <h4 className="text-xs sm:text-sm font-bold text-slate-900">
+                                                {activeGuideData.authorInfo?.name}
+                                            </h4>
+                                            <p className="text-[11px] text-[#9B2528] font-semibold">
+                                                {activeGuideData.authorInfo?.title}
+                                            </p>
+                                            <p className="text-[10px] text-slate-500 line-clamp-1 mt-0.5">
+                                                {activeGuideData.authorInfo?.bio}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* TAB 5: TOÀN VĂN CẨM NANG */}
+                            {activeGuideTab === 'full' && activeGuideData.detailedGuide && (
+                                <div className="space-y-4 animate-fade-in">
+                                    <div className="rounded-2xl bg-white border border-amber-200/80 p-4 sm:p-5 shadow-sm space-y-3">
+                                        <div className="flex items-center gap-2 border-b border-slate-100 pb-2.5">
+                                            <div className="p-2 rounded-xl bg-amber-100 text-amber-900">
+                                                <BookOpen className="w-4 h-4" />
+                                            </div>
+                                            <div>
+                                                <h3 className="text-xs sm:text-sm font-black text-slate-900 uppercase">
+                                                    Toàn văn cẩm nang hướng dẫn chuyên sâu
+                                                </h3>
+                                                <p className="text-[11px] text-slate-500">
+                                                    Bản ghi chú chi tiết từ chuyên gia đồng hành
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <div className="text-xs sm:text-sm text-slate-800 leading-relaxed whitespace-pre-line font-normal bg-amber-50/40 p-4 rounded-xl border border-amber-100">
+                                            {activeGuideData.detailedGuide}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Footer with Listen Button (Hoàn toàn KHÔNG có giá tiền hay nút mua) */}
+                        <div className="shrink-0 z-30 border-t border-slate-200/90 bg-white px-4 py-3 sm:px-6 sm:py-3.5 flex items-center justify-between gap-3 shadow-[0_-10px_30px_rgba(0,0,0,0.08)]">
+                            <div className="text-xs font-semibold text-slate-500 truncate">
+                                <span>💡 Hãy chuẩn bị tai nghe và không gian yên tĩnh trước khi nghe</span>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                                <button
+                                    type="button"
+                                    onClick={() => setSelectedGuideTrack(null)}
+                                    className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 text-xs font-bold transition"
+                                >
+                                    Đóng
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        handlePlayOwnedTrack(activeGuideData);
+                                    }}
+                                    className={`px-5 sm:px-6 py-2 rounded-xl text-xs sm:text-sm font-bold transition shadow-md flex items-center gap-1.5 active:scale-95 ${
+                                        currentTrack?.id === activeGuideData.id && isPlaying
+                                            ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                                            : 'bg-[#9B2528] hover:bg-[#7E1E21] text-white'
+                                    }`}
+                                >
+                                    {currentTrack?.id === activeGuideData.id && isPlaying ? (
+                                        <>
+                                            <Pause className="w-4 h-4 fill-current" />
+                                            <span>Tạm dừng</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Play className="w-4 h-4 fill-current" />
+                                            <span>Bắt đầu nghe ngay</span>
+                                        </>
+                                    )}
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -1710,6 +2183,10 @@ const ThoiMien = ({ isPurchasedOnly = false }) => {
                         <div className="mt-5 space-y-2">
                             <button
                                 onClick={() => {
+                                    if (selectedPaidTrack.available === false) {
+                                        toast.error('Bản ghi chưa sẵn sàng để bán.');
+                                        return;
+                                    }
                                     const id = selectedPaidTrack.id;
                                     setSelectedPaidTrack(null);
                                     navigate(`/thanh-toan/${id}`);

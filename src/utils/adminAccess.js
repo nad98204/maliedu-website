@@ -3,8 +3,6 @@ export const SUPER_ADMIN_EMAILS = ["mongcoaching@gmail.com"];
 export const ADMIN_MODULES = [
   { key: "dashboard", label: "Dashboard", path: "/admin/dashboard" },
   { key: "banners", label: "Trang chủ", path: "/admin/banners" },
-  { key: "posts", label: "Tin tức & bài viết", path: "/admin/posts" },
-  { key: "knowledge", label: "Kho kiến thức", path: "/admin/knowledge" },
   { key: "courses", label: "Khóa học online", path: "/admin/courses" },
   { key: "categories", label: "Danh mục", path: "/admin/categories" },
   { key: "orders", label: "Đơn hàng", path: "/admin/orders" },

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router';
-import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
-import { Search, Loader2, BookOpen, FileText, ChevronRight, X } from 'lucide-react';
+import { collection, getDocs } from 'firebase/firestore';
+import { Search, Loader2, BookOpen, ChevronRight, X } from 'lucide-react';
 import { db } from '../firebase';
 import { isPublicCatalogCourse } from '../utils/courseMarketing';
 
@@ -13,7 +13,6 @@ const GlobalSearch = ({ className }) => {
 
     // Cache data to avoid too many reads
     const [allCourses, setAllCourses] = useState([]);
-    const [allPosts, setAllPosts] = useState([]);
     const [dataLoaded, setDataLoaded] = useState(false);
 
     // Initial Data Load (Lazy load on focus or first type could be better, but small scale is fine)
@@ -37,19 +36,7 @@ const GlobalSearch = ({ className }) => {
                                 .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
                                 .slice(0, 50);
 
-                // Fetch Posts
-                const postsSnap = await getDocs(query(collection(db, 'posts'), orderBy('createdAt', 'desc'), limit(50)));
-                const posts = postsSnap.docs.map(doc => ({
-                    id: doc.id,
-                    type: 'post',
-                    title: doc.data().title,
-                    slug: doc.data().slug || doc.id,
-                    image: doc.data().thumbnailUrl,
-                    category: doc.data().category || 'Tin tức'
-                }));
-
                 setAllCourses(courses);
-                setAllPosts(posts);
                 setDataLoaded(true);
             } catch (err) {
                 console.error("Search data load error:", err);
@@ -64,7 +51,7 @@ const GlobalSearch = ({ className }) => {
     // Search Filtering Logic
     const results = useMemo(() => {
         if (!queryText.trim()) {
-            return { courses: [], posts: [] };
+            return { courses: [] };
         }
 
         const lowerQuery = queryText.toLowerCase();
@@ -74,12 +61,8 @@ const GlobalSearch = ({ className }) => {
             item.title?.toLowerCase().includes(lowerQuery)
         ).slice(0, 3);
 
-        const filteredPosts = allPosts.filter(item =>
-            item.title?.toLowerCase().includes(lowerQuery)
-        ).slice(0, 3);
-
-        return { courses: filteredCourses, posts: filteredPosts };
-    }, [queryText, allCourses, allPosts]);
+        return { courses: filteredCourses };
+    }, [queryText, allCourses]);
 
     // Click Outside
     useEffect(() => {
@@ -94,12 +77,8 @@ const GlobalSearch = ({ className }) => {
 
     const handleSelect = (item) => {
         setIsOpen(false);
-        setQueryText(''); // Optional: clear or keep
-        if (item.type === 'course') {
-            navigate(`/khoa-hoc/${item.slug}`);
-        } else {
-            navigate(`/tin-tuc/${item.slug}`);
-        }
+        setQueryText('');
+        navigate(`/khoa-hoc/${item.slug}`);
     };
 
     return (
@@ -108,7 +87,7 @@ const GlobalSearch = ({ className }) => {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-secret-ink/50" />
                 <input
                     type="text"
-                    placeholder="Tìm kiếm khóa học, bài viết..."
+                    placeholder="Tìm kiếm khóa học..."
                     className="w-44 rounded-full border border-secret-ink/20 bg-white/70 py-2 pl-9 pr-8 text-sm text-secret-ink placeholder:text-secret-ink/40 focus:border-secret-wax focus:outline-none focus:ring-2 focus:ring-secret-wax/20 transition-all font-medium"
                     value={queryText}
                     onChange={(e) => {
@@ -138,13 +117,13 @@ const GlobalSearch = ({ className }) => {
                         </div>
                     )}
 
-                    {dataLoaded && results.courses.length === 0 && results.posts.length === 0 && (
+                    {dataLoaded && results.courses.length === 0 && (
                         <div className="p-4 text-center text-slate-500 text-sm">
                             Không tìm thấy kết quả cho "{queryText}"
                         </div>
                     )}
 
-                    {(results.courses.length > 0 || results.posts.length > 0) && (
+                    {(results.courses.length > 0) && (
                         <div className="max-h-[70vh] overflow-y-auto">
                             {/* Courses Section */}
                             {results.courses.length > 0 && (
@@ -171,34 +150,6 @@ const GlobalSearch = ({ className }) => {
                                 </div>
                             )}
 
-                            {results.courses.length > 0 && results.posts.length > 0 && (
-                                <div className="h-px bg-slate-100 mx-4"></div>
-                            )}
-
-                            {/* Posts Section */}
-                            {results.posts.length > 0 && (
-                                <div className="py-2">
-                                    <h3 className="px-4 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                                        <FileText className="w-3 h-3" /> Bài viết
-                                    </h3>
-                                    {results.posts.map(item => (
-                                        <div
-                                            key={item.id}
-                                            onClick={() => handleSelect(item)}
-                                            className="px-4 py-2.5 hover:bg-slate-50 cursor-pointer flex items-center gap-3 transition-colors group"
-                                        >
-                                            <div className="w-10 h-10 rounded-md bg-slate-100 overflow-hidden shrink-0 border border-slate-200">
-                                                <img src={item.image || 'https://via.placeholder.com/40'} alt="" className="w-full h-full object-cover" />
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <h4 className="text-sm font-medium text-slate-700 group-hover:text-secret-wax truncate">{item.title}</h4>
-                                                <span className="text-xs text-slate-400">{item.category}</span>
-                                            </div>
-                                            <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-secret-wax" />
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
                         </div>
                     )}
 

@@ -37,9 +37,9 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 
-import { collection, doc, getDocs, updateDoc, writeBatch, setDoc } from "firebase/firestore";
+import { collection, doc, getDocs, updateDoc, writeBatch } from "firebase/firestore";
 import { db } from "../../firebase";
-import { INITIAL_TRACKS } from "../../data/hypnosisTracksData";
+import { getHypnosisCatalog, saveHypnosisCommission } from "../../utils/hypnosisService";
 import {
     getAllAffiliates,
     getAllCommissions,
@@ -117,7 +117,7 @@ const AdminAffiliates = () => {
                 getAllPayoutRequests(),
                 getAllCommissions(),
                 getDocs(collection(db, "courses")),
-                getDocs(collection(db, "hypnosis_audios"))
+                getHypnosisCatalog()
             ]);
 
             setSettings(sett);
@@ -135,12 +135,7 @@ const AdminAffiliates = () => {
             });
             setCourseRates(initialRates);
 
-            let hypList = [];
-            if (!hypnosisSnap.empty) {
-                hypList = hypnosisSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-            } else {
-                hypList = [...INITIAL_TRACKS];
-            }
+            const hypList = hypnosisSnap;
             const paidHypList = hypList.filter(t => !t.isFree);
             setHypnosisTracks(paidHypList);
 
@@ -239,14 +234,14 @@ const AdminAffiliates = () => {
             const parsedAmount = conf.amount !== "" && conf.amount != null ? Number(String(conf.amount).replace(/\D/g, '')) : null;
             const parsedBuyerDiscount = conf.buyerDiscount !== "" && conf.buyerDiscount != null ? Number(conf.buyerDiscount) : null;
 
-            await setDoc(doc(db, "hypnosis_audios", trackId), {
+            await saveHypnosisCommission(trackId, {
                 isAffiliateEnabled: isEnabled,
                 affiliateCommissionType: type,
                 affiliateCommissionPercent: parsedPercent,
                 affiliateCommissionAmount: parsedAmount,
                 affiliateBuyerDiscountPercent: parsedBuyerDiscount,
                 updatedAt: Date.now()
-            }, { merge: true });
+            });
             toast.success("Đã lưu cấu hình Affiliate cho bản thôi miên!");
         } catch (error) {
             console.error("Error saving hypnosis commission config:", error);
@@ -260,7 +255,7 @@ const AdminAffiliates = () => {
     const handleSaveAllHypnosisRates = async () => {
         setIsSavingAllHypnosis(true);
         try {
-            const batch = writeBatch(db);
+            const writes = [];
             hypnosisTracks.forEach(t => {
                 const conf = hypnosisConfig[t.id] || {};
                 const isEnabled = Boolean(conf.isEnabled);
@@ -269,16 +264,16 @@ const AdminAffiliates = () => {
                 const parsedAmount = conf.amount !== "" && conf.amount != null ? Number(String(conf.amount).replace(/\D/g, '')) : null;
                 const parsedBuyerDiscount = conf.buyerDiscount !== "" && conf.buyerDiscount != null ? Number(conf.buyerDiscount) : null;
 
-                batch.set(doc(db, "hypnosis_audios", t.id), {
+                writes.push(saveHypnosisCommission(t.id, {
                     isAffiliateEnabled: isEnabled,
                     affiliateCommissionType: type,
                     affiliateCommissionPercent: parsedPercent,
                     affiliateCommissionAmount: parsedAmount,
                     affiliateBuyerDiscountPercent: parsedBuyerDiscount,
                     updatedAt: Date.now()
-                }, { merge: true });
+                }));
             });
-            await batch.commit();
+            await Promise.all(writes);
             toast.success("Đã cập nhật toàn bộ cấu hình Affiliate thôi miên!");
         } catch (error) {
             console.error("Error saving all hypnosis commission configs:", error);

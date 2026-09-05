@@ -18,8 +18,6 @@ import {
   ChevronRight,
   PieChart,
   Home,
-  FileText,
-  Library,
   Video,
   CreditCard,
   Briefcase,
@@ -177,24 +175,6 @@ const AdminLayout = () => {
             <NavLink to="/admin/banners" className={getNavClasses} title={isCollapsed ? "Quản lý Trang chủ" : ""}>
               <Home className="h-4 w-4 shrink-0 transition-colors" />
               {!isCollapsed && <span className="truncate">Quản lý Trang chủ</span>}
-            </NavLink>
-          )}
-          {hasAccess("posts") && (
-            <>
-              <NavLink to="/admin/posts" end className={getNavClasses} title={isCollapsed ? "Tin tức & Bài viết" : ""}>
-                <FileText className="h-4 w-4 shrink-0 transition-colors" />
-                {!isCollapsed && <span className="truncate">Tin tức & Bài viết</span>}
-              </NavLink>
-              <NavLink to="/admin/posts/feedback" className={getNavClasses} title={isCollapsed ? "Phản hồi bài viết" : ""}>
-                <MessageSquare className="h-4 w-4 shrink-0 transition-colors" />
-                {!isCollapsed && <span className="truncate">Phản hồi bài viết</span>}
-              </NavLink>
-            </>
-          )}
-          {hasAccess("knowledge") && (
-            <NavLink to="/admin/knowledge" className={getNavClasses} title={isCollapsed ? "Kho Kiến Thức" : ""}>
-              <Library className="h-4 w-4 shrink-0 transition-colors" />
-              {!isCollapsed && <span className="truncate">Kho Kiến Thức</span>}
             </NavLink>
           )}
           {hasAccess("courses") && (

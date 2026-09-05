@@ -338,19 +338,6 @@ export async function onRequest(context) {
     const exists = await dynamicDocumentExists(context, dynamicRule, slug);
     if (exists !== true) return renderNotFound(request);
 
-    if (dynamicRule.prefix === "/bai-viet/") {
-      const canonicalUrl = new URL(request.url);
-      canonicalUrl.pathname = `/tin-tuc/${slug}`;
-      canonicalUrl.search = "";
-      return new Response(null, {
-        status: 301,
-        headers: {
-          Location: canonicalUrl.toString(),
-          "Cache-Control": "public, max-age=300",
-        },
-      });
-    }
-
     const prerenderedResponse = await servePrerenderedRoute(context, pathname);
     if (prerenderedResponse) return prerenderedResponse;
 
