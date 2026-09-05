@@ -5,6 +5,7 @@ import BannerChinh from "../khoi-thong-dong-tien/sections/BannerChinh";
 import LazyWhenVisible from "../khoi-thong-dong-tien/LazyWhenVisible";
 import { SectionFallback } from "../khoi-thong-dong-tien/sectionFallback";
 import { KHOI_THONG_HERO_BANNER_URL } from "../khoi-thong-dong-tien/landingConfig";
+import { HERO_TITLE_SRCSET, HERO_TITLE_SIZES } from "../khoi-thong-dong-tien/heroAssets";
 
 const PhanNoiDau = lazy(() => import("../khoi-thong-dong-tien/sections/PhanNoiDau"));
 const DoiTuongPhuHop = lazy(() => import("../khoi-thong-dong-tien/sections/DoiTuongPhuHop"));
@@ -32,6 +33,8 @@ const KhoiThongDongTienThuongHieu = ({
         {...seo}
         title="Trang Dang Ky - Pheu Thuong Hieu - Khoi Thong Dong Tien"
         preloadLcpImage={KHOI_THONG_HERO_BANNER_URL}
+        preloadLcpImageSrcSet={HERO_TITLE_SRCSET}
+        preloadLcpImageSizes={HERO_TITLE_SIZES}
       />
       <BannerChinh />
 

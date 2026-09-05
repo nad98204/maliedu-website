@@ -13,6 +13,11 @@
 /runtime-config.js
   Cache-Control: no-cache, no-store, must-revalidate
 
+# Resource hints live in route HTML; avoid duplicate Cloudflare Early Hints.
+/dao-tao/khoi-thong-dong-tien*
+  ! Link
+  Cache-Control: public, max-age=0, must-revalidate
+
 /admin/*
   X-Robots-Tag: noindex, nofollow
 
@@ -33,4 +38,3 @@
 
 /xem/*
   X-Robots-Tag: noindex, nofollow
-

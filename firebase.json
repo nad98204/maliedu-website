@@ -8,6 +8,7 @@
   },
   "hosting": {
     "public": "dist",
+    "cleanUrls": true,
     "ignore": [
       "firebase.json",
       "**/.*",
@@ -27,6 +28,14 @@
       }
     ],
     "headers": [
+      {
+        "source": "/assets/**/*.@(js|css|woff|woff2)",
+        "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+      },
+      {
+        "source": "/dao-tao/khoi-thong-dong-tien*",
+        "headers": [{ "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }]
+      },
       {
         "source": "**",
         "headers": [
@@ -99,6 +108,10 @@
             "value": "public, max-age=2592000"
           }
         ]
+      },
+      {
+        "source": "/assets/landing/khoi-thong-dong-tien/*-v{2,3}-*.@(webp|avif)",
+        "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
       }
     ]
   }

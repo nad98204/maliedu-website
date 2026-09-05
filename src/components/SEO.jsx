@@ -26,6 +26,8 @@ const SEO = ({
   keywords,
   jsonLd,
   preloadLcpImage,
+  preloadLcpImageSrcSet,
+  preloadLcpImageSizes,
   robots,
 }) => {
   // Chuẩn hoá og:type — Facebook/Zalo chỉ nhận 'article' cho nội dung cụ thể
@@ -41,7 +43,7 @@ const SEO = ({
   return (
     <Helmet>
       {preloadLcpImage ? (
-        <link rel="preload" as="image" href={preloadLcpImage} fetchPriority="high" />
+        <link rel="preload" as="image" type={preloadLcpImage.endsWith(".avif") ? "image/avif" : undefined} href={preloadLcpImage} imageSrcSet={preloadLcpImageSrcSet} imageSizes={preloadLcpImageSizes} fetchPriority="high" />
       ) : null}
       {/* ===== Primary Tags ===== */}
       <title>{seo.title}</title>

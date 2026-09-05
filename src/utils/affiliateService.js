@@ -1,5 +1,3 @@
-import { auth } from "../firebase";
-
 export const AFFILIATE_REF_KEY = "mali_aff_ref";
 export const AFFILIATE_TIME_KEY = "mali_aff_time";
 
@@ -15,6 +13,7 @@ const AFFILIATE_API = "/api/affiliate";
 const ADMIN_AFFILIATE_API = "/api/admin/affiliate";
 
 const getAuthHeaders = async (required = true) => {
+    const { auth } = await import("../firebase");
     const currentUser = auth.currentUser;
     if (!currentUser) {
         if (required) throw new Error("Vui lòng đăng nhập để tiếp tục.");
@@ -98,11 +97,13 @@ export const getAdminAffiliateSettings = () => requestJson(
 );
 
 export const getAffiliateByUserId = async (userId) => {
+    const { auth } = await import("../firebase");
     if (!userId || auth.currentUser?.uid !== userId) return null;
     return requestJson(`${AFFILIATE_API}?view=profile`, { authenticated: true });
 };
 
 export const registerAffiliate = async (user, { affiliateCode, phone = "", bankInfo = {} }) => {
+    const { auth } = await import("../firebase");
     if (!user?.uid || auth.currentUser?.uid !== user.uid) {
         throw new Error("Vui lòng đăng nhập trước khi đăng ký.");
     }
@@ -114,6 +115,7 @@ export const registerAffiliate = async (user, { affiliateCode, phone = "", bankI
 };
 
 export const updateAffiliateBankInfo = async (userId, bankInfo) => {
+    const { auth } = await import("../firebase");
     if (!userId || auth.currentUser?.uid !== userId) throw new Error("Tài khoản không hợp lệ.");
     return requestJson(AFFILIATE_API, {
         authenticated: true,
@@ -147,6 +149,7 @@ export const processAffiliateCommission = async (orderId) => requestJson(ADMIN_A
 });
 
 export const createPayoutRequest = async (userId, amount, _bankInfo, note = "") => {
+    const { auth } = await import("../firebase");
     if (!userId || auth.currentUser?.uid !== userId) throw new Error("Tài khoản không hợp lệ.");
     return requestJson(AFFILIATE_API, {
         authenticated: true,
@@ -156,11 +159,13 @@ export const createPayoutRequest = async (userId, amount, _bankInfo, note = "") 
 };
 
 export const getAffiliateCommissions = async (userId) => {
+    const { auth } = await import("../firebase");
     if (!userId || auth.currentUser?.uid !== userId) return [];
     return requestJson(`${AFFILIATE_API}?view=commissions`, { authenticated: true });
 };
 
 export const getAffiliatePayouts = async (userId) => {
+    const { auth } = await import("../firebase");
     if (!userId || auth.currentUser?.uid !== userId) return [];
     return requestJson(`${AFFILIATE_API}?view=payouts`, { authenticated: true });
 };

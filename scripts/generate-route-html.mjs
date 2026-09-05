@@ -1,8 +1,10 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { normalizeRoutePath } from "../src/seo/routeSeo.js";
+import { isKhoiThongStylePath } from "../src/styles/landingPaths.js";
+import { HERO_TITLE, HERO_TITLE_SRCSET, HERO_TITLE_SIZES, HERO_POSTER, HERO_POSTER_SRCSET, HERO_POSTER_SIZES } from "../src/landing-templates/khoi-thong-dong-tien/heroAssets.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -197,16 +199,44 @@ const outputPathForRoute = (routePath) => {
 
 const baseHtml = await readFile(distIndexPath, "utf8");
 const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
+const assets = JSON.parse(await readFile(path.join(distDir, ".vite/manifest.json"), "utf8"));
+const landingCss = await readFile(path.join(distDir, assets["src/styles/landing.css"].file), "utf8");
+const { renderLanding } = await import(pathToFileURL(path.join(projectRoot, ".seo-build/ssr/landing-ssr.js")));
+
+const addRouteResources = (html, routePath) => {
+  const landing = isKhoiThongStylePath(routePath);
+  const cssEntry = assets[landing ? "src/styles/landing.css" : "src/index.css"];
+  if (!cssEntry) throw new Error(`Missing stylesheet for ${routePath}`);
+  // The small funnel stylesheet paints the prerendered hero without a CSS round trip.
+  // RouteStyles reuses this style on hydration; client navigations load the CSS chunk.
+  const links = [landing
+    ? `<style data-landing-css>${landingCss}</style>`
+    : `<link rel="stylesheet" crossorigin href="/${cssEntry.file}">`];
+  if (landing) {
+    html = html.replace(/<link\b[^>]*href="https:\/\/(?:s3-hn1-api\.longvan\.vn|fonts\.gstatic\.com|fonts\.googleapis\.com)[^"]*"[^>]*>\s*/g, "");
+  }
+  if (landing && routePath !== "/cam-on-khoi-thong") {
+    for (const [href, srcset, sizes] of [[HERO_POSTER, HERO_POSTER_SRCSET, HERO_POSTER_SIZES], [HERO_TITLE, HERO_TITLE_SRCSET, HERO_TITLE_SIZES]]) {
+      links.unshift(`<link rel="preload" as="image" type="image/avif" href="${href}" imagesrcset="${srcset}" imagesizes="${sizes}" fetchpriority="high">`);
+    }
+    // Hydrated HTML paints independently; avoid preloading the JS dependency graph
+    // ahead of the hero images. Vite loads those modules when hydration needs them.
+  }
+  return html.replace(/(<meta charset="UTF-8"\s*\/>)/, `$1\n${links.join("\n")}`);
+};
 
 if (!Array.isArray(manifest.routes) || manifest.routes.length === 0) {
   throw new Error("SEO route manifest trống hoặc không hợp lệ.");
 }
 
-await writeFile(path.join(distDir, "spa.html"), createSpaShell(baseHtml), "utf8");
+await writeFile(path.join(distDir, "spa.html"), addRouteResources(createSpaShell(baseHtml), "/"), "utf8");
 
 for (const route of manifest.routes) {
   const outputPath = outputPathForRoute(route.path);
-  const html = applySeoToHtml(baseHtml, route);
+  const hasHero = isKhoiThongStylePath(route.path) && route.path !== "/cam-on-khoi-thong";
+  const rendered = hasHero ? await renderLanding(route.path) : null;
+  let html = addRouteResources(applySeoToHtml(baseHtml, rendered ? { ...route, prerenderBodyHtml: rendered } : route), route.path);
+  if (rendered) html = html.replace("</head>", '<meta name="landing-hydrated-html" content="true">\n</head>');
   await mkdir(path.dirname(outputPath), { recursive: true });
   await writeFile(outputPath, html, "utf8");
 }

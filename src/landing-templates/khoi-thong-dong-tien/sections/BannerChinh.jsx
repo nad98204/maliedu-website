@@ -1,13 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { KHOI_THONG_HERO_BANNER_URL, useKhoiThongLandingConfig } from "../landingConfig";
+import { useKhoiThongLandingConfig } from "../landingConfig";
 import { trackCtaClick } from "../ctaTracking";
 import { scrollToRegistrationForm } from "../scrollToRegistration";
+import { HERO_TITLE_SRCSET, HERO_TITLE_SIZES, HERO_TITLE_WEBP, HERO_TITLE_WEBP_SRCSET, HERO_POSTER_WEBP, HERO_POSTER_WEBP_SRCSET, HERO_POSTER_SRCSET, HERO_POSTER_SIZES } from "../heroAssets";
 
 const YOUTUBE_VIDEO_ID = "gPdub90aL9k";
 const YOUTUBE_EMBED_URL = `https://www.youtube-nocookie.com/embed/${YOUTUBE_VIDEO_ID}?autoplay=1&rel=0&playsinline=1`;
-const YOUTUBE_THUMBNAIL_URL =
-  "/assets/landing/khoi-thong-dong-tien/khoi-thong-dong-tien-video-thumbnail.webp";
-const TITLE_IMG_URL = KHOI_THONG_HERO_BANNER_URL;
 const MOBILE_BENEFITS = [
   "Nhận diện điểm nghẽn",
   "Điều chỉnh tư duy và cảm xúc",
@@ -15,7 +13,7 @@ const MOBILE_BENEFITS = [
 ];
 
 /* ─── VideoPlayer ────────────────────────────────────────────── */
-const VideoPlayer = () => {
+const VideoPlayer = ({ active }) => {
   const [hasStarted, setHasStarted] = useState(false);
 
   return (
@@ -23,7 +21,7 @@ const VideoPlayer = () => {
       className="relative overflow-hidden rounded-[18px] border border-[#C9961A]/70 bg-black shadow-[0_14px_36px_rgba(71,35,13,0.18)] select-none sm:rounded-[22px]"
     >
       <div className="relative aspect-video bg-black">
-        {hasStarted ? (
+        {active && hasStarted ? (
           <iframe
             className="absolute inset-0 h-full w-full"
             src={YOUTUBE_EMBED_URL}
@@ -39,16 +37,21 @@ const VideoPlayer = () => {
             onClick={() => setHasStarted(true)}
             aria-label="Phát video Bánh xe cuộc đời"
           >
+            <picture className="block h-full w-full">
+            <source type="image/avif" srcSet={HERO_POSTER_SRCSET} sizes={HERO_POSTER_SIZES} />
             <img
-              src={YOUTUBE_THUMBNAIL_URL}
+              src={HERO_POSTER_WEBP}
+              srcSet={HERO_POSTER_WEBP_SRCSET}
+              sizes={HERO_POSTER_SIZES}
               alt="Xem video Bánh xe cuộc đời"
               className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
-              loading="lazy"
+              loading="eager"
               decoding="async"
-              fetchPriority="low"
+              fetchPriority="high"
               width={1280}
               height={720}
             />
+            </picture>
             <span className="absolute inset-0 bg-black/15 transition-colors group-hover:bg-black/5" />
             <span className="absolute inset-0 flex items-center justify-center">
               <span className="flex h-14 w-14 items-center justify-center rounded-full border border-white/80 bg-[#A50F17]/95 shadow-[0_8px_24px_rgba(0,0,0,0.35)] ring-4 ring-white/25 transition-transform group-hover:scale-110 sm:h-16 sm:w-16">
@@ -70,7 +73,7 @@ const Countdown = ({ eventStart }) => {
     const value = new Date(eventStart).getTime();
     return Number.isFinite(value) ? value : 0;
   }, [eventStart]);
-  const [left, setLeft] = useState(() => Math.max(0, target - Date.now()));
+  const [left, setLeft] = useState(0);
 
   useEffect(() => {
     const initialUpdate = setTimeout(
@@ -112,16 +115,13 @@ const Countdown = ({ eventStart }) => {
   );
 };
 
-/** Một nguồn thật cho breakpoint `lg` (1024px): tránh mount 2 <VideoPlayer> (ẩn bằng CSS vẫn có thể cùng phát → tiếng vang). */
+/** Hai poster responsive có sẵn trong HTML; chỉ viewport đang hoạt động được mount iframe. */
 function useViewportMinLg() {
-  const [matches, setMatches] = useState(() =>
-    typeof window !== "undefined"
-      ? window.matchMedia("(min-width: 1024px)").matches
-      : false
-  );
+  const [matches, setMatches] = useState(false);
   useEffect(() => {
     const mq = window.matchMedia("(min-width: 1024px)");
     const fn = () => setMatches(mq.matches);
+    fn();
     mq.addEventListener("change", fn);
     return () => mq.removeEventListener("change", fn);
   }, []);
@@ -135,20 +135,10 @@ const BannerChinh = () => {
   return (
   <section
     className="relative w-full overflow-hidden font-sans"
-    style={{ background: "transparent" }}
+    style={{ background: "radial-gradient(ellipse at 35% 30%, rgba(255,229,102,0.18), transparent 65%), radial-gradient(ellipse at 70% 75%, rgba(255,255,255,0.5), transparent 65%)" }}
   >
     <h1 className="sr-only">Khơi Thông Dòng Tiền - 4 buổi học online miễn phí</h1>
     {/* (Đã loại bỏ ảnh chữ và nền dư thừa để dùng chung với global layout KhoiThongDongTien) */}
-
-    {/* ── Ánh sáng Gradient Ambient (translateZ cô lập layer, giảm CLS khi paint/blur) ── */}
-    <div
-      className="absolute top-[10%] left-[20%] w-[500px] h-[500px] bg-[#FFE566]/40 blur-[130px] rounded-full pointer-events-none z-0"
-      style={{ transform: "translateZ(0)", backfaceVisibility: "hidden" }}
-    />
-    <div
-      className="absolute bottom-[10%] right-[10%] w-[600px] h-[600px] bg-white/70 blur-[150px] rounded-full pointer-events-none z-0"
-      style={{ transform: "translateZ(0)", backfaceVisibility: "hidden" }}
-    />
 
     {/* ── Top bar: ribbon burgundy + gold (không crop ảnh hero) ── */}
     <div className="relative w-full py-2.5 sm:py-3 text-center z-10 overflow-hidden border-b border-[#F8E08A]/40 shadow-[0_4px_28px_rgba(26,10,6,0.45)]">
@@ -197,8 +187,12 @@ const BannerChinh = () => {
 
         {/* Title Image (now inside the column on desktop) */}
         <div className="w-full flex justify-center">
+          <picture className="block w-full">
+          <source type="image/avif" srcSet={HERO_TITLE_SRCSET} sizes={HERO_TITLE_SIZES} />
           <img
-            src={TITLE_IMG_URL}
+            src={HERO_TITLE_WEBP}
+            srcSet={HERO_TITLE_WEBP_SRCSET}
+            sizes={HERO_TITLE_SIZES}
             alt="Khơi Thông Dòng Tiền"
             className="w-full max-w-[680px] sm:max-w-[820px] lg:max-w-full h-auto object-contain drop-shadow-lg"
             fetchPriority="high"
@@ -208,6 +202,7 @@ const BannerChinh = () => {
             height={287}
             style={{ display: "block" }}
           />
+          </picture>
         </div>
 
         <div className="relative max-w-[570px] px-2 text-center sm:px-3">
@@ -222,9 +217,8 @@ const BannerChinh = () => {
           </p>
         </div>
 
-        {/* Video: chỉ mobile — desktop render ở cột phải (một instance duy nhất) */}
-        {!isDesktop && (
-          <div className="w-full rounded-[22px] border border-[#D4B572]/55 bg-white/70 p-2 shadow-[0_10px_32px_rgba(83,48,18,0.10)] backdrop-blur-sm sm:p-3">
+        {/* Poster mobile; iframe chỉ được tạo khi bấm và viewport mobile đang hoạt động. */}
+          <div className="w-full rounded-[22px] border border-[#D4B572]/55 bg-white/70 p-2 shadow-[0_10px_32px_rgba(83,48,18,0.10)] backdrop-blur-sm sm:p-3 lg:hidden">
             <div className="flex items-center gap-3 px-2 pb-2.5 pt-1 sm:px-3 sm:pb-3">
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#8C0C12] text-[0.72rem] text-white shadow-sm" aria-hidden="true">
                 ▶
@@ -238,9 +232,8 @@ const BannerChinh = () => {
                 </p>
               </div>
             </div>
-            <VideoPlayer />
+            <VideoPlayer active={!isDesktop} />
           </div>
-        )}
 
         {/* CTA Section */}
         <div className="flex w-full flex-col items-center gap-3.5 lg:gap-4">
@@ -304,8 +297,7 @@ const BannerChinh = () => {
       </div>
 
       {/* ── Right Column (Desktop Only Video) ── */}
-      {isDesktop && (
-      <div className="flex w-full lg:w-1/2 justify-center lg:justify-end items-center relative">
+      <div className="hidden lg:flex w-full lg:w-1/2 justify-center lg:justify-end items-center relative">
         <div className="w-full max-w-[580px] xl:max-w-[620px] relative z-20 flex flex-col gap-6 lg:gap-8">
 
           <div className="w-full rounded-[26px] border border-[#D4B572]/55 bg-white/70 p-3 shadow-[0_14px_40px_rgba(83,48,18,0.10)] backdrop-blur-sm transition-transform duration-500 hover:scale-[1.02]">
@@ -322,7 +314,7 @@ const BannerChinh = () => {
                 </p>
               </div>
             </div>
-            <VideoPlayer />
+            <VideoPlayer active={isDesktop} />
           </div>
 
           {/* Thêm phần nội dung dưới video */}
@@ -363,7 +355,6 @@ const BannerChinh = () => {
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-[#C9961A]/10 blur-[100px] rounded-full pointer-events-none -z-10" />
         </div>
       </div>
-      )}
 
     </div>
 

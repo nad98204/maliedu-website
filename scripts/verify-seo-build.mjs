@@ -154,16 +154,22 @@ for (const route of manifest.routes) {
       encodeURIComponent(normalizeRoutePath(route.path)),
     `${route.path}: prerender route marker không khớp route.`,
   );
+  const hydratedLanding = /<meta name="landing-hydrated-html" content="true">/.test(html);
+  const bodyPattern = hydratedLanding
+    ? /<main\b[^>]*>/gi
+    : /<main\b[^>]*\bdata-seo-prerender-body=["']true["']/gi;
   assert(
     countMatches(
       html,
-      /<main\b[^>]*\bdata-seo-prerender-body=["']true["']/gi,
+      bodyPattern,
     ) === 1,
     `${route.path}: phải có đúng một khối nội dung prerender.`,
   );
   const prerenderBodyHtml =
     html.match(
-      /(<main\b[^>]*\bdata-seo-prerender-body=["']true["'][^>]*>[\s\S]*?<\/main>)/i,
+      hydratedLanding
+        ? /(<main\b[^>]*>[\s\S]*?<\/main>)/i
+        : /(<main\b[^>]*\bdata-seo-prerender-body=["']true["'][^>]*>[\s\S]*?<\/main>)/i,
     )?.[1] || "";
   const rootText = prerenderBodyHtml
     .replace(/<[^>]+>/g, " ")

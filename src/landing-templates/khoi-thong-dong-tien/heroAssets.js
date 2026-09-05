@@ -1,0 +1,11 @@
+const base = "/assets/landing/khoi-thong-dong-tien";
+export const HERO_TITLE = `${base}/hero-title-v3-820.avif`;
+export const HERO_TITLE_SRCSET = `${base}/hero-title-v3-480.avif 480w, ${HERO_TITLE} 820w`;
+export const HERO_TITLE_WEBP = `${base}/hero-title-v2-820.webp`;
+export const HERO_TITLE_WEBP_SRCSET = `${base}/hero-title-v2-480.webp 480w, ${HERO_TITLE_WEBP} 820w`;
+export const HERO_TITLE_SIZES = "(min-width: 1280px) 592px, (min-width: 1024px) calc(50vw - 48px), (min-width: 640px) 592px, calc(100vw - 32px)";
+export const HERO_POSTER = `${base}/video-poster-v3-960.avif`;
+export const HERO_POSTER_SRCSET = `${base}/video-poster-v3-480.avif 480w, ${HERO_POSTER} 960w`;
+export const HERO_POSTER_WEBP = `${base}/video-poster-v2-960.webp`;
+export const HERO_POSTER_WEBP_SRCSET = `${base}/video-poster-v2-480.webp 480w, ${HERO_POSTER_WEBP} 960w`;
+export const HERO_POSTER_SIZES = "(min-width: 1280px) 564px, (min-width: 1024px) calc(50vw - 76px), (min-width: 640px) 564px, calc(100vw - 54px)";

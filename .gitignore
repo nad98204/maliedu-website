@@ -12,6 +12,7 @@ dist
 dist-ssr
 *.local
 .seo-build
+.cache/
 
 # Editor directories and files
 .vscode/*

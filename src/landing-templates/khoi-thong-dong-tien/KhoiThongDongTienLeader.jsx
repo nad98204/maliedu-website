@@ -5,6 +5,7 @@ import BannerChinh from "./sections/BannerChinh";
 import LazyWhenVisible from "./LazyWhenVisible";
 import { SectionFallback } from "./sectionFallback";
 import { KHOI_THONG_HERO_BANNER_URL } from "./landingConfig";
+import { HERO_TITLE_SRCSET, HERO_TITLE_SIZES } from "./heroAssets";
 
 const PhanNoiDau = lazy(() => import("./sections/PhanNoiDau"));
 const DoiTuongPhuHop = lazy(() => import("./sections/DoiTuongPhuHop"));
@@ -29,6 +30,8 @@ const KhoiThongDongTienLeader = () => {
         {...seo}
         title="Trang Đăng Ký - Phễu Leader - Khơi Thông Dòng Tiền"
         preloadLcpImage={KHOI_THONG_HERO_BANNER_URL}
+        preloadLcpImageSrcSet={HERO_TITLE_SRCSET}
+        preloadLcpImageSizes={HERO_TITLE_SIZES}
       />
       <BannerChinh />
 

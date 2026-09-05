@@ -4,9 +4,8 @@ import {
   getPublicFirestoreDocument,
 } from "../../utils/publicFirestore";
 
-/** Ảnh tiêu đề hero (S3 Long Van): LCP, poster video, og:image route — một nguồn để đồng bộ URL. */
-export const KHOI_THONG_HERO_BANNER_URL =
-  "/assets/landing/khoi-thong-dong-tien/hero-title.webp";
+/** Ảnh tiêu đề LCP trên cùng domain, dùng chung cho preload và hero. */
+export { HERO_TITLE as KHOI_THONG_HERO_BANNER_URL } from "./heroAssets";
 
 export const KHOI_THONG_DONG_TIEN_CONFIG = {
   eventStart: "2026-08-11T20:00:00+07:00",

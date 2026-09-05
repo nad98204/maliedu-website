@@ -10,6 +10,7 @@ import {
 import { Toaster } from 'react-hot-toast';
 import ScrollToTop from "./components/ScrollToTop";
 import useAffiliateTracker from "./hooks/useAffiliateTracker";
+import RouteStyles from "./styles/RouteStyles";
 
 /** Chunk riêng: không cần trên funnel hideChrome hoặc tách Meta khỏi entry (giảm JS đầu tải / “unused”). */
 const Footer = lazy(() => import("./components/Footer"));
@@ -249,17 +250,21 @@ const AppShell = () => {
   );
 };
 
-function App() {
+export function AppContent() {
   return (
-    <BrowserRouter>
+    <>
       <Suspense fallback={null}>
         <FacebookPixelTracker />
       </Suspense>
       <ScrollToTop />
-      <AppShell />
+      <RouteStyles><AppShell /></RouteStyles>
       <Toaster position="top-center" />
-    </BrowserRouter>
+    </>
   );
+}
+
+function App() {
+  return <BrowserRouter><AppContent /></BrowserRouter>;
 }
 
 export default App;

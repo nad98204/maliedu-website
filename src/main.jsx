@@ -1,20 +1,26 @@
 import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
-import './index.css'
+import { createRoot, hydrateRoot } from 'react-dom/client'
 import App from './App.jsx'
 import ErrorBoundary from './components/ErrorBoundary';
 
 import { HelmetProvider } from 'react-helmet-async';
 
-createRoot(document.getElementById('root')).render(
+const application = (
   <StrictMode>
     <ErrorBoundary>
       <HelmetProvider>
         <App />
       </HelmetProvider>
     </ErrorBoundary>
-  </StrictMode>,
+  </StrictMode>
 )
+
+const root = document.getElementById('root')
+if (document.querySelector('meta[name="landing-hydrated-html"]')) {
+  hydrateRoot(root, application)
+} else {
+  createRoot(root).render(application)
+}
 
 window.__MALI_MARK_APP_MOUNTED__?.()
 

@@ -119,6 +119,7 @@ export default defineConfig({
     global: 'window',
   },
   build: {
+    manifest: true,
     // Exclude functions folder from client bundle (Cloudflare Workers code)
     rollupOptions: {
       external: (id) => id.includes('/functions/') || id.includes('\\functions\\')
