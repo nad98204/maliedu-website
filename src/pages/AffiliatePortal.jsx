@@ -29,13 +29,17 @@ import {
     TrendingUp,
     UserCheck,
     Users,
-    Wallet
+    Wallet,
+    Headphones,
+    BookOpen,
+    Search
 } from "lucide-react";
 import toast from "react-hot-toast";
 
 import { auth, db } from "../firebase";
 import SEO from "../components/SEO";
 import AuthModal from "../components/AuthModal";
+import { INITIAL_TRACKS } from "../data/hypnosisTracksData";
 import {
     createPayoutRequest,
     getAffiliateByUserId,
@@ -81,6 +85,7 @@ const AffiliatePortal = () => {
     const [affiliate, setAffiliate] = useState(null);
     const [settings, setSettings] = useState(null);
     const [courses, setCourses] = useState([]);
+    const [hypnosisTracks, setHypnosisTracks] = useState([]);
     const [commissions, setCommissions] = useState([]);
     const [payouts, setPayouts] = useState([]);
     const [loadingData, setLoadingData] = useState(false);
@@ -96,8 +101,11 @@ const AffiliatePortal = () => {
     const [registerAccountHolder, setRegisterAccountHolder] = useState("");
     const [isSubmittingRegister, setIsSubmittingRegister] = useState(false);
 
-    // Link Generator state
-    const [selectedCourseSlug, setSelectedCourseSlug] = useState("all");
+    // Link Generator & Filter state
+    const [selectedTargetKey, setSelectedTargetKey] = useState("all_courses");
+    const [courseSearch, setCourseSearch] = useState("");
+    const [hypnosisSearch, setHypnosisSearch] = useState("");
+    const [mobileProductTab, setMobileProductTab] = useState("courses"); // courses | hypnosis
     const [copiedKey, setCopiedKey] = useState(null);
 
     // Payout modal state
@@ -132,18 +140,27 @@ const AffiliatePortal = () => {
         return unsubscribe;
     }, []);
 
-    // Load initial settings and courses
+    // Load initial settings, courses and hypnosis tracks
     useEffect(() => {
         const fetchInitial = async () => {
             try {
-                const [appSettings, coursesSnap] = await Promise.all([
+                const [appSettings, coursesSnap, hypnosisSnap] = await Promise.all([
                     getAffiliateSettings(),
-                    getDocs(query(collection(db, "courses"), orderBy("createdAt", "desc")))
+                    getDocs(query(collection(db, "courses"), orderBy("createdAt", "desc"))),
+                    getDocs(collection(db, "hypnosis_audios"))
                 ]);
                 setSettings(appSettings);
                 setCourses(coursesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+
+                let hypList = [];
+                if (!hypnosisSnap.empty) {
+                    hypList = hypnosisSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                } else {
+                    hypList = [...INITIAL_TRACKS];
+                }
+                setHypnosisTracks(hypList.filter(t => !t.isFree && t.isAffiliateEnabled !== false));
             } catch (err) {
-                console.error("Error loading courses/settings:", err);
+                console.error("Error loading courses/hypnosis/settings:", err);
             }
         };
         fetchInitial();
@@ -284,13 +301,35 @@ const AffiliatePortal = () => {
     // Generated links
     const origin = typeof window !== "undefined" ? window.location.origin : "https://luathapdan.vn";
     const currentAffCode = affiliate?.affiliateCode || "REF_CODE";
-
     const generatedLink = useMemo(() => {
-        if (selectedCourseSlug === "all") {
+        if (selectedTargetKey === "all_courses" || selectedTargetKey === "all") {
             return `${origin}/khoa-hoc?ref=${currentAffCode}`;
         }
-        return `${origin}/khoa-hoc/${selectedCourseSlug}?ref=${currentAffCode}`;
-    }, [selectedCourseSlug, currentAffCode, origin]);
+        if (selectedTargetKey === "all_hypnosis") {
+            return `${origin}/thoi-mien?ref=${currentAffCode}`;
+        }
+        if (selectedTargetKey.startsWith("course:")) {
+            const slugOrId = selectedTargetKey.replace("course:", "");
+            return `${origin}/khoa-hoc/${slugOrId}?ref=${currentAffCode}`;
+        }
+        if (selectedTargetKey.startsWith("hypnosis:")) {
+            const trackId = selectedTargetKey.replace("hypnosis:", "");
+            return `${origin}/thanh-toan/${trackId}?ref=${currentAffCode}`;
+        }
+        return `${origin}/khoa-hoc/${selectedTargetKey}?ref=${currentAffCode}`;
+    }, [selectedTargetKey, currentAffCode, origin]);
+
+    const filteredCourses = useMemo(() => {
+        if (!courseSearch.trim()) return courses;
+        const q = courseSearch.toLowerCase();
+        return courses.filter((c) => (c.name || "").toLowerCase().includes(q));
+    }, [courses, courseSearch]);
+
+    const filteredHypnosisTracks = useMemo(() => {
+        if (!hypnosisSearch.trim()) return hypnosisTracks;
+        const q = hypnosisSearch.toLowerCase();
+        return hypnosisTracks.filter((t) => (t.title || "").toLowerCase().includes(q) || (t.author || "").toLowerCase().includes(q));
+    }, [hypnosisTracks, hypnosisSearch]);
 
     return (
         <div className="min-h-screen bg-[#FDFBF7] text-slate-900 pt-24 pb-20">
@@ -531,22 +570,24 @@ const AffiliatePortal = () => {
                         )}
 
                         {/* Top Overview Cards */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                             {/* Card 1: Số dư ví */}
-                            <div className="rounded-3xl bg-gradient-to-br from-[#9B2528] to-[#7E1E21] p-6 text-white shadow-xl shadow-red-950/15 relative overflow-hidden">
+                            <div className="col-span-2 sm:col-span-1 rounded-2xl sm:rounded-3xl bg-gradient-to-br from-[#9B2528] to-[#7E1E21] p-4 sm:p-6 text-white shadow-xl shadow-red-950/15 relative overflow-hidden flex flex-col justify-between">
                                 <div className="absolute -right-6 -bottom-6 w-24 h-24 rounded-full bg-white/10 blur-xl" />
-                                <div className="flex items-center justify-between">
-                                    <span className="text-xs font-black uppercase tracking-wider text-red-200">Số dư khả dụng</span>
-                                    <Wallet className="w-5 h-5 text-amber-300" />
-                                </div>
-                                <div className="mt-3 text-2xl sm:text-3xl font-black tracking-tight">
-                                    {formatPrice(affiliate.stats?.balance || 0)}
+                                <div>
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[11px] sm:text-xs font-black uppercase tracking-wider text-red-200">Số dư khả dụng</span>
+                                        <Wallet className="w-4 h-4 sm:w-5 sm:h-5 text-amber-300" />
+                                    </div>
+                                    <div className="mt-2 sm:mt-3 text-xl sm:text-3xl font-black tracking-tight">
+                                        {formatPrice(affiliate.stats?.balance || 0)}
+                                    </div>
                                 </div>
                                 <button
                                     type="button"
                                     onClick={() => setIsPayoutModalOpen(true)}
                                     disabled={(affiliate.stats?.balance || 0) < (settings?.minPayoutAmount || 200000)}
-                                    className="mt-4 w-full py-2 rounded-xl bg-white text-[#9B2528] font-black text-xs shadow-sm hover:bg-amber-50 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                                    className="mt-3 sm:mt-4 w-full py-2 rounded-xl bg-white text-[#9B2528] font-black text-xs shadow-sm hover:bg-amber-50 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                                 >
                                     {(affiliate.stats?.balance || 0) < (settings?.minPayoutAmount || 200000)
                                         ? `Cần tối thiểu ${formatPrice(settings?.minPayoutAmount || 200000)}`
@@ -555,50 +596,56 @@ const AffiliatePortal = () => {
                             </div>
 
                             {/* Card 2: Tổng hoa hồng */}
-                            <div className="rounded-3xl bg-white p-6 border border-slate-200/80 shadow-sm">
-                                <div className="flex items-center justify-between">
-                                    <span className="text-xs font-black uppercase tracking-wider text-slate-400">Tổng hoa hồng</span>
-                                    <div className="p-2 rounded-xl bg-amber-50 text-amber-600">
-                                        <TrendingUp className="w-4 h-4" />
+                            <div className="col-span-1 rounded-2xl sm:rounded-3xl bg-white p-3.5 sm:p-6 border border-slate-200/80 shadow-sm flex flex-col justify-between">
+                                <div>
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-slate-400">Tổng hoa hồng</span>
+                                        <div className="p-1.5 sm:p-2 rounded-xl bg-amber-50 text-amber-600">
+                                            <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                                        </div>
+                                    </div>
+                                    <div className="mt-2 sm:mt-3 text-base sm:text-2xl font-black text-slate-900 truncate">
+                                        {formatPrice(affiliate.stats?.totalCommission || 0)}
                                     </div>
                                 </div>
-                                <div className="mt-3 text-2xl sm:text-3xl font-black text-slate-900">
-                                    {formatPrice(affiliate.stats?.totalCommission || 0)}
-                                </div>
-                                <p className="mt-2 text-xs font-bold text-slate-500">
-                                    Đã thanh toán: {formatPrice(affiliate.stats?.paidAmount || 0)}
+                                <p className="mt-1.5 sm:mt-2 text-[10px] sm:text-xs font-bold text-slate-500 truncate">
+                                    Đã nhận: {formatPrice(affiliate.stats?.paidAmount || 0)}
                                 </p>
                             </div>
 
                             {/* Card 3: Đơn hàng thành công */}
-                            <div className="rounded-3xl bg-white p-6 border border-slate-200/80 shadow-sm">
-                                <div className="flex items-center justify-between">
-                                    <span className="text-xs font-black uppercase tracking-wider text-slate-400">Đơn thành công</span>
-                                    <div className="p-2 rounded-xl bg-emerald-50 text-emerald-600">
-                                        <Award className="w-4 h-4" />
+                            <div className="col-span-1 rounded-2xl sm:rounded-3xl bg-white p-3.5 sm:p-6 border border-slate-200/80 shadow-sm flex flex-col justify-between">
+                                <div>
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-slate-400">Đơn thành công</span>
+                                        <div className="p-1.5 sm:p-2 rounded-xl bg-emerald-50 text-emerald-600">
+                                            <Award className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                                        </div>
+                                    </div>
+                                    <div className="mt-2 sm:mt-3 text-base sm:text-2xl font-black text-slate-900">
+                                        {affiliate.stats?.totalOrders || 0} <span className="text-xs sm:text-sm font-bold text-slate-400">đơn</span>
                                     </div>
                                 </div>
-                                <div className="mt-3 text-2xl sm:text-3xl font-black text-slate-900">
-                                    {affiliate.stats?.totalOrders || 0} <span className="text-sm font-bold text-slate-400">đơn</span>
-                                </div>
-                                <p className="mt-2 text-xs font-bold text-slate-500">
-                                    Doanh thu: {formatPrice(affiliate.stats?.totalRevenue || 0)}
+                                <p className="mt-1.5 sm:mt-2 text-[10px] sm:text-xs font-bold text-slate-500 truncate">
+                                    DT: {formatPrice(affiliate.stats?.totalRevenue || 0)}
                                 </p>
                             </div>
 
                             {/* Card 4: Lượt click */}
-                            <div className="rounded-3xl bg-white p-6 border border-slate-200/80 shadow-sm">
-                                <div className="flex items-center justify-between">
-                                    <span className="text-xs font-black uppercase tracking-wider text-slate-400">Lượt click link</span>
-                                    <div className="p-2 rounded-xl bg-blue-50 text-blue-600">
-                                        <MousePointerClick className="w-4 h-4" />
+                            <div className="col-span-2 sm:col-span-1 rounded-2xl sm:rounded-3xl bg-white p-3.5 sm:p-6 border border-slate-200/80 shadow-sm flex flex-col justify-between">
+                                <div>
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-slate-400">Lượt click link</span>
+                                        <div className="p-1.5 sm:p-2 rounded-xl bg-blue-50 text-blue-600">
+                                            <MousePointerClick className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                                        </div>
+                                    </div>
+                                    <div className="mt-2 sm:mt-3 text-base sm:text-2xl font-black text-slate-900">
+                                        {affiliate.stats?.totalClicks || 0} <span className="text-xs sm:text-sm font-bold text-slate-400">lượt</span>
                                     </div>
                                 </div>
-                                <div className="mt-3 text-2xl sm:text-3xl font-black text-slate-900">
-                                    {affiliate.stats?.totalClicks || 0} <span className="text-sm font-bold text-slate-400">lượt</span>
-                                </div>
-                                <p className="mt-2 text-xs font-bold text-slate-500">
-                                    Mã của bạn: <strong className="text-[#9B2528]">{affiliate.affiliateCode}</strong>
+                                <p className="mt-1.5 sm:mt-2 text-[10px] sm:text-xs font-bold text-slate-500">
+                                    Mã CTV: <strong className="text-[#9B2528]">{affiliate.affiliateCode}</strong>
                                 </p>
                             </div>
                         </div>
@@ -657,169 +704,449 @@ const AffiliatePortal = () => {
 
                         {/* TAB 1: TẠO LINK & COUPON */}
                         {activeTab === "links" && (
-                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                                {/* Left: Link Generator */}
-                                <div className="lg:col-span-2 bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-sm space-y-6">
-                                    <div className="flex items-center gap-3">
-                                        <div className="p-2.5 rounded-2xl bg-red-50 text-[#9B2528]">
-                                            <Share2 className="w-5 h-5" />
+                            <div className="space-y-6 sm:space-y-8">
+                                {/* HÀNG 1: TRÌNH TẠO LINK & MÃ COUPON ĐỘC QUYỀN */}
+                                <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-stretch">
+                                    {/* Left: Link Generator */}
+                                    <div className="lg:col-span-7 xl:col-span-8 bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-7 border border-slate-200/80 shadow-sm flex flex-col justify-between space-y-4 sm:space-y-5">
+                                        <div className="space-y-3.5 sm:space-y-4">
+                                            <div className="flex items-center gap-2.5 sm:gap-3">
+                                                <div className="p-2 sm:p-2.5 rounded-xl sm:rounded-2xl bg-red-50 text-[#9B2528] shrink-0">
+                                                    <Share2 className="w-4 h-4 sm:w-5 sm:h-5" />
+                                                </div>
+                                                <div>
+                                                    <h3 className="text-base sm:text-lg font-black text-slate-900">Trình tạo Link Giới Thiệu</h3>
+                                                    <p className="text-[11px] sm:text-xs text-slate-500 font-medium">Chọn khóa học hoặc bài thôi miên để tạo link riêng</p>
+                                                </div>
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-[11px] sm:text-xs font-bold text-slate-600 mb-1.5 sm:mb-2">Chọn trang đích / Sản phẩm tiếp thị:</label>
+                                                <select
+                                                    value={selectedTargetKey}
+                                                    onChange={(e) => setSelectedTargetKey(e.target.value)}
+                                                    className="w-full h-11 sm:h-12 px-3 sm:px-4 rounded-xl border border-slate-200 font-bold text-xs sm:text-sm text-slate-800 outline-none focus:border-[#9B2528] bg-white transition-colors"
+                                                >
+                                                    <optgroup label="🌟 Trang danh mục chung">
+                                                        <option value="all_courses">🌟 Toàn bộ danh mục khóa học (/khoa-hoc)</option>
+                                                        <option value="all_hypnosis">🌙 Toàn bộ danh mục Thôi Miên (/thoi-mien)</option>
+                                                    </optgroup>
+                                                    <optgroup label="📚 Khóa học trực tuyến">
+                                                        {courses.map((c) => {
+                                                            const commPercent = affiliate?.customCommissionPercent != null
+                                                                ? affiliate.customCommissionPercent
+                                                                : (c.affiliateCommissionPercent != null && c.affiliateCommissionPercent !== "" ? Number(c.affiliateCommissionPercent) : (settings?.defaultCommissionPercent || 30));
+                                                            const estReward = Math.round(((c.price || 0) * commPercent) / 100);
+                                                            return (
+                                                                <option key={c.id} value={`course:${c.slug || c.id}`}>
+                                                                    [Khóa học] {c.name} — Hoa hồng: {commPercent}% (~{formatPrice(estReward)})
+                                                                </option>
+                                                            );
+                                                        })}
+                                                    </optgroup>
+                                                    <optgroup label="🎧 Bản Thôi Miên Tiềm Thức">
+                                                        {hypnosisTracks.map((t) => {
+                                                            const rawPrice = t.price;
+                                                            const trackPrice = typeof rawPrice === 'number' ? rawPrice : (Number(String(rawPrice || 0).replace(/\D/g, '')) || 0);
+                                                            const isFixed = t.affiliateCommissionType === 'fixed' && Number(t.affiliateCommissionAmount) > 0;
+                                                            const commPercent = affiliate?.customCommissionPercent != null
+                                                                ? affiliate.customCommissionPercent
+                                                                : (t.affiliateCommissionPercent != null && t.affiliateCommissionPercent !== "" ? Number(t.affiliateCommissionPercent) : (settings?.defaultCommissionPercent || 30));
+                                                            const estReward = isFixed ? Number(t.affiliateCommissionAmount) : Math.round((trackPrice * commPercent) / 100);
+                                                            const rewardLabel = isFixed ? formatPrice(t.affiliateCommissionAmount) : `${commPercent}% (~${formatPrice(estReward)})`;
+                                                            const buyerTag = Number(t.affiliateBuyerDiscountPercent) > 0 ? ` • Giảm ${t.affiliateBuyerDiscountPercent}% KH` : '';
+                                                            return (
+                                                                <option key={t.id} value={`hypnosis:${t.id}`}>
+                                                                    [Thôi miên] {t.title} — Hoa hồng: {rewardLabel}{buyerTag}
+                                                                </option>
+                                                            );
+                                                        })}
+                                                    </optgroup>
+                                                </select>
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-[11px] sm:text-xs font-bold text-slate-600 mb-1.5 sm:mb-2">Link tiếp thị của bạn:</label>
+                                                <div className="flex items-stretch gap-1.5 sm:gap-2">
+                                                    <input
+                                                        type="text"
+                                                        readOnly
+                                                        value={generatedLink}
+                                                        className="flex-1 min-w-0 h-11 sm:h-12 px-3 rounded-xl border border-slate-200 bg-slate-50 font-bold text-[11px] sm:text-sm text-slate-700 select-all outline-none truncate"
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => copyToClipboard(generatedLink, "link")}
+                                                        className="h-11 sm:h-12 px-3.5 sm:px-6 rounded-xl bg-[#9B2528] text-white font-black text-xs sm:text-sm shadow-md hover:bg-[#7E1E21] transition-all flex items-center justify-center gap-1.5 shrink-0"
+                                                    >
+                                                        {copiedKey === "link" ? (
+                                                            <>
+                                                                <CheckCircle2 className="w-4 h-4 text-amber-300" />
+                                                                <span>Đã chép</span>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <Copy className="w-4 h-4" />
+                                                                <span>Sao chép</span>
+                                                            </>
+                                                        )}
+                                                    </button>
+                                                </div>
+                                            </div>
                                         </div>
+
+                                        <div className="p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl bg-amber-50/80 border border-amber-200/80 text-[11px] sm:text-xs font-medium text-amber-900 flex items-start gap-2 sm:gap-2.5">
+                                            <Info className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-600 shrink-0 mt-0.5" />
+                                            <span>
+                                                Hệ thống lưu mã của bạn trong <strong>{settings?.cookieDurationDays === 0 ? "Vĩnh viễn" : `${settings?.cookieDurationDays || 30} ngày`}</strong>. Khi khách hàng thanh toán bất kỳ lúc nào, bạn đều được tự động cộng hoa hồng!
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Right: Personal Coupon Card */}
+                                    <div className="lg:col-span-5 xl:col-span-4 bg-gradient-to-br from-amber-50/70 via-white to-red-50/40 rounded-2xl sm:rounded-3xl p-4 sm:p-7 border border-amber-200/80 shadow-sm flex flex-col justify-between space-y-3.5 sm:space-y-4">
                                         <div>
-                                            <h3 className="text-lg font-black text-slate-900">Trình tạo Link Giới Thiệu</h3>
-                                            <p className="text-xs text-slate-500 font-medium">Chọn khóa học bạn muốn quảng bá để tạo link riêng</p>
+                                            <div className="flex items-center gap-2.5 sm:gap-3 mb-3 sm:mb-4">
+                                                <div className="p-2 sm:p-2.5 rounded-xl sm:rounded-2xl bg-amber-100 text-amber-800 shrink-0">
+                                                    <Tag className="w-4 h-4 sm:w-5 sm:h-5" />
+                                                </div>
+                                                <div>
+                                                    <h3 className="text-base sm:text-lg font-black text-slate-900">Mã Coupon Độc Quyền</h3>
+                                                    <p className="text-[11px] sm:text-xs text-slate-500 font-medium">Tặng bạn bè ưu đãi đặc biệt</p>
+                                                </div>
+                                            </div>
+
+                                            <div className="rounded-xl sm:rounded-2xl border-2 border-dashed border-[#9B2528]/40 bg-white p-3.5 sm:p-5 text-center space-y-1 sm:space-y-1.5 shadow-inner">
+                                                <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-[#9B2528]">Mã giảm giá của bạn</span>
+                                                <div className="text-xl sm:text-3xl font-black text-slate-950 tracking-wider select-all">
+                                                    {affiliate.couponCode || `${affiliate.affiliateCode}10`}
+                                                </div>
+                                                <span className="inline-block px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full bg-emerald-50 text-emerald-700 text-[10px] sm:text-xs font-bold border border-emerald-200">
+                                                    Giảm ngay {affiliate.couponDiscountPercent ?? 10}% cho người mua
+                                                </span>
+                                            </div>
                                         </div>
-                                    </div>
 
-                                    <div>
-                                        <label className="block text-xs font-bold text-slate-600 mb-2">Chọn trang đích / Khóa học:</label>
-                                        <select
-                                            value={selectedCourseSlug}
-                                            onChange={(e) => setSelectedCourseSlug(e.target.value)}
-                                            className="w-full h-12 px-4 rounded-xl border border-slate-200 font-bold text-slate-800 outline-none focus:border-[#9B2528]"
-                                        >
-                                            <option value="all">🌟 Toàn bộ danh mục khóa học (/khoa-hoc)</option>
-                                            {courses.map((c) => {
-                                                const commPercent = affiliate?.customCommissionPercent != null
-                                                    ? affiliate.customCommissionPercent
-                                                    : (c.affiliateCommissionPercent != null && c.affiliateCommissionPercent !== "" ? Number(c.affiliateCommissionPercent) : (settings?.defaultCommissionPercent || 30));
-                                                const estReward = Math.round(((c.price || 0) * commPercent) / 100);
-                                                return (
-                                                    <option key={c.id} value={c.slug || c.id}>
-                                                        {c.name} — Hoa hồng: {commPercent}% (~{formatPrice(estReward)})
-                                                    </option>
-                                                );
-                                            })}
-                                        </select>
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-xs font-bold text-slate-600 mb-2">Link tiếp thị của bạn:</label>
-                                        <div className="flex flex-col sm:flex-row items-stretch gap-2">
-                                            <input
-                                                type="text"
-                                                readOnly
-                                                value={generatedLink}
-                                                className="flex-1 h-12 px-4 rounded-xl border border-slate-200 bg-slate-50 font-bold text-xs sm:text-sm text-slate-700 select-all outline-none"
-                                            />
+                                        <div className="space-y-2 sm:space-y-3">
                                             <button
                                                 type="button"
-                                                onClick={() => copyToClipboard(generatedLink, "link")}
-                                                className="h-12 px-6 rounded-xl bg-[#9B2528] text-white font-black text-xs sm:text-sm shadow-md hover:bg-[#7E1E21] transition-all flex items-center justify-center gap-2"
+                                                onClick={() => copyToClipboard(affiliate.couponCode || `${affiliate.affiliateCode}10`, "coupon")}
+                                                className="w-full h-11 sm:h-12 rounded-xl bg-slate-900 text-white font-black text-xs sm:text-sm hover:bg-slate-800 transition-all flex items-center justify-center gap-2 shadow-sm"
                                             >
-                                                {copiedKey === "link" ? (
+                                                {copiedKey === "coupon" ? (
                                                     <>
-                                                        <CheckCircle2 className="w-4 h-4 text-amber-300" />
-                                                        <span>Đã chép!</span>
+                                                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                                                        <span>Đã chép mã coupon!</span>
                                                     </>
                                                 ) : (
                                                     <>
                                                         <Copy className="w-4 h-4" />
-                                                        <span>Sao chép link</span>
+                                                        <span>Sao chép mã Coupon</span>
                                                     </>
                                                 )}
                                             </button>
-                                        </div>
-                                    </div>
-
-                                    <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200/80 text-xs font-semibold text-amber-900 flex items-start gap-2.5">
-                                        <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                                        <span>
-                                            Khi khách hàng bấm vào link này, hệ thống sẽ lưu mã giới thiệu của bạn trong <strong>{settings?.cookieDurationDays === 0 ? "Vĩnh viễn" : `${settings?.cookieDurationDays || 30} ngày`}</strong>. Bất cứ khi nào họ thanh toán, bạn sẽ được tự động nhận đúng mức hoa hồng của khóa học đó!
-                                        </span>
-                                    </div>
-
-                                    {/* Bảng tra cứu hoa hồng từng khóa học */}
-                                    <div className="border-t border-slate-100 pt-5 space-y-3">
-                                        <h4 className="text-xs font-black uppercase tracking-wider text-slate-900 flex items-center justify-between">
-                                            <span>Bảng Tỷ Lệ Hoa Hồng Từng Khóa Học ({courses.length})</span>
-                                        </h4>
-                                        <div className="max-h-64 overflow-y-auto rounded-2xl border border-slate-100 divide-y divide-slate-100 text-xs">
-                                            {courses.map((c) => {
-                                                const commPercent = affiliate?.customCommissionPercent != null
-                                                    ? affiliate.customCommissionPercent
-                                                    : (c.affiliateCommissionPercent != null && c.affiliateCommissionPercent !== "" ? Number(c.affiliateCommissionPercent) : (settings?.defaultCommissionPercent || 30));
-                                                const estReward = Math.round(((c.price || 0) * commPercent) / 100);
-                                                const itemLink = `${origin}/khoa-hoc/${c.slug || c.id}?ref=${currentAffCode}`;
-                                                return (
-                                                    <div key={c.id} className="p-3 hover:bg-slate-50 flex items-center justify-between gap-3">
-                                                        <div className="min-w-0">
-                                                            <div className="font-black text-slate-900 truncate">{c.name}</div>
-                                                            <div className="text-[11px] text-slate-400">
-                                                                Giá bán: {formatPrice(c.price || 0)}
-                                                            </div>
-                                                        </div>
-                                                        <div className="flex items-center gap-3 shrink-0">
-                                                            <div className="text-right">
-                                                                <span className="px-2 py-0.5 rounded-full bg-red-50 text-[#9B2528] font-black text-xs border border-red-200">
-                                                                    {commPercent}%
-                                                                </span>
-                                                                <div className="text-[10px] font-bold text-emerald-600 mt-0.5">
-                                                                    +{formatPrice(estReward)}
-                                                                </div>
-                                                            </div>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => copyToClipboard(itemLink, `course-${c.id}`)}
-                                                                className="px-3 py-1.5 rounded-xl border border-slate-200 hover:border-[#9B2528] hover:text-[#9B2528] font-bold text-[11px] flex items-center gap-1 transition-colors"
-                                                            >
-                                                                {copiedKey === `course-${c.id}` ? (
-                                                                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                                                                ) : (
-                                                                    <Copy className="w-3.5 h-3.5" />
-                                                                )}
-                                                                <span>{copiedKey === `course-${c.id}` ? "Đã chép" : "Lấy link"}</span>
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
+                                            <p className="text-[10px] sm:text-[11px] text-slate-500 font-medium text-center leading-relaxed">
+                                                Khách nhập mã này lúc thanh toán để được giảm giá, hoa hồng tự động ghi nhận cho bạn kể cả không qua link!
+                                            </p>
                                         </div>
                                     </div>
                                 </div>
 
-                                {/* Right: Personal Coupon Card */}
-                                <div className="bg-gradient-to-br from-amber-50/60 via-white to-red-50/40 rounded-3xl p-6 sm:p-8 border border-amber-200/80 shadow-sm space-y-6">
-                                    <div className="flex items-center gap-3">
-                                        <div className="p-2.5 rounded-2xl bg-amber-100 text-amber-800">
-                                            <Tag className="w-5 h-5" />
-                                        </div>
+                                {/* HÀNG 2: BẢNG SẢN PHẨM & HOA HỒNG */}
+                                <div className="space-y-3.5 sm:space-y-4">
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/80 pb-3">
                                         <div>
-                                            <h3 className="text-lg font-black text-slate-900">Mã Coupon Độc Quyền</h3>
-                                            <p className="text-xs text-slate-500 font-medium">Tặng bạn bè ưu đãi đặc biệt</p>
+                                            <h3 className="text-base sm:text-lg font-black text-slate-900 flex items-center gap-2">
+                                                <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-[#9B2528]" />
+                                                <span>Bảng Tỷ Lệ Hoa Hồng Tiếp Thị Từng Sản Phẩm</span>
+                                            </h3>
+                                            <p className="text-[11px] sm:text-xs text-slate-500 font-medium mt-0.5">
+                                                Xem mức hoa hồng chi tiết và lấy link chia sẻ trực tiếp cho từng khóa học hoặc bản thôi miên
+                                            </p>
+                                        </div>
+
+                                        {/* Mobile Tab Switcher: Gọn gàng, dễ bấm, không bị kéo dài lê thê trên mobile */}
+                                        <div className="flex lg:hidden p-1 bg-slate-100 rounded-2xl border border-slate-200/80 shadow-inner">
+                                            <button
+                                                type="button"
+                                                onClick={() => setMobileProductTab("courses")}
+                                                className={`flex-1 py-2 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
+                                                    mobileProductTab === "courses"
+                                                        ? "bg-[#9B2528] text-white shadow-sm"
+                                                        : "text-slate-600 hover:text-slate-900"
+                                                }`}
+                                            >
+                                                <BookOpen className="w-3.5 h-3.5" />
+                                                <span>Khóa học ({courses.length})</span>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setMobileProductTab("hypnosis")}
+                                                className={`flex-1 py-2 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
+                                                    mobileProductTab === "hypnosis"
+                                                        ? "bg-purple-700 text-white shadow-sm"
+                                                        : "text-slate-600 hover:text-slate-900"
+                                                }`}
+                                            >
+                                                <Headphones className="w-3.5 h-3.5" />
+                                                <span>Thôi miên ({hypnosisTracks.length})</span>
+                                            </button>
                                         </div>
                                     </div>
 
-                                    <div className="rounded-2xl border-2 border-dashed border-[#9B2528]/40 bg-white p-5 text-center space-y-2">
-                                        <span className="text-[10px] font-black uppercase tracking-widest text-[#9B2528]">Mã giảm giá của bạn</span>
-                                        <div className="text-2xl sm:text-3xl font-black text-slate-950 tracking-wider">
-                                            {affiliate.couponCode || `${affiliate.affiliateCode}10`}
+                                    {/* 2 Cột: Desktop song song (khóa học 1 bên, thôi miên 1 bên) - Mobile chuyển tab mượt mà */}
+                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 sm:gap-6 items-start">
+                                        {/* CỘT TRÁI: KHÓA HỌC ONLINE */}
+                                        <div className={`bg-white rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden flex flex-col ${
+                                            mobileProductTab === "courses" ? "flex" : "hidden lg:flex"
+                                        }`}>
+                                            {/* Column Header */}
+                                            <div className="p-3.5 sm:p-5 bg-gradient-to-r from-red-50/80 via-white to-white border-b border-slate-100 space-y-2.5 sm:space-y-3">
+                                                <div className="flex items-center justify-between gap-3">
+                                                    <div className="flex items-center gap-2.5 sm:gap-3">
+                                                        <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-[#9B2528] text-white flex items-center justify-center shadow-md shadow-red-950/20 shrink-0">
+                                                            <BookOpen className="w-4 h-4 sm:w-5 sm:h-5" />
+                                                        </div>
+                                                        <div>
+                                                            <h4 className="text-sm sm:text-base font-black text-slate-900 flex items-center gap-2">
+                                                                <span>Khóa Học Online</span>
+                                                                <span className="px-2 py-0.5 rounded-full bg-red-100 text-[#9B2528] text-[10px] sm:text-[11px] font-black">
+                                                                    {courses.length}
+                                                                </span>
+                                                            </h4>
+                                                            <p className="text-[11px] sm:text-xs text-slate-500">Các chương trình đào tạo trực tuyến</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* Link toàn bộ danh mục khóa học */}
+                                                <div className="p-2.5 sm:p-3 rounded-xl sm:rounded-2xl bg-white border border-red-100/90 shadow-sm flex items-center justify-between gap-2">
+                                                    <div className="min-w-0">
+                                                        <span className="font-bold text-slate-800 text-[11px] sm:text-xs block truncate">🌟 Link Danh Mục Toàn Bộ Khóa Học</span>
+                                                        <span className="text-[9px] sm:text-[10px] text-slate-400 truncate block">/khoa-hoc?ref={currentAffCode}</span>
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => copyToClipboard(`${origin}/khoa-hoc?ref=${currentAffCode}`, "cat-courses")}
+                                                        className="px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl bg-red-50 hover:bg-[#9B2528] hover:text-white text-[#9B2528] border border-red-200/80 font-black text-[11px] sm:text-xs shrink-0 transition-all flex items-center gap-1"
+                                                    >
+                                                        {copiedKey === "cat-courses" ? (
+                                                            <>
+                                                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                                                <span>Đã chép</span>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <Copy className="w-3.5 h-3.5" />
+                                                                <span>Lấy link</span>
+                                                            </>
+                                                        )}
+                                                    </button>
+                                                </div>
+
+                                                {/* Ô tìm kiếm khóa học */}
+                                                <div className="relative">
+                                                    <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                                                    <input
+                                                        type="text"
+                                                        value={courseSearch}
+                                                        onChange={(e) => setCourseSearch(e.target.value)}
+                                                        placeholder="Tìm khóa học theo tên..."
+                                                        className="w-full pl-8 sm:pl-9 pr-3 sm:pr-4 py-1.5 sm:py-2 text-[11px] sm:text-xs rounded-xl border border-slate-200 bg-slate-50/70 focus:bg-white focus:border-[#9B2528] outline-none transition-all"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {/* Danh sách khóa học */}
+                                            <div className="p-2 sm:p-4 divide-y divide-slate-100 max-h-[380px] sm:max-h-[500px] overflow-y-auto">
+                                                {filteredCourses.length === 0 ? (
+                                                    <div className="text-center py-10 text-slate-400 text-xs font-medium">
+                                                        {courseSearch ? "Không tìm thấy khóa học nào phù hợp" : "Chưa có khóa học nào"}
+                                                    </div>
+                                                ) : (
+                                                    filteredCourses.map((c) => {
+                                                        const commPercent = affiliate?.customCommissionPercent != null
+                                                            ? affiliate.customCommissionPercent
+                                                            : (c.affiliateCommissionPercent != null && c.affiliateCommissionPercent !== "" ? Number(c.affiliateCommissionPercent) : (settings?.defaultCommissionPercent || 30));
+                                                        const estReward = Math.round(((c.price || 0) * commPercent) / 100);
+                                                        const itemLink = `${origin}/khoa-hoc/${c.slug || c.id}?ref=${currentAffCode}`;
+
+                                                        return (
+                                                            <div key={`course-${c.id}`} className="py-2.5 sm:py-3 px-2 rounded-xl hover:bg-slate-50/90 transition-colors flex items-center justify-between gap-2.5">
+                                                                <div className="min-w-0 flex-1">
+                                                                    <div className="font-bold text-slate-900 text-xs sm:text-sm line-clamp-1">
+                                                                        {c.name}
+                                                                    </div>
+                                                                    <div className="text-[10px] sm:text-[11px] text-slate-500 mt-0.5">
+                                                                        Giá bán: <span className="font-bold text-slate-700">{formatPrice(c.price || 0)}</span>
+                                                                    </div>
+                                                                </div>
+
+                                                                <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+                                                                    <div className="text-right">
+                                                                        <span className="inline-block px-1.5 sm:px-2 py-0.5 rounded-lg bg-red-50 text-[#9B2528] font-black text-[11px] sm:text-xs border border-red-200">
+                                                                            {commPercent}%
+                                                                        </span>
+                                                                        <div className="text-[10px] sm:text-[11px] font-black text-emerald-600 mt-0.5">
+                                                                            +{formatPrice(estReward)}
+                                                                        </div>
+                                                                    </div>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => copyToClipboard(itemLink, `course-${c.id}`)}
+                                                                        className="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-xl border border-slate-200 hover:border-[#9B2528] hover:bg-red-50 hover:text-[#9B2528] font-bold text-[11px] sm:text-xs flex items-center gap-1 transition-all text-slate-700 shrink-0"
+                                                                    >
+                                                                        {copiedKey === `course-${c.id}` ? (
+                                                                            <>
+                                                                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                                                                <span className="text-[11px]">Đã chép</span>
+                                                                            </>
+                                                                        ) : (
+                                                                            <>
+                                                                                <Copy className="w-3.5 h-3.5" />
+                                                                                <span className="text-[11px]">Lấy link</span>
+                                                                            </>
+                                                                        )}
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })
+                                                )}
+                                            </div>
                                         </div>
-                                        <span className="inline-block px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200">
-                                            Giảm ngay {affiliate.couponDiscountPercent ?? 10}% cho người mua
-                                        </span>
+
+                                        {/* CỘT PHẢI: BẢN THÔI MIÊN TIỀM THỨC */}
+                                        <div className={`bg-white rounded-2xl sm:rounded-3xl border border-purple-200/90 shadow-sm overflow-hidden flex flex-col ${
+                                            mobileProductTab === "hypnosis" ? "flex" : "hidden lg:flex"
+                                        }`}>
+                                            {/* Column Header */}
+                                            <div className="p-3.5 sm:p-5 bg-gradient-to-r from-purple-50/80 via-white to-white border-b border-purple-100 space-y-2.5 sm:space-y-3">
+                                                <div className="flex items-center justify-between gap-3">
+                                                    <div className="flex items-center gap-2.5 sm:gap-3">
+                                                        <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-purple-700 text-white flex items-center justify-center shadow-md shadow-purple-950/20 shrink-0">
+                                                            <Headphones className="w-4 h-4 sm:w-5 sm:h-5" />
+                                                        </div>
+                                                        <div>
+                                                            <h4 className="text-sm sm:text-base font-black text-purple-950 flex items-center gap-2">
+                                                                <span>Bản Thôi Miên Tiềm Thức</span>
+                                                                <span className="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-[10px] sm:text-[11px] font-black">
+                                                                    {hypnosisTracks.length}
+                                                                </span>
+                                                            </h4>
+                                                            <p className="text-[11px] sm:text-xs text-slate-500">Bản thu âm trị liệu tiềm thức & cài đặt tư duy</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* Link toàn bộ danh mục thôi miên */}
+                                                <div className="p-2.5 sm:p-3 rounded-xl sm:rounded-2xl bg-white border border-purple-100/90 shadow-sm flex items-center justify-between gap-2">
+                                                    <div className="min-w-0">
+                                                        <span className="font-bold text-purple-950 text-[11px] sm:text-xs block truncate">🌙 Link Danh Mục Toàn Bộ Thôi Miên</span>
+                                                        <span className="text-[9px] sm:text-[10px] text-purple-400 truncate block">/thoi-mien?ref={currentAffCode}</span>
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => copyToClipboard(`${origin}/thoi-mien?ref=${currentAffCode}`, "cat-hypnosis")}
+                                                        className="px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl bg-purple-50 hover:bg-purple-700 hover:text-white text-purple-700 border border-purple-200/80 font-black text-[11px] sm:text-xs shrink-0 transition-all flex items-center gap-1"
+                                                    >
+                                                        {copiedKey === "cat-hypnosis" ? (
+                                                            <>
+                                                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                                                <span>Đã chép</span>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <Copy className="w-3.5 h-3.5" />
+                                                                <span>Lấy link</span>
+                                                            </>
+                                                        )}
+                                                    </button>
+                                                </div>
+
+                                                {/* Ô tìm kiếm thôi miên */}
+                                                <div className="relative">
+                                                    <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                                                    <input
+                                                        type="text"
+                                                        value={hypnosisSearch}
+                                                        onChange={(e) => setHypnosisSearch(e.target.value)}
+                                                        placeholder="Tìm bản thôi miên theo tiêu đề, tác giả..."
+                                                        className="w-full pl-8 sm:pl-9 pr-3 sm:pr-4 py-1.5 sm:py-2 text-[11px] sm:text-xs rounded-xl border border-purple-200 bg-purple-50/40 focus:bg-white focus:border-purple-600 outline-none transition-all"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {/* Danh sách thôi miên */}
+                                            <div className="p-2 sm:p-4 divide-y divide-slate-100 max-h-[380px] sm:max-h-[500px] overflow-y-auto">
+                                                {filteredHypnosisTracks.length === 0 ? (
+                                                    <div className="text-center py-10 text-slate-400 text-xs font-medium">
+                                                        {hypnosisSearch ? "Không tìm thấy bản thôi miên nào phù hợp" : "Chưa có bản thôi miên nào"}
+                                                    </div>
+                                                ) : (
+                                                    filteredHypnosisTracks.map((t) => {
+                                                        const rawPrice = t.price;
+                                                        const trackPrice = typeof rawPrice === 'number' ? rawPrice : (Number(String(rawPrice || 0).replace(/\D/g, '')) || 0);
+                                                        const isFixed = t.affiliateCommissionType === 'fixed' && Number(t.affiliateCommissionAmount) > 0;
+                                                        const commPercent = affiliate?.customCommissionPercent != null
+                                                            ? affiliate.customCommissionPercent
+                                                            : (t.affiliateCommissionPercent != null && t.affiliateCommissionPercent !== "" ? Number(t.affiliateCommissionPercent) : (settings?.defaultCommissionPercent || 30));
+                                                        const estReward = isFixed ? Number(t.affiliateCommissionAmount) : Math.round((trackPrice * commPercent) / 100);
+                                                        const itemLink = `${origin}/thanh-toan/${t.id}?ref=${currentAffCode}`;
+
+                                                        return (
+                                                            <div key={`hypnosis-${t.id}`} className="py-2.5 sm:py-3 px-2 rounded-xl hover:bg-purple-50/50 transition-colors flex items-center justify-between gap-2.5">
+                                                                <div className="min-w-0 flex-1">
+                                                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                                                        <span className="font-bold text-slate-900 text-xs sm:text-sm line-clamp-1">
+                                                                            {t.title}
+                                                                        </span>
+                                                                        {Number(t.affiliateBuyerDiscountPercent) > 0 && (
+                                                                            <span className="px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-[9px] sm:text-[10px] font-black border border-emerald-200 shrink-0">
+                                                                                Mã -{t.affiliateBuyerDiscountPercent}% KH
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                    <div className="text-[10px] sm:text-[11px] text-slate-500 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                                                                        <span>Giá bán: <strong className="text-slate-700">{formatPrice(trackPrice)}</strong></span>
+                                                                        {t.author && <span className="text-slate-400">• {t.author}</span>}
+                                                                    </div>
+                                                                </div>
+
+                                                                <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+                                                                    <div className="text-right">
+                                                                        <span className="inline-block px-1.5 sm:px-2 py-0.5 rounded-lg bg-purple-50 text-purple-700 font-black text-[11px] sm:text-xs border border-purple-200">
+                                                                            {isFixed ? formatPrice(t.affiliateCommissionAmount) : `${commPercent}%`}
+                                                                        </span>
+                                                                        <div className="text-[10px] sm:text-[11px] font-black text-emerald-600 mt-0.5">
+                                                                            +{formatPrice(estReward)}
+                                                                        </div>
+                                                                    </div>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => copyToClipboard(itemLink, `hypnosis-${t.id}`)}
+                                                                        className="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-xl border border-slate-200 hover:border-purple-600 hover:bg-purple-50 hover:text-purple-700 font-bold text-[11px] sm:text-xs flex items-center gap-1 transition-all text-slate-700 shrink-0"
+                                                                    >
+                                                                        {copiedKey === `hypnosis-${t.id}` ? (
+                                                                            <>
+                                                                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                                                                <span className="text-[11px]">Đã chép</span>
+                                                                            </>
+                                                                        ) : (
+                                                                            <>
+                                                                                <Copy className="w-3.5 h-3.5" />
+                                                                                <span className="text-[11px]">Lấy link</span>
+                                                                            </>
+                                                                        )}
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })
+                                                )}
+                                            </div>
+                                        </div>
                                     </div>
-
-                                    <button
-                                        type="button"
-                                        onClick={() => copyToClipboard(affiliate.couponCode || `${affiliate.affiliateCode}10`, "coupon")}
-                                        className="w-full h-11 rounded-xl bg-slate-900 text-white font-bold text-xs hover:bg-slate-800 transition-all flex items-center justify-center gap-2"
-                                    >
-                                        {copiedKey === "coupon" ? (
-                                            <>
-                                                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                                                <span>Đã chép mã coupon!</span>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Copy className="w-4 h-4" />
-                                                <span>Sao chép mã Coupon</span>
-                                            </>
-                                        )}
-                                    </button>
-
-                                    <p className="text-xs text-slate-500 font-medium text-center">
-                                        Người mua chỉ cần nhập mã này lúc thanh toán là bạn được tự động ghi nhận hoa hồng ngay cả khi họ không bấm qua link ref!
-                                    </p>
                                 </div>
                             </div>
                         )}
@@ -851,7 +1178,7 @@ const AffiliatePortal = () => {
                                             <thead>
                                                 <tr className="border-b border-slate-100 text-[11px] font-black uppercase tracking-wider text-slate-400">
                                                     <th className="pb-3">Mã đơn</th>
-                                                    <th className="pb-3">Khóa học</th>
+                                                    <th className="pb-3">Sản phẩm</th>
                                                     <th className="pb-3">Giá trị đơn</th>
                                                     <th className="pb-3">Tỷ lệ</th>
                                                     <th className="pb-3 text-right">Hoa hồng nhận</th>

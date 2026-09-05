@@ -55,6 +55,8 @@ const Checkout = () => {
         return Math.max(0, Math.round(basePrice - discountAmount));
     }, [course, couponApplied, selectedPlan]);
 
+    const [activeAffCode, setActiveAffCode] = useState(null);
+
     const buildHypnosisPayload = (hData) => {
         const parseNumeric = (val) => {
             if (typeof val === 'number') return val;
@@ -81,6 +83,12 @@ const Checkout = () => {
             price: basePrice,
             salePrice: effectiveSalePrice,
             originalPrice: hasDiscount ? originalPrice : (currentPrice ? currentPrice * 2 : 0),
+            isAffiliateEnabled: hData.isAffiliateEnabled !== false,
+            affiliateCommissionType: hData.affiliateCommissionType || "percent",
+            affiliateCommissionPercent: hData.affiliateCommissionPercent != null ? Number(hData.affiliateCommissionPercent) : null,
+            affiliateCommissionAmount: parseNumeric(hData.affiliateCommissionAmount),
+            affiliateBuyerDiscountPercent: Number(hData.affiliateBuyerDiscountPercent) || 0,
+            affiliateBuyerVoucherText: hData.affiliateBuyerVoucherText || "",
             accessPlansEnabled: true,
             accessPlans: [
                 {
@@ -180,6 +188,32 @@ const Checkout = () => {
     }, []);
 
     useEffect(() => {
+        const resolveAff = async () => {
+            const urlRef = searchParams.get("ref");
+            if (urlRef) {
+                setActiveAffCode(urlRef.trim().toUpperCase());
+                return;
+            }
+            const stored = await getActiveAffiliateRef();
+            if (stored) {
+                setActiveAffCode(stored);
+            }
+        };
+        resolveAff();
+    }, [searchParams]);
+
+    useEffect(() => {
+        if (!couponApplied && activeAffCode && Number(course?.affiliateBuyerDiscountPercent) > 0) {
+            setCouponApplied({
+                code: `CTV-${activeAffCode}`,
+                discountPercent: Number(course.affiliateBuyerDiscountPercent),
+                isAffiliateVoucher: true,
+                note: course.affiliateBuyerVoucherText || "Ưu đãi độc quyền từ Đối tác giới thiệu",
+            });
+        }
+    }, [activeAffCode, course, couponApplied]);
+
+    useEffect(() => {
         if (course) {
             trackMetaEvent("InitiateCheckout", {
                 content_name: course.name || "Checkout",
@@ -250,7 +284,7 @@ const Checkout = () => {
                 productType: isHypnosis ? 'hypnosis' : 'course',
             }];
 
-            const activeAffiliateCode = await getActiveAffiliateRef();
+            const activeAffiliateCode = activeAffCode || await getActiveAffiliateRef();
 
             const orderData = {
                 userId: finalUserId,
@@ -518,10 +552,24 @@ const Checkout = () => {
                                             )}
                                         </div>
                                         {couponApplied && (
-                                            <p className="text-xs text-green-600 mt-2 flex items-center gap-1">
-                                                <ShieldCheck className="w-3 h-3" />
-                                                Đã giảm {couponApplied.discountPercent}% với mã {couponApplied.code}
-                                            </p>
+                                            <div className={`mt-2 p-2 rounded-lg text-xs flex items-start gap-1.5 ${
+                                                couponApplied.isAffiliateVoucher 
+                                                    ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' 
+                                                    : 'text-green-600'
+                                            }`}>
+                                                <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                                                <div>
+                                                    <div className="font-bold">
+                                                        {couponApplied.isAffiliateVoucher 
+                                                            ? `🎁 Ưu đãi độc quyền từ CTV (${activeAffCode}): Giảm ${couponApplied.discountPercent}%` 
+                                                            : `Đã giảm ${couponApplied.discountPercent}% với mã ${couponApplied.code}`
+                                                        }
+                                                    </div>
+                                                    {couponApplied.note && (
+                                                        <div className="text-[11px] opacity-80 mt-0.5">{couponApplied.note}</div>
+                                                    )}
+                                                </div>
+                                            </div>
                                         )}
                                     </div>
                                 </div>

@@ -21,6 +21,8 @@ import {
   Shield,
   Layout,
   Share2,
+  Headphones,
+  Sparkles,
 } from "lucide-react";
 
 import { auth, db } from "../firebase";
@@ -56,6 +58,19 @@ const COURSE_MENU_OPTIONS = [
   },
 ];
 
+const HYPNOSIS_MENU_OPTIONS = [
+  {
+    label: "Mua bản thôi miên mới",
+    path: "/thoi-mien",
+    Icon: Sparkles,
+  },
+  {
+    label: "Thôi miên tôi đã mua",
+    path: "/thoi-mien-cua-toi",
+    Icon: Headphones,
+  },
+];
+
 const Header = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openSubmenus, setOpenSubmenus] = useState({});
@@ -63,30 +78,36 @@ const Header = () => {
   const [currentUserProfile, setCurrentUserProfile] = useState(null);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [coursesMenuOpen, setCoursesMenuOpen] = useState(false);
+  const [hypnosisMenuOpen, setHypnosisMenuOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const pendingCount = usePendingOrderCount(currentUser?.uid);
   const [pendingBannerDismissed, setPendingBannerDismissed] = useState(false);
   const navigate = useNavigate();
   const coursesMenuRef = useRef(null);
+  const hypnosisMenuRef = useRef(null);
 
   useEffect(() => {
-    const closeCoursesMenu = (event) => {
+    const closeDropdowns = (event) => {
       if (coursesMenuRef.current && !coursesMenuRef.current.contains(event.target)) {
         setCoursesMenuOpen(false);
+      }
+      if (hypnosisMenuRef.current && !hypnosisMenuRef.current.contains(event.target)) {
+        setHypnosisMenuOpen(false);
       }
     };
 
     const closeOnEscape = (event) => {
       if (event.key === "Escape") {
         setCoursesMenuOpen(false);
+        setHypnosisMenuOpen(false);
       }
     };
 
-    document.addEventListener("pointerdown", closeCoursesMenu);
+    document.addEventListener("pointerdown", closeDropdowns);
     document.addEventListener("keydown", closeOnEscape);
 
     return () => {
-      document.removeEventListener("pointerdown", closeCoursesMenu);
+      document.removeEventListener("pointerdown", closeDropdowns);
       document.removeEventListener("keydown", closeOnEscape);
     };
   }, []);
@@ -374,6 +395,49 @@ const Header = () => {
                   );
                 }
 
+                if (item.path === "/thoi-mien") {
+                  return (
+                    <div key={item.path} ref={hypnosisMenuRef} className="relative">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setHypnosisMenuOpen((isOpen) => !isOpen);
+                          setCoursesMenuOpen(false);
+                        }}
+                        className="inline-flex items-center gap-1 rounded-lg px-2 py-2 text-sm font-medium text-secret-ink transition hover:text-secret-wax focus:outline-none focus-visible:ring-2 focus-visible:ring-secret-wax focus-visible:ring-offset-2"
+                        aria-haspopup="menu"
+                        aria-expanded={hypnosisMenuOpen}
+                        aria-controls="hypnosis-dropdown-menu"
+                      >
+                        {item.label}
+                        <ChevronDown className={`h-4 w-4 transition-transform ${hypnosisMenuOpen ? "rotate-180" : ""}`} />
+                      </button>
+
+                      {hypnosisMenuOpen && (
+                        <div
+                          id="hypnosis-dropdown-menu"
+                          role="menu"
+                          aria-label="Lựa chọn thôi miên"
+                          className="absolute left-1/2 top-full z-50 mt-3 w-80 -translate-x-1/2 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-900/15"
+                        >
+                          {HYPNOSIS_MENU_OPTIONS.map(({ label, path, Icon }, index) => (
+                            <Link
+                              key={path}
+                              to={path}
+                              role="menuitem"
+                              onClick={() => setHypnosisMenuOpen(false)}
+                              className={`flex items-center gap-4 px-5 py-4 text-base font-semibold text-slate-900 transition-colors hover:bg-slate-100 focus:bg-slate-100 focus:outline-none ${index > 0 ? "border-t border-slate-200" : ""}`}
+                            >
+                              {createElement(Icon, { className: "h-7 w-7 shrink-0 text-secret-wax", "aria-hidden": true })}
+                              {label}
+                            </Link>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
+
                 if (item.children?.length) {
                   return (
                     <div key={item.path} className="relative group">
@@ -525,6 +589,38 @@ const Header = () => {
                         {isOpen && (
                           <div id="mobile-courses-menu" className="mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-900/10">
                             {COURSE_MENU_OPTIONS.map(({ label, path, Icon }, index) => (
+                              <Link
+                                key={path}
+                                to={path}
+                                onClick={closeMobileMenu}
+                                className={`flex items-center gap-4 px-5 py-4 text-base font-semibold text-slate-900 ${index > 0 ? "border-t border-slate-200" : ""}`}
+                              >
+                                {createElement(Icon, { className: "h-7 w-7 shrink-0 text-secret-wax", "aria-hidden": true })}
+                                {label}
+                              </Link>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }
+
+                  if (item.path === "/thoi-mien") {
+                    return (
+                      <div key={item.path} className="border-b border-secret-ink/10 pb-3">
+                        <button
+                          type="button"
+                          onClick={() => toggleSubmenu(item.path)}
+                          className="flex w-full items-center justify-between rounded-lg px-2 py-2 text-left text-base font-medium text-secret-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-secret-wax"
+                          aria-expanded={isOpen}
+                          aria-controls="mobile-hypnosis-menu"
+                        >
+                          {item.label}
+                          <ChevronDown className={`h-5 w-5 transition ${isOpen ? "rotate-180" : ""}`} />
+                        </button>
+                        {isOpen && (
+                          <div id="mobile-hypnosis-menu" className="mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-900/10">
+                            {HYPNOSIS_MENU_OPTIONS.map(({ label, path, Icon }, index) => (
                               <Link
                                 key={path}
                                 to={path}

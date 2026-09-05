@@ -31,7 +31,9 @@ import {
     Copy,
     Eye,
     User,
-    Award
+    Award,
+    Percent,
+    Tag
 } from 'lucide-react';
 import { collection, getDocs, doc, setDoc, deleteDoc, serverTimestamp, query, orderBy } from 'firebase/firestore';
 import toast from 'react-hot-toast';
@@ -57,6 +59,12 @@ const DEFAULT_FORM_DATA = {
     authorTitle: 'Chuyên gia Trị liệu Tiềm thức & Sáng lập Mali Edu',
     authorAvatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=300&q=80',
     authorBio: 'Nhà sáng lập Mali Edu. Chuyên gia có nhiều năm kinh nghiệm nghiên cứu Thôi miên Trị liệu (Hypnotherapy) và Lập trình Ngôn ngữ Tư duy (NLP), đã giúp đỡ hàng ngàn học viên khơi thông dòng tiền và chữa lành nội tâm.',
+    isAffiliateEnabled: true,
+    affiliateCommissionType: 'percent', // 'percent' | 'fixed'
+    affiliateCommissionPercent: '',
+    affiliateCommissionAmount: '',
+    affiliateBuyerDiscountPercent: '',
+    affiliateBuyerVoucherText: '',
     coverImageSquare: 'https://images.unsplash.com/photo-1518241353330-0f7941c2d9b5?auto=format&fit=crop&w=600&h=600&q=80',
     coverImageBanner: 'https://images.unsplash.com/photo-1518241353330-0f7941c2d9b5?auto=format&fit=crop&w=1200&h=675&q=80',
     coverImage: 'https://images.unsplash.com/photo-1518241353330-0f7941c2d9b5?auto=format&fit=crop&w=600&q=80',
@@ -225,6 +233,12 @@ export default function AdminHypnosis() {
             authorTitle: track.authorTitle || '',
             authorAvatar: track.authorAvatar || '',
             authorBio: track.authorBio || '',
+            isAffiliateEnabled: track.isAffiliateEnabled !== false,
+            affiliateCommissionType: track.affiliateCommissionType || 'percent',
+            affiliateCommissionPercent: track.affiliateCommissionPercent != null ? String(track.affiliateCommissionPercent) : '',
+            affiliateCommissionAmount: track.affiliateCommissionAmount != null ? String(track.affiliateCommissionAmount) : '',
+            affiliateBuyerDiscountPercent: track.affiliateBuyerDiscountPercent != null ? String(track.affiliateBuyerDiscountPercent) : '',
+            affiliateBuyerVoucherText: track.affiliateBuyerVoucherText || '',
             coverImageSquare: track.coverImageSquare || track.coverImage || '',
             coverImageBanner: track.coverImageBanner || track.coverImage || '',
             coverImage: track.coverImageSquare || track.coverImage || '',
@@ -340,8 +354,26 @@ export default function AdminHypnosis() {
         const trackId = formData.id || `tm-${Date.now()}`;
         const squareImg = formData.coverImageSquare || formData.coverImage || '';
         const bannerImg = formData.coverImageBanner || formData.coverImageSquare || formData.coverImage || '';
+        const isAffiliateEnabled = Boolean(formData.isAffiliateEnabled);
+        const affType = formData.affiliateCommissionType || 'percent';
+        const parsedAffPercent = formData.affiliateCommissionPercent !== "" && formData.affiliateCommissionPercent != null
+            ? Number(formData.affiliateCommissionPercent)
+            : null;
+        const parsedAffAmount = formData.affiliateCommissionAmount !== "" && formData.affiliateCommissionAmount != null
+            ? Number(String(formData.affiliateCommissionAmount).replace(/\D/g, ''))
+            : null;
+        const parsedBuyerDiscount = formData.affiliateBuyerDiscountPercent !== "" && formData.affiliateBuyerDiscountPercent != null
+            ? Number(formData.affiliateBuyerDiscountPercent)
+            : null;
+
         const payload = {
             ...formData,
+            isAffiliateEnabled,
+            affiliateCommissionType: affType,
+            affiliateCommissionPercent: parsedAffPercent,
+            affiliateCommissionAmount: parsedAffAmount,
+            affiliateBuyerDiscountPercent: parsedBuyerDiscount,
+            affiliateBuyerVoucherText: formData.affiliateBuyerVoucherText || '',
             coverImageSquare: squareImg,
             coverImageBanner: bannerImg,
             coverImage: squareImg || bannerImg,
@@ -728,6 +760,24 @@ export default function AdminHypnosis() {
                                                                 {track.originalPrice}
                                                             </span>
                                                         )}
+                                                        {track.isAffiliateEnabled === false ? (
+                                                            <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 text-[9px] font-bold">
+                                                                Tắt Affiliate
+                                                            </span>
+                                                        ) : track.affiliateCommissionType === 'fixed' && track.affiliateCommissionAmount ? (
+                                                            <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 text-[9px] font-black border border-amber-200">
+                                                                Hoa hồng: {Number(track.affiliateCommissionAmount).toLocaleString('vi-VN')}đ
+                                                            </span>
+                                                        ) : track.affiliateCommissionPercent != null && track.affiliateCommissionPercent !== "" ? (
+                                                            <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 text-[9px] font-black border border-amber-200">
+                                                                Hoa hồng: {track.affiliateCommissionPercent}%
+                                                            </span>
+                                                        ) : null}
+                                                        {track.isAffiliateEnabled !== false && Number(track.affiliateBuyerDiscountPercent) > 0 && (
+                                                            <span className="inline-block mt-0.5 ml-1 px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[9px] font-bold border border-emerald-200">
+                                                                Voucher: -{track.affiliateBuyerDiscountPercent}%
+                                                            </span>
+                                                        )}
                                                     </div>
                                                 )}
                                             </td>
@@ -923,6 +973,10 @@ export default function AdminHypnosis() {
                                                     placeholder="https://... hoặc Video ID Bunny Stream"
                                                     className="w-full px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs font-medium focus:border-[#9B2528] outline-none"
                                                 />
+                                                <div className="text-[11px] text-amber-800 bg-amber-50 p-2.5 rounded-lg border border-amber-200/80 flex items-start gap-1.5 leading-relaxed">
+                                                    <span className="shrink-0 text-xs">💡</span>
+                                                    <span><strong>Hỗ trợ nghe khi tắt màn hình:</strong> Để người dùng có thể khóa màn hình điện thoại / nghe trước khi ngủ mượt mà kèm bảng điều khiển màn hình khóa, khuyến khích sử dụng <strong>đường dẫn tệp âm thanh trực tiếp (.mp3, .m4a, Bunny Storage hoặc CDN)</strong>. Nếu nhúng Iframe Video, hệ điều hành iOS/Android sẽ tự động dừng phát khi tắt màn hình.</span>
+                                                </div>
                                             </div>
 
                                             {/* Audio Player Preview */}
@@ -1356,33 +1410,157 @@ export default function AdminHypnosis() {
                                         </div>
 
                                         {!formData.isFree && (
-                                            <div className="grid grid-cols-2 gap-3 pt-1">
-                                                <div>
-                                                    <label className="text-xs font-bold text-slate-700 block mb-1">
-                                                        Giá bán thực tế
-                                                    </label>
-                                                    <input
-                                                        type="text"
-                                                        value={formData.price}
-                                                        onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                                                        placeholder="VD: 199.000đ"
-                                                        className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold bg-white"
-                                                    />
+                                            <>
+                                                <div className="grid grid-cols-2 gap-3 pt-1">
+                                                    <div>
+                                                        <label className="text-xs font-bold text-slate-700 block mb-1">
+                                                            Giá bán thực tế
+                                                        </label>
+                                                        <input
+                                                            type="text"
+                                                            value={formData.price}
+                                                            onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                                                            placeholder="VD: 199.000đ"
+                                                            className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold bg-white"
+                                                        />
+                                                    </div>
+
+                                                    <div>
+                                                        <label className="text-xs font-bold text-slate-700 block mb-1">
+                                                            Giá gốc khuyến mãi (gạch ngang)
+                                                        </label>
+                                                        <input
+                                                            type="text"
+                                                            value={formData.originalPrice}
+                                                            onChange={(e) => setFormData({ ...formData, originalPrice: e.target.value })}
+                                                            placeholder="VD: 499.000đ"
+                                                            className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-medium bg-white"
+                                                        />
+                                                    </div>
                                                 </div>
 
-                                                <div>
-                                                    <label className="text-xs font-bold text-slate-700 block mb-1">
-                                                        Giá gốc khuyến mãi (gạch ngang)
-                                                    </label>
-                                                    <input
-                                                        type="text"
-                                                        value={formData.originalPrice}
-                                                        onChange={(e) => setFormData({ ...formData, originalPrice: e.target.value })}
-                                                        placeholder="VD: 499.000đ"
-                                                        className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-medium bg-white"
-                                                    />
+                                                {/* Affiliate Commission Configuration */}
+                                                <div className="pt-4 border-t border-amber-200/80 space-y-3.5 bg-amber-50/40 p-3.5 rounded-2xl border">
+                                                    <div className="flex items-center justify-between">
+                                                        <label className="text-xs font-black text-slate-800 flex items-center gap-2 cursor-pointer select-none">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={formData.isAffiliateEnabled}
+                                                                onChange={(e) => setFormData({ ...formData, isAffiliateEnabled: e.target.checked })}
+                                                                className="w-4 h-4 rounded text-[#9B2528] focus:ring-[#9B2528]"
+                                                            />
+                                                            <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                                                            <span>Bật Tiếp thị liên kết (Affiliate) cho bản này</span>
+                                                        </label>
+                                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                                            formData.isAffiliateEnabled ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'
+                                                        }`}>
+                                                            {formData.isAffiliateEnabled ? 'Đang BẬT' : 'Đã TẮT'}
+                                                        </span>
+                                                    </div>
+
+                                                    {formData.isAffiliateEnabled && (
+                                                        <div className="space-y-3 pt-2 border-t border-amber-200/60">
+                                                            {/* 1. Hình thức hoa hồng */}
+                                                            <div>
+                                                                <span className="text-[11px] font-bold text-slate-700 block mb-1.5">
+                                                                    Hình thức tính hoa hồng cho Đối tác (CTV):
+                                                                </span>
+                                                                <div className="grid grid-cols-2 gap-2">
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => setFormData({ ...formData, affiliateCommissionType: 'percent' })}
+                                                                        className={`py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 border ${
+                                                                            formData.affiliateCommissionType === 'percent'
+                                                                                ? 'bg-white border-[#9B2528] text-[#9B2528] shadow-sm'
+                                                                                : 'bg-slate-100/80 border-slate-200 text-slate-600 hover:bg-white'
+                                                                        }`}
+                                                                    >
+                                                                        <Percent className="w-3.5 h-3.5" />
+                                                                        <span>Theo tỷ lệ %</span>
+                                                                    </button>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => setFormData({ ...formData, affiliateCommissionType: 'fixed' })}
+                                                                        className={`py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 border ${
+                                                                            formData.affiliateCommissionType === 'fixed'
+                                                                                ? 'bg-white border-[#9B2528] text-[#9B2528] shadow-sm'
+                                                                                : 'bg-slate-100/80 border-slate-200 text-slate-600 hover:bg-white'
+                                                                        }`}
+                                                                    >
+                                                                        <Coins className="w-3.5 h-3.5" />
+                                                                        <span>Số tiền cố định (VNĐ)</span>
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Input giá trị hoa hồng */}
+                                                            <div>
+                                                                <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                                                                    {formData.affiliateCommissionType === 'percent' ? '% Hoa hồng riêng' : 'Số tiền hoa hồng nhận được (VNĐ)'}
+                                                                </label>
+                                                                {formData.affiliateCommissionType === 'percent' ? (
+                                                                    <div className="relative max-w-xs">
+                                                                        <input
+                                                                            type="number"
+                                                                            min="0"
+                                                                            max="100"
+                                                                            value={formData.affiliateCommissionPercent}
+                                                                            onChange={(e) => setFormData({ ...formData, affiliateCommissionPercent: e.target.value })}
+                                                                            placeholder="Mặc định hệ thống (VD: 30)"
+                                                                            className="w-full h-10 px-3.5 pr-8 rounded-xl border border-slate-200 text-xs font-black text-slate-900 outline-none focus:border-[#9B2528] bg-white"
+                                                                        />
+                                                                        <span className="absolute right-3 top-1/2 -translate-y-1/2 font-black text-slate-400 text-xs">%</span>
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="relative max-w-xs">
+                                                                        <input
+                                                                            type="text"
+                                                                            value={formData.affiliateCommissionAmount}
+                                                                            onChange={(e) => setFormData({ ...formData, affiliateCommissionAmount: e.target.value })}
+                                                                            placeholder="VD: 50.000đ"
+                                                                            className="w-full h-10 px-3.5 pr-10 rounded-xl border border-slate-200 text-xs font-black text-slate-900 outline-none focus:border-[#9B2528] bg-white"
+                                                                        />
+                                                                        <span className="absolute right-3 top-1/2 -translate-y-1/2 font-bold text-slate-400 text-xs">VNĐ</span>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+
+                                                            {/* 2. Ưu đãi cho người mua (Voucher) */}
+                                                            <div className="pt-2.5 border-t border-amber-200/60 space-y-2">
+                                                                <label className="text-[11px] font-bold text-slate-800 flex items-center gap-1">
+                                                                    <Tag className="w-3.5 h-3.5 text-[#9B2528]" />
+                                                                    Ưu đãi cho khách mua qua link đối tác (Voucher / Giảm giá)
+                                                                </label>
+                                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                                    <div className="relative">
+                                                                        <input
+                                                                            type="number"
+                                                                            min="0"
+                                                                            max="100"
+                                                                            value={formData.affiliateBuyerDiscountPercent}
+                                                                            onChange={(e) => setFormData({ ...formData, affiliateBuyerDiscountPercent: e.target.value })}
+                                                                            placeholder="Giảm giá % (VD: 10)"
+                                                                            className="w-full h-9 px-3 pr-7 rounded-xl border border-slate-200 text-xs font-bold text-slate-900 outline-none focus:border-[#9B2528] bg-white"
+                                                                        />
+                                                                        <span className="absolute right-2.5 top-1/2 -translate-y-1/2 font-bold text-slate-400 text-xs">%</span>
+                                                                    </div>
+                                                                    <input
+                                                                        type="text"
+                                                                        value={formData.affiliateBuyerVoucherText}
+                                                                        onChange={(e) => setFormData({ ...formData, affiliateBuyerVoucherText: e.target.value })}
+                                                                        placeholder="Ghi chú voucher (VD: Giảm 10% khi mua)"
+                                                                        className="w-full h-9 px-3 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 outline-none focus:border-[#9B2528] bg-white"
+                                                                    />
+                                                                </div>
+                                                                <p className="text-[10px] text-slate-500">
+                                                                    Khách hàng truy cập qua link giới thiệu sẽ được tự động áp dụng mức giảm giá này khi thanh toán.
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    )}
                                                 </div>
-                                            </div>
+                                            </>
                                         )}
                                     </div>
                                 </div>

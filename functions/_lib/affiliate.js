@@ -267,6 +267,7 @@ export const resolveOrderAffiliate = async ({
 export const calculateCommissionBreakdown = ({
   affiliate,
   courseRates = {},
+  productConfigs = {},
   defaultCommissionPercent,
   items = [],
   orderAmount,
@@ -292,11 +293,36 @@ export const calculateCommissionBreakdown = ({
   const breakdown = normalizedItems.map((item, index) => {
     const netAmount = allocations[index].amount;
 
-    const courseRate = courseRates[item.id];
-    const rawRate = affiliate.customCommissionPercent != null
-      ? affiliate.customCommissionPercent
-      : (courseRate != null ? courseRate : defaultCommissionPercent);
-    const commissionPercent = normalizePercent(rawRate, defaultCommissionPercent);
+    const prodConfig = productConfigs[item.id];
+    // Check if affiliate is explicitly turned off for this item
+    if (prodConfig && prodConfig.isAffiliateEnabled === false) {
+      return {
+        courseId: item.id,
+        courseName: String(item.name || item.courseName || "Khóa học").slice(0, 300),
+        grossAmount: item.price,
+        netAmount,
+        commissionPercent: 0,
+        commissionAmount: 0,
+      };
+    }
+
+    let commissionAmount = 0;
+    let commissionPercent = 0;
+
+    // Fixed commission amount (VNĐ) support
+    if (prodConfig && prodConfig.affiliateCommissionType === "fixed" && prodConfig.affiliateCommissionAmount > 0) {
+      commissionAmount = Math.min(prodConfig.affiliateCommissionAmount, netAmount);
+      commissionPercent = netAmount > 0 ? Math.round((commissionAmount / netAmount) * 100) : 0;
+    } else {
+      const courseRate = prodConfig?.affiliateCommissionPercent != null
+        ? prodConfig.affiliateCommissionPercent
+        : courseRates[item.id];
+      const rawRate = affiliate.customCommissionPercent != null
+        ? affiliate.customCommissionPercent
+        : (courseRate != null ? courseRate : defaultCommissionPercent);
+      commissionPercent = normalizePercent(rawRate, defaultCommissionPercent);
+      commissionAmount = Math.round((netAmount * commissionPercent) / 100);
+    }
 
     return {
       courseId: item.id,
@@ -304,7 +330,7 @@ export const calculateCommissionBreakdown = ({
       grossAmount: item.price,
       netAmount,
       commissionPercent,
-      commissionAmount: Math.round((netAmount * commissionPercent) / 100),
+      commissionAmount,
     };
   });
 
@@ -365,7 +391,29 @@ export const processAffiliateCommission = async ({ db, fieldValue, orderId, orde
   const courseSnapshots = courseIds.length
     ? await db.getAll(...courseIds.map((id) => db.collection("courses").doc(id)))
     : [];
-  const courseRates = Object.fromEntries(courseSnapshots.map((snapshot) => [
+  const missingProductIds = courseSnapshots.filter((snapshot) => !snapshot.exists).map((snapshot) => snapshot.id);
+  const hypnosisSnapshots = missingProductIds.length
+    ? await db.getAll(...missingProductIds.map((id) => db.collection("hypnosis_audios").doc(id)))
+    : [];
+  const allProductSnapshots = [
+    ...courseSnapshots.filter((s) => s.exists),
+    ...hypnosisSnapshots.filter((s) => s.exists),
+  ];
+  const productConfigs = Object.fromEntries(allProductSnapshots.map((snapshot) => {
+    const data = snapshot.data() || {};
+    return [
+      snapshot.id,
+      {
+        isAffiliateEnabled: data.isAffiliateEnabled !== false,
+        affiliateCommissionType: data.affiliateCommissionType || "percent",
+        affiliateCommissionPercent: data.affiliateCommissionPercent != null
+          ? normalizePercent(data.affiliateCommissionPercent)
+          : null,
+        affiliateCommissionAmount: asFiniteNumber(data.affiliateCommissionAmount, 0),
+      },
+    ];
+  }));
+  const courseRates = Object.fromEntries(allProductSnapshots.map((snapshot) => [
     snapshot.id,
     snapshot.exists && snapshot.data()?.affiliateCommissionPercent != null
       ? normalizePercent(snapshot.data().affiliateCommissionPercent)
@@ -375,6 +423,7 @@ export const processAffiliateCommission = async ({ db, fieldValue, orderId, orde
   const calculation = calculateCommissionBreakdown({
     affiliate,
     courseRates,
+    productConfigs,
     defaultCommissionPercent: settings.defaultCommissionPercent,
     items,
     orderAmount: orderData.amount,

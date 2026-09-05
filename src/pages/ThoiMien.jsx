@@ -40,7 +40,9 @@ import {
     Eye,
     HelpCircle,
     Heart,
-    CreditCard
+    CreditCard,
+    Share2,
+    Copy
 } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { collection, getDocs, doc, setDoc, query, where, serverTimestamp } from 'firebase/firestore';
@@ -48,6 +50,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import toast from 'react-hot-toast';
 import { auth, db } from '../firebase';
 import SEO from '../components/SEO';
+import { getAffiliateByUserId } from '../utils/affiliateService';
 
 import { 
     HYPNOSIS_CATEGORIES as CATEGORIES, 
@@ -93,6 +96,8 @@ const ThoiMien = ({ isPurchasedOnly = false }) => {
     const [selectedDetailTrack, setSelectedDetailTrack] = useState(null);
     const [user, setUser] = useState(null);
     const [authLoading, setAuthLoading] = useState(true);
+    const [userAffiliateProfile, setUserAffiliateProfile] = useState(null);
+    const [copiedTrackId, setCopiedTrackId] = useState(null);
 
     const activeDetailData = useMemo(() => {
         return selectedDetailTrack ? getTrackDetails(selectedDetailTrack, tracks) : null;
@@ -164,6 +169,79 @@ const ThoiMien = ({ isPurchasedOnly = false }) => {
         });
         return () => unsubscribe();
     }, []);
+
+    // Check affiliate profile when user logs in
+    useEffect(() => {
+        const checkAffiliate = async () => {
+            if (user?.uid) {
+                try {
+                    const aff = await getAffiliateByUserId(user.uid);
+                    setUserAffiliateProfile(aff);
+                } catch (e) {
+                    console.error('Error loading affiliate profile:', e);
+                }
+            } else {
+                setUserAffiliateProfile(null);
+            }
+        };
+        checkAffiliate();
+    }, [user]);
+
+    const getTrackAffiliateInfo = (track) => {
+        if (!track || track.isFree || track.isAffiliateEnabled === false) return null;
+        const rawPrice = track.price;
+        const priceNum = typeof rawPrice === 'number' ? rawPrice : (Number(String(rawPrice || 0).replace(/\D/g, '')) || 0);
+        const isFixed = track.affiliateCommissionType === 'fixed' && Number(track.affiliateCommissionAmount) > 0;
+        const commPercent = Number(track.affiliateCommissionPercent) || 30;
+        const fixedAmount = Number(track.affiliateCommissionAmount) || 0;
+        const estReward = isFixed ? fixedAmount : Math.round((priceNum * commPercent) / 100);
+        const label = isFixed ? `${fixedAmount.toLocaleString('vi-VN')}đ` : `${commPercent}%`;
+        const buyerDiscount = Number(track.affiliateBuyerDiscountPercent) || 0;
+        return {
+            isFixed,
+            label,
+            commPercent,
+            estReward,
+            buyerDiscount,
+            buyerVoucherText: track.affiliateBuyerVoucherText || '',
+        };
+    };
+
+    const handleGetTrackAffiliateLink = async (track) => {
+        if (!user) {
+            toast('Vui lòng đăng nhập để kích hoạt & lấy link tiếp thị cá nhân!', { icon: '🔐' });
+            navigate('/affiliate');
+            return;
+        }
+
+        let profile = userAffiliateProfile;
+        if (!profile) {
+            try {
+                profile = await getAffiliateByUserId(user.uid);
+                setUserAffiliateProfile(profile);
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        if (!profile || profile.status !== 'active') {
+            toast('Bạn chưa kích hoạt mã CTV. Đang chuyển tới trang đối tác...', { icon: '✨' });
+            navigate('/affiliate');
+            return;
+        }
+
+        const origin = window.location.origin;
+        const affLink = `${origin}/thanh-toan/${track.id}?ref=${profile.affiliateCode}`;
+
+        try {
+            await navigator.clipboard.writeText(affLink);
+            setCopiedTrackId(track.id);
+            toast.success(`Đã sao chép link tiếp thị (Mã CTV: ${profile.affiliateCode})!`);
+            setTimeout(() => setCopiedTrackId(null), 3000);
+        } catch (err) {
+            toast.error('Không thể tự động sao chép link.');
+        }
+    };
 
     // Load from Firestore if available
     useEffect(() => {
@@ -258,7 +336,9 @@ const ThoiMien = ({ isPurchasedOnly = false }) => {
 
     const handleSkip = (seconds) => {
         if (audioRef.current) {
-            audioRef.current.currentTime = Math.min(Math.max(0, audioRef.current.currentTime + seconds), duration);
+            const nextTime = Math.min(Math.max(0, audioRef.current.currentTime + seconds), duration || Infinity);
+            audioRef.current.currentTime = nextTime;
+            setCurrentTime(nextTime);
         }
     };
 
@@ -282,6 +362,105 @@ const ThoiMien = ({ isPurchasedOnly = false }) => {
         audioRef.current.muted = !isMuted;
         setIsMuted(!isMuted);
     };
+
+    // Media Session API for Lock Screen & Background Playback controls (iOS Safari / Android Chrome)
+    useEffect(() => {
+        if (!('mediaSession' in navigator) || !currentTrack) return;
+
+        try {
+            // Cài đặt metadata hiển thị trên Màn hình khóa / Dynamic Island / Notification Center
+            navigator.mediaSession.metadata = new window.MediaMetadata({
+                title: currentTrack.title || 'Bản Thôi Miên & Thiền Định',
+                artist: currentTrack.author || 'Mali Edu',
+                album: 'Kho Thôi Miên & Thiền Tiềm Thức',
+                artwork: currentTrack.imageUrl ? [
+                    { src: currentTrack.imageUrl, sizes: '96x96', type: 'image/png' },
+                    { src: currentTrack.imageUrl, sizes: '128x128', type: 'image/png' },
+                    { src: currentTrack.imageUrl, sizes: '192x192', type: 'image/png' },
+                    { src: currentTrack.imageUrl, sizes: '256x256', type: 'image/png' },
+                    { src: currentTrack.imageUrl, sizes: '512x512', type: 'image/png' },
+                ] : [
+                    { src: '/logo.png', sizes: '192x192', type: 'image/png' }
+                ]
+            });
+
+            // Xử lý các nút điều khiển từ Màn hình khóa / Tai nghe Bluetooth / Dynamic Island
+            const actionHandlers = [
+                ['play', () => {
+                    if (audioRef.current && !isBunnyStream) {
+                        audioRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
+                    } else if (isBunnyStream) {
+                        setIsPlaying(true);
+                    }
+                }],
+                ['pause', () => {
+                    if (audioRef.current && !isBunnyStream) {
+                        audioRef.current.pause();
+                        setIsPlaying(false);
+                    } else if (isBunnyStream) {
+                        setIsPlaying(false);
+                    }
+                }],
+                ['seekbackward', (details) => {
+                    const skipTime = details.seekOffset || 15;
+                    handleSkip(-skipTime);
+                }],
+                ['seekforward', (details) => {
+                    const skipTime = details.seekOffset || 15;
+                    handleSkip(skipTime);
+                }],
+                ['seekto', (details) => {
+                    if (details.seekTime !== null && details.seekTime !== undefined && audioRef.current) {
+                        audioRef.current.currentTime = details.seekTime;
+                        setCurrentTime(details.seekTime);
+                    }
+                }],
+                ['stop', () => {
+                    if (audioRef.current) {
+                        audioRef.current.pause();
+                        audioRef.current.currentTime = 0;
+                    }
+                    setIsPlaying(false);
+                }]
+            ];
+
+            actionHandlers.forEach(([action, handler]) => {
+                try {
+                    navigator.mediaSession.setActionHandler(action, handler);
+                } catch {
+                    // Action không được hỗ trợ bởi trình duyệt này thì bỏ qua
+                }
+            });
+        } catch (e) {
+            console.error('MediaSession setup error:', e);
+        }
+    }, [currentTrack, isBunnyStream, duration]);
+
+    // Đồng bộ trạng thái phát (playing / paused) lên MediaSession Lock Screen
+    useEffect(() => {
+        if (!('mediaSession' in navigator)) return;
+        try {
+            navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+        } catch {
+            // ignore
+        }
+    }, [isPlaying]);
+
+    // Đồng bộ tiến độ thời gian (timeline slider) lên Màn hình khóa
+    useEffect(() => {
+        if (!('mediaSession' in navigator) || !('setPositionState' in navigator.mediaSession)) return;
+        if (duration > 0 && currentTime >= 0 && currentTime <= duration) {
+            try {
+                navigator.mediaSession.setPositionState({
+                    duration: duration,
+                    playbackRate: audioRef.current?.playbackRate || 1,
+                    position: Math.min(currentTime, duration)
+                });
+            } catch {
+                // ignore
+            }
+        }
+    }, [currentTime, duration]);
 
     // ACTION: Nhận bản miễn phí (mua 0đ) -> Tự động chuyển qua mục "Đã mua" và phát ngay!
     const handleClaimFreeTrack = async (track) => {
@@ -399,8 +578,11 @@ const ThoiMien = ({ isPurchasedOnly = false }) => {
                 <audio
                     ref={audioRef}
                     onTimeUpdate={handleTimeUpdate}
+                    onPlay={() => setIsPlaying(true)}
+                    onPause={() => setIsPlaying(false)}
                     onEnded={() => setIsPlaying(false)}
-                    preload="metadata"
+                    preload="auto"
+                    playsInline
                 />
             )}
             {isPurchasedView && isBunnyStream && isPlaying && bunnyIframeUrl && (
@@ -591,6 +773,7 @@ const ThoiMien = ({ isPurchasedOnly = false }) => {
                             const isOwned = ownedTrackIds.includes(track.id);
                             const isThisPlaying = currentTrack?.id === track.id && isPlaying;
                             const isThisSelected = currentTrack?.id === track.id;
+                            const affInfo = getTrackAffiliateInfo(track);
 
                             return (
                                 <div
@@ -729,6 +912,40 @@ const ThoiMien = ({ isPurchasedOnly = false }) => {
                                             </button>
                                         )}
                                     </div>
+
+                                    {/* Affiliate Bar (Dưới mỗi bản thôi miên có tiếp thị) */}
+                                    {!isPurchasedView && !isOwned && affInfo && (
+                                        <div className="mt-2.5 pt-2 border-t border-dashed border-amber-200 bg-amber-50/70 -mx-2.5 sm:-mx-3.5 -mb-2.5 sm:-mb-3.5 px-2.5 py-2 rounded-b-2xl" onClick={(e) => e.stopPropagation()}>
+                                            <div className="flex items-center justify-between gap-1 text-[10px] leading-tight mb-1.5">
+                                                <span className="font-bold text-amber-950 flex items-center gap-1 truncate">
+                                                    <Sparkles className="w-3 h-3 text-amber-600 fill-amber-500 shrink-0" />
+                                                    <span>Hoa hồng: <strong className="text-red-700">{affInfo.label}</strong></span>
+                                                </span>
+                                                {affInfo.buyerDiscount > 0 && (
+                                                    <span className="text-[9px] font-bold text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded shrink-0 border border-emerald-300/60">
+                                                        Mã -{affInfo.buyerDiscount}%
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleGetTrackAffiliateLink(track)}
+                                                className="w-full py-1.5 px-2 rounded-lg bg-white hover:bg-amber-100/80 border border-amber-300 text-amber-900 font-bold text-[10px] sm:text-[11px] flex items-center justify-center gap-1 shadow-2xs active:scale-95 transition"
+                                            >
+                                                {copiedTrackId === track.id ? (
+                                                    <>
+                                                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                                        <span className="text-emerald-700">Đã chép link CTV!</span>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Share2 className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                                                        <span>Tiếp thị ({affInfo.isFixed ? affInfo.label : `+${affInfo.estReward.toLocaleString('vi-VN')}đ`})</span>
+                                                    </>
+                                                )}
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             );
                         })}
@@ -742,6 +959,7 @@ const ThoiMien = ({ isPurchasedOnly = false }) => {
                             const isOwned = ownedTrackIds.includes(track.id);
                             const isThisPlaying = currentTrack?.id === track.id && isPlaying;
                             const isThisSelected = currentTrack?.id === track.id;
+                            const affInfo = getTrackAffiliateInfo(track);
 
                             return (
                                 <div
@@ -850,6 +1068,29 @@ const ThoiMien = ({ isPurchasedOnly = false }) => {
                                             >
                                                 <Lock className="w-3 h-3" />
                                                 <span>{track.price}</span>
+                                            </button>
+                                        )}
+
+                                        {/* Affiliate Button in List view */}
+                                        {!isPurchasedView && !isOwned && affInfo && (
+                                            <button
+                                                type="button"
+                                                onClick={() => handleGetTrackAffiliateLink(track)}
+                                                title={`Tiếp thị nhận hoa hồng ${affInfo.label}`}
+                                                className="px-2.5 py-1.5 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 font-bold text-xs flex items-center gap-1 transition shrink-0 active:scale-95"
+                                            >
+                                                {copiedTrackId === track.id ? (
+                                                    <>
+                                                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                                        <span className="text-emerald-700">Đã chép</span>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Sparkles className="w-3.5 h-3.5 text-amber-600 fill-amber-500 shrink-0" />
+                                                        <span className="hidden sm:inline">Tiếp thị ({affInfo.label})</span>
+                                                        <span className="sm:hidden">CTV ({affInfo.label})</span>
+                                                    </>
+                                                )}
                                             </button>
                                         )}
                                     </div>
@@ -1341,6 +1582,12 @@ const ThoiMien = ({ isPurchasedOnly = false }) => {
                                             )}
                                         </div>
                                     )}
+                                    {Number(activeDetailData.affiliateBuyerDiscountPercent) > 0 && (
+                                        <div className="text-[10px] sm:text-[11px] font-bold text-emerald-700 flex items-center gap-1 mt-0.5">
+                                            <Tag className="w-3 h-3 text-emerald-600 shrink-0" />
+                                            <span>Mã giảm {activeDetailData.affiliateBuyerDiscountPercent}% khi mua qua link CTV {activeDetailData.affiliateBuyerVoucherText ? `(${activeDetailData.affiliateBuyerVoucherText})` : ''}</span>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
@@ -1370,6 +1617,27 @@ const ThoiMien = ({ isPurchasedOnly = false }) => {
                                     </button>
                                 ) : (
                                     <div className="flex items-center gap-2">
+                                        {!ownedTrackIds.includes(activeDetailData.id) && !activeDetailData.isFree && activeDetailData.isAffiliateEnabled !== false && (
+                                            <button
+                                                type="button"
+                                                onClick={() => handleGetTrackAffiliateLink(activeDetailData)}
+                                                className="px-3 sm:px-4 py-3 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 font-bold text-xs transition flex items-center gap-1.5 shadow-sm active:scale-95 shrink-0"
+                                                title="Lấy link tiếp thị liên kết"
+                                            >
+                                                {copiedTrackId === activeDetailData.id ? (
+                                                    <>
+                                                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                                                        <span className="text-emerald-700">Đã chép link!</span>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Sparkles className="w-4 h-4 text-amber-600 fill-amber-500" />
+                                                        <span className="hidden sm:inline">Tiếp thị ({activeDetailData.affiliateCommissionType === 'fixed' && activeDetailData.affiliateCommissionAmount ? `${Number(activeDetailData.affiliateCommissionAmount).toLocaleString('vi-VN')}đ` : `${activeDetailData.affiliateCommissionPercent || 30}%`})</span>
+                                                        <span className="sm:hidden">CTV</span>
+                                                    </>
+                                                )}
+                                            </button>
+                                        )}
                                         <a
                                             href="https://zalo.me/0355067656"
                                             target="_blank"
@@ -1459,6 +1727,25 @@ const ThoiMien = ({ isPurchasedOnly = false }) => {
                             >
                                 <span>Tư vấn thanh toán qua Zalo</span>
                             </a>
+                            {selectedPaidTrack.isAffiliateEnabled !== false && (
+                                <button
+                                    type="button"
+                                    onClick={() => handleGetTrackAffiliateLink(selectedPaidTrack)}
+                                    className="w-full py-2.5 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 font-bold text-xs flex items-center justify-center gap-1.5 transition active:scale-95"
+                                >
+                                    {copiedTrackId === selectedPaidTrack.id ? (
+                                        <>
+                                            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                                            <span className="text-emerald-700">Đã chép link tiếp thị!</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Sparkles className="w-4 h-4 text-amber-600 fill-amber-500" />
+                                            <span>Tiếp thị nhận hoa hồng</span>
+                                        </>
+                                    )}
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>

@@ -958,6 +958,11 @@ const onCreateOrder = async ({ request }) => {
           accessType: "lifetime",
           productType: "hypnosis",
           thumbnailUrl: String(hData.coverImageSquare || hData.coverImage || "").slice(0, 2048),
+          isAffiliateEnabled: hData.isAffiliateEnabled !== false,
+          affiliateCommissionType: hData.affiliateCommissionType || "percent",
+          affiliateCommissionPercent: hData.affiliateCommissionPercent != null ? Number(hData.affiliateCommissionPercent) : null,
+          affiliateCommissionAmount: parseNumericPrice(hData.affiliateCommissionAmount),
+          affiliateBuyerDiscountPercent: Number(hData.affiliateBuyerDiscountPercent) || 0,
         };
       }
 
@@ -974,6 +979,11 @@ const onCreateOrder = async ({ request }) => {
           accessType: "lifetime",
           productType: "hypnosis",
           thumbnailUrl: sample.thumbnailUrl || "",
+          isAffiliateEnabled: true,
+          affiliateCommissionType: "percent",
+          affiliateCommissionPercent: 30,
+          affiliateCommissionAmount: 0,
+          affiliateBuyerDiscountPercent: 0,
         };
       }
 
@@ -989,10 +999,17 @@ const onCreateOrder = async ({ request }) => {
   const originalAmount = items.reduce((total, item) => total + item.price, 0);
 
   const user = await verifyRequestUser(request, { required: false });
+  const rawAffiliateCode = String(body?.affiliateCode || "").trim();
+  const affiliateCode = rawAffiliateCode ? normalizeAffiliateCode(rawAffiliateCode) : "";
+  if (rawAffiliateCode && !affiliateCode) {
+    return createJsonResponse({ error: "Invalid affiliate code" }, 400);
+  }
+
   let couponCode = String(body?.couponCode || "").trim().toUpperCase();
   let discountPercent = 0;
   let resolvedCoupon = null;
-  if (couponCode) {
+
+  if (couponCode && !couponCode.startsWith("CTV-")) {
     if (!/^[A-Z0-9_-]{2,40}$/.test(couponCode)) {
       return createJsonResponse({ error: "Invalid coupon" }, 400);
     }
@@ -1001,15 +1018,10 @@ const onCreateOrder = async ({ request }) => {
       return createJsonResponse({ error: "Coupon is invalid or expired" }, 400);
     }
     discountPercent = resolvedCoupon.discountPercent;
-  } else {
+  } else if (!couponCode) {
     couponCode = null;
   }
 
-  const rawAffiliateCode = String(body?.affiliateCode || "").trim();
-  const affiliateCode = rawAffiliateCode ? normalizeAffiliateCode(rawAffiliateCode) : "";
-  if (rawAffiliateCode && !affiliateCode) {
-    return createJsonResponse({ error: "Invalid affiliate code" }, 400);
-  }
   const orderAffiliate = await resolveOrderAffiliate({
     affiliateCode,
     coupon: resolvedCoupon,
@@ -1017,6 +1029,20 @@ const onCreateOrder = async ({ request }) => {
     userEmail: user?.email || customerEmail,
     userId: user?.uid,
   });
+
+  // Automatically apply affiliate buyer discount voucher if configured
+  if (orderAffiliate) {
+    const affiliateBuyerDiscount = items.reduce(
+      (max, item) => Math.max(max, Number(item.affiliateBuyerDiscountPercent) || 0),
+      0,
+    );
+    if (affiliateBuyerDiscount > 0) {
+      if (!couponCode || couponCode === `CTV-${orderAffiliate.affiliateCode}`) {
+        discountPercent = affiliateBuyerDiscount;
+        couponCode = `CTV-${orderAffiliate.affiliateCode}`;
+      }
+    }
+  }
   const guestAccessToken = user ? null : randomBytes(32).toString("base64url");
   const amount = Math.max(
     0,

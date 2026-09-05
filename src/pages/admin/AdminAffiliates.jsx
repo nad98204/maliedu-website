@@ -31,12 +31,15 @@ import {
     Users,
     Wallet,
     X,
-    XCircle
+    XCircle,
+    Headphones,
+    BookOpen
 } from "lucide-react";
 import toast from "react-hot-toast";
 
-import { collection, doc, getDocs, updateDoc, writeBatch } from "firebase/firestore";
+import { collection, doc, getDocs, updateDoc, writeBatch, setDoc } from "firebase/firestore";
 import { db } from "../../firebase";
+import { INITIAL_TRACKS } from "../../data/hypnosisTracksData";
 import {
     getAllAffiliates,
     getAllCommissions,
@@ -75,6 +78,13 @@ const AdminAffiliates = () => {
     const [savingCourseId, setSavingCourseId] = useState(null);
     const [isSavingAllCourses, setIsSavingAllCourses] = useState(false);
 
+    // Hypnosis tracks commission states
+    const [hypnosisTracks, setHypnosisTracks] = useState([]);
+    const [hypnosisConfig, setHypnosisConfig] = useState({});
+    const [savingHypnosisId, setSavingHypnosisId] = useState(null);
+    const [isSavingAllHypnosis, setIsSavingAllHypnosis] = useState(false);
+    const [commissionProductTab, setCommissionProductTab] = useState("courses"); // "courses" | "hypnosis"
+
     // Search and filters
     const [searchQuery, setSearchQuery] = useState("");
     const [payoutStatusFilter, setPayoutStatusFilter] = useState("all");
@@ -101,12 +111,13 @@ const AdminAffiliates = () => {
     const loadAllData = async () => {
         setLoading(true);
         try {
-            const [sett, affList, payList, commList, coursesSnap] = await Promise.all([
+            const [sett, affList, payList, commList, coursesSnap, hypnosisSnap] = await Promise.all([
                 getAdminAffiliateSettings(),
                 getAllAffiliates(),
                 getAllPayoutRequests(),
                 getAllCommissions(),
-                getDocs(collection(db, "courses"))
+                getDocs(collection(db, "courses")),
+                getDocs(collection(db, "hypnosis_audios"))
             ]);
 
             setSettings(sett);
@@ -123,6 +134,27 @@ const AdminAffiliates = () => {
                 initialRates[c.id] = c.affiliateCommissionPercent != null ? String(c.affiliateCommissionPercent) : "";
             });
             setCourseRates(initialRates);
+
+            let hypList = [];
+            if (!hypnosisSnap.empty) {
+                hypList = hypnosisSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+            } else {
+                hypList = [...INITIAL_TRACKS];
+            }
+            const paidHypList = hypList.filter(t => !t.isFree);
+            setHypnosisTracks(paidHypList);
+
+            const initialHypConfig = {};
+            paidHypList.forEach(t => {
+                initialHypConfig[t.id] = {
+                    isEnabled: t.isAffiliateEnabled !== false,
+                    type: t.affiliateCommissionType || 'percent',
+                    percent: t.affiliateCommissionPercent != null ? String(t.affiliateCommissionPercent) : "",
+                    amount: t.affiliateCommissionAmount != null ? String(t.affiliateCommissionAmount) : "",
+                    buyerDiscount: t.affiliateBuyerDiscountPercent != null ? String(t.affiliateBuyerDiscountPercent) : "",
+                };
+            });
+            setHypnosisConfig(initialHypConfig);
         } catch (error) {
             console.error("Error loading affiliate admin data:", error);
             toast.error("Không thể tải dữ liệu Affiliate.");
@@ -193,6 +225,66 @@ const AdminAffiliates = () => {
             toast.error("Lỗi khi cập nhật danh sách khóa học.");
         } finally {
             setIsSavingAllCourses(false);
+        }
+    };
+
+    // Save single hypnosis rate
+    const handleSaveHypnosisRate = async (trackId) => {
+        setSavingHypnosisId(trackId);
+        try {
+            const conf = hypnosisConfig[trackId] || {};
+            const isEnabled = Boolean(conf.isEnabled);
+            const type = conf.type || 'percent';
+            const parsedPercent = conf.percent !== "" && conf.percent != null ? Number(conf.percent) : null;
+            const parsedAmount = conf.amount !== "" && conf.amount != null ? Number(String(conf.amount).replace(/\D/g, '')) : null;
+            const parsedBuyerDiscount = conf.buyerDiscount !== "" && conf.buyerDiscount != null ? Number(conf.buyerDiscount) : null;
+
+            await setDoc(doc(db, "hypnosis_audios", trackId), {
+                isAffiliateEnabled: isEnabled,
+                affiliateCommissionType: type,
+                affiliateCommissionPercent: parsedPercent,
+                affiliateCommissionAmount: parsedAmount,
+                affiliateBuyerDiscountPercent: parsedBuyerDiscount,
+                updatedAt: Date.now()
+            }, { merge: true });
+            toast.success("Đã lưu cấu hình Affiliate cho bản thôi miên!");
+        } catch (error) {
+            console.error("Error saving hypnosis commission config:", error);
+            toast.error("Lỗi khi lưu cấu hình Affiliate thôi miên.");
+        } finally {
+            setSavingHypnosisId(null);
+        }
+    };
+
+    // Save all hypnosis rates
+    const handleSaveAllHypnosisRates = async () => {
+        setIsSavingAllHypnosis(true);
+        try {
+            const batch = writeBatch(db);
+            hypnosisTracks.forEach(t => {
+                const conf = hypnosisConfig[t.id] || {};
+                const isEnabled = Boolean(conf.isEnabled);
+                const type = conf.type || 'percent';
+                const parsedPercent = conf.percent !== "" && conf.percent != null ? Number(conf.percent) : null;
+                const parsedAmount = conf.amount !== "" && conf.amount != null ? Number(String(conf.amount).replace(/\D/g, '')) : null;
+                const parsedBuyerDiscount = conf.buyerDiscount !== "" && conf.buyerDiscount != null ? Number(conf.buyerDiscount) : null;
+
+                batch.set(doc(db, "hypnosis_audios", t.id), {
+                    isAffiliateEnabled: isEnabled,
+                    affiliateCommissionType: type,
+                    affiliateCommissionPercent: parsedPercent,
+                    affiliateCommissionAmount: parsedAmount,
+                    affiliateBuyerDiscountPercent: parsedBuyerDiscount,
+                    updatedAt: Date.now()
+                }, { merge: true });
+            });
+            await batch.commit();
+            toast.success("Đã cập nhật toàn bộ cấu hình Affiliate thôi miên!");
+        } catch (error) {
+            console.error("Error saving all hypnosis commission configs:", error);
+            toast.error("Lỗi khi cập nhật danh sách thôi miên.");
+        } finally {
+            setIsSavingAllHypnosis(false);
         }
     };
 
@@ -573,120 +665,406 @@ const AdminAffiliates = () => {
                             </form>
                         </div>
 
-                        {/* Course-Specific Affiliate Commissions */}
+                        {/* Product-Specific Affiliate Commissions */}
                         <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-sm space-y-6">
-                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+                            {/* Sub-tab switcher */}
+                            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-5">
                                 <div>
                                     <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
                                         <Percent className="w-5 h-5 text-[#9B2528]" />
-                                        Cài Đặt % Hoa Hồng Riêng Cho Từng Khóa Học
+                                        Cài Đặt % Hoa Hồng Riêng Cho Từng Sản Phẩm
                                     </h3>
                                     <p className="text-xs text-slate-500 font-medium mt-1">
-                                        Bạn có thể đặt % hoa hồng riêng cho từng khóa (ví dụ: Khóa 1 hưởng 20%, Khóa 2 hưởng 35%, Khóa 3 hưởng 50%). Nếu để trống sẽ tính theo mức mặc định ({settings.defaultCommissionPercent}%).
+                                        Bạn có thể đặt % hoa hồng riêng cho từng khóa học hoặc bài thôi miên. Nếu để trống sẽ tự động áp dụng mức hoa hồng mặc định ({settings.defaultCommissionPercent}%).
                                     </p>
                                 </div>
-                                <button
-                                    type="button"
-                                    onClick={handleSaveAllCourseRates}
-                                    disabled={isSavingAllCourses || courses.length === 0}
-                                    className="px-5 py-2.5 rounded-xl bg-slate-900 text-white font-black text-xs hover:bg-slate-800 transition-all flex items-center gap-2 shrink-0 disabled:opacity-50"
-                                >
-                                    {isSavingAllCourses ? (
-                                        <>
-                                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                            <span>Đang lưu...</span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Check className="w-3.5 h-3.5 text-emerald-400" />
-                                            <span>Lưu Tất Cả Khóa Học</span>
-                                        </>
-                                    )}
-                                </button>
+
+                                <div className="flex items-center gap-2 p-1 bg-slate-100/80 rounded-2xl">
+                                    <button
+                                        type="button"
+                                        onClick={() => setCommissionProductTab("courses")}
+                                        className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 ${
+                                            commissionProductTab === "courses"
+                                                ? "bg-white text-slate-900 shadow-sm"
+                                                : "text-slate-500 hover:text-slate-900"
+                                        }`}
+                                    >
+                                        <BookOpen className="w-3.5 h-3.5 text-[#9B2528]" />
+                                        Khóa học ({courses.length})
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setCommissionProductTab("hypnosis")}
+                                        className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 ${
+                                            commissionProductTab === "hypnosis"
+                                                ? "bg-white text-slate-900 shadow-sm"
+                                                : "text-slate-500 hover:text-slate-900"
+                                        }`}
+                                    >
+                                        <Headphones className="w-3.5 h-3.5 text-purple-600" />
+                                        Bản Thôi Miên ({hypnosisTracks.length})
+                                    </button>
+                                </div>
                             </div>
 
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-left border-collapse">
-                                    <thead>
-                                        <tr className="border-b border-slate-100 text-[11px] font-black uppercase tracking-wider text-slate-400">
-                                            <th className="pb-3">Khóa học</th>
-                                            <th className="pb-3">Giá bán</th>
-                                            <th className="pb-3 w-48">% Hoa hồng riêng</th>
-                                            <th className="pb-3">Hoa hồng ước tính</th>
-                                            <th className="pb-3 text-right">Thao tác</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-100 text-xs font-bold text-slate-800">
-                                        {courses.length === 0 ? (
-                                            <tr>
-                                                <td colSpan={5} className="py-8 text-center text-slate-400 font-medium">
-                                                    Đang tải danh sách khóa học...
-                                                </td>
-                                            </tr>
-                                        ) : (
-                                            courses.map((course) => {
-                                                const currentVal = courseRates[course.id] ?? "";
-                                                const effectivePercent = currentVal !== "" ? Number(currentVal) : Number(settings.defaultCommissionPercent || 30);
-                                                const coursePrice = Number(course.price || 0);
-                                                const estComm = Math.round((coursePrice * effectivePercent) / 100);
-                                                const isSavingThis = savingCourseId === course.id;
+                            {/* TAB: COURSES */}
+                            {commissionProductTab === "courses" && (
+                                <div className="space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs font-bold text-slate-600">
+                                            Danh sách khóa học trực tuyến ({courses.length})
+                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={handleSaveAllCourseRates}
+                                            disabled={isSavingAllCourses || courses.length === 0}
+                                            className="px-4 py-2 rounded-xl bg-slate-900 text-white font-black text-xs hover:bg-slate-800 transition-all flex items-center gap-2 shrink-0 disabled:opacity-50"
+                                        >
+                                            {isSavingAllCourses ? (
+                                                <>
+                                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                                    <span>Đang lưu...</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                                                    <span>Lưu Tất Cả Khóa Học</span>
+                                                </>
+                                            )}
+                                        </button>
+                                    </div>
 
-                                                return (
-                                                    <tr key={course.id} className="hover:bg-slate-50/70 transition-colors">
-                                                        <td className="py-3.5 pr-4">
-                                                            <div className="font-black text-slate-900">{course.name}</div>
-                                                            <div className="text-[11px] text-slate-400 font-normal">{course.slug}</div>
-                                                        </td>
-                                                        <td className="py-3.5 pr-4 text-slate-600">
-                                                            {formatPrice(coursePrice)}
-                                                        </td>
-                                                        <td className="py-3.5 pr-4">
-                                                            <div className="relative flex items-center max-w-[140px]">
-                                                                <input
-                                                                    type="number"
-                                                                    min="0"
-                                                                    max="100"
-                                                                    value={courseRates[course.id] ?? ""}
-                                                                    onChange={(e) => setCourseRates({
-                                                                        ...courseRates,
-                                                                        [course.id]: e.target.value
-                                                                    })}
-                                                                    placeholder={`Mặc định (${settings.defaultCommissionPercent}%)`}
-                                                                    className="w-full h-9 px-3 pr-7 rounded-lg border border-slate-200 text-xs font-bold text-slate-900 outline-none focus:border-[#9B2528]"
-                                                                />
-                                                                <span className="absolute right-2.5 text-slate-400 font-bold text-xs">%</span>
-                                                            </div>
-                                                        </td>
-                                                        <td className="py-3.5 pr-4">
-                                                            <span className="text-emerald-700 font-black">
-                                                                {formatPrice(estComm)}
-                                                            </span>
-                                                            <span className="text-[11px] text-slate-400 ml-1 font-normal">
-                                                                ({effectivePercent}%)
-                                                            </span>
-                                                        </td>
-                                                        <td className="py-3.5 text-right">
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => handleSaveCourseRate(course.id)}
-                                                                disabled={isSavingThis}
-                                                                className="px-3.5 py-1.5 rounded-lg bg-red-50 text-[#9B2528] hover:bg-[#9B2528] hover:text-white font-black text-xs transition-colors border border-red-200/80 disabled:opacity-50 inline-flex items-center gap-1"
-                                                            >
-                                                                {isSavingThis ? (
-                                                                    <Loader2 className="w-3 h-3 animate-spin" />
-                                                                ) : (
-                                                                    <Check className="w-3 h-3" />
-                                                                )}
-                                                                <span>Lưu</span>
-                                                            </button>
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-left border-collapse">
+                                            <thead>
+                                                <tr className="border-b border-slate-100 text-[11px] font-black uppercase tracking-wider text-slate-400">
+                                                    <th className="pb-3">Khóa học</th>
+                                                    <th className="pb-3">Giá bán</th>
+                                                    <th className="pb-3 w-48">% Hoa hồng riêng</th>
+                                                    <th className="pb-3">Hoa hồng ước tính</th>
+                                                    <th className="pb-3 text-right">Thao tác</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-100 text-xs font-bold text-slate-800">
+                                                {courses.length === 0 ? (
+                                                    <tr>
+                                                        <td colSpan={5} className="py-8 text-center text-slate-400 font-medium">
+                                                            Đang tải danh sách khóa học...
                                                         </td>
                                                     </tr>
-                                                );
-                                            })
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
+                                                ) : (
+                                                    courses.map((course) => {
+                                                        const currentVal = courseRates[course.id] ?? "";
+                                                        const effectivePercent = currentVal !== "" ? Number(currentVal) : Number(settings.defaultCommissionPercent || 30);
+                                                        const coursePrice = Number(course.price || 0);
+                                                        const estComm = Math.round((coursePrice * effectivePercent) / 100);
+                                                        const isSavingThis = savingCourseId === course.id;
+
+                                                        return (
+                                                            <tr key={course.id} className="hover:bg-slate-50/70 transition-colors">
+                                                                <td className="py-3.5 pr-4">
+                                                                    <div className="font-black text-slate-900">{course.name}</div>
+                                                                    <div className="text-[11px] text-slate-400 font-normal">{course.slug}</div>
+                                                                </td>
+                                                                <td className="py-3.5 pr-4 text-slate-600">
+                                                                    {formatPrice(coursePrice)}
+                                                                </td>
+                                                                <td className="py-3.5 pr-4">
+                                                                    <div className="relative flex items-center max-w-[140px]">
+                                                                        <input
+                                                                            type="number"
+                                                                            min="0"
+                                                                            max="100"
+                                                                            value={courseRates[course.id] ?? ""}
+                                                                            onChange={(e) => setCourseRates({
+                                                                                ...courseRates,
+                                                                                [course.id]: e.target.value
+                                                                            })}
+                                                                            placeholder={`Mặc định (${settings.defaultCommissionPercent}%)`}
+                                                                            className="w-full h-9 px-3 pr-7 rounded-lg border border-slate-200 text-xs font-bold text-slate-900 outline-none focus:border-[#9B2528]"
+                                                                        />
+                                                                        <span className="absolute right-2.5 text-slate-400 font-bold text-xs">%</span>
+                                                                    </div>
+                                                                </td>
+                                                                <td className="py-3.5 pr-4">
+                                                                    <span className="text-emerald-700 font-black">
+                                                                        {formatPrice(estComm)}
+                                                                    </span>
+                                                                    <span className="text-[11px] text-slate-400 ml-1 font-normal">
+                                                                        ({effectivePercent}%)
+                                                                    </span>
+                                                                </td>
+                                                                <td className="py-3.5 text-right">
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => handleSaveCourseRate(course.id)}
+                                                                        disabled={isSavingThis}
+                                                                        className="px-3.5 py-1.5 rounded-lg bg-red-50 text-[#9B2528] hover:bg-[#9B2528] hover:text-white font-black text-xs transition-colors border border-red-200/80 disabled:opacity-50 inline-flex items-center gap-1"
+                                                                    >
+                                                                        {isSavingThis ? (
+                                                                            <Loader2 className="w-3 h-3 animate-spin" />
+                                                                        ) : (
+                                                                            <Check className="w-3 h-3" />
+                                                                        )}
+                                                                        <span>Lưu</span>
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    })
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* TAB: HYPNOSIS */}
+                            {commissionProductTab === "hypnosis" && (
+                                <div className="space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs font-bold text-slate-600">
+                                            Danh sách bài thôi miên có tính phí ({hypnosisTracks.length})
+                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={handleSaveAllHypnosisRates}
+                                            disabled={isSavingAllHypnosis || hypnosisTracks.length === 0}
+                                            className="px-4 py-2 rounded-xl bg-purple-900 text-white font-black text-xs hover:bg-purple-800 transition-all flex items-center gap-2 shrink-0 disabled:opacity-50"
+                                        >
+                                            {isSavingAllHypnosis ? (
+                                                <>
+                                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                                    <span>Đang lưu...</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                                                    <span>Lưu Tất Cả Thôi Miên</span>
+                                                </>
+                                            )}
+                                        </button>
+                                    </div>
+
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-left border-collapse">
+                                            <thead>
+                                                <tr className="border-b border-slate-100 text-[11px] font-black uppercase tracking-wider text-slate-400">
+                                                    <th className="pb-3">Bản thôi miên</th>
+                                                    <th className="pb-3">Giá bán</th>
+                                                    <th className="pb-3 text-center">Bật Affiliate</th>
+                                                    <th className="pb-3 w-56">Hoa hồng CTV</th>
+                                                    <th className="pb-3 w-32">Voucher khách</th>
+                                                    <th className="pb-3">Hoa hồng ước tính</th>
+                                                    <th className="pb-3 text-right">Thao tác</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-100 text-xs font-bold text-slate-800">
+                                                {hypnosisTracks.length === 0 ? (
+                                                    <tr>
+                                                        <td colSpan={7} className="py-8 text-center text-slate-400 font-medium">
+                                                            Không có bài thôi miên nào hoặc đang tải...
+                                                        </td>
+                                                    </tr>
+                                                ) : (
+                                                    hypnosisTracks.map((track) => {
+                                                        const conf = hypnosisConfig[track.id] || {
+                                                            isEnabled: track.isAffiliateEnabled !== false,
+                                                            type: track.affiliateCommissionType || 'percent',
+                                                            percent: track.affiliateCommissionPercent != null ? String(track.affiliateCommissionPercent) : "",
+                                                            amount: track.affiliateCommissionAmount != null ? String(track.affiliateCommissionAmount) : "",
+                                                            buyerDiscount: track.affiliateBuyerDiscountPercent != null ? String(track.affiliateBuyerDiscountPercent) : "",
+                                                        };
+                                                        const isEnabled = conf.isEnabled !== false;
+                                                        const type = conf.type || 'percent';
+                                                        const rawPrice = track.price;
+                                                        const trackPrice = typeof rawPrice === 'number' ? rawPrice : (Number(String(rawPrice || 0).replace(/\D/g, '')) || 0);
+
+                                                        let estComm = 0;
+                                                        let estCommText = "";
+                                                        if (!isEnabled) {
+                                                            estCommText = "Đang tắt";
+                                                        } else if (type === 'fixed') {
+                                                            estComm = conf.amount !== "" ? Number(String(conf.amount).replace(/\D/g, '')) : 0;
+                                                            estCommText = formatPrice(estComm);
+                                                        } else {
+                                                            const effectivePercent = conf.percent !== "" ? Number(conf.percent) : Number(settings.defaultCommissionPercent || 30);
+                                                            estComm = Math.round((trackPrice * effectivePercent) / 100);
+                                                            estCommText = `${formatPrice(estComm)} (${effectivePercent}%)`;
+                                                        }
+
+                                                        const isSavingThis = savingHypnosisId === track.id;
+
+                                                        return (
+                                                            <tr key={track.id} className={`transition-colors ${isEnabled ? 'hover:bg-slate-50/70' : 'bg-slate-50/50 opacity-60'}`}>
+                                                                {/* 1. Track Info */}
+                                                                <td className="py-3.5 pr-4">
+                                                                    <div className="flex items-center gap-3">
+                                                                        {(track.coverImage || track.coverImageSquare) && (
+                                                                            <img
+                                                                                src={track.coverImageSquare || track.coverImage}
+                                                                                alt={track.title}
+                                                                                className="w-9 h-9 rounded-lg object-cover shrink-0 border border-slate-200"
+                                                                            />
+                                                                        )}
+                                                                        <div>
+                                                                            <div className="font-black text-slate-900">{track.title}</div>
+                                                                            <div className="text-[11px] text-slate-400 font-normal">
+                                                                                {track.segment || track.category} {track.author ? `• ${track.author}` : ''}
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </td>
+
+                                                                {/* 2. Price */}
+                                                                <td className="py-3.5 pr-4 text-slate-600">
+                                                                    {formatPrice(trackPrice)}
+                                                                </td>
+
+                                                                {/* 3. Enable Toggle */}
+                                                                <td className="py-3.5 pr-4 text-center">
+                                                                    <label className="inline-flex items-center gap-1.5 cursor-pointer">
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            checked={isEnabled}
+                                                                            onChange={(e) => setHypnosisConfig({
+                                                                                ...hypnosisConfig,
+                                                                                [track.id]: {
+                                                                                    ...conf,
+                                                                                    isEnabled: e.target.checked
+                                                                                }
+                                                                            })}
+                                                                            className="w-4 h-4 rounded text-purple-600 focus:ring-purple-500"
+                                                                        />
+                                                                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                                                                            isEnabled ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'
+                                                                        }`}>
+                                                                            {isEnabled ? 'Bật' : 'Tắt'}
+                                                                        </span>
+                                                                    </label>
+                                                                </td>
+
+                                                                {/* 4. Commission Rate / Amount */}
+                                                                <td className="py-3.5 pr-4">
+                                                                    <div className="flex items-center gap-1.5">
+                                                                        {/* Type Switcher */}
+                                                                        <div className="flex p-0.5 bg-slate-100 rounded-lg shrink-0">
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => setHypnosisConfig({
+                                                                                    ...hypnosisConfig,
+                                                                                    [track.id]: { ...conf, type: 'percent' }
+                                                                                })}
+                                                                                className={`px-2 py-1 rounded text-[10px] font-black transition ${
+                                                                                    type === 'percent' ? 'bg-white text-purple-700 shadow-sm' : 'text-slate-400'
+                                                                                }`}
+                                                                                title="Tính theo %"
+                                                                            >
+                                                                                %
+                                                                            </button>
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => setHypnosisConfig({
+                                                                                    ...hypnosisConfig,
+                                                                                    [track.id]: { ...conf, type: 'fixed' }
+                                                                                })}
+                                                                                className={`px-2 py-1 rounded text-[10px] font-black transition ${
+                                                                                    type === 'fixed' ? 'bg-white text-purple-700 shadow-sm' : 'text-slate-400'
+                                                                                }`}
+                                                                                title="Tính theo tiền cố định VNĐ"
+                                                                            >
+                                                                                đ
+                                                                            </button>
+                                                                        </div>
+
+                                                                        {/* Value Input */}
+                                                                        <div className="relative flex-1 min-w-[90px]">
+                                                                            {type === 'percent' ? (
+                                                                                <input
+                                                                                    type="number"
+                                                                                    min="0"
+                                                                                    max="100"
+                                                                                    disabled={!isEnabled}
+                                                                                    value={conf.percent ?? ""}
+                                                                                    onChange={(e) => setHypnosisConfig({
+                                                                                        ...hypnosisConfig,
+                                                                                        [track.id]: { ...conf, percent: e.target.value }
+                                                                                    })}
+                                                                                    placeholder={`Mặc định (${settings.defaultCommissionPercent}%)`}
+                                                                                    className="w-full h-8 px-2 pr-6 rounded-lg border border-slate-200 text-xs font-bold text-slate-900 outline-none focus:border-purple-600 disabled:opacity-40"
+                                                                                />
+                                                                            ) : (
+                                                                                <input
+                                                                                    type="text"
+                                                                                    disabled={!isEnabled}
+                                                                                    value={conf.amount ?? ""}
+                                                                                    onChange={(e) => setHypnosisConfig({
+                                                                                        ...hypnosisConfig,
+                                                                                        [track.id]: { ...conf, amount: e.target.value }
+                                                                                    })}
+                                                                                    placeholder="VD: 50.000"
+                                                                                    className="w-full h-8 px-2 pr-6 rounded-lg border border-slate-200 text-xs font-bold text-slate-900 outline-none focus:border-purple-600 disabled:opacity-40"
+                                                                                />
+                                                                            )}
+                                                                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-[10px]">
+                                                                                {type === 'percent' ? '%' : 'đ'}
+                                                                            </span>
+                                                                        </div>
+                                                                    </div>
+                                                                </td>
+
+                                                                {/* 5. Buyer Voucher Discount */}
+                                                                <td className="py-3.5 pr-4">
+                                                                    <div className="relative max-w-[100px]">
+                                                                        <input
+                                                                            type="number"
+                                                                            min="0"
+                                                                            max="100"
+                                                                            disabled={!isEnabled}
+                                                                            value={conf.buyerDiscount ?? ""}
+                                                                            onChange={(e) => setHypnosisConfig({
+                                                                                ...hypnosisConfig,
+                                                                                [track.id]: { ...conf, buyerDiscount: e.target.value }
+                                                                            })}
+                                                                            placeholder="Giảm %"
+                                                                            className="w-full h-8 px-2 pr-6 rounded-lg border border-slate-200 text-xs font-bold text-slate-900 outline-none focus:border-emerald-600 disabled:opacity-40"
+                                                                        />
+                                                                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-[10px]">%</span>
+                                                                    </div>
+                                                                </td>
+
+                                                                {/* 6. Estimated Reward */}
+                                                                <td className="py-3.5 pr-4">
+                                                                    <span className={`font-black ${isEnabled ? 'text-emerald-700' : 'text-slate-400'}`}>
+                                                                        {estCommText}
+                                                                    </span>
+                                                                </td>
+
+                                                                {/* 7. Action Button */}
+                                                                <td className="py-3.5 text-right">
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => handleSaveHypnosisRate(track.id)}
+                                                                        disabled={isSavingThis}
+                                                                        className="px-3.5 py-1.5 rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-700 hover:text-white font-black text-xs transition-colors border border-purple-200/80 disabled:opacity-50 inline-flex items-center gap-1"
+                                                                    >
+                                                                        {isSavingThis ? (
+                                                                            <Loader2 className="w-3 h-3 animate-spin" />
+                                                                        ) : (
+                                                                            <Check className="w-3 h-3" />
+                                                                        )}
+                                                                        <span>Lưu</span>
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    })
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}
