@@ -91,6 +91,13 @@ export const ROUTE_SEO = {
       "Tìm hiểu hành trình, triết lý đào tạo và phương pháp đồng hành chuyển hóa của Mong Coaching tại Mali Edu.",
     url: "/gioi-thieu/mong-coaching",
   }),
+  "/gioi-thieu/nguyen-mong-thanh": indexable({
+    title: "Nhà đào tạo Nguyễn Mong Thành - Founder Mong Coaching",
+    description:
+      "Khám phá hành trình, triết lý và phương pháp đào tạo của Nguyễn Mong Thành về Luật Hấp Dẫn, tiềm thức, nội lực và chinh phục mục tiêu.",
+    url: "/gioi-thieu/nguyen-mong-thanh",
+    lastmod: "2026-09-07",
+  }),
   "/dao-tao": indexable(
     {
       title: "Chương trình đào tạo",

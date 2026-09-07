@@ -19,7 +19,7 @@ import { getDatabase } from "firebase-admin/database";
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { hashData, normalizeNameForHash, sendMetaCapiEvent } from "./capi_helper.js";
 import { createAdminLandingHandlers } from "./_lib/adminLandings.js";
-import { createHypnosisHandlers, grantHypnosisOrderAccess, hypnosisMedia, hypnosisSecurityReady, hypnosisPrice } from "./_lib/hypnosis.js";
+import { createHypnosisHandlers, grantHypnosisOrderAccess, hypnosisMedia, hypnosisSecurityReady, hypnosisPrice, hasHypnosisAdminModule } from "./_lib/hypnosis.js";
 import {
   createAffiliateHandlers,
   normalizeAffiliateCode,
@@ -132,6 +132,8 @@ const RATE_LIMIT_POLICIES = new Map([
   ["/api/hypnosis/library", { limit: 60, windowMs: 60 * 1000 }],
   ["/api/hypnosis/claim", { limit: 30, windowMs: 60 * 1000 }],
   ["/api/hypnosis/playback", { limit: 120, windowMs: 60 * 1000 }],
+  ["/api/hypnosis/guide", { limit: 60, windowMs: 60 * 1000 }],
+  ["/api/admin/hypnosis", { limit: 240, windowMs: 60 * 1000 }],
 ]);
 const rateLimitBuckets = new Map();
 
@@ -1130,8 +1132,13 @@ const isAdminPlaybackUser = async (user) => {
   return profile.exists && String(profile.data()?.role || "").toLowerCase() === "admin";
 };
 
-const onCreateBunnyUpload = async ({ request }) => {
+const onCreateBunnyUpload = async ({ request, adminUser }) => {
   const payload = await request.json();
+  const moduleKey = payload.moduleKey === "hypnosis" ? "hypnosis" : "courses";
+  const profile = await getFirestoreDb().collection("users").doc(adminUser.uid).get();
+  if (!hasHypnosisAdminModule(adminUser, profile.data(), moduleKey)) {
+    throw createHttpError(403, "Bạn không có quyền tải tệp cho mục này.");
+  }
   return createJsonResponse(
     await createBunnyUploadCredentials(getBunnyStreamEnv(), payload),
   );
@@ -1223,6 +1230,7 @@ const ROUTES = new Map([
   ["GET /api/hypnosis/library", hypnosisHandlers.library],
   ["POST /api/hypnosis/claim", hypnosisHandlers.claim],
   ["POST /api/hypnosis/playback", hypnosisHandlers.playback],
+  ["POST /api/hypnosis/guide", hypnosisHandlers.guide],
   ["POST /api/admin/hypnosis", hypnosisHandlers.adminPost],
   ["GET /api/admin/landings", adminLandingHandlers.getWorkspace],
   ["POST /api/admin/landings/delete", adminLandingHandlers.delete],

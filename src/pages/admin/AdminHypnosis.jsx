@@ -297,7 +297,7 @@ export default function AdminHypnosis() {
         // Upload to Bunny Cloud
         setAudioUploadProgress(1);
         try {
-            const res = await uploadVideoToBunny(file, (percent) => setAudioUploadProgress(percent));
+            const res = await uploadVideoToBunny(file, (percent) => setAudioUploadProgress(percent), { moduleKey: 'hypnosis' });
             const videoId = res?.videoId;
             if (!videoId) {
                 throw new Error("Không nhận được mã tệp sau khi tải lên Bunny Cloud.");
@@ -608,7 +608,7 @@ export default function AdminHypnosis() {
                         Cơ sở dữ liệu Thôi miên trong Firestore đang trống!
                     </h3>
                     <p className="text-xs sm:text-sm text-amber-800 max-w-lg mx-auto">
-                        Website hiện đang hiển thị danh sách 7 bản ghi mặc định. Bạn có thể nhấn nút dưới đây để nạp 7 bản ghi này vào Firestore để chỉnh sửa và quản lý ngay.
+                        Bạn có thể nạp 7 bản mẫu để bắt đầu chỉnh sửa. Các bản trả phí được lưu nháp; hãy tải tệp âm thanh lên và bật hiển thị trước khi mở bán.
                     </p>
                     <button
                         onClick={handleSeedInitialTracks}
@@ -734,6 +734,7 @@ export default function AdminHypnosis() {
                                                         <h4 className="font-bold text-slate-900 line-clamp-1">
                                                             {track.title}
                                                         </h4>
+                                                        {track.isPublished === false && <span className="text-xs font-bold text-amber-700">Bản nháp · Chưa mở bán</span>}
                                                         <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                                                             <p className="text-[11px] text-slate-500 line-clamp-1">
                                                                 {track.benefit || 'Chưa có mô tả ngắn'}

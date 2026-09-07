@@ -30,6 +30,7 @@ export const getHypnosisLibrary = async (user, signal) =>
   (await request('/hypnosis/library', { user, signal })).trackIds;
 export const claimHypnosisTrack = (trackId, user) => request('/hypnosis/claim', { payload: { trackId }, user });
 export const getHypnosisPlayback = (trackId, user, signal) => request('/hypnosis/playback', { payload: { trackId }, user, signal });
+export const getHypnosisGuide = (trackId, user) => request('/hypnosis/guide', { payload: { trackId }, user });
 export const saveHypnosisTrack = (track, createOnly = false) =>
   request('/admin/hypnosis', { payload: { action: 'save', trackId: track.id, track, createOnly } });
 export const deleteHypnosisTrack = (trackId) => request('/admin/hypnosis', { payload: { action: 'delete', trackId } });

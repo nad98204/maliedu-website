@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="1000" viewBox="0 0 800 1000">
+  <defs><linearGradient id="paper" x2="1" y2="1"><stop stop-color="#eee2c9"/><stop offset="1" stop-color="#d8c5a6"/></linearGradient></defs>
+  <path fill="url(#paper)" d="M0 0h800v1000H0z"/>
+  <g fill="none" stroke="#a68a62" opacity=".35"><circle cx="400" cy="420" r="300"/><circle cx="400" cy="420" r="240"/><path d="M400 0v1000M0 420h800"/></g>
+  <g fill="none" stroke="#927553" stroke-width="2"><rect x="360" y="375" width="80" height="60" rx="8"/><circle cx="400" cy="405" r="14"/><path d="m380 375 7-12h26l7 12"/></g>
+  <text x="400" y="500" text-anchor="middle" fill="#765b40" font-family="Arial,sans-serif" font-size="18" letter-spacing="5">MONG COACHING</text>
+</svg>

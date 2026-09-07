@@ -3,8 +3,7 @@ const TEXT_FIELDS = [
   'title', 'benefit', 'description', 'category', 'segment', 'duration', 'authorId',
   'author', 'authorTitle', 'authorRole', 'authorAvatar', 'authorBio', 'coverImage',
   'coverImageSquare', 'coverImageBanner', 'brainwave', 'frequency',
-  'recommendedCycle', 'bestTime', 'audioQuality', 'targetAudience', 'detailedGuide',
-  'guidePreparation', 'guideRoutine', 'guidePhenomena', 'guideBonus',
+  'recommendedCycle', 'bestTime', 'audioQuality', 'targetAudience',
   'affiliateBuyerVoucherText',
 ];
 const NUMBER_FIELDS = ['durationSec', 'listens', 'affiliateCommissionPercent',
@@ -13,12 +12,16 @@ const LIST_FIELDS = ['tags', 'effects', 'precautions', 'authorCredentials'];
 const COMMISSION_FIELDS = ['isAffiliateEnabled', 'affiliateCommissionType',
   'affiliateCommissionPercent', 'affiliateCommissionAmount', 'affiliateBuyerDiscountPercent',
   'affiliateBuyerVoucherText'];
+const GUIDE_FIELDS = ['detailedGuide', 'guidePreparation', 'guideRoutine', 'guidePhenomena', 'guideBonus'];
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const fail = (status, message) => { throw Object.assign(new Error(message), { status }); };
 const validId = (id) => typeof id === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(id);
 
 export const hypnosisPrice = (value) => {
-  const price = typeof value === 'number' ? value : Number(String(value || '').replace(/\D/g, ''));
+  if (value == null || value === '') return null;
+  const normalized = String(value).trim().replace(/(?:đ|₫|vnd)$/i, '').trim();
+  if (typeof value !== 'number' && !/^(?:\d+|\d{1,3}(?:[.,]\d{3})+)$/.test(normalized)) return null;
+  const price = typeof value === 'number' ? value : Number(normalized.replace(/[.,]/g, ''));
   return Number.isSafeInteger(price) && price >= 0 ? price : null;
 };
 
@@ -84,7 +87,7 @@ export const hasHypnosisAdminModule = (user, profile, module) => {
   if (user?.email === 'mongcoaching@gmail.com' && user.email_verified === true) return true;
   if (!user?.uid || profile?.role !== 'admin') return false;
   const modules = profile.allowedModules;
-  return modules == null || (Array.isArray(modules) && (!modules.length || modules.includes(module)));
+  return modules === undefined || (Array.isArray(modules) && (!modules.length || modules.includes(module)));
 };
 
 export const createHypnosisHandlers = ({ getDb, verifyUser, fieldValue, getEnv, signPlayback, json }) => {
@@ -102,7 +105,8 @@ export const createHypnosisHandlers = ({ getDb, verifyUser, fieldValue, getEnv, 
   };
   const hasAccess = async (uid, id, track, existingAccess) => {
     const access = existingAccess || (await getDb().collection('user_audios').doc(`${uid}_${id}`).get()).data();
-    if (!access || access.userId !== uid || access.trackId !== id || access.status !== 'active') return false;
+    if (!access || access.userId !== uid || access.trackId !== id) return false;
+    if (access.status !== 'active' && !(track.isFree === true && access.status == null)) return false;
     if (access.expiresAt != null) {
       const expiry = typeof access.expiresAt.toMillis === 'function' ? access.expiresAt.toMillis() : new Date(access.expiresAt).getTime();
       if (!Number.isFinite(expiry) || expiry <= Date.now()) return false;
@@ -120,7 +124,8 @@ export const createHypnosisHandlers = ({ getDb, verifyUser, fieldValue, getEnv, 
       const track = d.data();
       const media = hypnosisMedia(track, env.BUNNY_STREAM_LIBRARY_ID);
       return { ...publicHypnosisTrack(d.id, track),
-        available: Boolean(media && (media.provider !== 'bunny' || hypnosisSecurityReady(env))) };
+        available: Boolean(media && (track.isFree === true || hypnosisPrice(track.price) > 0)
+          && (media.provider !== 'bunny' || hypnosisSecurityReady(env))) };
     }) });
   };
   const library = async ({ request }) => {
@@ -141,16 +146,19 @@ export const createHypnosisHandlers = ({ getDb, verifyUser, fieldValue, getEnv, 
     if (!validId(trackId)) fail(400, 'Mã bản thôi miên không hợp lệ.');
     const db = getDb();
     await db.runTransaction(async transaction => {
+      const accessRef = db.collection('user_audios').doc(`${user.uid}_${trackId}`);
       const track = await transaction.get(db.collection('hypnosis_audios').doc(trackId));
+      const existing = (await transaction.get(accessRef)).data();
       const data = track.data();
       if (!track.exists || data.isPublished === false) fail(404, 'Không tìm thấy bản thôi miên.');
       if (data.isFree !== true) fail(403, 'Bản này cần thanh toán trước khi mở khóa.');
       const env = getEnv();
       const media = hypnosisMedia(data, env.BUNNY_STREAM_LIBRARY_ID);
       if (!media || (media.provider === 'bunny' && !hypnosisSecurityReady(env))) fail(409, 'Bản ghi chưa sẵn sàng để nghe.');
-      transaction.set(db.collection('user_audios').doc(`${user.uid}_${trackId}`), {
+      transaction.set(accessRef, {
         userId: user.uid, trackId, isFree: true, price: 0, status: 'active',
         createdAt: fieldValue.serverTimestamp(),
+        ...(validId(existing?.orderId) ? { orderId: existing.orderId } : {}),
       });
     });
     return json({ success: true, trackId });
@@ -161,6 +169,13 @@ export const createHypnosisHandlers = ({ getDb, verifyUser, fieldValue, getEnv, 
     const track = await readTrack(trackId);
     if (track.isPublished === false || !await hasAccess(user.uid, trackId, track)) fail(403, 'Bạn chưa có quyền nghe bản này.');
     return playbackResponse(track);
+  };
+  const guide = async ({ request }) => {
+    const user = await verifyUser(request);
+    const { trackId } = await request.json();
+    const track = await readTrack(trackId);
+    if (track.isPublished === false || !await hasAccess(user.uid, trackId, track)) fail(403, 'Bạn chưa có quyền đọc hướng dẫn này.');
+    return json({ guide: Object.fromEntries(GUIDE_FIELDS.map(field => [field, typeof track[field] === 'string' ? track[field] : ''])) });
   };
   const playbackResponse = async (track) => {
     const env = getEnv();
@@ -193,6 +208,7 @@ export const createHypnosisHandlers = ({ getDb, verifyUser, fieldValue, getEnv, 
     if (action !== 'save') fail(400, 'Thao tác không hợp lệ.');
     const input = body.track || {};
     const data = publicHypnosisTrack(trackId, input);
+    for (const field of GUIDE_FIELDS) data[field] = typeof input[field] === 'string' ? input[field].slice(0, 100000) : '';
     if (!data.title?.trim()) fail(400, 'Vui lòng nhập tiêu đề bản thôi miên.');
     if (!data.isFree && (!data.price || data.price < 0)) fail(400, 'Bản trả phí cần có giá hợp lệ lớn hơn 0.');
     const env = getEnv();
@@ -213,23 +229,30 @@ export const createHypnosisHandlers = ({ getDb, verifyUser, fieldValue, getEnv, 
     });
     return json({ success: true, isPublished: data.isPublished });
   };
-  return { catalog, library, claim, playback, adminPost };
+  return { catalog, library, claim, playback, guide, adminPost };
 };
 
 // Server-only fulfillment for manually approved orders. Playback still checks the order.
 export const grantHypnosisOrderAccess = async ({ db, fieldValue, order, orderId }) => {
   if (order.status !== 'completed' || !order.userId || !validId(orderId)) return;
-  const items = Array.isArray(order.items) && order.items.length ? order.items
-    : [{ id: order.trackId || order.courseId, productType: order.productType }];
-  const tracks = items.filter(item => isHypnosisOrderItem(item, order) && validId(item.id || item.courseId));
-  if (!tracks.length) return;
-  const batch = db.batch();
-  for (const item of tracks) {
-    const trackId = item.id || item.courseId;
-    batch.set(db.collection('user_audios').doc(`${order.userId}_${trackId}`), {
-      userId: order.userId, trackId, orderId, status: 'active', isFree: false,
-      price: item.price || 0, createdAt: fieldValue.serverTimestamp(),
+  await db.runTransaction(async transaction => {
+    // Delivery can be retried long after the event. Recheck the current order.
+    const current = (await transaction.get(db.collection('orders').doc(orderId))).data();
+    if (current?.status !== 'completed' || current.userId !== order.userId) return;
+    const items = Array.isArray(current.items) && current.items.length ? current.items
+      : [{ id: current.trackId || current.courseId, productType: current.productType }];
+    const tracks = items.filter(item => isHypnosisOrderItem(item, current) && validId(item.id || item.courseId));
+    const refs = tracks.map(item => db.collection('user_audios').doc(`${current.userId}_${item.id || item.courseId}`));
+    const existing = await Promise.all(refs.map(ref => transaction.get(ref)));
+    tracks.forEach((item, index) => {
+      const trackId = item.id || item.courseId;
+      const previous = existing[index].data();
+      // Do not reactivate an expired/revoked grant on duplicate delivery.
+      if (previous?.orderId === orderId && previous.userId === current.userId && previous.trackId === trackId) return;
+      transaction.set(refs[index], {
+        userId: current.userId, trackId, orderId, status: 'active', isFree: false,
+        price: item.price || 0, createdAt: fieldValue.serverTimestamp(),
+      });
     });
-  }
-  await batch.commit();
+  });
 };

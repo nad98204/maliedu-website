@@ -1,0 +1,278 @@
+/* ==========================================================================
+   THE SECRET OFFICIAL TV STYLE - MALI EDU
+   Inspired by https://www.thesecret.tv/
+   Refined Parchment, Elegant Serif, Signature Red Wax Seal, Gold Accents
+   ========================================================================== */
+
+.the-secret-page {
+  --ts-bg: #FAF5E8;
+  --ts-bg-light: #FCF9F2;
+  --ts-bg-card: #FFFFFF;
+  --ts-wax: #8D1C24;
+  --ts-wax-hover: #73141B;
+  --ts-gold: #CB9549;
+  --ts-gold-light: #DFB775;
+  --ts-ink: #2C1810;
+  --ts-muted: #5C4A42;
+  --ts-border: #DBCBB2;
+  --ts-border-light: #EDE3D2;
+  
+  background-color: var(--ts-bg);
+  background-image: radial-gradient(circle at 50% 10%, #FCF9F0 0%, #F6EEDC 60%, #EDE1C8 100%);
+  color: var(--ts-ink);
+  font-family: 'Inter', -apple-system, sans-serif;
+  line-height: 1.7;
+  overflow-x: hidden;
+}
+
+.the-secret-page *, 
+.the-secret-page *::before, 
+.the-secret-page *::after {
+  box-sizing: border-box;
+}
+
+.the-secret-container {
+  width: min(1200px, calc(100% - 48px));
+  margin-inline: auto;
+}
+
+/* ==========================================================================
+   TYPOGRAPHY IN THE SECRET STYLE
+   ========================================================================== */
+.the-secret-title-serif {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-weight: 700;
+  color: var(--ts-ink);
+  letter-spacing: -0.01em;
+}
+
+.the-secret-quote-serif {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-style: italic;
+  color: var(--ts-wax);
+}
+
+.the-secret-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 2.5px;
+  color: var(--ts-gold);
+  text-transform: uppercase;
+  font-family: 'Inter', sans-serif;
+}
+
+.the-secret-eyebrow::before,
+.the-secret-eyebrow::after {
+  content: '';
+  display: inline-block;
+  width: 24px;
+  height: 1px;
+  background: var(--ts-gold);
+  opacity: 0.7;
+}
+
+/* ==========================================================================
+   THE OFFICIAL WAX SEAL BADGE (Clean & Realistic like thesecret.tv)
+   ========================================================================== */
+.the-secret-seal-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  filter: drop-shadow(0 8px 16px rgba(141, 28, 36, 0.28));
+}
+
+.the-secret-seal-disc {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #a8242d 0%, #8d1c24 60%, #631016 100%);
+  border: 2px solid rgba(255, 230, 200, 0.3);
+  box-shadow: 
+    inset 0 2px 4px rgba(255, 255, 255, 0.4),
+    inset 0 -3px 6px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #fff4e0;
+  text-align: center;
+  user-select: none;
+  position: relative;
+}
+
+.the-secret-seal-disc::after {
+  content: '';
+  position: absolute;
+  inset: 5px;
+  border-radius: 50%;
+  border: 1px dashed rgba(255, 215, 170, 0.4);
+  pointer-events: none;
+}
+
+.the-secret-seal-letter {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-style: italic;
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1;
+  color: #fff5e6;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+  margin-top: -2px;
+}
+
+.the-secret-seal-text {
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #fed7aa;
+  margin-top: 1px;
+}
+
+/* ==========================================================================
+   BUTTONS IN THE SECRET STYLE
+   ========================================================================== */
+.the-secret-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px 28px;
+  background: var(--ts-wax);
+  color: #FFFFFF;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  text-decoration: none;
+  border-radius: 4px;
+  box-shadow: 0 4px 14px rgba(141, 28, 36, 0.25);
+  transition: all 0.25s ease;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.the-secret-btn-primary:hover {
+  background: var(--ts-wax-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(141, 28, 36, 0.35);
+}
+
+.the-secret-btn-gold {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px 28px;
+  background: transparent;
+  color: var(--ts-ink);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  text-decoration: none;
+  border-radius: 4px;
+  border: 1.5px solid var(--ts-gold);
+  transition: all 0.25s ease;
+}
+
+.the-secret-btn-gold:hover {
+  background: rgba(203, 149, 73, 0.1);
+  color: var(--ts-wax);
+  border-color: var(--ts-wax);
+  transform: translateY(-2px);
+}
+
+/* ==========================================================================
+   CARDS & PANELS IN THE SECRET STYLE
+   ========================================================================== */
+.the-secret-panel {
+  background: #FFFFFF;
+  border: 1px solid var(--ts-border);
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(44, 24, 16, 0.05);
+  padding: 32px;
+  transition: all 0.3s ease;
+}
+
+.the-secret-panel:hover {
+  border-color: var(--ts-gold);
+  box-shadow: 0 16px 40px rgba(203, 149, 73, 0.12);
+}
+
+/* Classic Golden Border Card (like the books and story cards on thesecret.tv) */
+.the-secret-libro-card {
+  background: #FFFFFF;
+  border-top: 4px solid var(--ts-gold);
+  border-inline: 1px solid var(--ts-border-light);
+  border-bottom: 1px solid var(--ts-border-light);
+  border-radius: 0 0 6px 6px;
+  padding: 32px 28px;
+  box-shadow: 0 8px 24px rgba(44, 24, 16, 0.04);
+  transition: all 0.3s ease;
+}
+
+.the-secret-libro-card:hover {
+  transform: translateY(-4px);
+  border-top-color: var(--ts-wax);
+  box-shadow: 0 16px 36px rgba(44, 24, 16, 0.08);
+}
+
+/* Quote Speech Box (Used frequently on thesecret.tv) */
+.the-secret-speech-box {
+  position: relative;
+  background: #FFFFFF;
+  border-left: 4px solid var(--ts-gold);
+  padding: 24px 28px;
+  border-radius: 0 8px 8px 0;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.04);
+  border-block: 1px solid var(--ts-border-light);
+  border-right: 1px solid var(--ts-border-light);
+}
+
+/* Gold Filigree Line Divider */
+.the-secret-divider-line {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-block: 24px;
+}
+
+.the-secret-divider-line::before,
+.the-secret-divider-line::after {
+  content: '';
+  height: 1px;
+  width: 80px;
+  background: linear-gradient(90deg, transparent, var(--ts-gold), transparent);
+}
+
+/* Secret Dark Luxury Chamber Section (for Origin Story) */
+.the-secret-dark-section {
+  background: #180C07;
+  color: #EDE3D2;
+  position: relative;
+  overflow: hidden;
+  border-block: 1px solid rgba(203, 149, 73, 0.3);
+}
+
+.the-secret-dark-card {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(203, 149, 73, 0.35);
+  border-radius: 8px;
+  padding: 36px;
+  backdrop-filter: blur(10px);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .the-secret-panel {
+    padding: 24px;
+  }
+  .the-secret-title-serif {
+    font-size: 32px !important;
+  }
+}

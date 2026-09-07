@@ -48,7 +48,7 @@ import { Link, useLocation, useNavigate } from 'react-router';
 import { onAuthStateChanged } from 'firebase/auth';
 import toast from 'react-hot-toast';
 import { auth } from '../firebase';
-import { getHypnosisCatalog, getHypnosisLibrary, claimHypnosisTrack, getHypnosisPlayback } from '../utils/hypnosisService';
+import { getHypnosisCatalog, getHypnosisLibrary, claimHypnosisTrack, getHypnosisPlayback, getHypnosisGuide } from '../utils/hypnosisService';
 import SEO from '../components/SEO';
 import AuthModal from '../components/AuthModal';
 import { getAffiliateByUserId } from '../utils/affiliateService';
@@ -137,6 +137,7 @@ const ThoiMien = ({ isPurchasedOnly = false }) => {
     }, [tracks]);
 
     const audioRef = useRef(null);
+    const guideRequestRef = useRef(0);
 
     const isBunnyStream = playback?.provider === 'bunny';
     const bunnyIframeUrl = useMemo(() => {
@@ -152,6 +153,7 @@ const ThoiMien = ({ isPurchasedOnly = false }) => {
             audioRef.current?.pause();
             audioRef.current?.removeAttribute('src');
             setCurrentTrack(null);
+            guideRequestRef.current++;
             setSelectedGuideTrack(null);
             setPlayback(null);
             setIsPlaying(false);
@@ -476,6 +478,18 @@ const ThoiMien = ({ isPurchasedOnly = false }) => {
         else { setCurrentTrack(track); setCurrentTime(0); }
     };
 
+    const openTrackGuide = async (track) => {
+        if (!user || !ownedTrackIds.includes(track.id)) { toast.error('Bạn chưa có quyền đọc hướng dẫn này.'); return; }
+        const requestId = ++guideRequestRef.current;
+        const uid = user.uid;
+        try {
+            const result = await getHypnosisGuide(track.id, user);
+            if (requestId === guideRequestRef.current && auth.currentUser?.uid === uid) {
+                setSelectedGuideTrack({ ...track, ...result.guide });
+            }
+        } catch (error) { if (requestId === guideRequestRef.current) toast.error(error.message); }
+    };
+
     // Lọc danh sách bài:
     const displayedSourceTracks = useMemo(() => {
         if (isPurchasedView) {
@@ -733,7 +747,7 @@ const ThoiMien = ({ isPurchasedOnly = false }) => {
                                     key={track.id}
                                     onClick={() => {
                                         if (isPurchasedView) {
-                                            setSelectedGuideTrack(track);
+                                            openTrackGuide(track);
                                             setActiveGuideTab('preparation');
                                         } else {
                                             setSelectedDetailTrack(track);
@@ -851,7 +865,7 @@ const ThoiMien = ({ isPurchasedOnly = false }) => {
                                                 <button
                                                     type="button"
                                                     onClick={() => {
-                                                        setSelectedGuideTrack(track);
+                                                        openTrackGuide(track);
                                                         setActiveGuideTab('preparation');
                                                     }}
                                                     className="py-1.5 px-1.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 border border-amber-300/80 bg-amber-50 text-amber-900 hover:bg-amber-100 hover:border-amber-400 shadow-sm active:scale-95"
@@ -943,7 +957,7 @@ const ThoiMien = ({ isPurchasedOnly = false }) => {
                                     key={track.id}
                                     onClick={() => {
                                         if (isPurchasedView) {
-                                            setSelectedGuideTrack(track);
+                                            openTrackGuide(track);
                                             setActiveGuideTab('preparation');
                                         } else {
                                             setSelectedDetailTrack(track);
@@ -1034,7 +1048,7 @@ const ThoiMien = ({ isPurchasedOnly = false }) => {
                                                 <button
                                                     type="button"
                                                     onClick={() => {
-                                                        setSelectedGuideTrack(track);
+                                                        openTrackGuide(track);
                                                         setActiveGuideTab('preparation');
                                                     }}
                                                     className="px-2.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 border border-amber-300/80 bg-amber-50 text-amber-900 hover:bg-amber-100 shadow-sm active:scale-95"
@@ -1165,7 +1179,7 @@ const ThoiMien = ({ isPurchasedOnly = false }) => {
                             <div className="flex items-center gap-1 shrink-0 sm:hidden">
                                 <button
                                     onClick={() => {
-                                        setSelectedGuideTrack(currentTrack);
+                                        openTrackGuide(currentTrack);
                                         setActiveGuideTab('preparation');
                                     }}
                                     className="p-1.5 text-amber-300 hover:text-white transition rounded-lg hover:bg-white/10 flex items-center gap-1 text-[10px] font-bold border border-white/10 bg-white/5 px-2"
@@ -1234,7 +1248,7 @@ const ThoiMien = ({ isPurchasedOnly = false }) => {
                             {/* Nút xem Hướng dẫn nhanh khi đang nghe */}
                             <button
                                 onClick={() => {
-                                    setSelectedGuideTrack(currentTrack);
+                                    openTrackGuide(currentTrack);
                                     setActiveGuideTab('preparation');
                                 }}
                                 className="px-2.5 py-1.5 text-xs font-bold text-amber-300 hover:text-white bg-white/10 hover:bg-white/15 transition rounded-lg flex items-center gap-1.5 border border-white/10 shrink-0"
@@ -1432,7 +1446,7 @@ const ThoiMien = ({ isPurchasedOnly = false }) => {
                                         <button
                                             type="button"
                                             onClick={() => {
-                                                setSelectedGuideTrack(activeDetailData);
+                                                openTrackGuide(activeDetailData);
                                                 setSelectedDetailTrack(null);
                                                 setActiveGuideTab('preparation');
                                             }}

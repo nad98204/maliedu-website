@@ -13,7 +13,8 @@ const NAV_ITEMS = [
         id: 'about', label: "Giới thiệu", icon: Info, path: "/gioi-thieu",
         children: [
             { label: "Về Mali Edu", path: "/gioi-thieu" },
-            { label: "Mong Coaching", path: "/gioi-thieu/mong-coaching" }
+            { label: "Mong Coaching", path: "/gioi-thieu/mong-coaching" },
+            { label: "Nguyễn Mong Thành", path: "/gioi-thieu/nguyen-mong-thanh" }
         ]
     },
     {

@@ -16,7 +16,10 @@
     "test:affiliate": "node --test functions/_lib/affiliate.test.js",
     "test:landing": "node scripts/test-landing-performance.mjs",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:hypnosis": "node --test functions/_lib/hypnosis.test.js",
+    "test:hypnosis:rules": "firebase emulators:exec --only firestore --project demo-maliedu-hypnosis --config firebase.hypnosis-test.json \"node --test scripts/hypnosis-rules.test.mjs\"",
+    "test:hypnosis:browser": "node --test scripts/hypnosis-browser.test.mjs"
   },
   "dependencies": {
     "@tiptap/extension-image": "^3.22.4",

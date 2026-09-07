@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createHypnosisHandlers, publicHypnosisTrack, hypnosisMedia, orderGrantsHypnosis,
+import { createHypnosisHandlers, publicHypnosisTrack, hypnosisMedia, hypnosisPrice, orderGrantsHypnosis,
   hasHypnosisAdminModule, grantHypnosisOrderAccess } from './hypnosis.js';
 import { createBunnyEmbedPlayback } from './bunnyStream.js';
 
@@ -51,7 +51,7 @@ const request = (payload = {}, uid = 'buyer') => ({ request: { user: uid ? { uid
 const rejectsStatus = (promise, status) => assert.rejects(promise, error => error.status === status);
 
 test('public catalog allowlist strips audio URLs, IDs, provider and unexpected nested data', async () => {
-  const source = { ...paidTrack, audioUrl: 'https://private.example/audio', secret: 'secret',
+  const source = { ...paidTrack, audioUrl: 'https://private.example/audio', secret: 'secret', detailedGuide: 'secret', guidePreparation: 'secret',
     howToUse: [{ step: 'a', desc: 'b', audioUrl: 'secret' }], effects: [{ audioUrl: 'secret' }, 'relax'] };
   const sanitized = publicHypnosisTrack('paid', source);
   assert.equal(sanitized.price, 199000);
@@ -61,6 +61,13 @@ test('public catalog allowlist strips audio URLs, IDs, provider and unexpected n
   assert.equal(sanitized.audioProvider, undefined);
   const { handlers } = setup({ 'hypnosis_audios/draft': { ...paidTrack, isPublished: false } });
   assert.deepEqual((await handlers.catalog()).tracks.map(t => t.id), ['paid', 'free']);
+});
+
+test('price accepts whole VND values and rejects negatives, malformed prices and fractions', () => {
+  assert.equal(hypnosisPrice('199.000đ'), 199000);
+  assert.equal(hypnosisPrice('199,000 VND'), 199000);
+  assert.equal(hypnosisPrice(0), 0);
+  for (const price of [-100, '-100đ', 'free', '1e6', '12.5', 1.5, undefined, '', Infinity]) assert.equal(hypnosisPrice(price), null);
 });
 
 test('media parsing rejects direct paid URLs, malicious hosts, credentials and another library', () => {
@@ -127,6 +134,13 @@ test('missing Bunny security confirmation fails closed for playback and sale ava
   assert.equal(calls.length, 0);
 });
 
+test('private guides require the same verified purchase and remain available while media is being configured', async () => {
+  const { handlers } = setup({ 'hypnosis_audios/paid': { ...paidTrack, detailedGuide: 'Private instructions' } }, {});
+  await rejectsStatus(handlers.guide(request({ trackId: 'paid' }, null)), 401);
+  await rejectsStatus(handlers.guide(request({ trackId: 'paid' }, 'other')), 403);
+  assert.equal((await handlers.guide(request({ trackId: 'paid' }))).guide.detailedGuide, 'Private instructions');
+});
+
 test('existing direct paid media cannot be played even after payment', async () => {
   const { handlers } = setup({ 'hypnosis_audios/paid': { ...paidTrack, audioProvider: 'url', audioUrl: 'https://example.com/paid.mp3' } });
   await rejectsStatus(handlers.playback(request({ trackId: 'paid' })), 409);
@@ -167,8 +181,17 @@ test('affiliate manager can change only commission fields', async () => {
 test('mixed orders cannot turn a course item into hypnosis access', async () => {
   const mixed = { ...order, productType: 'hypnosis', items: [...order.items, { id: 'course1', productType: 'course' }] };
   assert.equal(orderGrantsHypnosis(mixed, 'buyer', 'course1'), false);
-  const { db, fieldValue, data } = setup();
+  const { db, fieldValue, data } = setup({ 'orders/order1': mixed, 'user_audios/buyer_paid': null });
   await grantHypnosisOrderAccess({ db, fieldValue, order: mixed, orderId: 'order1' });
   assert.equal(data.has('user_audios/buyer_course1'), false);
   assert.equal(data.get('user_audios/buyer_paid').status, 'active');
+});
+
+test('retried fulfillment does not reactivate a revoked grant or fulfill a cancelled order', async () => {
+  const revoked = setup({ 'user_audios/buyer_paid': { ...access, status: 'revoked' } });
+  await grantHypnosisOrderAccess({ ...revoked, order, orderId: 'order1' });
+  assert.equal(revoked.data.get('user_audios/buyer_paid').status, 'revoked');
+  const cancelled = setup({ 'orders/order1': { ...order, status: 'cancelled' }, 'user_audios/buyer_paid': null });
+  await grantHypnosisOrderAccess({ ...cancelled, order, orderId: 'order1' });
+  assert.equal(cancelled.data.has('user_audios/buyer_paid'), false);
 });

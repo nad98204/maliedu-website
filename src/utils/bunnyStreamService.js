@@ -71,7 +71,7 @@ const validateMediaFile = (file) => {
   }
 };
 
-export const uploadVideoToBunny = async (file, onProgress) => {
+export const uploadVideoToBunny = async (file, onProgress, { moduleKey = 'courses' } = {}) => {
   validateMediaFile(file);
   const credentials = await requestJson(
     "/create-upload",
@@ -80,6 +80,7 @@ export const uploadVideoToBunny = async (file, onProgress) => {
       fileName: file.name,
       fileSize: file.size,
       fileType: file.type,
+      moduleKey,
     },
     { requireAuth: true },
   );

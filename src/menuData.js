@@ -9,6 +9,7 @@ export const MENU_ITEMS = [
     children: [
       { label: "Về Mali Edu", path: "/gioi-thieu#ve-mali-edu" },
       { label: "Mong Coaching", path: "/gioi-thieu/mong-coaching" },
+      { label: "Nguyễn Mong Thành", path: "/gioi-thieu/nguyen-mong-thanh" },
     ],
   },
   {

@@ -1,0 +1,972 @@
+/* ==========================================================================
+   NGUYEN MONG THANH - NĂNG LƯỢNG TÍCH CỰC, ĐÀO TẠO, CHO ĐI, BIẾT ƠN & ĐỘNG LỰC
+   Typography: Be Vietnam Pro & Inter (Chuẩn tiếng Việt, hiện đại, sắc nét)
+   ========================================================================== */
+
+.nmt-page {
+  --nmt-font: "Be Vietnam Pro", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --nmt-bg: #fffdf9;
+  --nmt-warm-paper: #faf6ee;
+  --nmt-ink: #1c1917;
+  --nmt-muted: #57534e;
+  --nmt-amber: #d97706;
+  --nmt-amber-light: #f59e0b;
+  --nmt-amber-soft: #fef3c7;
+  --nmt-red: #8b2e2e;
+  --nmt-gold: #d4af37;
+  --nmt-emerald: #059669;
+  --nmt-line: #f1e5cf;
+  background-color: var(--nmt-bg);
+  color: var(--nmt-ink);
+  font-family: var(--nmt-font);
+  line-height: 1.7;
+  scroll-behavior: smooth;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.nmt-page *, .nmt-page *::before, .nmt-page *::after {
+  box-sizing: border-box;
+}
+
+.nmt-container {
+  width: min(1200px, calc(100% - 48px));
+  margin-inline: auto;
+}
+
+.nmt-section {
+  padding-block: 84px;
+  position: relative;
+}
+
+/* ==========================================================================
+   TYPOGRAPHY CHUẨN HIỆN ĐẠI (BE VIETNAM PRO)
+   ========================================================================== */
+.nmt-text-gradient {
+  background: linear-gradient(135deg, #d97706 0%, #ea580c 50%, #8b2e2e 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  display: inline;
+}
+
+.nmt-text-warm {
+  color: #8b2e2e;
+  display: inline;
+}
+
+.nmt-tag-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  font-family: var(--nmt-font);
+}
+
+.nmt-section-h2 {
+  font-family: var(--nmt-font);
+  font-size: clamp(26px, 3.2vw, 40px);
+  font-weight: 800;
+  line-height: 1.32;
+  color: #1c1917;
+  letter-spacing: -0.02em;
+  margin-top: 14px;
+  margin-bottom: 12px;
+}
+
+.nmt-section-intro {
+  color: var(--nmt-muted);
+  font-size: 16px;
+  line-height: 1.75;
+  max-width: 680px;
+  font-family: var(--nmt-font);
+}
+
+/* ==========================================================================
+   1. HERO SECTION
+   ========================================================================== */
+.nmt-hero-warm {
+  background: radial-gradient(circle at 80% 20%, rgba(254, 243, 199, 0.7) 0%, rgba(255, 253, 249, 1) 60%), #fffdf9;
+  padding-top: 28px;
+  padding-bottom: 48px;
+}
+
+.nmt-sun-glow-1 {
+  position: absolute;
+  top: -100px;
+  right: -100px;
+  width: 450px;
+  height: 450px;
+  background: radial-gradient(circle, rgba(245, 158, 11, 0.18) 0%, rgba(245, 158, 11, 0) 70%);
+  border-radius: 50%;
+  pointer-events: none;
+  filter: blur(40px);
+}
+
+.nmt-sun-glow-2 {
+  position: absolute;
+  bottom: -80px;
+  left: -80px;
+  width: 380px;
+  height: 380px;
+  background: radial-gradient(circle, rgba(139, 46, 46, 0.1) 0%, rgba(139, 46, 46, 0) 70%);
+  border-radius: 50%;
+  pointer-events: none;
+  filter: blur(40px);
+}
+
+.nmt-breadcrumb {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 12px;
+  color: #78716c;
+  margin-bottom: 24px;
+  font-family: var(--nmt-font);
+}
+
+.nmt-breadcrumb a {
+  color: #78716c;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.nmt-breadcrumb a:hover {
+  color: var(--nmt-red);
+}
+
+.nmt-breadcrumb-current {
+  color: var(--nmt-red);
+  font-weight: 600;
+}
+
+.nmt-hero-grid {
+  display: grid;
+  grid-template-columns: 1.15fr 0.95fr;
+  gap: 56px;
+  align-items: center;
+  padding-block: 16px 44px;
+}
+
+.nmt-badge-warm {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #b45309;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 8px rgba(217, 119, 6, 0.1);
+  font-family: var(--nmt-font);
+}
+
+.nmt-icon-spin {
+  animation: nmtSpin 16s linear infinite;
+}
+
+@keyframes nmtSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.nmt-eyebrow-warm {
+  font-family: var(--nmt-font);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: var(--nmt-red);
+  text-transform: uppercase;
+}
+
+.nmt-hero-title {
+  font-family: var(--nmt-font);
+  font-size: clamp(34px, 4.2vw, 54px);
+  font-weight: 800;
+  line-height: 1.22;
+  color: #1c1917;
+  margin-block: 16px 20px;
+  letter-spacing: -0.025em;
+}
+
+.nmt-hero-quote-box {
+  position: relative;
+  background: rgba(255, 255, 255, 0.9);
+  border-left: 4px solid var(--nmt-amber-light);
+  padding: 18px 22px 18px 24px;
+  border-radius: 0 16px 16px 0;
+  box-shadow: 0 8px 24px rgba(217, 119, 6, 0.06);
+  backdrop-filter: blur(8px);
+  margin-bottom: 28px;
+}
+
+.nmt-quote-icon {
+  color: var(--nmt-amber-light);
+  opacity: 0.7;
+  margin-bottom: 6px;
+}
+
+.nmt-hero-quote-text {
+  font-family: var(--nmt-font);
+  font-size: 15px;
+  line-height: 1.75;
+  color: #44403c;
+  font-style: italic;
+  margin: 0;
+  font-weight: 400;
+}
+
+.nmt-hero-author {
+  display: block;
+  margin-top: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--nmt-red);
+  letter-spacing: 0.5px;
+  font-family: var(--nmt-font);
+}
+
+.nmt-actions-warm {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.nmt-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px 24px;
+  background: linear-gradient(135deg, #8b2e2e 0%, #a83636 100%);
+  color: #fff;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: 0 8px 20px rgba(139, 46, 46, 0.25);
+  transition: all 0.25s ease;
+  font-family: var(--nmt-font);
+}
+
+.nmt-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgba(139, 46, 46, 0.35);
+  background: linear-gradient(135deg, #742525 0%, #8b2e2e 100%);
+}
+
+.nmt-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 13px 20px;
+  background: #fff;
+  color: #78350f;
+  border: 1.5px solid #fcd34d;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.1);
+  transition: all 0.25s ease;
+  font-family: var(--nmt-font);
+}
+
+.nmt-btn-secondary:hover {
+  background: #fffbeb;
+  border-color: #f59e0b;
+  transform: translateY(-2px);
+}
+
+.nmt-btn-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--nmt-red);
+  text-decoration: none;
+  padding: 8px 12px;
+  transition: all 0.2s ease;
+  font-family: var(--nmt-font);
+}
+
+.nmt-btn-text:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+/* ==========================================================================
+   HERO ARCH PORTRAIT - HOÀN THIỆN, KHÔNG BỊ ẨN, KHÔNG CHE DIỄN GIẢ
+   ========================================================================== */
+.nmt-hero-visual-warm {
+  position: relative;
+  max-width: 440px;
+  margin-inline: auto;
+  padding: 16px 20px 24px 16px;
+  min-width: 0;
+}
+
+.nmt-visual-aura {
+  position: absolute;
+  inset: -12px;
+  background: radial-gradient(circle, rgba(245, 158, 11, 0.22) 0%, rgba(245, 158, 11, 0) 70%);
+  border-radius: 50%;
+  filter: blur(30px);
+  z-index: 0;
+}
+
+.nmt-visual-ring {
+  position: absolute;
+  inset: -6px;
+  border: 1.5px dashed rgba(217, 119, 6, 0.35);
+  border-radius: 250px 250px 16px 16px;
+  transform: rotate(-2.5deg);
+  z-index: 1;
+}
+
+/* Khung ảnh vòm: Giữ nguyên vẹn khuôn mặt & hình thể diễn giả */
+.nmt-arch-card {
+  position: relative;
+  z-index: 2;
+  border-radius: 230px 230px 14px 14px;
+  overflow: hidden;
+  background: #fbf7ee;
+  border: 4px solid #fff;
+  aspect-ratio: 4 / 5;
+  box-shadow: 0 20px 45px -12px rgba(139, 46, 46, 0.16), 0 8px 20px -4px rgba(0, 0, 0, 0.06);
+}
+
+.nmt-arch-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Card chú thích góc dưới trái: NẰM NGOÀI KHUNG VÒM, KHÔNG BỊ CLIP, KHÔNG CHE NGƯỜI */
+.nmt-portrait-note-warm {
+  position: absolute;
+  bottom: 30px;
+  left: -24px;
+  z-index: 10;
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(14px);
+  padding: 16px 22px;
+  border-radius: 16px;
+  border: 1.5px solid #fde68a;
+  box-shadow: 0 16px 36px rgba(217, 119, 6, 0.16), 0 4px 12px rgba(0, 0, 0, 0.05);
+  max-width: 260px;
+}
+
+.nmt-note-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: #92400e;
+  text-transform: uppercase;
+  font-family: var(--nmt-font);
+}
+
+.nmt-note-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #f59e0b;
+}
+
+.nmt-note-quote {
+  margin-top: 6px;
+  margin-bottom: 8px;
+  font-family: var(--nmt-font);
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.35;
+  color: #1c1917;
+}
+
+.nmt-note-quote em {
+  color: var(--nmt-red);
+  font-style: normal;
+}
+
+.nmt-note-footer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #78716c;
+  border-top: 1px solid #fef3c7;
+  padding-top: 8px;
+  font-family: var(--nmt-font);
+}
+
+/* Huy hiệu nhỏ góc trên bên phải ngoài vòm (không che mặt diễn giả) */
+.nmt-pill-badge-top {
+  position: absolute;
+  top: 24px;
+  right: -14px;
+  z-index: 10;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(10px);
+  padding: 8px 16px;
+  border-radius: 9999px;
+  border: 1.5px solid #fde68a;
+  box-shadow: 0 10px 24px rgba(217, 119, 6, 0.12);
+  font-size: 12px;
+  font-weight: 700;
+  color: #78350f;
+  font-family: var(--nmt-font);
+}
+
+/* ==========================================================================
+   IMPACT BAR (CHỈ SỐ BIẾT ƠN)
+   ========================================================================== */
+.nmt-impact-bar {
+  margin-top: 40px;
+  padding: 24px 32px;
+  background: #fff;
+  border-radius: 20px;
+  border: 1px solid #fde68a;
+  box-shadow: 0 12px 36px rgba(217, 119, 6, 0.07);
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+}
+
+.nmt-impact-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.nmt-impact-icon-circle {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.nmt-impact-item strong {
+  display: block;
+  font-family: var(--nmt-font);
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--nmt-red);
+  line-height: 1.2;
+}
+
+.nmt-impact-item p {
+  font-size: 12px;
+  color: #57534e;
+  line-height: 1.4;
+  margin: 0;
+  font-family: var(--nmt-font);
+}
+
+/* ==========================================================================
+   2. STICKY QUICK NAVIGATION
+   ========================================================================== */
+.nmt-sticky-nav {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: rgba(255, 253, 249, 0.94);
+  backdrop-filter: blur(12px);
+  border-block: 1px solid var(--nmt-line);
+}
+
+.nmt-sticky-track {
+  display: flex;
+  align-items: center;
+  gap: 8px 18px;
+  overflow-x: auto;
+  padding-block: 12px;
+  scrollbar-width: none;
+}
+
+.nmt-sticky-track::-webkit-scrollbar {
+  display: none;
+}
+
+.nmt-sticky-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #57534e;
+  text-decoration: none;
+  white-space: nowrap;
+  padding: 6px 12px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  font-family: var(--nmt-font);
+}
+
+.nmt-nav-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #d97706;
+  opacity: 0.5;
+  transition: opacity 0.2s;
+}
+
+.nmt-sticky-link:hover {
+  color: var(--nmt-red);
+  background: #fef3c7;
+}
+
+.nmt-sticky-link:hover .nmt-nav-dot {
+  opacity: 1;
+}
+
+/* ==========================================================================
+   3. STORY SECTION
+   ========================================================================== */
+.nmt-story-warm-grid {
+  display: grid;
+  grid-template-columns: 0.9fr 1.1fr;
+  gap: 64px;
+  align-items: start;
+}
+
+.nmt-story-quote-card {
+  position: relative;
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+  border: 1.5px solid #fde68a;
+  border-radius: 24px;
+  padding: 36px;
+  box-shadow: 0 16px 40px rgba(217, 119, 6, 0.08);
+}
+
+.nmt-quote-glow {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 120px;
+  height: 120px;
+  background: radial-gradient(circle, rgba(245, 158, 11, 0.2) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.nmt-story-large-quote-icon {
+  color: var(--nmt-amber);
+  margin-bottom: 16px;
+}
+
+.nmt-story-quote-text {
+  font-family: var(--nmt-font);
+  font-size: 20px;
+  line-height: 1.6;
+  color: #78350f;
+  font-style: italic;
+  font-weight: 700;
+  margin: 0;
+}
+
+.nmt-quote-author-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 24px;
+  margin-bottom: 24px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  color: #92400e;
+  font-family: var(--nmt-font);
+}
+
+.nmt-author-dot {
+  width: 24px;
+  height: 2px;
+  background: #d97706;
+}
+
+.nmt-author-credentials {
+  border-top: 1px solid rgba(217, 119, 6, 0.2);
+  padding-top: 20px;
+}
+
+.nmt-story-paragraphs {
+  margin-top: 24px;
+  color: #44403c;
+  font-size: 15px;
+  line-height: 1.85;
+  font-family: var(--nmt-font);
+}
+
+.nmt-story-paragraphs p + p {
+  margin-top: 18px;
+}
+
+.nmt-story-highlight-box {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  background: #fff;
+  border-left: 4px solid var(--nmt-amber);
+  padding: 20px 22px;
+  border-radius: 0 14px 14px 0;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+  margin-block: 22px;
+}
+
+/* ==========================================================================
+   4. PILLARS GRID
+   ========================================================================== */
+.nmt-pillars-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+  text-align: left;
+}
+
+.nmt-pillar-card {
+  background: #fff;
+  border-radius: 20px;
+  padding: 28px 24px;
+  border: 1px solid #e7e5e4;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.04);
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.nmt-pillar-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 18px 36px rgba(217, 119, 6, 0.12);
+  border-color: #fcd34d;
+}
+
+.nmt-pillar-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.nmt-pillar-icon-box {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nmt-pillar-amber .nmt-pillar-icon-box { background: #fef3c7; color: #d97706; }
+.nmt-pillar-rose .nmt-pillar-icon-box { background: #ffe4e6; color: #e11d48; }
+.nmt-pillar-orange .nmt-pillar-icon-box { background: #ffedd5; color: #ea580c; }
+.nmt-pillar-emerald .nmt-pillar-icon-box { background: #d1fae5; color: #059669; }
+
+.nmt-pillar-number {
+  font-family: var(--nmt-font);
+  font-size: 18px;
+  font-weight: 800;
+  color: #a8a29e;
+}
+
+.nmt-pillar-tag {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  color: #78716c;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+  font-family: var(--nmt-font);
+}
+
+.nmt-pillar-title {
+  font-family: var(--nmt-font);
+  font-size: 18px;
+  font-weight: 800;
+  color: #1c1917;
+  margin-bottom: 12px;
+  line-height: 1.35;
+}
+
+.nmt-pillar-desc {
+  font-size: 13px;
+  color: #57534e;
+  line-height: 1.7;
+  margin-bottom: 18px;
+  font-family: var(--nmt-font);
+}
+
+.nmt-pillar-quote {
+  border-top: 1px dashed #e7e5e4;
+  padding-top: 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--nmt-red);
+  font-family: var(--nmt-font);
+}
+
+.nmt-banner-quote-warm {
+  display: inline-flex;
+  align-items: center;
+  gap: 16px;
+  background: #fff;
+  border: 1px solid #fde68a;
+  padding: 16px 28px;
+  border-radius: 9999px;
+  box-shadow: 0 4px 16px rgba(217, 119, 6, 0.08);
+}
+
+.nmt-banner-quote-warm p {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #78350f;
+  font-style: italic;
+  font-family: var(--nmt-font);
+}
+
+/* ==========================================================================
+   5. ENERGY COMPARISON & 5 TRANSFORMATION STEPS
+   ========================================================================== */
+.nmt-state-card {
+  padding: 32px;
+  border-radius: 24px;
+  height: 100%;
+}
+
+.nmt-state-old {
+  background: #f5f5f4;
+  border: 1.5px dashed #d6d3d1;
+}
+
+.nmt-state-new {
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+  border: 1.5px solid #fcd34d;
+  box-shadow: 0 12px 32px rgba(217, 119, 6, 0.08);
+}
+
+.nmt-state-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  font-size: 22px;
+}
+
+.nmt-step-item {
+  text-align: center;
+  padding: 16px 12px;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px solid #fde68a;
+}
+
+.nmt-step-number {
+  width: 38px;
+  height: 38px;
+  background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+  color: #fff;
+  font-family: var(--nmt-font);
+  font-size: 15px;
+  font-weight: 800;
+  border-radius: 50%;
+  margin-inline: auto;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 4px 12px rgba(217, 119, 6, 0.3);
+}
+
+/* ==========================================================================
+   6. 7 AREAS CARDS
+   ========================================================================== */
+.nmt-area-card {
+  background: #fff;
+  border-radius: 20px;
+  padding: 28px;
+  border: 1px solid #f1e5cf;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.03);
+  transition: all 0.3s ease;
+}
+
+.nmt-area-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 14px 32px rgba(217, 119, 6, 0.1);
+  border-color: #fcd34d;
+}
+
+/* ==========================================================================
+   7. COURSE CARDS
+   ========================================================================== */
+.nmt-course-card {
+  position: relative;
+  background: #fff;
+  border-radius: 24px;
+  border: 1px solid #e7e5e4;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.04);
+  transition: all 0.3s ease;
+}
+
+.nmt-course-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
+}
+
+.nmt-course-ribbon {
+  background: linear-gradient(90deg, #d97706 0%, #f59e0b 100%);
+  color: #1c1917;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-align: center;
+  padding: 6px;
+  font-family: var(--nmt-font);
+}
+
+/* ==========================================================================
+   8. PHOTO GALLERY
+   ========================================================================== */
+.nmt-gallery-item {
+  position: relative;
+  border-radius: 20px;
+  overflow: hidden;
+  aspect-ratio: 4 / 3;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+  border: 3px solid #fff;
+}
+
+.nmt-gallery-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.4s ease;
+}
+
+.nmt-gallery-item:hover .nmt-gallery-img {
+  transform: scale(1.06);
+}
+
+.nmt-gallery-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.75) 0%, rgba(0, 0, 0, 0) 60%);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 16px;
+  opacity: 0.95;
+}
+
+/* ==========================================================================
+   9. TESTIMONIAL CARDS
+   ========================================================================== */
+.nmt-testimonial-warm-card {
+  background: #fff;
+  border-radius: 20px;
+  padding: 28px;
+  border: 1px solid #fde68a;
+  box-shadow: 0 8px 24px rgba(217, 119, 6, 0.06);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+/* ==========================================================================
+   10. RESPONSIVE BREAKPOINTS
+   ========================================================================== */
+@media (max-width: 1024px) {
+  .nmt-hero-grid {
+    grid-template-columns: 1fr;
+    gap: 40px;
+  }
+  .nmt-hero-visual-warm {
+    max-width: 360px;
+  }
+  .nmt-impact-bar {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
+  .nmt-story-warm-grid {
+    grid-template-columns: 1fr;
+    gap: 40px;
+  }
+  .nmt-pillars-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .nmt-container {
+    width: calc(100% - 32px);
+  }
+  .nmt-section {
+    padding-block: 60px;
+  }
+  .nmt-hero-title {
+    font-size: 30px;
+  }
+  .nmt-portrait-note-warm {
+    bottom: 16px;
+    left: 0;
+    max-width: calc(100% - 20px);
+    padding: 12px 16px;
+  }
+  .nmt-pill-badge-top {
+    top: 16px;
+    right: 0;
+    padding: 6px 12px;
+    font-size: 11px;
+  }
+  .nmt-impact-bar {
+    grid-template-columns: 1fr;
+    padding: 20px;
+  }
+  .nmt-pillars-grid {
+    grid-template-columns: 1fr;
+  }
+  .nmt-story-quote-card {
+    padding: 24px;
+  }
+  .nmt-story-quote-text {
+    font-size: 18px;
+  }
+  .nmt-banner-quote-warm {
+    border-radius: 16px;
+    padding: 14px 20px;
+    text-align: left;
+  }
+  .nmt-actions-warm {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .nmt-btn-primary, .nmt-btn-secondary {
+    width: 100%;
+  }
+}

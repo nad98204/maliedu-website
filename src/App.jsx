@@ -60,6 +60,7 @@ const CamOnKhoiThong = lazy(() => import("./landing-templates/khoi-thong-dong-ti
 const LuatHapDan = lazy(() => import("./pages/landingpage/LuatHapDan"));
 const VutTocMucTieu = lazy(() => import("./pages/landingpage/VutTocMucTieu"));
 const MongCoaching = lazy(() => import("./pages/about/MongCoaching"));
+const NguyenMongThanh = lazy(() => import("./pages/about/NguyenMongThanh"));
 const LinkBio = lazy(() => import("./pages/LinkBio"));
 const MediaShare = lazy(() => import("./pages/MediaShare"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -147,6 +148,7 @@ const AppShell = () => {
             <Route path="/gioi-thieu" element={<GioiThieu />} />
             <Route path="/dao-tao" element={<DaoTao />} />
             <Route path="/gioi-thieu/mong-coaching" element={<MongCoaching />} />
+            <Route path="/gioi-thieu/nguyen-mong-thanh" element={<NguyenMongThanh />} />
             <Route path="/thoi-mien" element={<ThoiMien />} />
             <Route path="/thoi-mien-cua-toi" element={<ThoiMien isPurchasedOnly={true} />} />
             <Route path="/cam-nhan/:category?" element={<Testimonials />} />
