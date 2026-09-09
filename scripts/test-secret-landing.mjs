@@ -120,6 +120,14 @@ test("new routes reuse the original landing styles and prerender their own hero 
     assert.ok(html.includes("Luật Hấp Dẫn"));
     assert.ok(html.includes("nhưng DÒNG TIỀN VẪN CHƯA THAY ĐỔI?"));
     assert.ok(html.includes('imagesrcset="/assets/landing/khoi-thong-dong-tien/'));
+    const hero = html.match(/<section data-compact-hero[\s\S]*?<\/section>/)?.[0];
+    assert.ok(hero);
+    assert.equal((hero.match(/aria-label="Phát video/g) || []).length, 1);
+    assert.ok(hero.includes("ĐĂNG KÝ MIỄN PHÍ NGAY"));
+    assert.ok(hero.includes("20:00 – 22:00"));
+    assert.ok(hero.includes("Đếm ngược đến ngày khai giảng"));
+    for (const extra of ["hero-title", "500 học viên", "Trong 4 ngày bạn sẽ nhận được", "Video giới thiệu", "Học qua Zoom"]) assert.ok(!hero.includes(extra), extra);
+    assert.ok(!html.includes("hero-title-v3-820.avif"), "unused title image must not be preloaded");
     assert.ok(!html.includes("secret-book"));
   }
 });

@@ -7,10 +7,11 @@ import { createMetaEventId, getMetaBrowserData, initMetaPixel, trackMetaEventFor
 import { buildSecretLead, SECRET_LANDING_NAME, SECRET_LANDING_PATH, validateSecretContact } from "./config";
 
 const heroContent = {
+  compact: true,
   title: SECRET_LANDING_NAME,
   question: "Bạn đã ứng dụng Luật Hấp Dẫn để thay đổi tài chính…",
   questionEmphasis: "nhưng DÒNG TIỀN VẪN CHƯA THAY ĐỔI?",
-  description: "Tìm ra điều đang khiến bạn thực hành chưa có kết quả. Có một bản đồ rõ ràng — từ tư duy, cảm xúc đến hành động thực tế tạo ra tiền.",
+  description: <>Tìm ra điều đang khiến bạn thực hành không ra kết quả và cung cấp bạn tấm bản đồ rõ ràng— từ <strong className="font-black text-[#7A2113]">tư duy, cảm xúc đến hành động thực tế tạo ra tiền.</strong></>,
 };
 const painContent = {
   heading: "Bạn đã thực hành",

@@ -41,7 +41,7 @@ Lịch học và Zalo chỉnh ở khối **Lịch học chung Khơi Thông Dòng
 
 ## Giao diện và triển khai
 
-Dùng trực tiếp bố cục và các thành phần của landing Khơi Thông Dòng Tiền: banner đỏ–vàng, ảnh tiêu đề, video giới thiệu, lịch trình, kết quả học viên, người sáng lập, video cảm nhận và footer. Nội dung mở đầu, sáu vướng mắc và ba nhóm người học được truyền vào các thành phần dùng chung. Form mới giữ nguyên hợp đồng CRM, dùng giao diện đỏ–vàng và ảnh đăng ký có sẵn.
+Dùng bố cục và các thành phần của landing Khơi Thông Dòng Tiền với màu đỏ–vàng. Phần đầu chỉ gồm nội dung người dùng cung cấp, tiêu đề chữ, một video, ngày học chung, giờ 20:00–22:00, nút đăng ký và đếm ngược. Các phần lịch trình, kết quả học viên, người sáng lập, video cảm nhận và footer dùng chung. Sáu vướng mắc và ba nhóm người học được truyền vào các thành phần dùng chung. Form giữ nguyên hợp đồng CRM, dùng giao diện đỏ–vàng và ảnh đăng ký có sẵn.
 
 Cả hai landing dùng cùng CSS tối ưu và phông Inter. HTML có sẵn banner và form trước khi JavaScript tải; các phần bên dưới tải khi gần xuất hiện để giảm dung lượng ban đầu.
 

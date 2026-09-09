@@ -5,7 +5,7 @@ import BannerChinh from "./sections/BannerChinh";
 import LazyWhenVisible from "./LazyWhenVisible";
 import { SectionFallback } from "./sectionFallback";
 import { KHOI_THONG_HERO_BANNER_URL } from "./landingConfig";
-import { HERO_TITLE_SRCSET, HERO_TITLE_SIZES } from "./heroAssets";
+import { HERO_TITLE_SRCSET, HERO_TITLE_SIZES, HERO_POSTER, HERO_POSTER_SRCSET, HERO_POSTER_SIZES } from "./heroAssets";
 
 const PhanNoiDau = lazy(() => import("./sections/PhanNoiDau"));
 const DoiTuongPhuHop = lazy(() => import("./sections/DoiTuongPhuHop"));
@@ -26,7 +26,7 @@ const KhoiThongDongTien = ({ targetFunnel, source_key, seoPath = "/dao-tao/khoi-
         background: "linear-gradient(180deg, #FFFFFF 0%, #FDF7EC 15%, #F5EDD8 50%, #EAD9B8 100%)",
       }}
     >
-      <SEO {...seo} preloadLcpImage={KHOI_THONG_HERO_BANNER_URL} preloadLcpImageSrcSet={HERO_TITLE_SRCSET} preloadLcpImageSizes={HERO_TITLE_SIZES} />
+      <SEO {...seo} preloadLcpImage={heroContent?.compact ? HERO_POSTER : KHOI_THONG_HERO_BANNER_URL} preloadLcpImageSrcSet={heroContent?.compact ? HERO_POSTER_SRCSET : HERO_TITLE_SRCSET} preloadLcpImageSizes={heroContent?.compact ? HERO_POSTER_SIZES : HERO_TITLE_SIZES} />
       <BannerChinh content={heroContent} configPath={heroContent ? seoPath : undefined} />
 
       <div

@@ -129,9 +129,30 @@ function useViewportMinLg() {
 }
 
 /* ─── BannerChinh ────────────────────────────────────────────── */
+const CompactHero = ({ content, landingConfig }) => {
+  const days = landingConfig.ctaScheduleLabel.replace(/\s*[-–·]\s*\d{1,2}(?:h|:)\d{2}.*$/i, "");
+  return <section data-compact-hero className="relative w-full overflow-hidden font-sans" style={{ background: "radial-gradient(ellipse at 35% 30%, rgba(255,229,102,0.18), transparent 65%)" }}>
+    <div className="border-b border-[#F8E08A]/40 px-4 py-3 text-center text-xs font-black uppercase tracking-[0.2em] text-[#FFEDB3] shadow-lg sm:text-sm" style={{ background: "linear-gradient(90deg, #140806 0%, #6b2818 50%, #140806 100%)" }}>4 BUỔI HỌC ONLINE MIỄN PHÍ</div>
+    <div className="mx-auto grid max-w-[640px] items-center gap-6 px-4 py-8 sm:gap-8 sm:px-6 sm:py-12 lg:max-w-7xl lg:grid-cols-2 lg:gap-x-12 lg:py-14">
+      <div className="text-center lg:col-start-1">
+        <p className="text-sm font-bold leading-relaxed text-[#5A3A1A] sm:text-base">{content.question}<strong className="block font-black text-[#7A2113]">{content.questionEmphasis}</strong></p>
+        <h1 className="my-6 text-[1.75rem] font-black uppercase leading-[1.25] tracking-tight text-[#7A2113] sm:text-[2.15rem] lg:text-[2.4rem]">ỨNG DỤNG LUẬT HẤP DẪN ĐỂ <span className="text-[#A67512]">KHƠI THÔNG DÒNG TIỀN</span></h1>
+        <p className="mx-auto max-w-xl text-[0.95rem] leading-[1.75] text-[#5A3A1A] sm:text-base">{content.description}</p>
+      </div>
+      <div className="w-full rounded-[26px] border border-[#D4B572]/55 bg-white/70 p-2 shadow-[0_14px_40px_rgba(83,48,18,0.10)] sm:p-3 lg:col-start-2 lg:row-start-1 lg:row-span-2"><VideoPlayer active /></div>
+      <div className="flex min-w-0 flex-col items-center gap-6 lg:col-start-1 lg:row-start-2">
+        <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-center text-sm font-extrabold text-[#7A2113] sm:text-base"><span>{days}</span><span>20:00 – 22:00</span></div>
+        <a href="#dang-ky" onClick={(event) => { event.preventDefault(); trackCtaClick("BannerChinh"); scrollToRegistrationForm(); }} className="flex w-full max-w-[400px] items-center justify-center rounded-full px-4 py-4 text-sm font-black uppercase text-[#FFE566] transition hover:scale-[1.02] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#7A2113] sm:text-base" style={{ background: "linear-gradient(180deg, #E8393F 0%, #9C0C12 100%)", boxShadow: "0 10px 30px rgba(160,20,28,0.35)" }}>ĐĂNG KÝ MIỄN PHÍ NGAY</a>
+        <div className="w-full" aria-label="Đếm ngược đến ngày khai giảng"><Countdown eventStart={landingConfig.eventStart} /></div>
+      </div>
+    </div>
+  </section>;
+};
+
 const BannerChinh = ({ content, configPath } = {}) => {
   const isDesktop = useViewportMinLg();
   const landingConfig = useKhoiThongLandingConfig({ path: configPath });
+  if (content?.compact) return <CompactHero content={content} landingConfig={landingConfig} />;
   return (
   <section
     className="relative w-full overflow-hidden font-sans"
