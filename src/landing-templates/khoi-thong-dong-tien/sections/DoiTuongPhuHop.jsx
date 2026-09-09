@@ -149,8 +149,8 @@ const TargetCard = ({ title, Icon, desc, painPoints, number, delay }) => {
 };
 
 /* ─── Main Section ──────────────────────────────────────── */
-const DoiTuongPhuHop = () => {
-  const cards = [
+const DoiTuongPhuHop = ({ content } = {}) => {
+  const cards = content?.cards || [
     {
       title: ["Người muốn ổn định", "tài chính"],
       Icon: Users,
@@ -229,11 +229,11 @@ const DoiTuongPhuHop = () => {
             </h2>
 
             <p className="mt-4 max-w-xl border-l-2 border-[#E7C15D]/65 pl-3 text-[0.78rem] leading-[1.65] text-white/75 sm:text-sm">
-              Dù đang làm công việc nào, bạn đều mong muốn hiểu rõ vấn đề tài chính của mình và xây dựng hướng thay đổi cụ thể hơn.
+              {content?.intro || "Dù đang làm công việc nào, bạn đều mong muốn hiểu rõ vấn đề tài chính của mình và xây dựng hướng thay đổi cụ thể hơn."}
             </p>
 
             <div className="mt-5 grid grid-cols-3 gap-2 sm:max-w-md">
-              {["Cá nhân", "Kinh doanh", "Quản lý"].map((group) => (
+              {(content?.groups || ["Cá nhân", "Kinh doanh", "Quản lý"]).map((group) => (
                 <span
                   key={group}
                   className="rounded-full border border-white/15 bg-white/[0.08] px-2 py-2 text-center text-[0.58rem] font-extrabold uppercase tracking-[0.08em] text-white/85 backdrop-blur-sm sm:text-[0.65rem]"

@@ -11,6 +11,7 @@ import thienGiaoThuaConfig from "../../../landing-templates/thien-giao-thua/conf
 import khoiThongConfig from "../../../landing-templates/khoi-thong-dong-tien/config.json";
 import khoiThongThuongHieuConfig from "../../../landing-templates/khoi-thong-dong-tien-thuonghieu/config.json";
 import khoiThongPreview from "../../../landing-templates/khoi-thong-dong-tien/preview.png";
+import biMatLuatHapDanConfig from "../../../landing-templates/bi-mat-luat-hap-dan/config.json";
 
 /**
  * Admin Landing Builder
@@ -20,6 +21,11 @@ const AdminLandingBuilder = () => {
     // Load templates trực tiếp khi khởi tạo state
     const [templates, setTemplates] = useState(() => {
         return [
+            {
+                id: 'bi-mat-luat-hap-dan',
+                component: LandingTemplates.BiMatLuatHapDan,
+                config: { ...biMatLuatHapDanConfig, folderId: null }
+            },
             {
                 id: 'example-template',
                 component: LandingTemplates.ExampleTemplate,

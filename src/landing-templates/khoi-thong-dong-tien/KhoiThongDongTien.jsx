@@ -16,8 +16,8 @@ const VideoHocVien = lazy(() => import("./sections/VideoHocVien"));
 const FormDangKy = lazy(() => import("./sections/FormDangKy"));
 const Footer = lazy(() => import("../../components/Footer"));
 
-const KhoiThongDongTien = ({ targetFunnel, source_key }) => {
-  const seo = getRouteSeo("/dao-tao/khoi-thong-dong-tien");
+const KhoiThongDongTien = ({ targetFunnel, source_key, seoPath = "/dao-tao/khoi-thong-dong-tien", heroContent, painContent, audienceContent, registration }) => {
+  const seo = getRouteSeo(seoPath);
 
   return (
     <div
@@ -27,7 +27,7 @@ const KhoiThongDongTien = ({ targetFunnel, source_key }) => {
       }}
     >
       <SEO {...seo} preloadLcpImage={KHOI_THONG_HERO_BANNER_URL} preloadLcpImageSrcSet={HERO_TITLE_SRCSET} preloadLcpImageSizes={HERO_TITLE_SIZES} />
-      <BannerChinh />
+      <BannerChinh content={heroContent} configPath={heroContent ? seoPath : undefined} />
 
       <div
         id="khoi-thong-main"
@@ -35,13 +35,13 @@ const KhoiThongDongTien = ({ targetFunnel, source_key }) => {
       >
         <LazyWhenVisible minHeight="22rem">
           <Suspense fallback={<SectionFallback className="h-56" />}>
-            <PhanNoiDau />
+            <PhanNoiDau content={painContent} />
           </Suspense>
         </LazyWhenVisible>
 
         <LazyWhenVisible minHeight="18rem">
           <Suspense fallback={<SectionFallback className="h-48" />}>
-            <DoiTuongPhuHop />
+            <DoiTuongPhuHop content={audienceContent} />
           </Suspense>
         </LazyWhenVisible>
 
@@ -71,11 +71,11 @@ const KhoiThongDongTien = ({ targetFunnel, source_key }) => {
 
         {/* id phải luôn có trong DOM để #dang-ky từ hero CTA hoạt động trước khi form lazy-mount */}
         <div id="dang-ky" className="scroll-mt-2 sm:scroll-mt-4">
-          <LazyWhenVisible minHeight="26rem">
+          {registration || <LazyWhenVisible minHeight="26rem">
             <Suspense fallback={<SectionFallback className="min-h-[22rem]" />}>
               <FormDangKy targetFunnel={targetFunnel} source_key={source_key} />
             </Suspense>
-          </LazyWhenVisible>
+          </LazyWhenVisible>}
         </div>
       </div>
 

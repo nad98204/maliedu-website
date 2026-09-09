@@ -15,6 +15,7 @@
     "migrate:course-content": "node scripts/migrate-course-content.mjs",
     "test:affiliate": "node --test functions/_lib/affiliate.test.js",
     "test:landing": "node scripts/test-landing-performance.mjs",
+    "test:secret-landing": "node --test scripts/test-secret-landing.mjs",
     "lint": "eslint .",
     "preview": "vite preview"
   },

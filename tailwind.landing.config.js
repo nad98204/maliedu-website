@@ -3,6 +3,7 @@ import base from "./tailwind.config.js";
 export default {
   ...base,
   content: [
+    "./src/landing-templates/bi-mat-luat-hap-dan/**/*.{js,jsx}",
     "./src/landing-templates/khoi-thong-dong-tien/**/*.{js,jsx}",
     "./src/landing-templates/khoi-thong-dong-tien-thuonghieu/**/*.{js,jsx}",
     "./src/components/Footer.jsx",

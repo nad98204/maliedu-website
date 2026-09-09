@@ -1,0 +1,11 @@
+{
+  "id": "bi-mat-luat-hap-dan",
+  "name": "Luật Hấp Dẫn — Khơi Thông Dòng Tiền",
+  "description": "Landing quảng cáo dành cho người thực hành Luật Hấp Dẫn, dùng giao diện Khơi Thông Dòng Tiền. Dùng chung lớp học và nhóm Zalo, có mã nguồn quảng cáo riêng.",
+  "category": "ads",
+  "thumbnail": "/assets/landing/khoi-thong-dong-tien/registration-banner.webp",
+  "slug": "/dao-tao/bi-mat-luat-hap-dan",
+  "createdAt": "2026-09-08",
+  "status": "active",
+  "features": ["Responsive", "Form CRM và UTM", "Lịch học và Zalo chung", "Mã nguồn quảng cáo riêng"]
+}

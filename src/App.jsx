@@ -57,6 +57,7 @@ const KhoiThongDongTienThuongHieu = lazy(() =>
   import("./landing-templates/khoi-thong-dong-tien-thuonghieu")
 );
 const CamOnKhoiThong = lazy(() => import("./landing-templates/khoi-thong-dong-tien/CamOnKhoiThong"));
+const BiMatLuatHapDan = lazy(() => import("./landing-templates/bi-mat-luat-hap-dan/BiMatLuatHapDan"));
 const LuatHapDan = lazy(() => import("./pages/landingpage/LuatHapDan"));
 const VutTocMucTieu = lazy(() => import("./pages/landingpage/VutTocMucTieu"));
 const MongCoaching = lazy(() => import("./pages/about/MongCoaching"));
@@ -106,6 +107,7 @@ const AppShell = () => {
     "/dao-tao/chinh-phuc-muc-tieu",
     "/landing",
     "/cam-on-khoi-thong",
+    "/dao-tao/bi-mat-luat-hap-dan",
     "/mongcoaching",
   ];
   const hideChrome = hideChromePaths.some((path) =>
@@ -133,6 +135,7 @@ const AppShell = () => {
             <Route path="/dao-tao/khoi-thong-dong-tien-leader" element={<KhoiThongDongTienLeader />} />
             <Route path="/dao-tao/khoi-thong-dong-tien-thuonghieu" element={<KhoiThongDongTienThuongHieu targetFunnel="thuonghieu" source_key="thuonghieu_web" />} />
             <Route path="/cam-on-khoi-thong" element={<CamOnKhoiThong />} />
+            <Route path="/dao-tao/bi-mat-luat-hap-dan" element={<BiMatLuatHapDan />} />
             <Route path="/dao-tao/luat-hap-dan" element={<LuatHapDan />} />
             <Route path="/dao-tao/vut-toc-muc-tieu" element={<VutTocMucTieu />} />
             <Route path="/dao-tao/chinh-phuc-muc-tieu" element={<VutTocMucTieu />} />

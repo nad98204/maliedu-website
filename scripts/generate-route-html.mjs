@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { normalizeRoutePath } from "../src/seo/routeSeo.js";
-import { isKhoiThongStylePath } from "../src/styles/landingPaths.js";
+import { isKhoiThongStylePath, isSecretLandingPath } from "../src/styles/landingPaths.js";
 import { HERO_TITLE, HERO_TITLE_SRCSET, HERO_TITLE_SIZES, HERO_POSTER, HERO_POSTER_SRCSET, HERO_POSTER_SIZES } from "../src/landing-templates/khoi-thong-dong-tien/heroAssets.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -204,7 +204,7 @@ const landingCss = await readFile(path.join(distDir, assets["src/styles/landing.
 const { renderLanding } = await import(pathToFileURL(path.join(projectRoot, ".seo-build/ssr/landing-ssr.js")));
 
 const addRouteResources = (html, routePath) => {
-  const landing = isKhoiThongStylePath(routePath);
+  const landing = isKhoiThongStylePath(routePath) || isSecretLandingPath(routePath);
   const cssEntry = assets[landing ? "src/styles/landing.css" : "src/index.css"];
   if (!cssEntry) throw new Error(`Missing stylesheet for ${routePath}`);
   // The small funnel stylesheet paints the prerendered hero without a CSS round trip.
@@ -234,7 +234,7 @@ await writeFile(path.join(distDir, "spa.html"), addRouteResources(createSpaShell
 for (const route of manifest.routes) {
   const outputPath = outputPathForRoute(route.path);
   const hasHero = isKhoiThongStylePath(route.path) && route.path !== "/cam-on-khoi-thong";
-  const rendered = hasHero ? await renderLanding(route.path) : null;
+  const rendered = hasHero || isSecretLandingPath(route.path) ? await renderLanding(route.path) : null;
   let html = addRouteResources(applySeoToHtml(baseHtml, rendered ? { ...route, prerenderBodyHtml: rendered } : route), route.path);
   if (rendered) html = html.replace("</head>", '<meta name="landing-hydrated-html" content="true">\n</head>');
   await mkdir(path.dirname(outputPath), { recursive: true });

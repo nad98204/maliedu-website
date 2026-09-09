@@ -123,6 +123,19 @@ export const ROUTE_SEO = {
     },
     "0.8",
   ),
+  "/dao-tao/bi-mat-luat-hap-dan": indexable({
+    title: "Ứng dụng Luật Hấp Dẫn để Khơi Thông Dòng Tiền | 4 buổi miễn phí",
+    description: "Bạn thực hành Luật Hấp Dẫn nhưng dòng tiền chưa thay đổi? Tham gia 4 buổi online miễn phí cùng Mali Edu, từ tư duy và cảm xúc đến hành động thực tế.",
+    url: "/dao-tao/bi-mat-luat-hap-dan",
+    lastmod: "2026-09-08",
+  }),
+  "/landing/bi-mat-luat-hap-dan": {
+    title: "Ứng dụng Luật Hấp Dẫn để Khơi Thông Dòng Tiền",
+    description: "4 buổi học online miễn phí cùng Mali Edu.",
+    url: "/dao-tao/bi-mat-luat-hap-dan",
+    robots: NOINDEX_ROBOTS,
+    sitemap: false,
+  },
   "/dao-tao/vut-toc-muc-tieu": indexable(
     {
       title: "Vút Tốc Mục Tiêu",
