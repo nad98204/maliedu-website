@@ -216,7 +216,9 @@ const addRouteResources = (html, routePath) => {
     html = html.replace(/<link\b[^>]*href="https:\/\/(?:s3-hn1-api\.longvan\.vn|fonts\.gstatic\.com|fonts\.googleapis\.com)[^"]*"[^>]*>\s*/g, "");
   }
   if (landing && routePath !== "/cam-on-khoi-thong") {
-    for (const [href, srcset, sizes] of [[HERO_POSTER, HERO_POSTER_SRCSET, HERO_POSTER_SIZES], [HERO_TITLE, HERO_TITLE_SRCSET, HERO_TITLE_SIZES]]) {
+    const heroImages = [[HERO_POSTER, HERO_POSTER_SRCSET, HERO_POSTER_SIZES]];
+    if (!isSecretLandingPath(routePath)) heroImages.push([HERO_TITLE, HERO_TITLE_SRCSET, HERO_TITLE_SIZES]);
+    for (const [href, srcset, sizes] of heroImages) {
       links.unshift(`<link rel="preload" as="image" type="image/avif" href="${href}" imagesrcset="${srcset}" imagesizes="${sizes}" fetchpriority="high">`);
     }
     // Hydrated HTML paints independently; avoid preloading the JS dependency graph
