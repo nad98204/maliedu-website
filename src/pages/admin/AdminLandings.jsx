@@ -237,7 +237,7 @@ const AdminLandings = () => {
                 ...prev,
                 thankYouCountdownSeconds: String(result.thankYouCountdownSeconds),
             }));
-            toast.success("Đã lưu lịch học chung cho 3 phễu!");
+            toast.success("Đã lưu lịch học chung cho các landing Khơi Thông Dòng Tiền!");
         } catch (e) {
             toast.error("Lỗi lưu lịch học chung: " + e.message);
         } finally {
@@ -1073,7 +1073,7 @@ const AdminLandings = () => {
                     </div>
                 </div>
 
-                {/* Lịch học chung 3 phễu */}
+                {/* Lịch học dùng chung cho các landing của cùng chương trình */}
                 <section className="mb-6 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm md:p-5">
                     <div className="mb-5 flex flex-col gap-4 border-b border-slate-100 pb-4 sm:flex-row sm:items-center sm:justify-between">
                         <div className="flex items-center gap-3">
@@ -1081,8 +1081,8 @@ const AdminLandings = () => {
                                 <Calendar size={20} />
                             </div>
                             <div>
-                                <h3 className="font-bold text-slate-800 text-sm md:text-base">Lịch học chung 3 phễu</h3>
-                                <p className="text-xs text-slate-400 mt-0.5">Áp dụng cho Landing Page Chính, Leader và Thương hiệu.</p>
+                                <h3 className="font-bold text-slate-800 text-sm md:text-base">Lịch học chung Khơi Thông Dòng Tiền</h3>
+                                <p className="text-xs text-slate-400 mt-0.5">Áp dụng cho landing chính, Leader, Thương hiệu và các landing quảng cáo của chương trình, gồm Luật Hấp Dẫn.</p>
                             </div>
                         </div>
                         <button

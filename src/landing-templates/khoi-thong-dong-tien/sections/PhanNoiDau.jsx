@@ -11,8 +11,8 @@ import { scrollToRegistrationForm } from "../scrollToRegistration";
    Border:    #D4B572
 ──────────────────────────────────────────────────────────────── */
 
-const PainPoints = () => {
-  const pains = [
+const PainPoints = ({ items }) => {
+  const pains = items || [
     "Làm việc rất nhiều nhưng thu nhập vẫn chưa cải thiện như mong muốn.",
     "Có tiền nhưng khó giữ lại, cuối tháng gần như không còn khoản dư.",
     "Muốn thay đổi tài chính nhưng chưa biết nên bắt đầu từ đâu.",
@@ -26,7 +26,7 @@ const PainPoints = () => {
           <div
             key={item}
             className={`group relative overflow-hidden rounded-[1.15rem] border border-[#D4B572]/45 bg-white/85 p-4 shadow-[0_7px_24px_rgba(87,45,16,0.07)] transition-all duration-300 hover:-translate-y-0.5 hover:border-[#C9961A]/65 hover:shadow-[0_14px_34px_rgba(87,45,16,0.11)] sm:p-5 ${
-              idx === pains.length - 1 ? "w-full sm:col-span-2" : ""
+              pains.length % 2 === 1 && idx === pains.length - 1 ? "w-full sm:col-span-2" : ""
             }`}
           >
             <span className="absolute inset-y-4 left-0 w-[3px] rounded-r-full bg-gradient-to-b from-[#E4B94D] via-[#C9961A] to-[#8C2517]" />
@@ -117,7 +117,7 @@ const TransformBlock = () => (
   </div>
 );
 
-const PhanNoiDau = () => {
+const PhanNoiDau = ({ content } = {}) => {
   const revealRef = useRef(null);
   const [show, setShow] = useState(false);
 
@@ -179,16 +179,16 @@ const PhanNoiDau = () => {
                 textShadow: "0 2px 0 rgba(255,255,255,0.5)",
               }}
             >
-              <span className="block">5 dấu hiệu tài chính</span>
+              <span className="block">{content?.heading || "5 dấu hiệu tài chính"}</span>
               <span className="mt-1 block text-[#8C2517]">
-                đang mắc kẹt
+                {content?.headingEmphasis || "đang mắc kẹt"}
               </span>
             </h2>
 
             <div className="mx-auto max-w-xl pt-1">
               <span className="mx-auto mb-4 block h-[2px] w-14 rounded-full bg-gradient-to-r from-transparent via-[#C9961A] to-transparent" />
               <p className="text-[0.86rem] font-semibold leading-relaxed text-[#5C3A1A] sm:text-base">
-                Dù đã rất cố gắng, bạn vẫn thường xuyên rơi vào những tình trạng sau:
+                {content?.intro || "Dù đã rất cố gắng, bạn vẫn thường xuyên rơi vào những tình trạng sau:"}
               </p>
             </div>
         </header>
@@ -200,7 +200,7 @@ const PhanNoiDau = () => {
           }`}
         >
           <div className="w-full lg:w-[58%] flex flex-col justify-center min-w-0">
-            <PainPoints />
+            <PainPoints items={content?.items} />
           </div>
           <div className="w-full lg:w-[42%] flex flex-col justify-center min-w-0 lg:min-w-[300px]">
             <TransformBlock />

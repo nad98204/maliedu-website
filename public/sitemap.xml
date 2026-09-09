@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Sitemap tự động sinh lúc build – 2026-09-07 -->
-<!-- Tổng URL: 18 (tĩnh: 17, khóa học: 1, tuyển dụng: 0) -->
+<!-- Sitemap tự động sinh lúc build – 2026-09-09 -->
+<!-- Tổng URL: 19 (tĩnh: 18, khóa học: 1, tuyển dụng: 0) -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9
@@ -32,6 +32,10 @@
   <url>
     <loc>https://luathapdan.vn/dao-tao/luat-hap-dan</loc>
     <lastmod>2026-07-31</lastmod>
+  </url>
+  <url>
+    <loc>https://luathapdan.vn/dao-tao/bi-mat-luat-hap-dan</loc>
+    <lastmod>2026-09-08</lastmod>
   </url>
   <url>
     <loc>https://luathapdan.vn/dao-tao/vut-toc-muc-tieu</loc>

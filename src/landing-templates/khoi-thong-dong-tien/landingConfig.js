@@ -23,13 +23,14 @@ const isCurrentSchedule = (eventStart) => {
   return Number.isFinite(eventStartMs) && eventStartMs >= DEFAULT_EVENT_START_MS;
 };
 
-export const resolveKhoiThongLandingConfig = async ({ path, sourceKey, landingPageId } = {}) => {
+export const resolveKhoiThongLandingConfig = async ({ path, sourceKey, landingPageId, fresh = false } = {}) => {
   const [match, sharedSchedule] = await Promise.all([
-    findPublicLandingConfig({ path, sourceKey, landingPageId }),
+    findPublicLandingConfig({ path, sourceKey, landingPageId, fresh }),
     getPublicFirestoreDocument(
       "public_settings",
       KHOI_THONG_SCHEDULE_CONFIG_DOC_ID,
       ["eventStart", "ctaScheduleLabel", "thankYouCountdownSeconds", "thankYouZaloLink"],
+      { fresh },
     ),
   ]);
   const schedule = sharedSchedule || {};

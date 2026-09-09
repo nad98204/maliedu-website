@@ -2,6 +2,8 @@ import { useEffect } from "react";
 import { useLocation } from "react-router";
 
 import { isFunnelLandingPath } from "../utils/funnelLandingPaths";
+import { isSecretLandingPath } from "../styles/landingPaths";
+import { SECRET_LANDING_PATH } from "../landing-templates/bi-mat-luat-hap-dan/config";
 import { ensureMetaPixel, getMetaBrowserData, initMetaPixel, trackMetaEventForPixel } from "../utils/metaPixel";
 import { findPublicLandingConfig, getPublicFirestoreDocument } from "../utils/publicFirestore";
 
@@ -55,6 +57,14 @@ const resolvePixelIdForPath = async (pathname, search = "") => {
 
   if (isThuongHieuNoTrackingPath(normalizedPath, search)) {
     return "";
+  }
+
+  // This ad landing uses the Pixel saved alongside its own CRM source mapping.
+  if (isSecretLandingPath(normalizedPath)) {
+    try {
+      const config = await findPublicLandingConfig({ path: SECRET_LANDING_PATH });
+      return config?.is_maintenance ? "" : pickPixelId(config?.fbPixel);
+    } catch { return ""; }
   }
 
   if (isFunnelLandingPath(normalizedPath)) {

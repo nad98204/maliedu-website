@@ -1,6 +1,6 @@
 import { lazy, Suspense } from "react";
 import { useLocation } from "react-router";
-import { isKhoiThongStylePath } from "./landingPaths";
+import { isKhoiThongStylePath, isSecretLandingPath } from "./landingPaths";
 
 const passthrough = ({ children }) => children;
 const LandingStyles = lazy(async () => {
@@ -24,6 +24,6 @@ const SiteStyles = lazy(async () => {
 // Also loads the full site stylesheet when navigating out of the funnel.
 export default function RouteStyles({ children }) {
   const { pathname } = useLocation();
-  const Styles = isKhoiThongStylePath(pathname) ? LandingStyles : SiteStyles;
+  const Styles = isKhoiThongStylePath(pathname) || isSecretLandingPath(pathname) ? LandingStyles : SiteStyles;
   return <Suspense fallback={null}><Styles>{children}</Styles></Suspense>;
 }

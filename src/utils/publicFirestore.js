@@ -49,7 +49,8 @@ const encodeFirestoreValue = (value) => {
   return { stringValue: String(value) };
 };
 
-const cachedRequest = (key, request) => {
+const cachedRequest = (key, request, fresh = false) => {
+  if (fresh) requestCache.delete(key);
   if (!requestCache.has(key)) {
     const promise = request().catch((error) => {
       requestCache.delete(key);
@@ -73,7 +74,7 @@ const assertOk = async (response) => {
   throw new Error(message);
 };
 
-export const getPublicFirestoreDocument = async (collectionId, documentId, fields = []) => {
+export const getPublicFirestoreDocument = async (collectionId, documentId, fields = [], { fresh = false } = {}) => {
   if (!collectionId || !documentId) return null;
 
   const url = new URL(`${FIRESTORE_DOCUMENTS_URL}/${encodeURIComponent(collectionId)}/${encodeURIComponent(documentId)}`);
@@ -85,7 +86,7 @@ export const getPublicFirestoreDocument = async (collectionId, documentId, field
     if (response.status === 404) return null;
     await assertOk(response);
     return decodeDocument(await response.json());
-  });
+  }, fresh);
 };
 
 export const queryPublicFirestoreDocuments = async ({
@@ -94,6 +95,7 @@ export const queryPublicFirestoreDocuments = async ({
   value,
   fields = [],
   limit = 1,
+  fresh = false,
 }) => {
   if (!collectionId || !fieldPath || value === undefined) return [];
 
@@ -125,7 +127,7 @@ export const queryPublicFirestoreDocuments = async ({
     await assertOk(response);
     const payload = await response.json();
     return payload.map((item) => decodeDocument(item.document)).filter(Boolean);
-  });
+  }, fresh);
 };
 
 export const normalizePublicLandingPath = (path = "") => {
@@ -163,9 +165,10 @@ export const findPublicLandingConfig = async ({
   sourceKey,
   landingPageId,
   fields = PUBLIC_LANDING_CONFIG_FIELDS,
+  fresh = false,
 } = {}) => {
   if (landingPageId) {
-    const byDocumentId = await getPublicFirestoreDocument("landing_pages", landingPageId, fields);
+    const byDocumentId = await getPublicFirestoreDocument("landing_pages", landingPageId, fields, { fresh });
     if (byDocumentId) return byDocumentId;
   }
 
@@ -176,6 +179,7 @@ export const findPublicLandingConfig = async ({
       fieldPath: "active_source_key",
       value: normalizedSourceKey,
       fields,
+      fresh,
     });
     if (bySourceKey[0]) return bySourceKey[0];
   }
@@ -191,6 +195,7 @@ export const findPublicLandingConfig = async ({
         fieldPath: "slug",
         value: slug,
         fields,
+        fresh,
       });
       if (bySlug[0]) return bySlug[0];
     }

@@ -129,15 +129,15 @@ function useViewportMinLg() {
 }
 
 /* ─── BannerChinh ────────────────────────────────────────────── */
-const BannerChinh = () => {
+const BannerChinh = ({ content, configPath } = {}) => {
   const isDesktop = useViewportMinLg();
-  const landingConfig = useKhoiThongLandingConfig();
+  const landingConfig = useKhoiThongLandingConfig({ path: configPath });
   return (
   <section
     className="relative w-full overflow-hidden font-sans"
     style={{ background: "radial-gradient(ellipse at 35% 30%, rgba(255,229,102,0.18), transparent 65%), radial-gradient(ellipse at 70% 75%, rgba(255,255,255,0.5), transparent 65%)" }}
   >
-    <h1 className="sr-only">Khơi Thông Dòng Tiền - 4 buổi học online miễn phí</h1>
+    <h1 className="sr-only">{content?.title || "Khơi Thông Dòng Tiền - 4 buổi học online miễn phí"}</h1>
     {/* (Đã loại bỏ ảnh chữ và nền dư thừa để dùng chung với global layout KhoiThongDongTien) */}
 
     {/* ── Top bar: ribbon burgundy + gold (không crop ảnh hero) ── */}
@@ -186,7 +186,11 @@ const BannerChinh = () => {
       <div className="w-full lg:w-1/2 flex flex-col items-center space-y-6 sm:space-y-8">
 
         {/* Title Image (now inside the column on desktop) */}
-        <div className="w-full flex justify-center">
+        <div className="w-full flex flex-col items-center justify-center">
+          {content && <div className="mb-4 max-w-xl px-2 text-center">
+            <p className="text-sm font-semibold leading-relaxed text-[#5A3A1A] sm:text-base">{content.question}<strong className="block text-[#7A2113]">{content.questionEmphasis}</strong></p>
+            <p className="mt-5 text-lg font-black uppercase leading-snug text-[#7A2113] sm:text-2xl">Ứng dụng <span className="text-[#A67512]">Luật Hấp Dẫn</span> để</p>
+          </div>}
           <picture className="block w-full">
           <source type="image/avif" srcSet={HERO_TITLE_SRCSET} sizes={HERO_TITLE_SIZES} />
           <img
@@ -208,12 +212,12 @@ const BannerChinh = () => {
         <div className="relative max-w-[570px] px-2 text-center sm:px-3">
           <span className="mx-auto mb-2 block h-0.5 w-10 rounded-full bg-gradient-to-r from-transparent via-[#C9961A] to-transparent" />
           <p className="text-[0.85rem] font-semibold leading-[1.6] text-[#5A3A1A] min-[380px]:text-[0.9rem] sm:text-[1.05rem]">
-            <span className="block whitespace-nowrap">
+            {content?.description || <><span className="block whitespace-nowrap">
               Nhận diện <strong className="font-black text-[#7A2113]">điểm nghẽn tài chính</strong>, <strong className="font-black text-[#7A2113]">điều chỉnh tư duy</strong>
             </span>
             <span className="block whitespace-nowrap">
               về tiền và xây dựng <strong className="font-black text-[#7A2113]">kế hoạch hành động</strong> rõ ràng.
-            </span>
+            </span></>}
           </p>
         </div>
 
