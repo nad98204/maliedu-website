@@ -538,9 +538,11 @@ const FormDangKy = ({
       const trackingEnabled = finalTargetFunnel !== "thuonghieu";
 
       // --- PHẦN 2: CHUẨN BỊ TRACKING IDs ---
-      const completeRegistrationEventId = trackingEnabled ? createMetaEventId("complete_registration") : "";
-      const leadEventId = trackingEnabled ? createMetaEventId("lead") : "";
-      const { fbp, fbc } = trackingEnabled ? getMetaBrowserData(window.location.search) : { fbp: "", fbc: "" };
+      let completeRegistrationEventId = trackingEnabled ? createMetaEventId("complete_registration") : "";
+      let leadEventId = trackingEnabled ? createMetaEventId("lead") : "";
+      let browserData = { fbp: "", fbc: "" };
+      try { if (trackingEnabled) browserData = getMetaBrowserData(window.location.search); } catch { /* Optional tracking. */ }
+      const { fbp, fbc } = browserData;
 
       // --- PHẦN 3: GỬI CRM ---
       const crmResponse = await submitToCRM({
@@ -604,6 +606,10 @@ const FormDangKy = ({
         clientIp: clientIp,
       });
 
+      completeRegistrationEventId = crmResponse.registrationEventId || completeRegistrationEventId;
+      leadEventId = crmResponse.leadEventId || leadEventId;
+      // Optional tracking must never turn an accepted registration into an error.
+      try {
       // --- PHẦN 4: XỬ LÝ HASH DATA CHO FB ---
       const normalizedPhone = formState.phone.replace(/\D/g, "").replace(/^0/, "84");
       const hashedPhone = normalizedPhone ? await hashData(normalizedPhone) : "";
@@ -635,14 +641,17 @@ const FormDangKy = ({
         trackMetaEventForPixel(cfg.fbPixel, "Lead", leadEventData, { eventID: leadEventId });
       }
 
+      } catch { /* Already saved; continue to the thank-you page. */ }
       toast.success("Đăng ký thành công!");
       setFormState({ name: "", phone: "", referrer: "", otherReferrer: "", hasLearnedLOA: "" });
       setShowAlternateReferrerInput(false);
+      try {
       sessionStorage.setItem("form_submitted", "true");
       sessionStorage.setItem("khoi_thong_funnel", finalTargetFunnel);
       sessionStorage.setItem("khoi_thong_pixel_id", trackingEnabled ? cfg.fbPixel || "" : "");
       sessionStorage.setItem("khoi_thong_source_key", submissionSourceKey);
       sessionStorage.setItem("khoi_thong_landing_page_id", cfg.landingPageId || "");
+      } catch { /* Session storage is optional after server acceptance. */ }
       const thankYouParams = new URLSearchParams({ funnel: finalTargetFunnel });
       if (completeRegistrationEventId) {
         thankYouParams.set("eventId", completeRegistrationEventId);

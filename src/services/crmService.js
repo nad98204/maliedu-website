@@ -1,21 +1,17 @@
 // src/services/crmService.js
+import { getRegistrationAttempt } from './registrationAttempt';
 const CRM_LEAD_API_PATH = "/api/crm-leads";
+const inFlight = new Map();
 
-const isLocalhost = () => {
-    if (typeof window === "undefined") return false;
-    return ["localhost", "127.0.0.1", ""].includes(window.location.hostname);
-};
-
-const shouldFallbackToDirectWrite = () =>
-    import.meta.env.DEV && isLocalhost();
-
-const submitLeadViaApi = async ({ nodePath, payload }) => {
+const submitLeadViaApi = async ({ nodePath, payload, submissionId }) => {
     const response = await fetch(CRM_LEAD_API_PATH, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
+            "Idempotency-Key": submissionId,
         },
-        body: JSON.stringify({ nodePath, payload }),
+        body: JSON.stringify({ nodePath, payload, submissionId }),
+        signal: AbortSignal.timeout(20000),
     });
 
     let data = null;
@@ -32,19 +28,6 @@ const submitLeadViaApi = async ({ nodePath, payload }) => {
     }
 
     return data;
-};
-
-const submitLeadDirectly = async ({ nodePath, payload }) => {
-    const [{ crmRealtimeDB }, { ref, push, set }] = await Promise.all([
-        import('../firebase'),
-        import('firebase/database'),
-    ]);
-
-    const funnelRef = ref(crmRealtimeDB, nodePath);
-    const newLeadRef = push(funnelRef);
-    await set(newLeadRef, payload);
-
-    return { success: true, id: newLeadRef.key };
 };
 
 /**
@@ -164,23 +147,21 @@ export const submitToCRM = async (formData) => {
             batchName: formData.course_k || formData.batch_id || ""
         };
 
-        // 3. Ghi vào kho
-        let result;
-        try {
-            result = await submitLeadViaApi({ nodePath, payload });
-        } catch (apiError) {
-            if (!shouldFallbackToDirectWrite()) {
-                throw apiError;
-            }
-
-            console.warn("CRM API unavailable, falling back to direct RTDB write.", apiError);
-            result = await submitLeadDirectly({ nodePath, payload });
+        const attempt = await getRegistrationAttempt(nodePath, payload);
+        payload.lead_event_id = attempt.leadEventId;
+        payload.meta_event_id = attempt.registrationEventId;
+        if (!inFlight.has(attempt.id)) {
+            const operation = submitLeadViaApi({ nodePath, payload, submissionId: attempt.id })
+                .then(result => ({ ...result, leadEventId: attempt.leadEventId, registrationEventId: attempt.registrationEventId }))
+                .finally(() => inFlight.delete(attempt.id));
+            inFlight.set(attempt.id, operation);
         }
-
-        return result;
+        return await inFlight.get(attempt.id);
 
     } catch (error) {
         console.error("Lỗi gửi CRM:", error);
-        throw new Error("Không thể gửi đăng ký về CRM. Vui lòng thử lại sau.");
+        throw new Error(error.status === 400 || error.status === 409 || error.status === 429
+            ? error.message
+            : "Chưa xác nhận được đăng ký. Thông tin vẫn được giữ trên form, bạn vui lòng bấm gửi lại.");
     }
 };

@@ -75,7 +75,7 @@ test("rejects API failures without reporting a successful registration", async (
     writes++;
     return new Response(JSON.stringify({ error: "Mock CRM unavailable" }), { status: 503 });
   };
-  await assert.rejects(() => submitToCRM(buildSecretLead(input)), /Không thể gửi đăng ký/);
+  await assert.rejects(() => submitToCRM(buildSecretLead(input)), /Chưa xác nhận được đăng ký/);
   assert.equal(writes, 1);
 });
 

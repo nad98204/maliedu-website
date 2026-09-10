@@ -256,6 +256,8 @@ function Registration({ config, reloadConfig }) {
       try { browserData = getMetaBrowserData(window.location.search); } catch { /* Tracking cannot block registration. */ }
       const payload = buildSecretLead({ contact, config: latest, url: window.location.href, browserData, eventIds });
       const result = await submitToCRM(payload);
+      eventIds.lead = result.leadEventId || eventIds.lead;
+      eventIds.registration = result.registrationEventId || eventIds.registration;
       if (!result?.success || !result.id) throw new Error("Chưa gửi được đăng ký. Vui lòng thử lại.");
       const saved = { id: result.id, createdAt: Date.now(), zaloLink: latest.zaloLink };
       setReceipt(saved);

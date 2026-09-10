@@ -55,13 +55,18 @@ const createUpstreamRequest = async (request) => {
 };
 
 export async function onRequest(context) {
-  // Lead intake must not depend on the separately billed Cloud Run service.
-  // The Pages handler validates and creates records using CRM's existing rules.
-  if (new URL(context.request.url).pathname.replace(/\/+$/, "") === "/api/crm-leads") {
-    if (context.request.method !== "POST") {
+  // Intake and its authenticated admin API run in the private Cloudflare service.
+  const path = new URL(context.request.url).pathname.replace(/\/+$/, "");
+  const intakeMethods = {
+    "/api/crm-leads": "POST",
+    "/api/admin/lead-intake": "GET",
+    "/api/admin/lead-intake/retry": "POST",
+  };
+  if (Object.hasOwn(intakeMethods, path)) {
+    if (context.request.method !== intakeMethods[path]) {
       return Response.json({ error: "Method not allowed" }, {
         status: 405,
-        headers: { Allow: "POST", "Cache-Control": "no-store" },
+        headers: { Allow: intakeMethods[path], "Cache-Control": "no-store" },
       });
     }
     return context.next();

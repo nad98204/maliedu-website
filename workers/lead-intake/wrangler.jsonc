@@ -1,0 +1,20 @@
+{
+  "name": "maliedu-lead-intake",
+  "main": "index.js",
+  "account_id": "d7e81ab0f2301ec21229995ab5398aa1",
+  "compatibility_date": "2026-09-10",
+  "workers_dev": false,
+  "preview_urls": false,
+  "triggers": { "crons": ["* * * * *"] },
+  "d1_databases": [{
+    "binding": "LEAD_DB",
+    "database_name": "maliedu-lead-intake",
+    "database_id": "320ae505-dd76-4862-8a53-efd8566c9bb2",
+    "migrations_dir": "migrations"
+  }],
+  "vars": {
+    "WEBSITE_FIREBASE_PROJECT_ID": "maliedu-web",
+    "CRM_DATABASE_URL": "https://dangpkkzxy-default-rtdb.asia-southeast1.firebasedatabase.app"
+  },
+  "observability": { "enabled": true, "head_sampling_rate": 1 }
+}
