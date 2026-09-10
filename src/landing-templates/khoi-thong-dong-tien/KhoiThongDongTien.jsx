@@ -16,7 +16,7 @@ const VideoHocVien = lazy(() => import("./sections/VideoHocVien"));
 const FormDangKy = lazy(() => import("./sections/FormDangKy"));
 const Footer = lazy(() => import("../../components/Footer"));
 
-const KhoiThongDongTien = ({ targetFunnel, source_key, seoPath = "/dao-tao/khoi-thong-dong-tien", heroContent, painContent, audienceContent, registration }) => {
+const KhoiThongDongTien = ({ targetFunnel, source_key, seoPath = "/dao-tao/khoi-thong-dong-tien", heroContent, painContent, audienceContent, scheduleContent, founderContent, registration }) => {
   const seo = getRouteSeo(seoPath);
 
   return (
@@ -47,7 +47,7 @@ const KhoiThongDongTien = ({ targetFunnel, source_key, seoPath = "/dao-tao/khoi-
 
         <LazyWhenVisible minHeight="20rem">
           <Suspense fallback={<SectionFallback className="h-52" />}>
-            <LichTrinhHoc />
+            <LichTrinhHoc content={scheduleContent} />
           </Suspense>
         </LazyWhenVisible>
 
@@ -59,7 +59,7 @@ const KhoiThongDongTien = ({ targetFunnel, source_key, seoPath = "/dao-tao/khoi-
 
         <LazyWhenVisible minHeight="28rem">
           <Suspense fallback={<SectionFallback className="min-h-[20rem]" />}>
-            <CauChuyenNguoiSangLap />
+            <CauChuyenNguoiSangLap content={founderContent} />
           </Suspense>
         </LazyWhenVisible>
 

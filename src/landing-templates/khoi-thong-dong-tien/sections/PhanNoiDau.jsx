@@ -137,6 +137,97 @@ const PhanNoiDau = ({ content } = {}) => {
     return () => obs.disconnect();
   }, []);
 
+  if (content?.standalone) {
+    const items = content.items || [];
+    return (
+      <section
+        ref={revealRef}
+        className="relative overflow-hidden rounded-2xl sm:rounded-[32px] px-3.5 py-6 sm:px-8 sm:py-12 lg:px-12 lg:py-14"
+        style={{
+          background: "linear-gradient(180deg, #FFFDF9 0%, #FAF3E3 50%, #F5E9D0 100%)",
+          border: "1px solid rgba(212, 181, 114, 0.55)",
+          boxShadow: "0 16px 44px rgba(83, 48, 18, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.8)",
+        }}
+      >
+        {/* Ambient background glows */}
+        <div className="pointer-events-none absolute -top-20 -left-20 sm:-top-24 sm:-left-24 h-60 w-60 sm:h-72 sm:w-72 rounded-full bg-[#E8C87A]/20 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-20 -right-20 sm:-bottom-24 sm:-right-24 h-60 w-60 sm:h-72 sm:w-72 rounded-full bg-[#BA141A]/10 blur-3xl" />
+
+        <div className="relative mx-auto max-w-5xl">
+          {/* Header */}
+          <div className="text-center max-w-4xl mx-auto mb-5 sm:mb-10">
+            {content.badge && (
+              <div className="inline-flex items-center gap-1.5 rounded-full border border-[#D4B572]/70 bg-white/95 px-3 py-0.5 sm:px-4 sm:py-1 text-[10px] sm:text-xs font-black uppercase tracking-[0.18em] text-[#7A2113] shadow-2xs mb-2.5 sm:mb-4">
+                <span className="text-[#C9961A]">✦</span>
+                <span>{content.badge}</span>
+                <span className="text-[#C9961A]">✦</span>
+              </div>
+            )}
+
+            <h2 className="font-sans font-black uppercase tracking-tight text-center">
+              <span className="block text-[14.5px] min-[380px]:text-[15.5px] min-[414px]:text-[17px] sm:text-xl lg:text-[1.85rem] text-[#4A1E08] leading-snug">
+                {content.heading}
+              </span>
+              {content.headingEmphasis && (
+                <span className="block mt-1 sm:mt-1.5 leading-tight">
+                  {content.headingBreak ? (
+                    <>
+                      <span className="block sm:inline text-[18px] min-[390px]:text-[20px] sm:text-2xl lg:text-[2.25rem] text-[#74180F] sm:text-[#8C0C12] leading-snug">
+                        {content.headingBreak[0]}
+                      </span>
+                      <span className="block sm:inline sm:ml-2 text-[23px] min-[390px]:text-[26px] sm:text-2xl lg:text-[2.25rem] text-[#8C0C12] tracking-tight leading-tight">
+                        {content.headingBreak[1]}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-[20px] min-[390px]:text-[23px] sm:text-2xl lg:text-[2.25rem] text-[#8C0C12]">
+                      {content.headingEmphasis}
+                    </span>
+                  )}
+                </span>
+              )}
+            </h2>
+
+            {/* Divider Emblem */}
+            <div className="flex items-center justify-center gap-2 mt-3 sm:mt-5">
+              <span className="h-px w-10 sm:w-16 bg-gradient-to-r from-transparent to-[#C9961A]/80" />
+              <span className="text-[#C9961A] text-[10px] sm:text-xs">✦</span>
+              <span className="h-px w-10 sm:w-16 bg-gradient-to-l from-transparent to-[#C9961A]/80" />
+            </div>
+          </div>
+
+          {/* 6 Cards Grid (2 columns on desktop, sleek ergonomic cards on mobile) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 sm:gap-4 lg:gap-5">
+            {items.map((item, idx) => (
+              <div
+                key={idx}
+                className="group relative overflow-hidden rounded-xl sm:rounded-2xl border border-[#E2CCA0]/75 bg-white/95 p-3.5 sm:p-5 shadow-[0_2px_8px_rgba(83,48,18,0.03)] transition-all duration-200 hover:-translate-y-0.5 hover:border-[#C9961A] hover:shadow-[0_8px_20px_rgba(83,48,18,0.08)] flex items-start gap-3 sm:gap-4"
+              >
+                {/* Left accent line */}
+                <span className="absolute left-0 top-2.5 bottom-2.5 w-[3px] rounded-r-full bg-gradient-to-b from-[#C9961A] to-[#8C0C12]" />
+
+                {/* Circular Jewel Number Badge */}
+                <div
+                  className="flex h-7 w-7 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-full border border-[#F3D477]/80 text-white font-sans font-black text-xs sm:text-sm shadow-xs ml-0.5"
+                  style={{
+                    background: "linear-gradient(145deg, #9C0C12 0%, #600508 100%)",
+                  }}
+                >
+                  {idx + 1}
+                </div>
+
+                {/* Text Content */}
+                <div className="pt-0.5 text-[14px] min-[390px]:text-[14.5px] sm:text-[15px] leading-[1.65] text-[#3D220E] font-medium">
+                  {item}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section
       className="relative space-y-6 overflow-hidden rounded-3xl px-4 pb-10 pt-7 sm:space-y-7 sm:px-10 sm:pb-14 sm:pt-9"

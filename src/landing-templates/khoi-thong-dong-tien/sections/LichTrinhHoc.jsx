@@ -1,3 +1,7 @@
+import { ArrowRight } from "lucide-react";
+import { trackCtaClick } from "../ctaTracking";
+import { scrollToRegistrationForm } from "../scrollToRegistration";
+
 const TREE_IMG = "/assets/landing/khoi-thong-dong-tien/money-tree.webp";
 
 const sessions = [
@@ -55,18 +59,179 @@ const sessions = [
   },
 ];
 
-const LichTrinhHoc = () => (
-  <section
-    className="relative rounded-3xl overflow-hidden"
-    style={{
-      background: "linear-gradient(160deg, #EDF6E2 0%, #FDF5E4 45%, #F7EBCC 100%)",
-      border: "1px solid #D4B572",
-      boxShadow: "0 20px 50px rgba(122,33,19,0.06)",
-      marginTop: "1.5rem",
-      paddingTop: "3rem",
-      paddingBottom: "3rem",
-    }}
-  >
+const LichTrinhHoc = ({ content } = {}) => {
+  if (content?.standalone) {
+    const items = content.items || [];
+    return (
+      <section
+        className="relative overflow-hidden rounded-2xl sm:rounded-[32px] px-3.5 py-7 sm:px-8 sm:py-12 lg:px-10 lg:py-14 shadow-[0_16px_44px_rgba(83,48,18,0.06)] mt-6"
+        style={{
+          background: "linear-gradient(180deg, #FFFDF9 0%, #FAF3E3 50%, #F5E9D0 100%)",
+          border: "1px solid rgba(212, 181, 114, 0.65)",
+        }}
+      >
+        {/* Ambient background glows */}
+        <div className="pointer-events-none absolute -top-20 -left-20 sm:-top-24 sm:-left-24 h-60 w-60 sm:h-72 sm:w-72 rounded-full bg-[#E8C87A]/20 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-20 -right-20 sm:-bottom-24 sm:-right-24 h-60 w-60 sm:h-72 sm:w-72 rounded-full bg-[#BA141A]/10 blur-3xl" />
+
+        <div className="relative mx-auto max-w-5xl">
+          {/* Section Header */}
+          <div className="text-center max-w-4xl mx-auto mb-6 sm:mb-10">
+            {/* Badge */}
+            <div className="inline-flex items-center gap-1.5 rounded-full border border-[#D4B572]/70 bg-white/95 px-3.5 py-1 text-[10px] sm:text-xs font-black uppercase tracking-[0.18em] text-[#7A2113] shadow-xs mb-2.5 sm:mb-3.5">
+              <span className="text-[#C9961A]">✦</span>
+              <span>{content.badge || "GIÁ TRỊ BẠN NHẬN ĐƯỢC"}</span>
+              <span className="text-[#C9961A]">✦</span>
+            </div>
+
+            <h2 className="font-sans font-black uppercase tracking-tight text-center">
+              {content.headingLead && (
+                <span className="block text-[13.5px] min-[390px]:text-[14.5px] sm:text-base lg:text-lg text-[#4A1E08] font-bold tracking-wide">
+                  {content.headingLead}
+                </span>
+              )}
+              {content.headingEmphasis && (
+                <span className="block mt-1 sm:mt-1.5 text-[20px] min-[390px]:text-[22px] sm:text-2xl lg:text-[2.25rem] text-[#8C0C12] leading-tight tracking-tight">
+                  {content.headingBreak ? (
+                    <>
+                      <span className="block sm:inline">{content.headingBreak[0]}</span>{" "}
+                      <span className="block sm:inline sm:ml-2">{content.headingBreak[1]}</span>
+                    </>
+                  ) : (
+                    content.headingEmphasis
+                  )}
+                </span>
+              )}
+              {content.headingTrail && (
+                <span className="block mt-1 sm:mt-1.5 text-[13.5px] min-[390px]:text-[14.5px] sm:text-base text-[#7A2113] font-extrabold tracking-wider">
+                  {content.headingTrail}
+                </span>
+              )}
+              {!content.headingLead && !content.headingEmphasis && content.heading}
+            </h2>
+
+            {/* Divider */}
+            <div className="flex items-center justify-center gap-2 mt-3 sm:mt-4">
+              <span className="h-px w-12 sm:w-16 bg-gradient-to-r from-transparent to-[#C9961A]" />
+              <span className="text-[#C9961A] text-xs">✦</span>
+              <span className="h-px w-12 sm:w-16 bg-gradient-to-l from-transparent to-[#C9961A]" />
+            </div>
+          </div>
+
+          {/* 5 Cards Grid: 1 col on mobile, 2 cols on tablet/desktop with 5th card spanning 2 cols */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 sm:gap-4 lg:gap-5">
+            {items.map((item, idx) => {
+              const isLast = idx === items.length - 1 && items.length % 2 === 1;
+              return (
+                <div
+                  key={idx}
+                  className={`group relative overflow-hidden rounded-2xl border bg-white/95 p-4 sm:p-5 shadow-[0_4px_18px_rgba(83,48,18,0.05)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_12px_28px_rgba(83,48,18,0.1)] ${
+                    isLast
+                      ? "md:col-span-2 border-[#C9961A]/80 hover:border-[#C9961A]"
+                      : "border-[#D4B572]/65 hover:border-[#C9961A]"
+                  }`}
+                  style={isLast ? { background: "linear-gradient(145deg, #FFFFFF 0%, #FFFDF8 50%, #FFF8EA 100%)" } : undefined}
+                >
+                  {/* Left accent bar */}
+                  <span className={`absolute left-0 top-3 bottom-3 rounded-r-full bg-gradient-to-b from-[#C9961A] via-[#E4B94D] to-[#8C0C12] ${isLast ? "w-[4px]" : "w-[3.5px]"}`} />
+
+                  <div className="flex items-start gap-3.5 sm:gap-4 pl-1">
+                    {/* Jewel Number Badge */}
+                    <div
+                      className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl border border-[#F3D477]/80 text-white font-black text-sm sm:text-base shadow-xs transition-transform duration-300 group-hover:scale-105"
+                      style={{
+                        background: "linear-gradient(145deg, #9C0C12 0%, #600508 100%)",
+                      }}
+                    >
+                      {String(idx + 1).padStart(2, "0")}
+                    </div>
+                    <div className="min-w-0 pt-0.5">
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-[14px] min-[390px]:text-[14.5px] sm:text-base font-black leading-snug text-[#4A1E08]">
+                          {item.title}
+                        </h3>
+                        {item.tag && (
+                          <span className="hidden sm:inline-flex items-center rounded-full bg-[#8C0C12]/10 border border-[#8C0C12]/20 px-2.5 py-0.5 text-[11px] font-bold text-[#8C0C12]">
+                            {item.tag}
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-1.5 sm:mt-2 text-[13px] min-[390px]:text-[13.5px] sm:text-sm leading-relaxed text-[#5C3A1A] font-medium">
+                        {item.desc}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Bottom CTA Box */}
+          <div
+            className="mt-7 sm:mt-9 mx-auto flex max-w-xl flex-col items-center gap-3.5 rounded-[1.7rem] border border-[#D4B572]/60 px-4 py-5 text-center sm:px-7 sm:py-7"
+            style={{
+              background: "linear-gradient(145deg, rgba(255,255,255,0.92), rgba(255,248,230,0.82))",
+              boxShadow: "0 14px 38px rgba(122,33,19,0.06), inset 0 1px 0 rgba(255,255,255,0.95)",
+            }}
+          >
+            <div className="space-y-1">
+              <p className="text-base font-black uppercase leading-tight tracking-[0.01em] text-[#5B2412] sm:text-lg">
+                Sẵn sàng chuyển hóa dòng tiền?
+              </p>
+              <p className="text-[0.78rem] leading-relaxed text-[#6A4A2A] sm:text-sm">
+                Đăng ký để nhận link Zoom 4 buổi học hoàn toàn miễn phí.
+              </p>
+            </div>
+
+            {/* CTA Button */}
+            <div className="relative w-full max-w-[400px]">
+              <div
+                className="absolute inset-0 rounded-full blur-xl opacity-35"
+                style={{ background: "#C8282E" }}
+              />
+              <a
+                href="#dang-ky"
+                onClick={(e) => {
+                  e.preventDefault();
+                  trackCtaClick("LichTrinhHoc");
+                  scrollToRegistrationForm();
+                }}
+                className="group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-full py-3.5 sm:py-4 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
+                style={{
+                  background: "linear-gradient(180deg, #E8393F 0%, #9C0C12 100%)",
+                  boxShadow: "0 10px 28px rgba(156,12,18,0.38), inset 0 1px 0 rgba(255,255,255,0.2)",
+                }}
+              >
+                <span className="absolute inset-0 translate-x-[-100%] skew-x-[-20deg] bg-white/20 group-hover:translate-x-[200%] transition-transform duration-700" />
+                <span className="whitespace-nowrap text-[0.74rem] font-black uppercase tracking-[0.025em] text-[#FFE566] drop-shadow min-[380px]:text-[0.82rem] sm:text-[0.92rem]">
+                  ĐĂNG KÝ MIỄN PHÍ – NHẬN LINK HỌC
+                </span>
+                <ArrowRight className="h-4 w-4 flex-none text-[#FFE566] transition-transform group-hover:translate-x-1 sm:h-5 sm:w-5" />
+              </a>
+            </div>
+
+            <div className="flex items-center justify-center gap-2 text-center text-[0.72rem] font-medium leading-relaxed text-[#7A2113]/75 sm:text-xs">
+              <span className="h-1.5 w-1.5 flex-none rounded-full bg-[#C9961A]" />
+              <span>Học online qua Zoom • Chỉ cần họ tên và số điện thoại</span>
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section
+      className="relative rounded-3xl overflow-hidden"
+      style={{
+        background: "linear-gradient(160deg, #EDF6E2 0%, #FDF5E4 45%, #F7EBCC 100%)",
+        border: "1px solid #D4B572",
+        boxShadow: "0 20px 50px rgba(122,33,19,0.06)",
+        marginTop: "1.5rem",
+        paddingTop: "3rem",
+        paddingBottom: "3rem",
+      }}
+    >
     {/* Background orbs */}
     <div className="absolute top-0 right-0 -mr-16 -mt-16 w-96 h-96 rounded-full opacity-[0.07] blur-3xl bg-[#C9961A] pointer-events-none" />
     <div className="absolute bottom-0 left-0 -ml-16 -mb-16 w-80 h-80 rounded-full opacity-[0.06] blur-3xl bg-[#4A8A1A] pointer-events-none" />
@@ -321,6 +486,7 @@ const LichTrinhHoc = () => (
 
     </div>
   </section>
-);
+  );
+};
 
 export default LichTrinhHoc;

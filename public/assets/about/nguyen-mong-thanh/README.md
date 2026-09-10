@@ -2,9 +2,13 @@
 
 Trang: `/gioi-thieu/nguyen-mong-thanh`.
 
-Hai SVG hiện tại là ảnh mẫu, không phải ảnh của nhà đào tạo hay lớp học thực tế.
+Hai ảnh chính thức được phục vụ qua Bunny CDN:
 
-- Chân dung: nên dùng WebP/AVIF khoảng 800 × 1000 px, nhân vật ở giữa, chừa khoảng trống phía trên cho khung vòm.
-- Lớp học/workshop: nên dùng WebP/AVIF khoảng 1200 × 750 px, chủ thể ở giữa để phù hợp cả khung máy tính và điện thoại.
+- Chân dung: `https://malieduimages.b-cdn.net/nguyen-mong-thanh/nguyen-mong-thanh-chan-dung.jpg` — 800 × 1000 px, 154.651 byte.
+- Lớp học: `https://malieduimages.b-cdn.net/nguyen-mong-thanh/nguyen-mong-thanh-dao-tao.jpg` — 1200 × 750 px, 262.074 byte.
 
-Khi có ảnh chính thức, thêm file vào thư mục này và cập nhật `profileImages` ở đầu `src/pages/about/NguyenMongThanh.jsx`: `src`, `alt` và `caption`. Bỏ chữ “Hình mẫu” khỏi chú thích sau khi thay ảnh. Không ghi đè nội dung ảnh bitmap vào file có đuôi `.svg`.
+Storage Zone: `maliedu-images` (ID `1823131`), Standard, một khu vực Singapore. Pull Zone: `malieduimages`, CDN Standard. Thư mục trên Storage: `nguyen-mong-thanh/`.
+
+Hai JPG trong thư mục này là bản sao nguồn để lưu giữ. Trang lấy hai ảnh từ CDN qua `profileImages` ở đầu `src/pages/about/NguyenMongThanh.jsx`. Hai SVG cũ là ảnh mẫu không còn được dùng cho hai vị trí này.
+
+Khi thay ảnh, nên dùng tên file mới và cập nhật URL trong `profileImages` để tránh bộ nhớ đệm giữ ảnh cũ. Giữ nhân vật ở giữa ảnh chân dung và chừa khoảng trống phía trên cho khung vòm.

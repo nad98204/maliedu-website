@@ -6,6 +6,39 @@
 
 html { scroll-behavior: smooth; }
 body { margin: 0; overflow-x: hidden; }
+
+/* Mobile typography for the ads hero; desktop and surrounding layout stay as-is. */
+@media (max-width: 639px) {
+  [data-compact-hero] .loa-title-lead {
+    font-size: clamp(17px, 4.5vw, 20px);
+    font-weight: 600;
+    letter-spacing: 0.015em;
+  }
+  [data-compact-hero] .loa-title-main {
+    font-size: clamp(32px, 8.4vw, 38px);
+    letter-spacing: -0.025em;
+  }
+  [data-compact-hero] .loa-title-main > span {
+    display: block;
+  }
+  [data-compact-hero] .loa-intro {
+    max-width: 34ch;
+    padding-inline: 0;
+    font-size: 15px;
+    line-height: 1.75;
+    color: #58432F;
+  }
+  [data-compact-hero] .loa-intro > strong {
+    margin-top: 8px;
+    font-weight: 500;
+    line-height: 1.65;
+  }
+  [data-compact-hero] .loa-action {
+    display: block;
+    font-weight: 700;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
 }

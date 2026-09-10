@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { ArrowRight, Calendar, Clock, Sparkles } from "lucide-react";
 import { useKhoiThongLandingConfig } from "../landingConfig";
 import { trackCtaClick } from "../ctaTracking";
 import { scrollToRegistrationForm } from "../scrollToRegistration";
@@ -96,17 +97,16 @@ const Countdown = ({ eventStart }) => {
   ];
 
   return (
-    <div className="flex justify-center gap-3 sm:gap-4">
+    <div className="grid grid-cols-4 gap-2 sm:gap-2.5 w-full">
       {parts.map(({ label, value }) => (
         <div
           key={label}
-          className="flex flex-col items-center justify-center w-[72px] h-[76px] sm:w-[84px] sm:h-[90px] rounded-2xl relative overflow-hidden"
-          style={{ background: "linear-gradient(160deg, #8B1A10 0%, #5A0A05 100%)", boxShadow: "0 6px 20px rgba(90,10,5,0.45), inset 0 1px 0 rgba(255,255,255,0.15)" }}
+          className="flex flex-col items-center justify-center py-2 sm:py-2.5 px-1 rounded-xl sm:rounded-2xl border border-[#E2C78A]/70 bg-gradient-to-b from-white/95 to-[#FFF7E8] shadow-[0_2px_8px_rgba(83,48,18,0.06)]"
         >
-          <span className="text-[2rem] sm:text-[2.3rem] font-black text-white leading-none tracking-tight">
+          <span className="text-2xl sm:text-[1.8rem] font-black text-[#8C0C12] leading-none tracking-tight">
             {String(value).padStart(2, "0")}
           </span>
-          <span className="text-[9px] sm:text-[10px] font-bold text-red-200 uppercase tracking-[0.14em] mt-1">
+          <span className="text-[8.5px] sm:text-[9.5px] font-extrabold text-[#8C6D3B] uppercase tracking-wider mt-1 sm:mt-1.5">
             {label}
           </span>
         </div>
@@ -128,25 +128,187 @@ function useViewportMinLg() {
   return matches;
 }
 
-/* ─── BannerChinh ────────────────────────────────────────────── */
+/* ─── CompactHero ────────────────────────────────────────────── */
 const CompactHero = ({ content, landingConfig }) => {
-  const days = landingConfig.ctaScheduleLabel.replace(/\s*[-–·]\s*\d{1,2}(?:h|:)\d{2}.*$/i, "");
-  return <section data-compact-hero className="relative w-full overflow-hidden font-sans" style={{ background: "radial-gradient(ellipse at 35% 30%, rgba(255,229,102,0.18), transparent 65%)" }}>
-    <div className="border-b border-[#F8E08A]/40 px-4 py-3 text-center text-xs font-black uppercase tracking-[0.2em] text-[#FFEDB3] shadow-lg sm:text-sm" style={{ background: "linear-gradient(90deg, #140806 0%, #6b2818 50%, #140806 100%)" }}>4 BUỔI HỌC ONLINE MIỄN PHÍ</div>
-    <div className="mx-auto grid max-w-[640px] items-center gap-6 px-4 py-8 sm:gap-8 sm:px-6 sm:py-12 lg:max-w-7xl lg:grid-cols-2 lg:gap-x-12 lg:py-14">
-      <div className="text-center lg:col-start-1">
-        <p className="text-sm font-bold leading-relaxed text-[#5A3A1A] sm:text-base">{content.question}<strong className="block font-black text-[#7A2113]">{content.questionEmphasis}</strong></p>
-        <h1 className="my-6 text-[1.75rem] font-black uppercase leading-[1.25] tracking-tight text-[#7A2113] sm:text-[2.15rem] lg:text-[2.4rem]">ỨNG DỤNG LUẬT HẤP DẪN ĐỂ <span className="text-[#A67512]">KHƠI THÔNG DÒNG TIỀN</span></h1>
-        <p className="mx-auto max-w-xl text-[0.95rem] leading-[1.75] text-[#5A3A1A] sm:text-base">{content.description}</p>
+  const rawSchedule = landingConfig?.ctaScheduleLabel || "11-12-13-14/09 · 20h00";
+  const days = rawSchedule.replace(/\s*[-–·]\s*\d{1,2}(?:h|:)\d{2}.*$/i, "").trim() || "11-12-13-14/09";
+
+  return (
+    <section
+      data-compact-hero
+      className="relative w-full overflow-hidden font-sans"
+      style={{
+        background:
+          "radial-gradient(ellipse at 50% 8%, rgba(255,235,170,0.42) 0%, transparent 60%), radial-gradient(ellipse at 88% 88%, rgba(255,245,220,0.65) 0%, transparent 60%), linear-gradient(180deg, #FFFDF8 0%, #FAF3E3 100%)",
+      }}
+    >
+      {/* ── Background Decorative Elements ── */}
+      {/* Arched inner frame */}
+      <div className="pointer-events-none absolute hidden sm:block sm:inset-x-8 sm:top-12 sm:bottom-6 sm:rounded-[48px] border border-[#D4B572]/25" />
+
+      {/* Right side concentric art-deco arcs */}
+      <div className="pointer-events-none absolute -top-16 -right-16 w-80 h-80 sm:w-[480px] sm:h-[480px] rounded-full border border-[#D4B572]/15" />
+      <div className="pointer-events-none absolute -top-8 -right-8 w-64 h-64 sm:w-[400px] sm:h-[400px] rounded-full border border-[#D4B572]/20" />
+      <div className="pointer-events-none absolute top-0 right-0 w-48 h-48 sm:w-[320px] sm:h-[320px] rounded-full border border-[#D4B572]/15" />
+
+      {/* Left side botanical silhouette */}
+      <svg
+        className="pointer-events-none absolute hidden sm:block left-0 top-1/4 -translate-y-1/3 sm:w-56 h-auto text-[#A67512] opacity-15 filter blur-[0.6px]"
+        viewBox="0 0 160 320"
+        fill="currentColor"
+        aria-hidden="true"
+      >
+        <path d="M-20,40 Q40,80 70,120 Q50,70 10,40 Z M20,100 Q80,130 110,180 Q80,140 40,110 Z M-10,160 Q60,190 90,250 Q60,200 10,170 Z M30,220 Q90,250 120,310 Q80,270 40,230 Z" />
+        <path d="M-10,30 Q20,120 50,220 Q70,280 90,340" stroke="currentColor" strokeWidth="2.5" fill="none" opacity="0.4" />
+      </svg>
+
+      {/* ── Top bar: ribbon burgundy + gold ── */}
+      <div className="relative w-full py-2.5 text-center z-10 overflow-hidden border-b border-[#F8E08A]/40 shadow-[0_2px_12px_rgba(26,10,6,0.3)]">
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background:
+              "linear-gradient(90deg, #140806 0%, #3a1410 25%, #6b2818 50%, #3a1410 75%, #140806 100%)",
+          }}
+        />
+        <div
+          className="pointer-events-none absolute inset-0 opacity-80"
+          style={{
+            background:
+              "linear-gradient(180deg, rgba(248,224,138,0.25) 0%, transparent 60%, rgba(0,0,0,0.35) 100%)",
+          }}
+        />
+        <div className="relative z-10 inline-flex items-center justify-center gap-2 text-[#FFEDB3] text-[11px] sm:text-[13px] font-black tracking-[0.12em] sm:tracking-[0.22em] uppercase">
+          <span className="text-[#F8E08A] text-sm">✦</span>
+          <span>4 BUỔI HỌC ONLINE MIỄN PHÍ</span>
+          <span className="text-[#F8E08A] text-sm">✦</span>
+        </div>
       </div>
-      <div className="w-full rounded-[26px] border border-[#D4B572]/55 bg-white/70 p-2 shadow-[0_14px_40px_rgba(83,48,18,0.10)] sm:p-3 lg:col-start-2 lg:row-start-1 lg:row-span-2"><VideoPlayer active /></div>
-      <div className="flex min-w-0 flex-col items-center gap-6 lg:col-start-1 lg:row-start-2">
-        <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-center text-sm font-extrabold text-[#7A2113] sm:text-base"><span>{days}</span><span>20:00 – 22:00</span></div>
-        <a href="#dang-ky" onClick={(event) => { event.preventDefault(); trackCtaClick("BannerChinh"); scrollToRegistrationForm(); }} className="flex w-full max-w-[400px] items-center justify-center rounded-full px-4 py-4 text-sm font-black uppercase text-[#FFE566] transition hover:scale-[1.02] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#7A2113] sm:text-base" style={{ background: "linear-gradient(180deg, #E8393F 0%, #9C0C12 100%)", boxShadow: "0 10px 30px rgba(160,20,28,0.35)" }}>ĐĂNG KÝ MIỄN PHÍ NGAY</a>
-        <div className="w-full" aria-label="Đếm ngược đến ngày khai giảng"><Countdown eventStart={landingConfig.eventStart} /></div>
+
+      {/* ── Main Hero Content ── */}
+      <div className="relative z-10 mx-auto max-w-6xl px-4 py-5 sm:px-6 sm:py-9 lg:px-8 lg:py-11">
+        {/* Top Centered Header */}
+        <div className="flex flex-col items-center text-center space-y-3 sm:space-y-4 max-w-4xl mx-auto">
+          {/* Hook Question Badge */}
+          <div className="inline-flex items-center gap-2.5 rounded-2xl sm:rounded-full border border-[#D4B572]/60 bg-white/95 px-3 py-2.5 sm:px-4 sm:py-1.5 shadow-[0_2px_12px_rgba(83,48,18,0.06)]">
+            <span className="hidden sm:flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#8C0C12] text-[10px] font-black text-white shadow-xs">
+              ?
+            </span>
+            <p className="text-[13px] sm:text-[0.88rem] font-semibold text-[#5A3A1A] leading-relaxed sm:leading-snug">
+              <span>{content.question}</span>{" "}
+              <strong className="block sm:inline font-extrabold text-[#7A2113]">
+                {content.questionEmphasis}
+              </strong>
+            </p>
+          </div>
+
+          {/* Main Title */}
+          <div className="w-full py-1 sm:px-2">
+            <h1 className="font-black uppercase">
+              <span
+                className="loa-title-lead block text-[clamp(1.125rem,4.8vw,1.375rem)] sm:text-[2rem] lg:text-[2.2rem] xl:text-[2.45rem] font-bold uppercase tracking-normal font-sans"
+                style={{
+                  color: "#4E1E05",
+                  lineHeight: 1.2,
+                  paddingTop: "0.15em",
+                }}
+              >
+                <span className="inline-block">ỨNG DỤNG</span>{" "}<span className="inline-block">LUẬT HẤP DẪN ĐỂ</span>
+              </span>
+              <span
+                className="loa-title-main block mt-2 sm:mt-1 text-[clamp(2rem,8.6vw,2.4rem)] sm:text-[2.75rem] lg:text-[3.2rem] xl:text-[3.6rem] font-extrabold uppercase tracking-tight font-sans"
+                style={{
+                  lineHeight: 1.2,
+                  paddingTop: "0.04em",
+                  paddingBottom: "0.08em",
+                  color: "#8C0C12",
+                }}
+              >
+                <span className="inline-block">KHƠI THÔNG</span>{" "}<span className="inline-block">DÒNG TIỀN</span>
+              </span>
+            </h1>
+          </div>
+
+          {/* Divider Emblem */}
+          <div className="hidden sm:flex items-center justify-center gap-2 my-1">
+            <span className="h-px w-10 sm:w-14 bg-gradient-to-r from-transparent to-[#C9961A]/70" />
+            <span className="text-[#C9961A] text-xs sm:text-sm">✦</span>
+            <span className="h-px w-10 sm:w-14 bg-gradient-to-l from-transparent to-[#C9961A]/70" />
+          </div>
+
+          {/* Description */}
+          <p className="loa-intro text-[14px] sm:text-[0.92rem] lg:text-[0.98rem] font-normal leading-[1.65] sm:leading-[1.7] text-[#5A3A1A] max-w-2xl px-1 sm:px-3">
+            <span className="block [text-wrap:balance]">Tìm ra điều đang khiến bạn thực hành không ra kết quả và cung cấp bạn tấm bản đồ rõ ràng</span>
+            <strong className="mt-1 block font-semibold text-[#7A130C] [text-wrap:balance]">
+              – từ tư duy, cảm xúc đến <span className="loa-action inline-block">hành động thực tế tạo ra tiền.</span>
+            </strong>
+          </p>
+        </div>
+
+        {/* Media & Action Row: Video Player + Conversion Box */}
+        <div className="mt-5 sm:mt-9 grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-6 lg:gap-8 items-center max-w-[1060px] mx-auto">
+          {/* Video Player Card */}
+          <div className="lg:col-span-7 flex items-center justify-center w-full order-1">
+            <div className="relative w-full">
+              <div className="pointer-events-none absolute -inset-2 bg-gradient-to-r from-[#D4931A]/15 to-[#8C0C12]/10 blur-2xl rounded-3xl -z-10" />
+              <div className="w-full rounded-3xl border border-[#D4B572]/70 bg-white/90 p-1.5 sm:p-2.5 shadow-[0_16px_40px_rgba(83,48,18,0.10)] transition-transform duration-500 sm:hover:scale-[1.01]">
+                <VideoPlayer active />
+              </div>
+            </div>
+          </div>
+
+          {/* Conversion / Action Card */}
+          <div className="lg:col-span-5 flex items-center justify-center w-full order-2">
+            <div className="w-full max-w-[460px] rounded-3xl sm:rounded-[26px] border border-[#D4B572]/50 bg-white p-3 min-[375px]:p-4 sm:p-6 shadow-[0_16px_40px_rgba(83,48,18,0.08)] flex flex-col gap-3 sm:gap-4">
+              {/* Schedule Row */}
+              <div className="order-1 grid grid-cols-2 gap-2 sm:gap-3 text-center">
+                <div className="flex min-w-0 items-center justify-center gap-1.5 rounded-xl sm:rounded-2xl border border-[#D4B572]/50 bg-[#FFFBF2] sm:bg-white py-2.5 px-1.5 sm:px-3 text-xs sm:text-[13.5px] font-extrabold text-[#7A2113]">
+                  <Calendar className="h-4 w-4 text-[#C97A1A] shrink-0" />
+                  <span className="leading-snug">{days}</span>
+                </div>
+                <div className="flex min-w-0 items-center justify-center gap-1.5 rounded-xl sm:rounded-2xl border border-[#D4B572]/50 bg-[#FFFBF2] sm:bg-white py-2.5 px-1.5 sm:px-3 text-xs sm:text-[13.5px] font-extrabold text-[#7A2113]">
+                  <Clock className="h-4 w-4 text-[#C97A1A] shrink-0" />
+                  <span className="whitespace-nowrap">20:00 – 22:00</span>
+                </div>
+              </div>
+
+              {/* Divider line with centered text */}
+              <div className="order-3 sm:order-2 relative flex items-center justify-center my-1" aria-label="Đếm ngược đến ngày khai giảng">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-[#D4B572]/35" />
+                </div>
+                <div className="relative bg-white px-3 text-[10.5px] sm:text-[11px] font-bold uppercase tracking-[0.14em] text-[#8C6D3B]">
+                  CHƯƠNG TRÌNH BẮT ĐẦU SAU:
+                </div>
+              </div>
+
+              {/* Countdown 4 boxes */}
+              <div className="order-4 sm:order-3"><Countdown eventStart={landingConfig.eventStart} /></div>
+
+              {/* CTA Button */}
+              <a
+                href="#dang-ky"
+                onClick={(event) => {
+                  event.preventDefault();
+                  trackCtaClick("BannerChinh");
+                  scrollToRegistrationForm();
+                }}
+                className="order-2 sm:order-4 group relative flex min-h-[52px] w-full items-center justify-center gap-2 overflow-hidden rounded-full py-3.5 sm:py-4 px-2 sm:px-6 font-black uppercase text-[13px] min-[375px]:text-sm sm:text-base tracking-normal sm:tracking-wider text-white transition-all duration-300 hover:scale-[1.015] active:scale-[0.985] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#7A2113]"
+                style={{
+                  background: "linear-gradient(180deg, #BA141A 0%, #7A0A0E 100%)",
+                  boxShadow: "0 10px 28px rgba(160, 16, 24, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.25)",
+                }}
+              >
+                <span className="absolute inset-0 translate-x-[-100%] skew-x-[-20deg] bg-white/20 transition-transform duration-700 group-hover:translate-x-[200%]" />
+                <span>ĐĂNG KÝ MIỄN PHÍ NGAY</span>
+                <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
+              </a>
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
-  </section>;
+    </section>
+  );
 };
 
 const BannerChinh = ({ content, configPath } = {}) => {

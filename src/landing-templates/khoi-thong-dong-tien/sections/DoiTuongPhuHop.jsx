@@ -52,7 +52,7 @@ const TargetCard = ({ title, Icon, desc, painPoints, number, delay }) => {
     if (!el) return;
     const obs = new IntersectionObserver(
       ([entry]) => { if (entry.isIntersecting) { setVisible(true); obs.disconnect(); } },
-      { threshold: 0.2 }
+      { threshold: 0.02, rootMargin: "150px 0px" }
     );
     obs.observe(el);
     return () => obs.disconnect();
@@ -88,33 +88,39 @@ const TargetCard = ({ title, Icon, desc, painPoints, number, delay }) => {
         {/* Content */}
         <div className="relative flex flex-1 flex-col px-5 pb-5 pt-5 sm:px-6 sm:pb-6 sm:pt-6">
           <div className="mb-4 flex items-start gap-3.5 pr-10 text-left">
-            <div
-              className="flex h-12 w-12 flex-none items-center justify-center rounded-2xl transition-transform duration-300 group-hover:scale-105"
-              style={{
-                background: "linear-gradient(145deg, #7A2113 0%, #A83A20 100%)",
-                border: "1px solid rgba(201,150,26,0.65)",
-                boxShadow: "0 8px 20px rgba(122,33,19,0.2), inset 0 1px 0 rgba(255,255,255,0.18)",
-              }}
-            >
-              <Icon
-                className="h-6 w-6 text-[#FFE795]"
-                strokeWidth={1.9}
-              />
-            </div>
+            {Icon && (
+              <div
+                className="flex h-11 w-11 sm:h-12 sm:w-12 flex-none items-center justify-center rounded-2xl transition-transform duration-300 group-hover:scale-105"
+                style={{
+                  background: "linear-gradient(145deg, #7A2113 0%, #A83A20 100%)",
+                  border: "1px solid rgba(201,150,26,0.65)",
+                  boxShadow: "0 8px 20px rgba(122,33,19,0.2), inset 0 1px 0 rgba(255,255,255,0.18)",
+                }}
+              >
+                <Icon
+                  className="h-5 w-5 sm:h-6 sm:w-6 text-[#FFE795]"
+                  strokeWidth={1.9}
+                />
+              </div>
+            )}
             <div className="min-w-0 pt-0.5">
-              <span className="mb-1 block text-[0.62rem] font-extrabold uppercase tracking-[0.18em] text-[#C18A13]">
+              <span className="mb-1 block text-[0.65rem] sm:text-[0.68rem] font-extrabold uppercase tracking-[0.18em] text-[#C18A13]">
                 Nhóm {String(number).padStart(2, "0")}
               </span>
-              <h3 className="text-[0.8rem] font-black uppercase leading-[1.35] tracking-[-0.01em] text-[#55280F] sm:text-[0.95rem]">
-                {title.map((line) => (
-                  <span key={line} className="block whitespace-nowrap">{line}</span>
-                ))}
+              <h3 className="text-[0.88rem] min-[390px]:text-[0.95rem] font-black uppercase leading-[1.3] tracking-[-0.01em] text-[#55280F] sm:text-[1.02rem]">
+                {Array.isArray(title) ? (
+                  title.map((line, idx) => (
+                    <span key={idx} className="block">{line}</span>
+                  ))
+                ) : (
+                  <span className="block">{title}</span>
+                )}
               </h3>
             </div>
           </div>
 
           <span
-            className="absolute right-5 top-5 flex h-8 w-8 items-center justify-center rounded-full text-[0.7rem] font-black text-white"
+            className="absolute right-5 top-5 flex h-8 w-8 items-center justify-center rounded-full text-[0.7rem] font-black text-white shadow-xs"
             style={{
               background: "linear-gradient(145deg, #C9961A, #7A2113)",
               boxShadow: "0 6px 16px rgba(122,33,19,0.24)",
@@ -124,21 +130,23 @@ const TargetCard = ({ title, Icon, desc, painPoints, number, delay }) => {
           </span>
 
           {/* Description */}
-          <p className="mb-4 border-l-2 border-[#E3BF65] pl-3 text-left text-[0.78rem] leading-[1.65] text-[#6A4A2A] sm:text-sm">
-            {desc}
-          </p>
+          {desc && (
+            <p className="mb-4 border-l-2 border-[#E3BF65] pl-3 text-left text-[0.78rem] leading-[1.65] text-[#6A4A2A] sm:text-sm">
+              {desc}
+            </p>
+          )}
 
           {/* Pain Points Checklist */}
           <div className="mt-auto w-full space-y-2 text-left">
             {painPoints.map((point) => (
               <div
                 key={point}
-                className="flex items-start gap-2.5 rounded-xl border border-[#EEDFB9]/70 bg-[#FAF4E5]/75 px-3 py-2.5 transition-colors group-hover:bg-[#FAF1DC]"
+                className="flex items-start gap-2.5 rounded-xl border border-[#EEDFB9]/70 bg-[#FAF4E5]/80 px-3 py-2.5 transition-colors group-hover:bg-[#FAF1DC]"
               >
-                <span className="mt-0.5 flex h-4 w-4 flex-none items-center justify-center rounded-full bg-[#C9961A]/15">
+                <span className="mt-0.5 flex h-4 w-4 flex-none items-center justify-center rounded-full bg-[#C9961A]/20">
                   <CheckCircle2 className="h-3.5 w-3.5 text-[#B77B00]" strokeWidth={2.4} />
                 </span>
-                <span className="text-[0.76rem] leading-[1.45] text-[#4B2E13] sm:text-[13px]">{point}</span>
+                <span className="text-[13px] min-[390px]:text-[13.5px] sm:text-[14px] leading-[1.5] text-[#4B2E13] font-medium">{point}</span>
               </div>
             ))}
           </div>
@@ -150,6 +158,158 @@ const TargetCard = ({ title, Icon, desc, painPoints, number, delay }) => {
 
 /* ─── Main Section ──────────────────────────────────────── */
 const DoiTuongPhuHop = ({ content } = {}) => {
+  if (content?.standalone) {
+    const cards = content?.cards || [];
+    return (
+      <section
+        className="relative overflow-hidden rounded-2xl sm:rounded-[32px] px-3.5 py-7 sm:px-8 sm:py-12 lg:px-10 lg:py-14 shadow-[0_16px_44px_rgba(83,48,18,0.06)]"
+        style={{
+          background: "linear-gradient(180deg, #FFFDF9 0%, #FAF3E3 50%, #F5E9D0 100%)",
+          border: "1px solid rgba(212, 181, 114, 0.65)",
+        }}
+      >
+        {/* Ambient background glows */}
+        <div className="pointer-events-none absolute -top-20 -left-20 sm:-top-24 sm:-left-24 h-60 w-60 sm:h-72 sm:w-72 rounded-full bg-[#E8C87A]/20 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-20 -right-20 sm:-bottom-24 sm:-right-24 h-60 w-60 sm:h-72 sm:w-72 rounded-full bg-[#BA141A]/10 blur-3xl" />
+
+        <div className="relative mx-auto max-w-6xl">
+          {/* Section Header */}
+          <div className="text-center max-w-2xl mx-auto mb-6 sm:mb-10">
+            {/* Badge */}
+            <div className="inline-flex items-center gap-1.5 rounded-full border border-[#D4B572]/70 bg-white/95 px-3.5 py-1 text-[10px] sm:text-xs font-black uppercase tracking-[0.18em] text-[#7A2113] shadow-xs mb-2.5 sm:mb-3.5">
+              <span className="text-[#C9961A]">✦</span>
+              <span>{content.badge || "DÀNH CHO AI?"}</span>
+              <span className="text-[#C9961A]">✦</span>
+            </div>
+
+            <h2 className="font-sans font-black uppercase tracking-tight text-center">
+              {content.heading || (
+                <>
+                  <span className="block text-[15px] min-[390px]:text-[16.5px] sm:text-xl lg:text-[1.85rem] text-[#4A1E08] leading-snug">
+                    CHƯƠNG TRÌNH NÀY SẼ PHÙ HỢP VỚI
+                  </span>
+                  <span className="block mt-1 sm:mt-1.5 text-[22px] min-[390px]:text-[26px] sm:text-2xl lg:text-[2.25rem] text-[#8C0C12] leading-tight tracking-tight">
+                    NHỮNG BẠN
+                  </span>
+                </>
+              )}
+            </h2>
+
+            {/* Divider Emblem */}
+            <div className="flex items-center justify-center gap-2 mt-3 sm:mt-4">
+              <span className="h-px w-10 sm:w-16 bg-gradient-to-r from-transparent to-[#C9961A]" />
+              <span className="text-[#C9961A] text-xs">✦</span>
+              <span className="h-px w-10 sm:w-16 bg-gradient-to-l from-transparent to-[#C9961A]" />
+            </div>
+          </div>
+
+          {/* Cards Grid: 1 column on mobile, 3 columns on tablet/desktop */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5 lg:gap-6">
+            {cards.map((card, idx) => (
+              <div
+                key={card.group || idx}
+                className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-[#D4B572]/65 bg-white/95 p-4 sm:p-5 shadow-[0_4px_18px_rgba(83,48,18,0.05)] transition-all duration-300 hover:-translate-y-1 hover:border-[#C9961A] hover:shadow-[0_12px_28px_rgba(83,48,18,0.1)]"
+              >
+                {/* Left jewel vertical accent bar */}
+                <span className="absolute left-0 top-3 bottom-3 w-[3.5px] rounded-r-full bg-gradient-to-b from-[#C9961A] via-[#E4B94D] to-[#8C0C12]" />
+
+                <div className="flex flex-col h-full">
+                  {/* Card Header */}
+                  <div className="flex items-start gap-3 mb-3.5 pl-1">
+                    {/* Jewel Number Badge */}
+                    <div
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#F3D477]/80 text-white font-black text-sm shadow-xs transition-transform duration-300 group-hover:scale-105"
+                      style={{
+                        background: "linear-gradient(145deg, #9C0C12 0%, #600508 100%)",
+                      }}
+                    >
+                      {String(idx + 1).padStart(2, "0")}
+                    </div>
+                    <div className="min-w-0 pt-0.5">
+                      <span className="block text-[10px] sm:text-[10.5px] font-black uppercase tracking-[0.16em] text-[#C18A13]">
+                        {card.group || `NHÓM ${String(idx + 1).padStart(2, "0")}`}
+                      </span>
+                      <h3 className="text-[14px] min-[390px]:text-[14.5px] sm:text-[15px] font-black uppercase leading-snug text-[#4A1E08]">
+                        {card.titleDisplay || (Array.isArray(card.title) ? card.title.join(" ") : card.title)}
+                      </h3>
+                    </div>
+                  </div>
+
+                  {/* Checklist items */}
+                  <div className="space-y-2 pl-1 mt-auto">
+                    {(card.painPoints || card.items || []).map((point, pIdx) => (
+                      <div
+                        key={pIdx}
+                        className="flex items-start gap-2.5 rounded-xl border border-[#EEDFB9]/70 bg-[#FAF4E5]/80 p-2.5 sm:p-3 transition-colors group-hover:bg-[#FAF1DC]"
+                      >
+                        <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#C9961A]/20 text-[#A86E06] text-xs font-black">
+                          ✓
+                        </span>
+                        <span className="text-[13px] min-[390px]:text-[13.5px] sm:text-[14px] leading-snug text-[#3D220E] font-medium">
+                          {point}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Bottom CTA Box */}
+          <div
+            className="mt-7 sm:mt-9 mx-auto flex max-w-xl flex-col items-center gap-3.5 rounded-[1.7rem] border border-[#D4B572]/60 px-4 py-5 text-center sm:px-7 sm:py-7"
+            style={{
+              background: "linear-gradient(145deg, rgba(255,255,255,0.92), rgba(255,248,230,0.82))",
+              boxShadow: "0 14px 38px rgba(122,33,19,0.06), inset 0 1px 0 rgba(255,255,255,0.95)",
+            }}
+          >
+            <div className="space-y-1">
+              <p className="text-base font-black uppercase leading-tight tracking-[0.01em] text-[#5B2412] sm:text-lg">
+                Sẵn sàng bắt đầu?
+              </p>
+              <p className="text-[0.78rem] leading-relaxed text-[#6A4A2A] sm:text-sm">
+                Đăng ký để nhận lịch học và hướng dẫn tham gia miễn phí.
+              </p>
+            </div>
+
+            {/* CTA Button */}
+            <div className="relative w-full max-w-[400px]">
+              <div
+                className="absolute inset-0 rounded-full blur-xl opacity-35"
+                style={{ background: "#C8282E" }}
+              />
+              <a
+                href="#dang-ky"
+                onClick={(e) => {
+                  e.preventDefault();
+                  trackCtaClick("DoiTuongPhuHop");
+                  scrollToRegistrationForm();
+                }}
+                className="group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-full py-3.5 sm:py-4 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
+                style={{
+                  background: "linear-gradient(180deg, #E8393F 0%, #9C0C12 100%)",
+                  boxShadow: "0 10px 28px rgba(156,12,18,0.38), inset 0 1px 0 rgba(255,255,255,0.2)",
+                }}
+              >
+                <span className="absolute inset-0 translate-x-[-100%] skew-x-[-20deg] bg-white/20 group-hover:translate-x-[200%] transition-transform duration-700" />
+                <span className="whitespace-nowrap text-[0.74rem] font-black uppercase tracking-[0.025em] text-[#FFE566] drop-shadow min-[380px]:text-[0.82rem] sm:text-[0.92rem]">
+                  ĐĂNG KÝ MIỄN PHÍ – NHẬN LINK HỌC
+                </span>
+                <ArrowRight className="h-4 w-4 flex-none text-[#FFE566] transition-transform group-hover:translate-x-1 sm:h-5 sm:w-5" />
+              </a>
+            </div>
+
+            <div className="flex items-center justify-center gap-2 text-center text-[0.72rem] font-medium leading-relaxed text-[#7A2113]/75 sm:text-xs">
+              <span className="h-1.5 w-1.5 flex-none rounded-full bg-[#C9961A]" />
+              <span>Học online qua Zoom • Chỉ cần họ tên và số điện thoại</span>
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   const cards = content?.cards || [
     {
       title: ["Người muốn ổn định", "tài chính"],
@@ -216,21 +376,29 @@ const DoiTuongPhuHop = ({ content } = {}) => {
           <div className="relative px-5 py-6 text-left sm:px-10 sm:py-9">
             <span className="inline-flex items-center gap-1.5 rounded-full border border-[#F3D477]/45 bg-white/10 px-3.5 py-1.5 text-[0.58rem] font-extrabold uppercase tracking-[0.17em] text-[#FFE99A] backdrop-blur-sm sm:text-[0.68rem]">
               <Sparkles className="h-3.5 w-3.5" />
-              Chương trình dành cho ai?
+              {content?.badge || "Chương trình dành cho ai?"}
             </span>
 
-            <h2 className="mt-5 font-black uppercase leading-[1.14] tracking-[-0.025em]">
-              <span className="block whitespace-nowrap text-[clamp(1rem,4.5vw,1.4rem)] text-white">
-                Bạn sẽ phù hợp với
-              </span>
-              <span className="mt-1 block whitespace-nowrap text-[clamp(1.12rem,5.2vw,1.75rem)] text-[#FFE27A]">
-                chương trình này nếu…
-              </span>
+            <h2 className="mt-5 font-black uppercase leading-[1.18] tracking-[-0.025em]">
+              {content?.heading ? (
+                content.heading
+              ) : (
+                <>
+                  <span className="block whitespace-nowrap text-[clamp(1rem,4.5vw,1.4rem)] text-white">
+                    Bạn sẽ phù hợp với
+                  </span>
+                  <span className="mt-1 block whitespace-nowrap text-[clamp(1.12rem,5.2vw,1.75rem)] text-[#FFE27A]">
+                    chương trình này nếu…
+                  </span>
+                </>
+              )}
             </h2>
 
-            <p className="mt-4 max-w-xl border-l-2 border-[#E7C15D]/65 pl-3 text-[0.78rem] leading-[1.65] text-white/75 sm:text-sm">
-              {content?.intro || "Dù đang làm công việc nào, bạn đều mong muốn hiểu rõ vấn đề tài chính của mình và xây dựng hướng thay đổi cụ thể hơn."}
-            </p>
+            {Boolean(content ? content?.intro : true) && (
+              <p className="mt-4 max-w-xl border-l-2 border-[#E7C15D]/65 pl-3 text-[0.78rem] leading-[1.65] text-white/75 sm:text-sm">
+                {content?.intro || "Dù đang làm công việc nào, bạn đều mong muốn hiểu rõ vấn đề tài chính của mình và xây dựng hướng thay đổi cụ thể hơn."}
+              </p>
+            )}
 
             <div className="mt-5 grid grid-cols-3 gap-2 sm:max-w-md">
               {(content?.groups || ["Cá nhân", "Kinh doanh", "Quản lý"]).map((group) => (

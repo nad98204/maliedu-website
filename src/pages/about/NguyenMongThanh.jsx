@@ -31,12 +31,12 @@ import "./NguyenMongThanh.css";
 // Hình ảnh thực tế từ các chương trình và hoạt động đào tạo
 const profileImages = {
   portrait: {
-    src: "/assets/about/nguyen-mong-thanh/nguyen-mong-thanh-chan-dung.jpg",
+    src: "https://malieduimages.b-cdn.net/nguyen-mong-thanh/nguyen-mong-thanh-chan-dung.jpg",
     alt: "Nhà đào tạo Nguyễn Mong Thành - Nụ cười ấm áp, truyền cảm hứng",
     caption: "Nguyễn Mong Thành · Người Đồng Hành & Phụng Sự",
   },
   workshop: {
-    src: "/assets/about/nguyen-mong-thanh/nguyen-mong-thanh-dao-tao.jpg",
+    src: "https://malieduimages.b-cdn.net/nguyen-mong-thanh/nguyen-mong-thanh-dao-tao.jpg",
     alt: "Nguyễn Mong Thành đứng lớp truyền lửa năng lượng tích cực cho học viên",
     caption: "Khoảnh khắc thắp sáng niềm tin cùng hàng trăm học viên",
   },

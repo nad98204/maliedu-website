@@ -14,34 +14,210 @@ const heroContent = {
   description: <>Tìm ra điều đang khiến bạn thực hành không ra kết quả và cung cấp bạn tấm bản đồ rõ ràng— từ <strong className="font-black text-[#7A2113]">tư duy, cảm xúc đến hành động thực tế tạo ra tiền.</strong></>,
 };
 const painContent = {
-  heading: "Bạn đã thực hành",
-  headingEmphasis: "nhưng chưa có kết quả?",
-  intro: "Bạn có thấy mình trong những điều này khi ứng dụng Luật Hấp Dẫn?",
+  standalone: true,
+  badge: "BẠN CÓ ĐANG GẶP?",
+  heading: (
+    <>
+      <span className="inline-block">BẠN CÓ ĐANG GẶP</span>{" "}
+      <span className="inline-block">NHỮNG VẤN ĐỀ NÀY</span>
+    </>
+  ),
+  headingEmphasis: "TRONG QUÁ TRÌNH THỰC HÀNH LUẬT HẤP DẪN?",
+  headingBreak: ["TRONG QUÁ TRÌNH THỰC HÀNH ", "LUẬT HẤP DẪN?"],
   items: [
-    "Muốn thực hành Luật Hấp Dẫn nhưng chưa biết bắt đầu thế nào, bản thân cũng chưa thực sự tin sẽ có kết quả.",
-    "Biết ơn, câu khẳng định, hình dung… bạn đều đã thử, nhưng tài chính vẫn gần như không thay đổi.",
-    "Không biết mình đang sai ở suy nghĩ, cảm xúc, niềm tin hay chính cách áp dụng Luật Hấp Dẫn.",
-    "Muốn giữ suy nghĩ tích cực, nhưng mệt mỏi và áp lực về tiền bạc, cuộc sống vẫn liên tục xuất hiện.",
-    "369, 555, viết kịch bản, hình dung, thông điệp tiềm thức… quá nhiều phương pháp, không biết nên tập trung vào đâu.",
-    "Dành nhiều thời gian thực hành nhưng chưa biết cần đưa ra quyết định hay hành động gì để tài chính thay đổi.",
+    <>
+      Muốn thực hành Luật Hấp Dẫn mà{" "}
+      <strong className="font-bold text-[#8C0C12]">
+        không biết bắt đầu từ đâu
+      </strong>
+      , bản thân cũng{" "}
+      <strong className="font-bold text-[#8C0C12]">
+        chưa thực sự tin
+      </strong>{" "}
+      sẽ ra được kết quả
+    </>,
+    <>
+      Thực hành rất nhiều: <em>biết ơn, câu khẳng định, hình dung…</em> nhưng{" "}
+      <strong className="font-bold text-[#8C0C12]">
+        tài chính vẫn gần như không thay đổi
+      </strong>
+      .
+    </>,
+    <>
+      <strong className="font-bold text-[#8C0C12]">
+        Không biết mình đang sai ở đâu
+      </strong>{" "}
+      mà không hiệu quả: ở suy nghĩ, cảm xúc, niềm tin hay chính cách áp dụng Luật Hấp Dẫn chưa chuẩn.
+    </>,
+    <>
+      Muốn giữ suy nghĩ tích cực nhưng những{" "}
+      <strong className="font-bold text-[#8C0C12]">
+        lo lắng, mệt mỏi và áp lực về tiền bạc
+      </strong>{" "}
+      và cuộc sống vẫn liên tục xuất hiện.
+    </>,
+    <>
+      <strong className="font-bold text-[#8C0C12]">
+        Biết quá nhiều phương pháp
+      </strong>{" "}
+      như 369, 555, câu khẳng định, viết kịch bản, hình dung, thông điệp tiềm thức… nhưng càng tìm hiểu{" "}
+      <strong className="font-bold text-[#8C0C12]">càng rối</strong> và không biết nên tập trung vào cách nào.
+    </>,
+    <>
+      Dành nhiều thời gian thực hành Luật Hấp Dẫn nhưng lại{" "}
+      <strong className="font-bold text-[#8C0C12]">
+        không biết mình cần đưa ra quyết định hay hành động gì
+      </strong>{" "}
+      trong thực tế để tài chính thực sự thay đổi.
+    </>,
   ],
 };
 const audienceContent = {
-  intro: "Dành cho bạn đang muốn hiểu đúng cách thực hành Luật Hấp Dẫn và biến điều mình mong muốn thành những bước đi cụ thể.",
-  groups: ["Muốn bắt đầu", "Đã thực hành", "Muốn hành động"],
+  standalone: true,
+  badge: "DÀNH CHO AI?",
+  heading: (
+    <>
+      <span className="block text-[15px] min-[390px]:text-[16.5px] sm:text-xl lg:text-[1.85rem] text-[#4A1E08] leading-snug">
+        CHƯƠNG TRÌNH NÀY SẼ PHÙ HỢP VỚI
+      </span>
+      <span className="block mt-1 sm:mt-1.5 text-[22px] min-[390px]:text-[26px] sm:text-2xl lg:text-[2.25rem] text-[#8C0C12] leading-tight tracking-tight">
+        NHỮNG BẠN
+      </span>
+    </>
+  ),
   cards: [
-    { title: ["Muốn bắt đầu", "nhưng chưa biết cách"], Icon: Compass,
-      desc: "Bạn muốn tìm một điểm khởi đầu rõ ràng, dễ áp dụng và phù hợp với chính mình.",
-      painPoints: ["Chưa biết nên bắt đầu với phương pháp nào", "Muốn một cách thực hành đơn giản, dễ hiểu", "Còn hoài nghi và muốn tự mình kiểm chứng"] },
-    { title: ["Đã biết, đã thử", "chưa thấy kết quả"], Icon: BookOpen,
-      desc: "Bạn đã thực hành nhưng chưa thấy tài chính chuyển biến và muốn biết điều gì đang cản trở mình.",
-      painPoints: ["Đã thử nhiều phương pháp nhưng chưa thấy thay đổi rõ ràng", "Không biết mình đang làm sai ở đâu", "Bắt đầu nghi ngờ liệu mình có đang áp dụng đúng"] },
-    { title: ["Muốn hành động", "để tạo ra kết quả"], Icon: Target,
-      desc: "Bạn muốn chủ động bước tới mục tiêu, thay vì chỉ hình dung, cầu nguyện rồi chờ đợi.",
-      painPoints: ["Muốn biết bước tiếp theo để tiến gần hơn tới mục tiêu", "Muốn biến Luật Hấp Dẫn thành hành động thực tế", "Muốn chủ động đưa ra quyết định và tạo ra thay đổi"] },
+    {
+      group: "NHÓM 01",
+      titleDisplay: (
+        <>
+          <span>MUỐN BẮT ĐẦU – </span>
+          <span className="text-[#8C0C12]">NHƯNG CHƯA BIẾT LÀM THẾ NÀO</span>
+        </>
+      ),
+      painPoints: [
+        "Chưa biết nên bắt đầu với phương pháp nào",
+        "Muốn có một cách thực hành đơn giản, dễ hiểu",
+        "Vẫn còn hoài nghi và muốn tự mình kiểm chứng",
+      ],
+    },
+    {
+      group: "NHÓM 02",
+      titleDisplay: (
+        <>
+          <span>ĐÃ BIẾT – ĐÃ THỬ – </span>
+          <span className="text-[#8C0C12]">NHƯNG CHƯA THẤY KẾT QUẢ</span>
+        </>
+      ),
+      painPoints: [
+        "Đã thử nhiều phương pháp nhưng chưa thấy chuyển biến rõ ràng",
+        "Không biết mình đang làm sai ở đâu",
+        "Bắt đầu nghi ngờ liệu mình có đang áp dụng đúng",
+      ],
+    },
+    {
+      group: "NHÓM 03",
+      titleDisplay: (
+        <>
+          <span>MUỐN BIẾN LUẬT HẤP DẪN </span>
+          <span className="text-[#8C0C12]">THÀNH HÀNH ĐỘNG THỰC TẾ</span>
+        </>
+      ),
+      painPoints: [
+        "Muốn biết bước tiếp theo mình cần làm là gì để tiến gần hơn tới mục tiêu.",
+        "Muốn chủ động tạo ra kết quả, thay vì chỉ cầu nguyện, hình dung rồi chờ đợi.",
+      ],
+    },
   ],
 };
-const ctaClass = "flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-b from-[#E8393F] to-[#9C0C12] px-4 py-4 text-sm font-black uppercase leading-snug text-[#FFE566] shadow-lg transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#7A2113] disabled:cursor-not-allowed disabled:opacity-60";
+const scheduleContent = {
+  standalone: true,
+  badge: "GIÁ TRỊ BẠN NHẬN ĐƯỢC",
+  headingLead: "ĐẾN VỚI ỨNG DỤNG",
+  headingEmphasis: "LUẬT HẤP DẪN ĐỂ KHƠI THÔNG DÒNG TIỀN",
+  headingBreak: ["LUẬT HẤP DẪN ĐỂ", "KHƠI THÔNG DÒNG TIỀN"],
+  headingTrail: "BẠN SẼ NHẬN ĐƯỢC:",
+  items: [
+    {
+      title: "Hiểu đúng Luật Hấp Dẫn và Phước Đức",
+      desc: (
+        <>
+          Vì sao <strong className="text-[#8C0C12] font-semibold">Phước Đức là nền tảng quan trọng</strong> khi ứng dụng Luật Hấp Dẫn vào cuộc sống và tài chính.
+        </>
+      ),
+    },
+    {
+      title: "Nhận diện những “điểm nghẽn” khiến Luật Hấp Dẫn chưa hiệu quả",
+      desc: (
+        <>
+          Từ <strong className="text-[#8C0C12] font-semibold">niềm tin, ám thị, cảm xúc</strong> đến những ảnh hưởng từ môi trường xung quanh.
+        </>
+      ),
+    },
+    {
+      title: "Biết cách làm chủ cảm xúc và duy trì trạng thái năng lượng tích cực",
+      desc: (
+        <>
+          Hạn chế những “nhiễu” khiến bạn <strong className="text-[#8C0C12] font-semibold">dễ mất niềm tin và lệch khỏi điều mình muốn</strong>.
+        </>
+      ),
+    },
+    {
+      title: "Tìm ra mục tiêu kích hoạt lực thu hút tài chính mạnh nhất",
+      desc: (
+        <>
+          Thay vì theo đuổi những <strong className="text-[#8C0C12] font-semibold">mục tiêu mơ hồ, thiếu cảm xúc và động lực</strong>.
+        </>
+      ),
+    },
+    {
+      title: "Xây dựng lộ trình ứng dụng Luật Hấp Dẫn và kế hoạch hành động cụ thể",
+      tag: "★ Trọng tâm",
+      desc: (
+        <>
+          Để biết mình <strong className="text-[#8C0C12] font-semibold">cần thực hành gì và làm gì tiếp theo</strong> sau khóa học.
+        </>
+      ),
+    },
+  ],
+};
+const founderContent = {
+  standalone: true,
+  badge: "CÂU CHUYỆN THẬT",
+  photoTag: "Tôi năm 2016",
+  headingLead: "“TẠI SAO MÌNH ĐÃ CỐ GẮNG RẤT NHIỀU",
+  headingBreak: ["MÀ CUỘC SỐNG", "VẪN KHÔNG THAY ĐỔI?”"],
+  startingPoint: [
+    "Hơn chục năm trước, tôi từng là một người rất khao khát thành công. Tôi đam mê đầu tư, muốn kiếm thật nhiều tiền và mong mình có thể thay đổi cuộc sống thật nhanh.",
+    "Nhưng càng nóng vội, tôi càng đưa ra những quyết định sai lầm.",
+    "Tôi từng bị lừa mất tiền, tiền tích lũy gần như tiêu tan, rơi vào nợ nần, mất việc và có giai đoạn không biết tương lai của mình sẽ đi về đâu.",
+  ],
+  struggles: [
+    "Tôi là người tốt mà, tại sao cứ gặp toàn điều xui xẻo?",
+    "Tôi đâu hại ai, sao mọi thứ cứ chống lại mình?",
+    "Suốt nhiều tháng tôi sống trong tiêu cực, cố gắng kiếm tiền trả nợ, làm lại… mà mọi thứ vẫn cứ như vậy.",
+  ],
+  awakeningLead: "Khi tôi thực sự hiểu đúng về Luật Hấp Dẫn và Luật Nhân Quả tôi mới thấy mọi thứ trong năng lượng mình sai quá nhiều:",
+  energyTraps: [
+    {
+      title: "Luôn kiếm tiền trong áp lực khổ sở và nóng vội",
+      desc: "Khiến cho tiền khó đến, đến rồi lại đi.",
+    },
+    {
+      title: "Nhiều ám thị sai lệch về tài chính bên trong",
+      desc: "Mà những ám thị thông thường không thay đổi được.",
+    },
+    {
+      title: "Chỉ mong cầu được quả tài chính mà không học cách gieo nhân Phước Đức",
+      desc: "Càng cố gặt càng cạn dần tiền bạc.",
+    },
+  ],
+  transformation: "Từ một người trắng tay, hôm nay tôi đã có một cuộc sống mới: tài chính vững vàng, năng lượng tích cực và một sứ mệnh trọn vẹn.",
+  missionBadge: "TÔI MUỐN CHIA SẺ LẠI VỚI BẠN",
+  missionTitle: "LỘ TRÌNH 3 BƯỚC KHƠI THÔNG DÒNG TIỀN",
+  missionDesc: "Giúp bạn chuyển hoá tâm thức, gieo hạt phước báu và kết nối dòng chảy thịnh vượng bền vững.",
+  quote: "“Dòng tiền chỉ bắt đầu khơi thông khi nội lực và năng lượng của bạn đủ vững vàng.”",
+};
+const ctaClass = "flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full bg-gradient-to-b from-[#E8393F] to-[#9C0C12] px-3 sm:px-4 py-4 text-xs min-[375px]:text-sm font-black uppercase leading-snug text-[#FFE566] shadow-lg transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#7A2113] disabled:cursor-not-allowed disabled:opacity-60";
 const inputClass = "mt-2 w-full rounded-xl border border-[#D4B572] bg-white px-4 py-3.5 text-base text-[#3A2208] outline-none transition focus:border-[#7A2113] focus:ring-2 focus:ring-[#C9961A]/30 disabled:opacity-60";
 const errorClass = "mt-2 text-sm font-semibold text-[#9C0C12]";
 
@@ -109,14 +285,14 @@ function Registration({ config, reloadConfig }) {
     <p className="mt-4 text-sm">Bạn sẽ học cùng lớp Khơi Thông Dòng Tiền của Mali Edu.</p>
   </div>;
 
-  return <form className="rounded-2xl bg-[#FFFBF0] p-5 text-[#5A3A1A] sm:p-8" onSubmit={handleSubmit} noValidate aria-busy={busy}>
-    <h3 className="text-xl font-black uppercase text-[#7A2113]">Nhận link học miễn phí</h3>
+  return <form className="rounded-2xl bg-[#FFFBF0] p-4 text-[#5A3A1A] sm:p-8" onSubmit={handleSubmit} noValidate aria-busy={busy}>
+    <h3 className="text-lg sm:text-xl font-black uppercase text-[#7A2113]"><span className="inline-block">Nhận link học</span>{" "}<span className="inline-block">miễn phí</span></h3>
     <p className="mb-6 mt-2 text-sm leading-relaxed">Điền thông tin để nhận hướng dẫn tham gia 4 buổi học online.</p>
     <label className="block text-sm font-bold uppercase" htmlFor="secret-name">Họ và tên <span aria-hidden="true">*</span></label>
-    <input className={inputClass} ref={nameRef} id="secret-name" name="name" autoComplete="name" placeholder="Nhập họ và tên của bạn" maxLength={120} required value={contact.name} disabled={busy} aria-invalid={Boolean(errors.name)} aria-describedby={errors.name ? "secret-name-error" : undefined} onChange={e => { setContact({ ...contact, name: e.target.value }); setErrors({ ...errors, name: "" }); }} />
+    <input className={inputClass} ref={nameRef} id="secret-name" name="name" autoComplete="name" placeholder="Họ và tên của bạn" maxLength={120} required value={contact.name} disabled={busy} aria-invalid={Boolean(errors.name)} aria-describedby={errors.name ? "secret-name-error" : undefined} onChange={e => { setContact({ ...contact, name: e.target.value }); setErrors({ ...errors, name: "" }); }} />
     {errors.name && <p className={errorClass} id="secret-name-error">{errors.name}</p>}
     <label className="mt-5 block text-sm font-bold uppercase" htmlFor="secret-phone">Số điện thoại Zalo <span aria-hidden="true">*</span></label>
-    <input className={inputClass} ref={phoneRef} id="secret-phone" name="phone" type="tel" inputMode="tel" autoComplete="tel" placeholder="Số điện thoại bạn dùng Zalo" maxLength={20} required value={contact.phone} disabled={busy} aria-invalid={Boolean(errors.phone)} aria-describedby={errors.phone ? "secret-phone-error" : undefined} onChange={e => { setContact({ ...contact, phone: e.target.value }); setErrors({ ...errors, phone: "" }); }} />
+    <input className={inputClass} ref={phoneRef} id="secret-phone" name="phone" type="tel" inputMode="tel" autoComplete="tel" placeholder="Số điện thoại Zalo" maxLength={20} required value={contact.phone} disabled={busy} aria-invalid={Boolean(errors.phone)} aria-describedby={errors.phone ? "secret-phone-error" : undefined} onChange={e => { setContact({ ...contact, phone: e.target.value }); setErrors({ ...errors, phone: "" }); }} />
     {errors.phone && <p className={errorClass} id="secret-phone-error">{errors.phone}</p>}
     {config?.is_maintenance && <p className={errorClass} role="status">Lớp học đang tạm ngưng nhận đăng ký. Bạn vui lòng quay lại sau.</p>}
     {failure && <p className={errorClass} role="alert">{failure}</p>}
@@ -137,17 +313,18 @@ export default function BiMatLuatHapDan() {
     resolveKhoiThongLandingConfig({ path: SECRET_LANDING_PATH }).then(next => { if (active) setConfig(next); }).catch(() => {});
     return () => { active = false; };
   }, []);
-  const registration = <section className="overflow-hidden rounded-3xl border border-[#E3C675] bg-gradient-to-b from-[#8A0D13] via-[#67070C] to-[#490307] px-4 py-8 shadow-2xl sm:px-8 sm:py-12" aria-labelledby="secret-register-title">
+  const scheduleDays = config?.ctaScheduleLabel?.replace(/\s*[-–·]\s*\d{1,2}(?:h|:)\d{2}.*$/i, "").trim();
+  const registration = <section className="overflow-hidden rounded-3xl border border-[#E3C675] bg-gradient-to-b from-[#8A0D13] via-[#67070C] to-[#490307] px-3 py-6 shadow-2xl sm:px-8 sm:py-12" aria-labelledby="secret-register-title">
     <header className="mx-auto mb-7 max-w-3xl text-center">
-      <span className="inline-flex rounded-full border border-[#F3D477]/40 bg-white/10 px-4 py-1.5 text-xs font-black uppercase tracking-widest text-[#FFE99A]">Đăng ký tham gia miễn phí</span>
-      <h2 id="secret-register-title" className="mt-4 text-2xl font-black uppercase leading-tight text-white sm:text-4xl">Đăng ký 4 buổi học<span className="mt-1 block text-[#FFE566]">Hoàn toàn miễn phí</span></h2>
+      <span className="inline-flex rounded-full border border-[#F3D477]/40 bg-white/10 px-3 sm:px-4 py-1.5 text-[10px] sm:text-xs font-black uppercase tracking-wider sm:tracking-widest text-[#FFE99A]">Đăng ký tham gia miễn phí</span>
+      <h2 id="secret-register-title" className="mt-4 text-[clamp(1.05rem,5.2vw,1.5rem)] font-black uppercase leading-tight text-white sm:text-4xl">Đăng ký 4 buổi học<span className="mt-1 block text-[#FFE566]">Hoàn toàn miễn phí</span></h2>
       <p className="mt-4 text-sm leading-relaxed text-[#F5E6B7] sm:text-base">Nhận link Zoom và hướng dẫn tham gia chương trình Khơi Thông Dòng Tiền.</p>
-      <p className="mt-2 text-sm font-bold text-[#FFE99A]">{config?.ctaScheduleLabel || "Lịch học được cập nhật trong nhóm Zalo"} · 20:00 – 22:00</p>
+      <p className="mt-3 flex flex-wrap justify-center gap-x-4 gap-y-1 text-sm font-bold text-[#FFE99A]">{scheduleDays ? <><span>{scheduleDays}</span><span>20:00 – 22:00</span></> : "Lịch học được cập nhật trong nhóm Zalo"}</p>
     </header>
     <div className="mx-auto grid max-w-5xl items-center gap-6 lg:grid-cols-2">
       <Registration config={config} reloadConfig={reloadConfig} />
       <img className="w-full rounded-2xl border border-[#D4B572]/50" src="/assets/landing/khoi-thong-dong-tien/registration-banner.webp" alt="Chương trình Khơi Thông Dòng Tiền — 4 buổi học online miễn phí" loading="lazy" decoding="async" />
     </div>
   </section>;
-  return <KhoiThongDongTien seoPath={SECRET_LANDING_PATH} heroContent={heroContent} painContent={painContent} audienceContent={audienceContent} registration={registration} />;
+  return <KhoiThongDongTien seoPath={SECRET_LANDING_PATH} heroContent={heroContent} painContent={painContent} audienceContent={audienceContent} scheduleContent={scheduleContent} founderContent={founderContent} registration={registration} />;
 }
