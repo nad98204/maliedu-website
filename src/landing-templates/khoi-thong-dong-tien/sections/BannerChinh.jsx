@@ -238,10 +238,16 @@ const CompactHero = ({ content, landingConfig }) => {
 
           {/* Description */}
           <p className="loa-intro max-w-[340px] px-1 text-[13.5px] font-normal leading-[1.55] text-[#5A3A1A] [text-wrap:balance] min-[390px]:text-[14px] sm:max-w-2xl sm:px-3 sm:text-[0.92rem] sm:leading-[1.7] lg:text-[0.98rem]">
-            Tìm ra điều đang khiến bạn thực hành không ra kết quả và cung cấp bạn tấm bản đồ rõ ràng—{" "}
-            <strong className="font-bold text-[#7A130C]">
-              từ tư duy, cảm xúc đến <span className="loa-action inline-block">hành động thực tế tạo ra tiền.</span>
-            </strong>
+            <span className="sm:hidden">
+              Nhận diện điểm nghẽn và có bản đồ rõ ràng — từ{" "}
+              <strong className="font-bold text-[#7A130C]">tư duy, cảm xúc đến hành động tạo ra tiền.</strong>
+            </span>
+            <span className="hidden sm:inline">
+              Tìm ra điều đang khiến bạn thực hành không ra kết quả và cung cấp bạn tấm bản đồ rõ ràng—{" "}
+              <strong className="font-bold text-[#7A130C]">
+                từ tư duy, cảm xúc đến <span className="loa-action inline-block">hành động thực tế tạo ra tiền.</span>
+              </strong>
+            </span>
           </p>
         </div>
 
