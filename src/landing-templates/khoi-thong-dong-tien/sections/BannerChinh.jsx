@@ -186,39 +186,39 @@ const CompactHero = ({ content, landingConfig }) => {
       </div>
 
       {/* ── Main Hero Content ── */}
-      <div className="relative z-10 mx-auto max-w-6xl px-4 py-5 sm:px-6 sm:py-9 lg:px-8 lg:py-11">
+      <div className="relative z-10 mx-auto max-w-6xl px-3 py-4 min-[390px]:px-4 min-[390px]:py-5 sm:px-6 sm:py-9 lg:px-8 lg:py-11">
         {/* Top Centered Header */}
-        <div className="flex flex-col items-center text-center space-y-3 sm:space-y-4 max-w-4xl mx-auto">
+        <div className="mx-auto flex max-w-4xl flex-col items-center space-y-2.5 text-center sm:space-y-4">
           {/* Hook Question Badge */}
-          <div className="inline-flex items-center gap-2.5 rounded-2xl sm:rounded-full border border-[#D4B572]/60 bg-white/95 px-3 py-2.5 sm:px-4 sm:py-1.5 shadow-[0_2px_12px_rgba(83,48,18,0.06)]">
+          <div className="inline-flex w-full max-w-[360px] items-center justify-center gap-2.5 rounded-[18px] border border-[#D4B572]/60 bg-white/95 px-3 py-2 sm:w-auto sm:max-w-none sm:rounded-full sm:px-4 sm:py-1.5 shadow-[0_2px_12px_rgba(83,48,18,0.06)]">
             <span className="hidden sm:flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#8C0C12] text-[10px] font-black text-white shadow-xs">
               ?
             </span>
-            <p className="text-[13px] sm:text-[0.88rem] font-semibold text-[#5A3A1A] leading-relaxed sm:leading-snug">
-              <span>{content.question}</span>{" "}
-              <strong className="block sm:inline font-extrabold text-[#7A2113]">
+            <p className="text-[12px] font-semibold leading-[1.45] text-[#5A3A1A] [text-wrap:balance] min-[390px]:text-[12.5px] sm:text-[0.88rem] sm:leading-snug">
+              <span className="block sm:inline">{content.question}</span>{" "}
+              <strong className="mt-0.5 block font-extrabold text-[#7A2113] sm:mt-0 sm:inline">
                 {content.questionEmphasis}
               </strong>
             </p>
           </div>
 
           {/* Main Title */}
-          <div className="w-full py-1 sm:px-2">
+          <div className="w-full pb-0 pt-1 sm:px-2 sm:py-1">
             <h1 className="font-black uppercase">
               <span
-                className="loa-title-lead block text-[clamp(1.125rem,4.8vw,1.375rem)] sm:text-[2rem] lg:text-[2.2rem] xl:text-[2.45rem] font-bold uppercase tracking-normal font-sans"
+                className="loa-title-lead block font-sans text-[clamp(1.08rem,4.8vw,1.375rem)] font-extrabold uppercase tracking-[-0.015em] sm:text-[2rem] sm:tracking-normal lg:text-[2.2rem] xl:text-[2.45rem]"
                 style={{
                   color: "#4E1E05",
-                  lineHeight: 1.2,
+                  lineHeight: 1.14,
                   paddingTop: "0.15em",
                 }}
               >
                 <span className="inline-block">ỨNG DỤNG</span>{" "}<span className="inline-block">LUẬT HẤP DẪN ĐỂ</span>
               </span>
               <span
-                className="loa-title-main block mt-2 sm:mt-1 text-[clamp(2rem,8.6vw,2.4rem)] sm:text-[2.75rem] lg:text-[3.2rem] xl:text-[3.6rem] font-extrabold uppercase tracking-tight font-sans"
+                className="loa-title-main mt-1.5 block font-sans text-[clamp(2.05rem,8.6vw,2.4rem)] font-black uppercase tracking-[-0.035em] sm:mt-1 sm:text-[2.75rem] sm:tracking-tight lg:text-[3.2rem] xl:text-[3.6rem]"
                 style={{
-                  lineHeight: 1.2,
+                  lineHeight: 1.08,
                   paddingTop: "0.04em",
                   paddingBottom: "0.08em",
                   color: "#8C0C12",
@@ -237,10 +237,10 @@ const CompactHero = ({ content, landingConfig }) => {
           </div>
 
           {/* Description */}
-          <p className="loa-intro text-[14px] sm:text-[0.92rem] lg:text-[0.98rem] font-normal leading-[1.65] sm:leading-[1.7] text-[#5A3A1A] max-w-2xl px-1 sm:px-3">
-            <span className="block [text-wrap:balance]">Tìm ra điều đang khiến bạn thực hành không ra kết quả và cung cấp bạn tấm bản đồ rõ ràng</span>
-            <strong className="mt-1 block font-semibold text-[#7A130C] [text-wrap:balance]">
-              – từ tư duy, cảm xúc đến <span className="loa-action inline-block">hành động thực tế tạo ra tiền.</span>
+          <p className="loa-intro max-w-[340px] px-1 text-[13.5px] font-normal leading-[1.55] text-[#5A3A1A] [text-wrap:balance] min-[390px]:text-[14px] sm:max-w-2xl sm:px-3 sm:text-[0.92rem] sm:leading-[1.7] lg:text-[0.98rem]">
+            Tìm ra điều đang khiến bạn thực hành không ra kết quả và cung cấp bạn tấm bản đồ rõ ràng—{" "}
+            <strong className="font-bold text-[#7A130C]">
+              từ tư duy, cảm xúc đến <span className="loa-action inline-block">hành động thực tế tạo ra tiền.</span>
             </strong>
           </p>
         </div>
