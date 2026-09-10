@@ -55,6 +55,18 @@ const createUpstreamRequest = async (request) => {
 };
 
 export async function onRequest(context) {
+  // Lead intake must not depend on the separately billed Cloud Run service.
+  // The Pages handler validates and creates records using CRM's existing rules.
+  if (new URL(context.request.url).pathname.replace(/\/+$/, "") === "/api/crm-leads") {
+    if (context.request.method !== "POST") {
+      return Response.json({ error: "Method not allowed" }, {
+        status: 405,
+        headers: { Allow: "POST", "Cache-Control": "no-store" },
+      });
+    }
+    return context.next();
+  }
+
   try {
     const response = await fetch(
       await createUpstreamRequest(context.request),
