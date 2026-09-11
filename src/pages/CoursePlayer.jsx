@@ -18,6 +18,7 @@ import PlayerSidebar from '../components/PlayerSidebar';
 import PlayerTabs from '../components/PlayerTabs';
 import RelatedCourses from '../components/RelatedCourses';
 import VideoWrapper from '../components/VideoWrapper';
+import styles from './CoursePlayer.module.css';
 import {
     getLessonKey,
     getPreferredPreviewLesson,
@@ -801,7 +802,7 @@ const CoursePlayer = () => {
     }
 
     return (
-        <div className="flex min-h-screen flex-col bg-slate-100 text-slate-800 md:h-screen md:overflow-hidden md:bg-gray-50">
+        <div className={`${styles.player} flex min-h-screen flex-col bg-slate-100 text-slate-800 md:h-screen md:overflow-hidden md:bg-gray-50`}>
             <header className="z-20 flex h-16 shrink-0 items-center justify-between border-b border-white/5 bg-gradient-to-r from-[#B91C1C] via-[#B91C1C] to-[#991B1B] px-3 shadow-[0_4px_30px_-5px_rgba(0,0,0,0.25)] md:px-6">
                 <div className="flex min-w-0 flex-1 items-center gap-3 md:gap-6">
                     <Link
@@ -898,7 +899,7 @@ const CoursePlayer = () => {
                 </div>
             </header>
 
-            <div className="relative flex flex-1 md:overflow-hidden">
+            <div className={`${styles.layout} relative flex flex-1 md:overflow-hidden`}>
                 {isSidebarOpen && (
                     <button
                         type="button"
@@ -908,8 +909,8 @@ const CoursePlayer = () => {
                     />
                 )}
 
-                <main
-                    className="relative z-10 w-full min-w-0 flex-1 md:overflow-y-auto md:custom-scrollbar"
+                <div
+                    className={`${styles.content} relative z-10 w-full min-w-0 flex-1 md:overflow-y-auto md:custom-scrollbar`}
                     id="player-scroll-container"
                 >
                     <div className="mx-auto max-w-[1600px] md:px-8 md:pt-8">
@@ -980,10 +981,11 @@ const CoursePlayer = () => {
                             </div>
                         </VideoWrapper>
                     </div>
-                </main>
+                </div>
 
                 <aside
                     className={`
+                        ${styles.sidebar}
                         fixed bottom-0 right-0 top-[64px] z-30 flex w-[min(88vw,360px)] max-w-full flex-col overflow-hidden rounded-l-[28px] border-l border-slate-200 bg-white shadow-2xl transition-transform duration-300
                         md:relative md:bottom-auto md:top-auto md:z-20 md:w-96 md:translate-x-0 md:rounded-none md:shadow-xl
                         ${isSidebarOpen ? 'translate-x-0' : 'translate-x-full'}

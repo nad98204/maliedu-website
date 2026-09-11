@@ -1,0 +1,37 @@
+.player {
+    overflow-x: clip;
+}
+
+.layout,
+.content {
+    min-width: 0;
+    min-height: 0;
+}
+
+/* Keep the desktop columns in one layout, independent of the page we came from. */
+@media (min-width: 768px) {
+    .player {
+        height: 100dvh;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    .layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 24rem;
+        overflow: hidden;
+    }
+
+    .content {
+        width: auto;
+        overflow-y: auto;
+    }
+
+    .sidebar {
+        position: relative;
+        inset: auto;
+        width: 100%;
+        min-height: 0;
+        transform: none;
+    }
+}
