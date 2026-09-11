@@ -203,20 +203,26 @@ const CompactHero = ({ content, landingConfig }) => {
           </div>
 
           {/* Main Title */}
-          <div className="w-full pb-0 pt-1 sm:px-2 sm:py-1">
+          <div className="-mx-3 w-[calc(100%+1.5rem)] pb-0 pt-1 sm:mx-0 sm:w-full sm:px-2 sm:py-1">
             <h1 className="font-black uppercase">
               <span
-                className="loa-title-lead block font-sans text-[clamp(1.08rem,4.8vw,1.375rem)] font-extrabold uppercase tracking-[-0.015em] sm:text-[2rem] sm:tracking-normal lg:text-[2.2rem] xl:text-[2.45rem]"
+                className="loa-title-lead block font-sans text-[clamp(1.18rem,5.2vw,1.42rem)] font-extrabold uppercase tracking-[-0.025em] sm:text-[2rem] sm:tracking-normal lg:text-[2.2rem] xl:text-[2.45rem]"
                 style={{
                   color: "#4E1E05",
                   lineHeight: 1.14,
                   paddingTop: "0.15em",
                 }}
               >
-                <span className="inline-block">ỨNG DỤNG</span>{" "}<span className="inline-block">LUẬT HẤP DẪN ĐỂ</span>
+                <span className="inline-block">ỨNG DỤNG</span>{" "}
+                <span className="inline-block">
+                  <span className="rounded-[0.2em] bg-[linear-gradient(180deg,transparent_52%,rgba(201,150,26,0.28)_52%)] px-[0.08em] font-black text-[#8C0C12]">
+                    LUẬT HẤP DẪN
+                  </span>{" "}
+                  ĐỂ
+                </span>
               </span>
               <span
-                className="loa-title-main mt-1.5 block font-sans text-[clamp(2.05rem,8.6vw,2.4rem)] font-black uppercase tracking-[-0.035em] sm:mt-1 sm:text-[2.75rem] sm:tracking-tight lg:text-[3.2rem] xl:text-[3.6rem]"
+                className="loa-title-main mt-1.5 block font-sans text-[clamp(3rem,14vw,3.85rem)] font-black uppercase tracking-[-0.055em] sm:mt-1 sm:text-[2.75rem] sm:tracking-tight lg:text-[3.2rem] xl:text-[3.6rem]"
                 style={{
                   lineHeight: 1.08,
                   paddingTop: "0.04em",
@@ -239,8 +245,9 @@ const CompactHero = ({ content, landingConfig }) => {
           {/* Description */}
           <p className="loa-intro max-w-[340px] px-1 text-[13.5px] font-normal leading-[1.55] text-[#5A3A1A] [text-wrap:balance] min-[390px]:text-[14px] sm:max-w-2xl sm:px-3 sm:text-[0.92rem] sm:leading-[1.7] lg:text-[0.98rem]">
             <span className="sm:hidden">
-              Nhận diện điểm nghẽn và có bản đồ rõ ràng — từ{" "}
-              <strong className="font-bold text-[#7A130C]">tư duy, cảm xúc đến hành động tạo ra tiền.</strong>
+              Gỡ điểm nghẽn từ <strong className="font-bold text-[#7A130C]">tư duy, cảm xúc</strong>
+              <br />
+              đến <strong className="font-bold text-[#7A130C]">hành động thực tế tạo ra tiền.</strong>
             </span>
             <span className="hidden sm:inline">
               Tìm ra điều đang khiến bạn thực hành không ra kết quả và cung cấp bạn tấm bản đồ rõ ràng—{" "}

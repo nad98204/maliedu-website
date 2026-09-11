@@ -164,18 +164,18 @@ const PhanNoiDau = ({ content } = {}) => {
               </div>
             )}
 
-            <h2 className="font-sans font-black uppercase tracking-tight text-center">
-              <span className="block text-[14.5px] min-[380px]:text-[15.5px] min-[414px]:text-[17px] sm:text-xl lg:text-[1.85rem] text-[#4A1E08] leading-snug">
+            <h2 className="loa-section-heading font-sans font-black uppercase tracking-tight text-center">
+              <span className="loa-section-kicker block text-[16px] min-[380px]:text-[17px] min-[414px]:text-[18px] sm:text-xl lg:text-[1.85rem] text-[#4A1E08] leading-snug">
                 {content.heading}
               </span>
               {content.headingEmphasis && (
                 <span className="block mt-1 sm:mt-1.5 leading-tight">
                   {content.headingBreak ? (
                     <>
-                      <span className="block sm:inline text-[18px] min-[390px]:text-[20px] sm:text-2xl lg:text-[2.25rem] text-[#74180F] sm:text-[#8C0C12] leading-snug">
+                      <span className="loa-section-long block sm:inline text-[18px] min-[390px]:text-[20px] sm:text-2xl lg:text-[2.25rem] text-[#74180F] sm:text-[#8C0C12] leading-snug">
                         {content.headingBreak[0]}
                       </span>
-                      <span className="block sm:inline sm:ml-2 text-[23px] min-[390px]:text-[26px] sm:text-2xl lg:text-[2.25rem] text-[#8C0C12] tracking-tight leading-tight">
+                      <span className="loa-section-main block sm:inline sm:ml-2 text-[25px] min-[390px]:text-[27px] sm:text-2xl lg:text-[2.25rem] text-[#8C0C12] tracking-tight leading-tight">
                         {content.headingBreak[1]}
                       </span>
                     </>

@@ -10,18 +10,20 @@ import { HERO_TITLE_SRCSET, HERO_TITLE_SIZES, HERO_POSTER, HERO_POSTER_SRCSET, H
 const PhanNoiDau = lazy(() => import("./sections/PhanNoiDau"));
 const DoiTuongPhuHop = lazy(() => import("./sections/DoiTuongPhuHop"));
 const LichTrinhHoc = lazy(() => import("./sections/LichTrinhHoc"));
+const NoiDungBonBuoi = lazy(() => import("./sections/NoiDungBonBuoi"));
 const KetQuaHocVien = lazy(() => import("./sections/KetQuaHocVien"));
 const CauChuyenNguoiSangLap = lazy(() => import("./sections/CauChuyenNguoiSangLap"));
 const VideoHocVien = lazy(() => import("./sections/VideoHocVien"));
 const FormDangKy = lazy(() => import("./sections/FormDangKy"));
 const Footer = lazy(() => import("../../components/Footer"));
 
-const KhoiThongDongTien = ({ targetFunnel, source_key, seoPath = "/dao-tao/khoi-thong-dong-tien", heroContent, painContent, audienceContent, scheduleContent, founderContent, registration }) => {
+const KhoiThongDongTien = ({ targetFunnel, source_key, seoPath = "/dao-tao/khoi-thong-dong-tien", heroContent, painContent, audienceContent, scheduleContent, curriculumContent, founderContent, registration }) => {
   const seo = getRouteSeo(seoPath);
 
   return (
     <div
       className="relative font-sans min-h-screen"
+      data-compact-landing={heroContent?.compact ? "true" : undefined}
       style={{
         background: "linear-gradient(180deg, #FFFFFF 0%, #FDF7EC 15%, #F5EDD8 50%, #EAD9B8 100%)",
       }}
@@ -50,6 +52,14 @@ const KhoiThongDongTien = ({ targetFunnel, source_key, seoPath = "/dao-tao/khoi-
             <LichTrinhHoc content={scheduleContent} />
           </Suspense>
         </LazyWhenVisible>
+
+        {curriculumContent && (
+          <LazyWhenVisible minHeight="22rem">
+            <Suspense fallback={<SectionFallback className="h-56" />}>
+              <NoiDungBonBuoi content={curriculumContent} />
+            </Suspense>
+          </LazyWhenVisible>
+        )}
 
         <LazyWhenVisible minHeight="24rem">
           <Suspense fallback={<SectionFallback className="min-h-[18rem]" />}>

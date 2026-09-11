@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, BookOpen, CheckCircle2, Compass, LoaderCircle, LockKeyhole, Target } from "lucide-react";
+import { ArrowRight, CalendarDays, CheckCircle2, Clock3, LoaderCircle, Phone, UserRound } from "lucide-react";
 import KhoiThongDongTien from "../khoi-thong-dong-tien/KhoiThongDongTien";
 import { resolveKhoiThongLandingConfig } from "../khoi-thong-dong-tien/landingConfig";
 import { submitToCRM } from "../../services/crmService";
@@ -77,10 +77,11 @@ const audienceContent = {
   badge: "DÀNH CHO AI?",
   heading: (
     <>
-      <span className="block text-[15px] min-[390px]:text-[16.5px] sm:text-xl lg:text-[1.85rem] text-[#4A1E08] leading-snug">
-        CHƯƠNG TRÌNH NÀY SẼ PHÙ HỢP VỚI
+      <span className="loa-section-kicker block text-[16px] min-[390px]:text-[17.5px] sm:text-xl lg:text-[1.85rem] text-[#4A1E08] leading-snug">
+        <span className="block sm:inline">CHƯƠNG TRÌNH NÀY</span>{" "}
+        <span className="block sm:inline">SẼ PHÙ HỢP VỚI</span>
       </span>
-      <span className="block mt-1 sm:mt-1.5 text-[22px] min-[390px]:text-[26px] sm:text-2xl lg:text-[2.25rem] text-[#8C0C12] leading-tight tracking-tight">
+      <span className="loa-section-main block mt-1 sm:mt-1.5 text-[25px] min-[390px]:text-[28px] sm:text-2xl lg:text-[2.25rem] text-[#8C0C12] leading-tight tracking-tight">
         NHỮNG BẠN
       </span>
     </>
@@ -180,6 +181,38 @@ const scheduleContent = {
     },
   ],
 };
+const curriculumContent = {
+  sessions: [
+    {
+      title: "Dòng tiền của bạn bị chặn vì điều gì?",
+      points: [
+        "Nhận diện cách tiền đang vận hành và đến với bạn.",
+        "Tìm và chuyển hóa 3 nguyên nhân chính đang chặn dòng tiền.",
+      ],
+    },
+    {
+      title: "Xử lý ám thị, dấu ấn ảnh hưởng tới lực hút tiền",
+      points: [
+        "Gỡ những mất cân bằng nội tâm và ảnh hưởng từ gia đình.",
+        "Chuyển hóa các dấu ấn khiến tiền về chậm.",
+      ],
+    },
+    {
+      title: "Lộ trình từng bước chinh phục mục tiêu tài chính",
+      points: [
+        "Thiết lập kế hoạch theo đuổi mục tiêu đúng cách.",
+        "Ứng dụng Luật Hấp Dẫn và duy trì năng lượng hành động.",
+      ],
+    },
+    {
+      title: "Lập trình kỷ luật từ tiềm thức",
+      points: [
+        "Gỡ thói quen trì hoãn, lười biếng.",
+        "Cài đặt thói quen tích cực, biến kỷ luật thành phản xạ.",
+      ],
+    },
+  ],
+};
 const founderContent = {
   standalone: true,
   badge: "CÂU CHUYỆN THẬT",
@@ -214,11 +247,12 @@ const founderContent = {
   transformation: "Từ một người trắng tay, hôm nay tôi đã có một cuộc sống mới: tài chính vững vàng, năng lượng tích cực và một sứ mệnh trọn vẹn.",
   missionBadge: "TÔI MUỐN CHIA SẺ LẠI VỚI BẠN",
   missionTitle: "LỘ TRÌNH 3 BƯỚC KHƠI THÔNG DÒNG TIỀN",
+  missionTitleLines: ["LỘ TRÌNH 3 BƯỚC", "KHƠI THÔNG DÒNG TIỀN"],
   missionDesc: "Giúp bạn chuyển hoá tâm thức, gieo hạt phước báu và kết nối dòng chảy thịnh vượng bền vững.",
   quote: "“Dòng tiền chỉ bắt đầu khơi thông khi nội lực và năng lượng của bạn đủ vững vàng.”",
 };
 const ctaClass = "flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full bg-gradient-to-b from-[#E8393F] to-[#9C0C12] px-3 sm:px-4 py-4 text-xs min-[375px]:text-sm font-black uppercase leading-snug text-[#FFE566] shadow-lg transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#7A2113] disabled:cursor-not-allowed disabled:opacity-60";
-const inputClass = "mt-2 w-full rounded-xl border border-[#D4B572] bg-white px-4 py-3.5 text-base text-[#3A2208] outline-none transition focus:border-[#7A2113] focus:ring-2 focus:ring-[#C9961A]/30 disabled:opacity-60";
+const inputClass = "w-full rounded-[14px] border border-[#D4B572]/90 bg-white py-4 pl-11 pr-4 text-base text-[#3A2208] shadow-[0_4px_14px_rgba(91,49,14,0.04)] outline-none transition placeholder:text-[#8A7967]/60 focus:border-[#9C0C12] focus:ring-4 focus:ring-[#C9961A]/15 disabled:opacity-60";
 const errorClass = "mt-2 text-sm font-semibold text-[#9C0C12]";
 
 function Registration({ config, reloadConfig }) {
@@ -287,19 +321,22 @@ function Registration({ config, reloadConfig }) {
     <p className="mt-4 text-sm">Bạn sẽ học cùng lớp Khơi Thông Dòng Tiền của Mali Edu.</p>
   </div>;
 
-  return <form className="rounded-2xl bg-[#FFFBF0] p-4 text-[#5A3A1A] sm:p-8" onSubmit={handleSubmit} noValidate aria-busy={busy}>
-    <h3 className="text-lg sm:text-xl font-black uppercase text-[#7A2113]"><span className="inline-block">Nhận link học</span>{" "}<span className="inline-block">miễn phí</span></h3>
-    <p className="mb-6 mt-2 text-sm leading-relaxed">Điền thông tin để nhận hướng dẫn tham gia 4 buổi học online.</p>
-    <label className="block text-sm font-bold uppercase" htmlFor="secret-name">Họ và tên <span aria-hidden="true">*</span></label>
-    <input className={inputClass} ref={nameRef} id="secret-name" name="name" autoComplete="name" placeholder="Họ và tên của bạn" maxLength={120} required value={contact.name} disabled={busy} aria-invalid={Boolean(errors.name)} aria-describedby={errors.name ? "secret-name-error" : undefined} onChange={e => { setContact({ ...contact, name: e.target.value }); setErrors({ ...errors, name: "" }); }} />
+  return <form className="rounded-[1.55rem] border border-white/80 bg-[#FFFBF0] p-4 text-[#5A3A1A] shadow-[0_18px_45px_rgba(39,0,2,0.2)] sm:p-8" onSubmit={handleSubmit} noValidate aria-busy={busy}>
+    <label className="block text-[0.72rem] font-black uppercase tracking-[0.06em] text-[#5B2412] sm:text-sm" htmlFor="secret-name">Họ và tên <span className="text-[#B30D16]" aria-hidden="true">*</span></label>
+    <div className="relative mt-2">
+      <UserRound className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#A07020]" size={19} />
+      <input className={inputClass} ref={nameRef} id="secret-name" name="name" autoComplete="name" placeholder="Nhập họ và tên" maxLength={120} required value={contact.name} disabled={busy} aria-invalid={Boolean(errors.name)} aria-describedby={errors.name ? "secret-name-error" : undefined} onChange={e => { setContact({ ...contact, name: e.target.value }); setErrors({ ...errors, name: "" }); }} />
+    </div>
     {errors.name && <p className={errorClass} id="secret-name-error">{errors.name}</p>}
-    <label className="mt-5 block text-sm font-bold uppercase" htmlFor="secret-phone">Số điện thoại Zalo <span aria-hidden="true">*</span></label>
-    <input className={inputClass} ref={phoneRef} id="secret-phone" name="phone" type="tel" inputMode="tel" autoComplete="tel" placeholder="Số điện thoại Zalo" maxLength={20} required value={contact.phone} disabled={busy} aria-invalid={Boolean(errors.phone)} aria-describedby={errors.phone ? "secret-phone-error" : undefined} onChange={e => { setContact({ ...contact, phone: e.target.value }); setErrors({ ...errors, phone: "" }); }} />
+    <label className="mt-5 block text-[0.72rem] font-black uppercase tracking-[0.06em] text-[#5B2412] sm:text-sm" htmlFor="secret-phone">Số điện thoại Zalo <span className="text-[#B30D16]" aria-hidden="true">*</span></label>
+    <div className="relative mt-2">
+      <Phone className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#A07020]" size={19} />
+      <input className={inputClass} ref={phoneRef} id="secret-phone" name="phone" type="tel" inputMode="tel" autoComplete="tel" placeholder="Nhập số điện thoại Zalo" maxLength={20} required value={contact.phone} disabled={busy} aria-invalid={Boolean(errors.phone)} aria-describedby={errors.phone ? "secret-phone-error" : undefined} onChange={e => { setContact({ ...contact, phone: e.target.value }); setErrors({ ...errors, phone: "" }); }} />
+    </div>
     {errors.phone && <p className={errorClass} id="secret-phone-error">{errors.phone}</p>}
     {config?.is_maintenance && <p className={errorClass} role="status">Lớp học đang tạm ngưng nhận đăng ký. Bạn vui lòng quay lại sau.</p>}
     {failure && <p className={errorClass} role="alert">{failure}</p>}
-    <div className="mt-6"><button className={ctaClass} type="submit" disabled={busy || config?.is_maintenance}>{busy ? <><LoaderCircle className="animate-spin" size={19} />Đang gửi đăng ký…</> : <>Đăng ký miễn phí ngay<ArrowRight size={19} /></>}</button></div>
-    <p className="mt-4 flex items-start gap-2 text-xs leading-relaxed text-[#6A4A2A]"><LockKeyhole className="mt-0.5 shrink-0" size={14} />Thông tin của bạn được dùng để liên hệ và gửi hướng dẫn tham gia lớp học.</p>
+    <div className="mt-6"><button className={ctaClass} type="submit" disabled={busy || config?.is_maintenance}>{busy ? <><LoaderCircle className="animate-spin" size={19} />Đang gửi đăng ký…</> : <>Nhận link học miễn phí<ArrowRight size={19} /></>}</button></div>
   </form>;
 }
 
@@ -316,17 +353,31 @@ export default function BiMatLuatHapDan() {
     return () => { active = false; };
   }, []);
   const scheduleDays = config?.ctaScheduleLabel?.replace(/\s*[-–·]\s*\d{1,2}(?:h|:)\d{2}.*$/i, "").trim();
-  const registration = <section className="overflow-hidden rounded-3xl border border-[#E3C675] bg-gradient-to-b from-[#8A0D13] via-[#67070C] to-[#490307] px-3 py-6 shadow-2xl sm:px-8 sm:py-12" aria-labelledby="secret-register-title">
-    <header className="mx-auto mb-7 max-w-3xl text-center">
+  const registration = <section className="relative overflow-hidden rounded-[1.8rem] border border-[#E3C675] bg-gradient-to-b from-[#A10E17] via-[#70070D] to-[#490307] px-3 py-5 shadow-2xl sm:px-8 sm:py-12" aria-labelledby="secret-register-title">
+    <div className="pointer-events-none absolute -right-16 -top-20 h-52 w-52 rounded-full bg-[#E3C675]/10 blur-2xl" />
+    <header className="relative mx-auto mb-5 max-w-3xl text-center sm:mb-7">
       <span className="inline-flex rounded-full border border-[#F3D477]/40 bg-white/10 px-3 sm:px-4 py-1.5 text-[10px] sm:text-xs font-black uppercase tracking-wider sm:tracking-widest text-[#FFE99A]">Đăng ký tham gia miễn phí</span>
-      <h2 id="secret-register-title" className="mt-4 text-[clamp(1.05rem,5.2vw,1.5rem)] font-black uppercase leading-tight text-white sm:text-4xl">Đăng ký 4 buổi học<span className="mt-1 block text-[#FFE566]">Hoàn toàn miễn phí</span></h2>
-      <p className="mt-4 text-sm leading-relaxed text-[#F5E6B7] sm:text-base">Nhận link Zoom và hướng dẫn tham gia chương trình Khơi Thông Dòng Tiền.</p>
-      <p className="mt-3 flex flex-wrap justify-center gap-x-4 gap-y-1 text-sm font-bold text-[#FFE99A]">{scheduleDays ? <><span>{scheduleDays}</span><span>20:00 – 22:00</span></> : "Lịch học được cập nhật trong nhóm Zalo"}</p>
+      <h2 id="secret-register-title" className="mt-3 text-[clamp(1.5rem,6.7vw,1.8rem)] font-black uppercase leading-[1.12] tracking-[-0.035em] text-white sm:mt-4 sm:text-4xl">Đăng ký 4 buổi học<span className="mt-1 block text-[#FFE566]">Hoàn toàn miễn phí</span></h2>
+      <p className="mx-auto mt-3 max-w-lg text-[0.78rem] leading-relaxed text-[#F5E6B7] sm:mt-4 sm:text-base">
+        <span className="block sm:inline">Nhận link Zoom và hướng dẫn tham gia</span>{" "}
+        <span className="block sm:inline">chương trình Khơi Thông Dòng Tiền.</span>
+      </p>
+      <div className="mt-4 grid grid-cols-2 gap-2 sm:hidden">
+        <div className="flex items-center gap-2 rounded-xl border border-white/15 bg-black/15 px-3 py-2.5 text-left">
+          <CalendarDays className="shrink-0 text-[#FFE566]" size={18} />
+          <div><span className="block text-[0.55rem] font-bold uppercase tracking-wider text-white/60">Ngày học</span><strong className="block text-[0.72rem] text-[#FFF3BC]">{scheduleDays || "Cập nhật trong Zalo"}</strong></div>
+        </div>
+        <div className="flex items-center gap-2 rounded-xl border border-white/15 bg-black/15 px-3 py-2.5 text-left">
+          <Clock3 className="shrink-0 text-[#FFE566]" size={18} />
+          <div><span className="block text-[0.55rem] font-bold uppercase tracking-wider text-white/60">Thời gian</span><strong className="block text-[0.72rem] text-[#FFF3BC]">20:00 – 22:00</strong></div>
+        </div>
+      </div>
+      <p className="mt-3 hidden flex-wrap justify-center gap-x-4 gap-y-1 text-sm font-bold text-[#FFE99A] sm:flex">{scheduleDays ? <><span>{scheduleDays}</span><span>20:00 – 22:00</span></> : "Lịch học được cập nhật trong nhóm Zalo"}</p>
     </header>
-    <div className="mx-auto grid max-w-5xl items-center gap-6 lg:grid-cols-2">
+    <div className="relative mx-auto grid max-w-5xl items-center gap-6 lg:grid-cols-2">
       <Registration config={config} reloadConfig={reloadConfig} />
-      <img className="w-full rounded-2xl border border-[#D4B572]/50" src="/assets/landing/khoi-thong-dong-tien/registration-banner.webp" alt="Chương trình Khơi Thông Dòng Tiền — 4 buổi học online miễn phí" loading="lazy" decoding="async" />
+      <img className="hidden w-full rounded-2xl border border-[#D4B572]/50 lg:block" src="/assets/landing/khoi-thong-dong-tien/registration-banner.webp" alt="Chương trình Khơi Thông Dòng Tiền — 4 buổi học online miễn phí" loading="lazy" decoding="async" />
     </div>
   </section>;
-  return <KhoiThongDongTien seoPath={SECRET_LANDING_PATH} heroContent={heroContent} painContent={painContent} audienceContent={audienceContent} scheduleContent={scheduleContent} founderContent={founderContent} registration={registration} />;
+  return <KhoiThongDongTien seoPath={SECRET_LANDING_PATH} heroContent={heroContent} painContent={painContent} audienceContent={audienceContent} scheduleContent={scheduleContent} curriculumContent={curriculumContent} founderContent={founderContent} registration={registration} />;
 }

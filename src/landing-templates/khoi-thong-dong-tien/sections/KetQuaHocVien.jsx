@@ -5,18 +5,18 @@ import { scrollToRegistrationForm } from "../scrollToRegistration";
 
 const RESULT_ASSET_BASE = "/assets/landing/khoi-thong-dong-tien";
 const RESULTS = [
-  { img: `${RESULT_ASSET_BASE}/student-result-01.webp`, badge: "Đã xác thực" },
-  { img: `${RESULT_ASSET_BASE}/student-result-02.webp`, badge: "Thành công" },
-  { img: `${RESULT_ASSET_BASE}/student-result-03.webp`, badge: "Chữa lành" },
-  { img: `${RESULT_ASSET_BASE}/student-result-04.webp`, badge: "Tài chính" },
-  { img: `${RESULT_ASSET_BASE}/student-result-05.webp`, badge: "Thịnh vượng" },
-  { img: `${RESULT_ASSET_BASE}/student-result-06.webp`, badge: "Bình an" },
-  { img: `${RESULT_ASSET_BASE}/student-result-07.webp`, badge: "Hạnh phúc" },
-  { img: `${RESULT_ASSET_BASE}/student-result-08.webp`, badge: "Đã xác thực" },
-  { img: `${RESULT_ASSET_BASE}/student-result-09.webp`, badge: "Thành công" },
-  { img: `${RESULT_ASSET_BASE}/student-result-10.webp`, badge: "Tài chính" },
-  { img: `${RESULT_ASSET_BASE}/student-result-11.webp`, badge: "Thịnh vượng" },
-  { img: `${RESULT_ASSET_BASE}/student-result-12.webp`, badge: "Chữa lành" },
+  { img: `${RESULT_ASSET_BASE}/student-result-01.webp` },
+  { img: `${RESULT_ASSET_BASE}/student-result-02.webp` },
+  { img: `${RESULT_ASSET_BASE}/student-result-03.webp` },
+  { img: `${RESULT_ASSET_BASE}/student-result-04.webp` },
+  { img: `${RESULT_ASSET_BASE}/student-result-05.webp` },
+  { img: `${RESULT_ASSET_BASE}/student-result-06.webp` },
+  { img: `${RESULT_ASSET_BASE}/student-result-07.webp` },
+  { img: `${RESULT_ASSET_BASE}/student-result-08.webp` },
+  { img: `${RESULT_ASSET_BASE}/student-result-09.webp` },
+  { img: `${RESULT_ASSET_BASE}/student-result-10.webp` },
+  { img: `${RESULT_ASSET_BASE}/student-result-11.webp` },
+  { img: `${RESULT_ASSET_BASE}/student-result-12.webp` },
 ];
 
 const TOTAL = RESULTS.length;
@@ -73,21 +73,14 @@ export default function KetQuaHocVien() {
       <div className="relative space-y-4 sm:space-y-6">
         {/* Header */}
         <div className="mb-3 px-5 text-center sm:px-6">
-          <span className="inline-flex items-center gap-2 rounded-full border border-[#C9961A]/70 bg-white/80 px-4 py-1.5 text-[0.6rem] font-black uppercase tracking-[0.19em] text-[#7A2113] shadow-[0_5px_16px_rgba(122,33,19,0.06)] backdrop-blur-sm sm:text-[11px]">
-            <span className="h-1.5 w-1.5 rounded-full bg-[#C9961A] shadow-[0_0_0_3px_rgba(201,150,26,0.13)]" />
-            Minh chứng thực tế
-          </span>
-          <div className="mt-4 space-y-1.5">
-            <h2 className="whitespace-nowrap text-[clamp(1.35rem,6vw,4.4rem)] font-black leading-[1.15] tracking-[-0.035em] text-[#3A2208]">
+          <div className="space-y-1.5">
+            <h2 className="loa-section-main whitespace-nowrap text-[clamp(1.35rem,6vw,4.4rem)] font-black leading-[1.15] tracking-[-0.035em] text-[#3A2208]">
               KẾT QUẢ KHI ÁP DỤNG
             </h2>
-            <h2 className="whitespace-nowrap text-[clamp(1.08rem,5vw,3.7rem)] font-black leading-[1.15] tracking-[-0.025em] text-[#7A2113]">
+            <h2 className="loa-section-long whitespace-nowrap text-[clamp(1.08rem,5vw,3.7rem)] font-black leading-[1.15] tracking-[-0.025em] text-[#7A2113]">
               KHƠI THÔNG DÒNG TIỀN
             </h2>
           </div>
-          <p className="mx-auto mt-3 max-w-md text-[0.76rem] leading-relaxed text-[#5C3A1A]/70 sm:text-sm">
-            Những chia sẻ và kết quả thực tế từ học viên đã tham gia chương trình.
-          </p>
         </div>
 
         {/* ── MOBILE: focused proof carousel ── */}
@@ -103,11 +96,7 @@ export default function KetQuaHocVien() {
               boxShadow: "0 18px 42px rgba(96,25,15,0.24), inset 0 1px 0 rgba(255,255,255,0.12)",
             }}
           >
-            <div className="flex items-center justify-between gap-3 px-2 pb-2.5 pt-1">
-              <span className="inline-flex items-center gap-1.5 text-[0.62rem] font-extrabold uppercase tracking-[0.13em] text-[#FFE483]">
-                <span className="h-1.5 w-1.5 rounded-full bg-[#FFE483] shadow-[0_0_0_3px_rgba(255,228,131,0.14)]" />
-                {RESULTS[active].badge}
-              </span>
+            <div className="flex justify-end px-2 pb-2.5 pt-1">
               <span className="text-[0.65rem] font-bold tracking-[0.12em] text-white/65">
                 {String(active + 1).padStart(2, "0")} / {TOTAL}
               </span>
@@ -142,10 +131,7 @@ export default function KetQuaHocVien() {
             </button>
 
             <div className="min-w-0 flex-1 text-center">
-              <span className="block text-[0.6rem] font-extrabold uppercase tracking-[0.12em] text-[#7A2113]">
-                Vuốt để xem thêm
-              </span>
-              <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-[#D4B572]/25">
+              <div className="h-1 overflow-hidden rounded-full bg-[#D4B572]/25">
                 <div
                   className="h-full rounded-full bg-gradient-to-r from-[#C9961A] to-[#7A2113] transition-all duration-500"
                   style={{ width: `${((active + 1) / TOTAL) * 100}%` }}
@@ -162,10 +148,6 @@ export default function KetQuaHocVien() {
               <ChevronRight className="h-4 w-4" />
             </button>
           </div>
-
-          <p className="mt-2 text-center text-[0.66rem] font-medium text-[#6A4A2A]/65">
-            Chạm vào ảnh để xem rõ hơn
-          </p>
         </div>
 
         {/* ── DESKTOP: Marquee auto-scroll (hidden on mobile) ── */}
@@ -250,9 +232,6 @@ export default function KetQuaHocVien() {
             ĐĂNG KÝ MIỄN PHÍ – NHẬN LINK HỌC
             <ArrowRight className="w-5 h-5 text-[#FFE566]" />
           </a>
-          <p className="text-[0.7rem] font-medium text-[#7A2113]/70 sm:text-xs">
-            Học online qua Zoom • Nhận hướng dẫn tham gia
-          </p>
         </div>
       </div>
 

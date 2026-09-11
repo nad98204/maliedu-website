@@ -287,21 +287,14 @@ const VideoHocVien = () => {
       <div className="relative space-y-7 sm:space-y-10">
         {/* Header */}
         <div className="px-5 text-center sm:px-6">
-          <span className="inline-flex items-center gap-2 rounded-full border border-[#C9961A]/70 bg-white/80 px-4 py-1.5 text-[0.6rem] font-black uppercase tracking-[0.19em] text-[#7A2113] shadow-[0_5px_16px_rgba(122,33,19,0.06)] backdrop-blur-sm sm:text-[11px]">
-            <span className="h-1.5 w-1.5 rounded-full bg-[#C9961A]" />
-            Chia sẻ từ trái tim
-          </span>
-          <div className="mt-4">
-            <h2 className="whitespace-nowrap text-[clamp(1.45rem,6.3vw,3.8rem)] font-black leading-[1.1] tracking-[-0.04em] text-[#3A2208]">
+          <div>
+            <h2 className="loa-section-main whitespace-nowrap text-[clamp(1.45rem,6.3vw,3.8rem)] font-black leading-[1.1] tracking-[-0.04em] text-[#3A2208]">
               CÂU CHUYỆN THẬT
             </h2>
-            <h2 className="mt-1 whitespace-nowrap text-[clamp(1.25rem,5.5vw,3.4rem)] font-black leading-[1.1] tracking-[-0.03em] text-[#7A2113]">
+            <h2 className="loa-section-long mt-1 whitespace-nowrap text-[clamp(1.25rem,5.5vw,3.4rem)] font-black leading-[1.1] tracking-[-0.03em] text-[#7A2113]">
               TỪ HỌC VIÊN
             </h2>
           </div>
-          <p className="mx-auto mt-3 max-w-md text-[0.76rem] leading-[1.65] text-[#5C3A1A]/70 sm:text-sm">
-            Lắng nghe hành trình chuyển hóa sau khi áp dụng Lộ trình Khơi Thông Dòng Tiền.
-          </p>
         </div>
 
         {/* ── MOBILE: focused student story ── */}
@@ -353,9 +346,6 @@ const VideoHocVien = () => {
             </button>
           </div>
 
-          <p className="mt-2 text-center text-[0.64rem] font-semibold uppercase tracking-[0.12em] text-[#7A2113]/45">
-            Vuốt để đổi câu chuyện • Chạm video để xem
-          </p>
         </div>
 
         {/* ── DESKTOP: CSS marquee ── */}
@@ -369,10 +359,6 @@ const VideoHocVien = () => {
             ))}
           </div>
         </div>
-
-        <p className="mx-auto max-w-2xl px-6 text-center text-[0.66rem] leading-[1.6] text-[#6A4A2A]/55 sm:text-xs">
-          Các chia sẻ là trải nghiệm thực tế của từng học viên. Kết quả của mỗi người có thể khác nhau tùy hoàn cảnh, quá trình thực hành và hành động thực tế.
-        </p>
 
         {/* CTA */}
         <div className="mx-5 flex flex-col items-center gap-3 rounded-[1.6rem] border border-white/75 bg-white/55 px-4 py-5 text-center shadow-[0_12px_30px_rgba(91,49,14,0.07)] backdrop-blur-sm sm:mx-auto sm:max-w-xl sm:px-7">

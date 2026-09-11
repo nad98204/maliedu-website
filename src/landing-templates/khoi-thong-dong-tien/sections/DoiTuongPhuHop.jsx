@@ -176,13 +176,13 @@ const DoiTuongPhuHop = ({ content } = {}) => {
           {/* Section Header */}
           <div className="text-center max-w-2xl mx-auto mb-6 sm:mb-10">
             {/* Badge */}
-            <div className="inline-flex items-center gap-1.5 rounded-full border border-[#D4B572]/70 bg-white/95 px-3.5 py-1 text-[10px] sm:text-xs font-black uppercase tracking-[0.18em] text-[#7A2113] shadow-xs mb-2.5 sm:mb-3.5">
+            <div className="inline-flex items-center gap-1.5 rounded-full border border-[#D4B572]/70 bg-white/95 px-3.5 py-1 text-[11px] sm:text-xs font-black uppercase tracking-[0.18em] text-[#7A2113] shadow-xs mb-2.5 sm:mb-3.5">
               <span className="text-[#C9961A]">✦</span>
               <span>{content.badge || "DÀNH CHO AI?"}</span>
               <span className="text-[#C9961A]">✦</span>
             </div>
 
-            <h2 className="font-sans font-black uppercase tracking-tight text-center">
+            <h2 className="loa-section-heading loa-audience-heading font-sans font-black uppercase tracking-tight text-center">
               {content.heading || (
                 <>
                   <span className="block text-[15px] min-[390px]:text-[16.5px] sm:text-xl lg:text-[1.85rem] text-[#4A1E08] leading-snug">

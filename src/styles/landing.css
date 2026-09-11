@@ -15,11 +15,14 @@ body { margin: 0; overflow-x: hidden; }
     letter-spacing: 0.015em;
   }
   [data-compact-hero] .loa-title-main {
-    font-size: clamp(32px, 8.4vw, 38px);
-    letter-spacing: -0.025em;
+    font-size: clamp(48px, 14vw, 60px);
+    letter-spacing: -0.055em;
   }
   [data-compact-hero] .loa-title-main > span {
     display: block;
+  }
+  [data-compact-hero] .loa-title-main > span + span {
+    margin-top: 0.08em;
   }
   [data-compact-hero] .loa-intro {
     max-width: 34ch;
@@ -36,6 +39,41 @@ body { margin: 0; overflow-x: hidden; }
   [data-compact-hero] .loa-action {
     display: block;
     font-weight: 700;
+  }
+
+  /* Only emotional, story-led headlines expand across the mobile canvas. */
+  [data-compact-landing] .loa-section-heading-full {
+    width: calc(100% + 1.5rem);
+    margin-inline: -0.75rem;
+  }
+  [data-compact-landing] .loa-audience-heading .loa-section-kicker {
+    font-size: clamp(19px, 5vw, 22px);
+    line-height: 1.18;
+    letter-spacing: -0.03em;
+  }
+  [data-compact-landing] .loa-audience-heading .loa-section-main {
+    font-size: clamp(27px, 7.2vw, 30px);
+    line-height: 1.08;
+  }
+  [data-compact-landing] .loa-value-heading .loa-section-kicker {
+    font-size: clamp(18px, 4.7vw, 21px);
+    line-height: 1.18;
+    letter-spacing: -0.02em;
+  }
+  [data-compact-landing] .loa-value-heading .loa-section-long {
+    font-size: clamp(25px, 6.6vw, 28px);
+    line-height: 1.1;
+    letter-spacing: -0.035em;
+  }
+  [data-compact-landing] .loa-founder-heading .loa-section-long {
+    font-size: clamp(15px, 3.8vw, 16.5px);
+    line-height: 1.16;
+    letter-spacing: -0.045em;
+  }
+  [data-compact-landing] .loa-founder-heading .loa-section-main {
+    font-size: clamp(27px, 7.1vw, 31px);
+    line-height: 1.1;
+    letter-spacing: -0.04em;
   }
 }
 

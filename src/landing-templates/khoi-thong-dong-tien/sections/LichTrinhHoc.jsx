@@ -78,20 +78,20 @@ const LichTrinhHoc = ({ content } = {}) => {
           {/* Section Header */}
           <div className="text-center max-w-4xl mx-auto mb-6 sm:mb-10">
             {/* Badge */}
-            <div className="inline-flex items-center gap-1.5 rounded-full border border-[#D4B572]/70 bg-white/95 px-3.5 py-1 text-[10px] sm:text-xs font-black uppercase tracking-[0.18em] text-[#7A2113] shadow-xs mb-2.5 sm:mb-3.5">
+            <div className="inline-flex items-center gap-1.5 rounded-full border border-[#D4B572]/70 bg-white/95 px-3.5 py-1 text-[11px] sm:text-xs font-black uppercase tracking-[0.18em] text-[#7A2113] shadow-xs mb-2.5 sm:mb-3.5">
               <span className="text-[#C9961A]">✦</span>
               <span>{content.badge || "GIÁ TRỊ BẠN NHẬN ĐƯỢC"}</span>
               <span className="text-[#C9961A]">✦</span>
             </div>
 
-            <h2 className="font-sans font-black uppercase tracking-tight text-center">
+            <h2 className="loa-section-heading loa-value-heading font-sans font-black uppercase tracking-tight text-center">
               {content.headingLead && (
-                <span className="block text-[13.5px] min-[390px]:text-[14.5px] sm:text-base lg:text-lg text-[#4A1E08] font-bold tracking-wide">
+                <span className="loa-section-kicker block text-[15.5px] min-[390px]:text-[16.5px] sm:text-base lg:text-lg text-[#4A1E08] font-bold tracking-wide">
                   {content.headingLead}
                 </span>
               )}
               {content.headingEmphasis && (
-                <span className="block mt-1 sm:mt-1.5 text-[20px] min-[390px]:text-[22px] sm:text-2xl lg:text-[2.25rem] text-[#8C0C12] leading-tight tracking-tight">
+                <span className="loa-section-long block mt-1 sm:mt-1.5 text-[22px] min-[390px]:text-[24px] sm:text-2xl lg:text-[2.25rem] text-[#8C0C12] leading-tight tracking-tight">
                   {content.headingBreak ? (
                     <>
                       <span className="block sm:inline">{content.headingBreak[0]}</span>{" "}
@@ -103,7 +103,7 @@ const LichTrinhHoc = ({ content } = {}) => {
                 </span>
               )}
               {content.headingTrail && (
-                <span className="block mt-1 sm:mt-1.5 text-[13.5px] min-[390px]:text-[14.5px] sm:text-base text-[#7A2113] font-extrabold tracking-wider">
+                <span className="loa-section-kicker block mt-1 sm:mt-1.5 text-[15.5px] min-[390px]:text-[16.5px] sm:text-base text-[#7A2113] font-extrabold tracking-wider">
                   {content.headingTrail}
                 </span>
               )}
