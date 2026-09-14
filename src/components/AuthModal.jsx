@@ -2,12 +2,12 @@ import { useEffect, useState } from 'react';
 import { X, Mail, Lock, User, ArrowRight } from 'lucide-react';
 import {
     signInWithEmailAndPassword,
-    createUserWithEmailAndPassword,
-    signInWithPopup
+    createUserWithEmailAndPassword
 } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 
-import { auth, db, createGoogleProvider } from '../firebase';
+import { auth, db } from '../firebase';
+import { signInWithGoogle } from '../utils/googleAuthFlow';
 import { ensureUserProfile } from '../utils/userService';
 import { getFirebaseAuthMessage } from '../utils/firebaseAuthErrors';
 import { warmUpGoogleSignIn } from '../utils/googleAuthWarmup';
@@ -66,8 +66,8 @@ const AuthModal = ({ isOpen, onClose }) => {
 
         try {
             warmUpGoogleSignIn();
-            const provider = createGoogleProvider({ emailHint: email });
-            const result = await signInWithPopup(auth, provider);
+            const result = await signInWithGoogle({ intent: 'modal', emailHint: email });
+            if (!result) return;
 
             onClose();
             void syncGoogleUserProfile(result.user);

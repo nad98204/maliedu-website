@@ -10,6 +10,7 @@ import { Toaster } from 'react-hot-toast';
 import ScrollToTop from "./components/ScrollToTop";
 import useAffiliateTracker from "./hooks/useAffiliateTracker";
 import RouteStyles from "./styles/RouteStyles";
+import { getPendingGoogleRedirectIntent } from "./utils/googleAuthRedirectState";
 
 /** Chunk riêng: không cần trên funnel hideChrome hoặc tách Meta khỏi entry (giảm JS đầu tải / “unused”). */
 const Footer = lazy(() => import("./components/Footer"));
@@ -38,7 +39,6 @@ const CourseTaiLieu = lazy(() => import("./pages/CourseTaiLieu"));
 const CourseGhiChep = lazy(() => import("./pages/CourseGhiChep"));
 const Register = lazy(() => import("./pages/Register"));
 const Checkout = lazy(() => import("./pages/Checkout"));
-const OrderHistory = lazy(() => import("./pages/OrderHistory"));
 const OrderSuccess = lazy(() => import("./pages/OrderSuccess"));
 const Profile = lazy(() => import("./pages/Profile"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
@@ -87,6 +87,7 @@ const AdminCoupons = lazy(() => import("./pages/admin/AdminCoupons"));
 const AdminStorage = lazy(() => import("./pages/admin/AdminStorage"));
 const AdminAffiliates = lazy(() => import("./pages/admin/AdminAffiliates"));
 const AdminHypnosis = lazy(() => import("./pages/admin/AdminHypnosis"));
+const GoogleRedirectCompletion = lazy(() => import("./components/GoogleRedirectCompletion"));
 
 const PageLoader = () => (
   <div className="flex h-[60vh] w-full items-center justify-center">
@@ -117,6 +118,11 @@ const AppShell = () => {
 
   return (
     <div className={hideChrome ? "" : "min-h-screen flex flex-col bg-white"}>
+      {getPendingGoogleRedirectIntent() && (
+        <Suspense fallback={null}>
+          <GoogleRedirectCompletion />
+        </Suspense>
+      )}
       {!hideChrome && !isPlayerRoute && (
         <Suspense fallback={null}>
           {location.pathname.startsWith("/admin") ? (
@@ -168,8 +174,8 @@ const AppShell = () => {
             <Route path="/chinh-sach-bao-mat" element={<PrivacyPolicy />} />
             <Route path="/gio-hang" element={<Navigate to="/khoa-hoc" replace />} />
             <Route path="/cart" element={<Navigate to="/khoa-hoc" replace />} />
-            <Route path="/lich-su-don-hang" element={<OrderHistory />} />
-            <Route path="/orders" element={<Navigate to="/lich-su-don-hang" replace />} />
+            <Route path="/lich-su-don-hang" element={<Navigate to="/khoa-hoc" replace />} />
+            <Route path="/orders" element={<Navigate to="/khoa-hoc" replace />} />
             <Route path="/dat-hang-thanh-cong/:orderId" element={<OrderSuccess />} />
             <Route path="/ca-nhan" element={<Profile />} />
             <Route path="/affiliate" element={<AffiliatePortal />} />

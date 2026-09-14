@@ -4,8 +4,11 @@
  * 
  * Specifically targets: Zalo, Facebook (FBAN/FBAV), Instagram, TikTok.
  */
-export const isInAppBrowser = () => {
-    const ua = navigator.userAgent || navigator.vendor || window.opera;
-    const inAppRegex = /(Zalo|FBAN|FBAV|Instagram|TikTok)/i;
-    return inAppRegex.test(ua);
-};
+export const isInAppBrowserUserAgent = (ua = "") =>
+    /(Zalo|FBAN|FBAV|Instagram|TikTok|MicroMessenger|; wv\))/i.test(ua)
+    || (/(iPhone|iPad|iPod)/i.test(ua)
+        && /AppleWebKit/i.test(ua)
+        && !/(Safari|CriOS|FxiOS|EdgiOS)/i.test(ua));
+
+export const isInAppBrowser = () =>
+    isInAppBrowserUserAgent(navigator.userAgent || navigator.vendor || window.opera || "");

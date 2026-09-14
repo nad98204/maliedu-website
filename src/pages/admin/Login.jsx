@@ -1,16 +1,11 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router";
-import { signInWithEmailAndPassword, signOut, signInWithPopup } from "firebase/auth";
+import { signInWithEmailAndPassword } from "firebase/auth";
 
-import { auth, db, createGoogleProvider } from "../../firebase";
-import { ensureUserProfile } from "../../utils/userService";
-import {
-  getFirstAllowedAdminPath,
-  isAdminUser,
-  isSuperAdminEmail,
-} from "../../utils/adminAccess";
+import { auth } from "../../firebase";
+import { completeAdminLogin } from "../../utils/adminLoginFlow";
+import { signInWithGoogle } from "../../utils/googleAuthFlow";
 import { getFirebaseAuthMessage } from "../../utils/firebaseAuthErrors";
-import { registerSession } from "../../utils/sessionService";
 import { isInAppBrowser } from "../../utils/browserDetection";
 import InAppBrowserModal from "../../components/InAppBrowserModal";
 import { MALI_LOGO_URL } from "../../constants/brandAssets.js";
@@ -24,36 +19,7 @@ const Login = () => {
   const [showBrowserWarning, setShowBrowserWarning] = useState(false);
 
   const handleAfterLogin = async (user) => {
-    const userProfile = await ensureUserProfile({ db, user });
-    const isAdmin = isAdminUser({
-      email: user.email,
-      role: userProfile?.role,
-    });
-
-    // Check Session Limit
-    try {
-      await registerSession(user.uid, isAdmin);
-    } catch (sessionError) {
-      if (sessionError.message === "MAX_SESSIONS_REACHED") {
-        await signOut(auth);
-        setError("Tài khoản đang đăng nhập quá 3 thiết bị! Vui lòng đăng xuất ở thiết bị cũ trước.");
-        return false;
-      }
-      console.error("Session Register Error:", sessionError);
-    }
-
-    if (isAdmin) {
-      navigate(
-        getFirstAllowedAdminPath({
-          allowedModules: userProfile?.allowedModules,
-          isSuperAdmin: isSuperAdminEmail(user.email),
-        })
-      );
-      return true;
-    } else {
-      navigate("/khoa-hoc-cua-toi");
-      return false;
-    }
+    navigate(await completeAdminLogin(user));
   };
 
   const handleSubmit = async (event) => {
@@ -82,14 +48,12 @@ const Login = () => {
     setError("");
     setIsSubmitting(true);
     try {
-      const provider = createGoogleProvider();
-      const result = await signInWithPopup(auth, provider);
+      const result = await signInWithGoogle({ intent: "admin" });
+      if (!result) return;
       await handleAfterLogin(result.user);
     } catch (err) {
       console.error(err);
-      if (err.code !== 'auth/popup-closed-by-user') {
-        setError(getFirebaseAuthMessage(err));
-      }
+      setError(getFirebaseAuthMessage(err));
     } finally {
       setIsSubmitting(false);
     }

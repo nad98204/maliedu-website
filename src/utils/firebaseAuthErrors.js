@@ -95,7 +95,13 @@ export const getFirebaseAuthMessage = (err, options = {}) => {
     case "auth/popup-blocked":
       return "Trình duyệt đang chặn cửa sổ đăng nhập Google. Hãy cho phép popup và thử lại.";
     case "auth/popup-closed-by-user":
-      return "Bạn đã đóng cửa sổ đăng nhập Google trước khi hoàn tất.";
+      return "Cửa sổ đăng nhập Google đã bị đóng hoặc bị trình duyệt ngắt trước khi hoàn tất. Hãy thử lại trong Safari/Chrome.";
+    case "auth/redirect-no-result":
+      return "Đăng nhập Google chưa hoàn tất. Vui lòng thử lại trong Safari/Chrome.";
+    case "auth/operation-not-supported-in-this-environment":
+      return "Trình duyệt nhúng không hỗ trợ đăng nhập Google. Hãy mở trang bằng Safari/Chrome.";
+    case "auth/max-sessions-reached":
+      return "Tài khoản đang đăng nhập quá 3 thiết bị! Vui lòng đăng xuất ở thiết bị cũ trước.";
     case "auth/cancelled-popup-request":
       return "Yêu cầu đăng nhập Google trước đó đã bị hủy. Vui lòng thử lại.";
     case "auth/account-exists-with-different-credential":

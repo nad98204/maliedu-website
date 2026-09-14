@@ -19,6 +19,7 @@ import { getDatabase } from "firebase-admin/database";
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { hashData, normalizeNameForHash, sendMetaCapiEvent } from "./capi_helper.js";
 import { createAdminLandingHandlers } from "./_lib/adminLandings.js";
+import { createAdminStudentHandler } from "./_lib/adminStudents.js";
 import { createHypnosisHandlers, grantHypnosisOrderAccess, hypnosisMedia, hypnosisSecurityReady, hypnosisPrice, hasHypnosisAdminModule } from "./_lib/hypnosis.js";
 import {
   createAffiliateHandlers,
@@ -109,6 +110,7 @@ const PROTECTED_ADMIN_LANDING_PATHS = new Set([
   "/api/admin/landings/save",
   "/api/admin/landings/schedule",
 ]);
+const PROTECTED_ADMIN_STUDENT_PATH = "/api/admin/students";
 const PUBLIC_BANK_SETTING_FIELDS = [
   "accountName",
   "accountNo",
@@ -134,6 +136,7 @@ const RATE_LIMIT_POLICIES = new Map([
   ["/api/hypnosis/playback", { limit: 120, windowMs: 60 * 1000 }],
   ["/api/hypnosis/guide", { limit: 60, windowMs: 60 * 1000 }],
   ["/api/admin/hypnosis", { limit: 240, windowMs: 60 * 1000 }],
+  [PROTECTED_ADMIN_STUDENT_PATH, { limit: 30, windowMs: 10 * 60 * 1000 }],
 ]);
 const rateLimitBuckets = new Map();
 
@@ -1232,6 +1235,12 @@ const ROUTES = new Map([
   ["POST /api/hypnosis/playback", hypnosisHandlers.playback],
   ["POST /api/hypnosis/guide", hypnosisHandlers.guide],
   ["POST /api/admin/hypnosis", hypnosisHandlers.adminPost],
+  ["POST /api/admin/students", createAdminStudentHandler({
+    getDb: getFirestoreDb,
+    getAuth: () => getAdminAuth(getDefaultApp()),
+    fieldValue: FieldValue,
+    json: createJsonResponse,
+  })],
   ["GET /api/admin/landings", adminLandingHandlers.getWorkspace],
   ["POST /api/admin/landings/delete", adminLandingHandlers.delete],
   ["POST /api/admin/landings/repair-sources", adminLandingHandlers.repairSources],
@@ -1275,6 +1284,16 @@ const normalizeRequestPath = (request) => {
 
 const getPublicApiError = (error, normalizedPath) => {
   const originalStatus = Number(error?.status) || 500;
+  if (
+    normalizedPath === PROTECTED_ADMIN_STUDENT_PATH
+    && originalStatus === 503
+    && ["student/profile-orphaned", "student/profile-write-failed"].includes(error?.code)
+  ) {
+    return {
+      status: 503,
+      body: { code: error.code, error: error.message },
+    };
+  }
   const errorText = `${error?.code || ""} ${error?.message || ""}`.toLowerCase();
   const isCrmAccessFailure = (
     (PROTECTED_ADMIN_LANDING_PATHS.has(normalizedPath) || normalizedPath === "/api/crm-leads")
@@ -1602,6 +1621,7 @@ export const uploadApi = onRequest(
         PROTECTED_MULTIPART_PATHS.has(normalizedPath)
         || PROTECTED_BUNNY_STREAM_PATHS.has(normalizedPath)
         || PROTECTED_ADMIN_LANDING_PATHS.has(normalizedPath)
+        || normalizedPath === PROTECTED_ADMIN_STUDENT_PATH
       ) {
         adminUser = await requireAdminRequest(request);
       }

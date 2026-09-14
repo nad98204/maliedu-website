@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router";
-import { createUserWithEmailAndPassword, signInWithPopup } from "firebase/auth";
+import { createUserWithEmailAndPassword } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
-import { auth, db, crmFirestore, createGoogleProvider } from "../firebase";
+import { auth, db, crmFirestore } from "../firebase";
+import { signInWithGoogle } from "../utils/googleAuthFlow";
+import { getFirebaseAuthMessage } from "../utils/firebaseAuthErrors";
 import { ensureUserProfile } from "../utils/userService";
 import { isInAppBrowser } from "../utils/browserDetection";
 import InAppBrowserModal from "../components/InAppBrowserModal";
@@ -81,15 +83,13 @@ const Register = () => {
         setError("");
         setIsSubmitting(true);
         try {
-            const provider = createGoogleProvider();
-            const result = await signInWithPopup(auth, provider);
+            const result = await signInWithGoogle({ intent: "register" });
+            if (!result) return;
             await ensureUserProfile({ db, user: result.user });
             navigate("/khoa-hoc-cua-toi");
         } catch (err) {
             console.error(err);
-            if (err.code !== 'auth/popup-closed-by-user') {
-                setError("Có lỗi xảy ra khi đăng nhập bằng Google.");
-            }
+            setError(getFirebaseAuthMessage(err));
         } finally {
             setIsSubmitting(false);
         }

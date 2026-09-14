@@ -344,13 +344,13 @@ export const ROUTE_SEO = {
     url: "/cart",
   }),
   "/lich-su-don-hang": noindex({
-    title: "Lịch sử đơn hàng",
-    description: "Lịch sử đơn hàng của học viên Mali Edu.",
+    title: "Khám phá khóa học",
+    description: "Đường dẫn cũ chuyển tiếp tới danh sách khóa học Mali Edu.",
     url: "/lich-su-don-hang",
   }),
   "/orders": noindex({
-    title: "Lịch sử đơn hàng",
-    description: "Đường dẫn chuyển tiếp tới lịch sử đơn hàng Mali Edu.",
+    title: "Khám phá khóa học",
+    description: "Đường dẫn cũ chuyển tiếp tới danh sách khóa học Mali Edu.",
     url: "/orders",
   }),
   "/ca-nhan": noindex({

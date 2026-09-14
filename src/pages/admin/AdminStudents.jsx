@@ -10,13 +10,13 @@ import {
     serverTimestamp,
     writeBatch
 } from 'firebase/firestore';
-import { initializeApp, deleteApp } from "firebase/app";
-import { getAuth, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail } from "firebase/auth";
+import { getAuth, sendPasswordResetEmail } from "firebase/auth";
 import { Plus, Trash2, UserPlus, X, Mail, BookOpen, Users, Lock, Key, Search, Edit, Send, Monitor, Smartphone, Shield, ClipboardList } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
 
 // Use Named Import for Config
-import { db, auth, firebaseConfig } from '../../firebase';
+import { db, auth } from '../../firebase';
+import { createStudentAccount } from '../../services/adminStudentService';
 import { removeSession } from "../../utils/sessionService";
 import { isSuperAdminEmail } from '../../utils/adminAccess';
 import {
@@ -146,29 +146,13 @@ const AdminStudents = () => {
         return matchesSearch && matchesCourse;
     });
 
-    // 1. CREATE ACCOUNT (Secondary App approach)
+    // 1. CREATE ACCOUNT
     const handleCreateUser = async (e) => {
         e.preventDefault();
         setIsSubmitting(true);
 
-        let secondaryApp = null;
         try {
-            secondaryApp = initializeApp(firebaseConfig, "SecondaryApp");
-            const secondaryAuth = getAuth(secondaryApp);
-
-            const userCredential = await createUserWithEmailAndPassword(secondaryAuth, createData.email, createData.password);
-            const user = userCredential.user;
-
-            await setDoc(doc(db, "users", user.uid), {
-                uid: user.uid,
-                email: user.email,
-                displayName: createData.name,
-                role: 'student',
-                createdAt: serverTimestamp(),
-                photoURL: user.photoURL || null
-            });
-
-            await signOut(secondaryAuth);
+            await createStudentAccount(createData);
 
             showToast(`Đã tạo tài khoản thành công: ${createData.email}`);
             setCreateData({ email: '', password: '', name: '' });
@@ -177,15 +161,12 @@ const AdminStudents = () => {
 
         } catch (error) {
             console.error("Create User Error:", error);
-            if (error.code === 'auth/email-already-in-use') {
-                showToast("Email này đã được sử dụng!", "error");
+            if (error.code === 'auth/email-already-exists' || error.code === 'auth/missing-student-profile') {
+                showToast(error.message, "error");
             } else {
                 showToast("Lỗi khi tạo tài khoản: " + error.message, "error");
             }
         } finally {
-            if (secondaryApp) {
-                deleteApp(secondaryApp);
-            }
             setIsSubmitting(false);
         }
     };
@@ -802,7 +783,7 @@ const AdminStudents = () => {
                                     <div className="relative">
                                         <Lock className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
                                         <input
-                                            type="text"
+                                            type="password"
                                             value={createData.password}
                                             onChange={e => setCreateData({ ...createData, password: e.target.value })}
                                             className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-secret-wax/20 focus:border-secret-wax outline-none transition-all font-mono text-slate-600"

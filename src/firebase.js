@@ -7,7 +7,16 @@ import { CRM_FIREBASE_PUBLIC_CONFIG } from "./constants/crmFirebasePublicConfig"
 import { FIREBASE_PUBLIC_CONFIG } from "./constants/firebasePublicConfig";
 
 // --- 1. APP CHÍNH (Web MaliEdu) ---
-export const firebaseConfig = FIREBASE_PUBLIC_CONFIG;
+// Enable the same-origin OAuth helper only after /__/auth/* is served on the
+// custom domain and its callback is allowed in the Google OAuth client.
+const configuredAuthDomain = String(import.meta.env.VITE_GOOGLE_AUTH_DOMAIN || "").trim().toLowerCase();
+const currentHost = typeof window === "undefined" ? "" : window.location.hostname.toLowerCase();
+export const firebaseConfig = {
+  ...FIREBASE_PUBLIC_CONFIG,
+  authDomain: configuredAuthDomain && configuredAuthDomain === currentHost
+    ? configuredAuthDomain
+    : FIREBASE_PUBLIC_CONFIG.authDomain,
+};
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 export const db = getFirestore(app); // Database của Web

@@ -17,7 +17,6 @@ import {
   Youtube,
   BookOpen,
   GraduationCap,
-  Clock,
   Shield,
   Layout,
   Share2,
@@ -27,7 +26,6 @@ import {
 
 import { auth, db } from "../firebase";
 import { HOTLINE, MENU_ITEMS, SOCIALS } from "../menuData";
-import usePendingOrderCount from "../hooks/usePendingOrderCount";
 import GlobalSearch from "./GlobalSearch";
 import AuthModal from "./AuthModal";
 import { logoutSession } from "../utils/sessionService";
@@ -80,8 +78,6 @@ const Header = () => {
   const [coursesMenuOpen, setCoursesMenuOpen] = useState(false);
   const [hypnosisMenuOpen, setHypnosisMenuOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
-  const pendingCount = usePendingOrderCount(currentUser?.uid);
-  const [pendingBannerDismissed, setPendingBannerDismissed] = useState(false);
   const navigate = useNavigate();
   const coursesMenuRef = useRef(null);
   const hypnosisMenuRef = useRef(null);
@@ -289,14 +285,6 @@ const Header = () => {
                       Trang cá nhân
                     </Link>
                     <Link
-                      to="/lich-su-don-hang"
-                      className="flex items-center gap-2 px-4 py-2 hover:bg-slate-50 text-sm font-medium"
-                      onClick={() => setUserMenuOpen(false)}
-                    >
-                      <Briefcase className="h-4 w-4" />
-                      Lịch sử đơn hàng
-                    </Link>
-                    <Link
                       to="/khoa-hoc-cua-toi"
                       className="flex items-center gap-2 px-4 py-2 hover:bg-slate-50 text-sm font-medium"
                       onClick={() => setUserMenuOpen(false)}
@@ -491,36 +479,6 @@ const Header = () => {
         </div>
       </header>
 
-      {/* Banner nhắc nhở đơn chưa thanh toán */}
-      {currentUser && pendingCount > 0 && !pendingBannerDismissed && (
-        <div className="sticky top-16 z-40 bg-orange-500 text-white shadow-lg">
-          <div className="max-w-7xl mx-auto px-4 py-2.5 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <Clock className="w-4 h-4 shrink-0 animate-pulse" />
-              <p className="text-sm font-medium truncate">
-                Bạn có <strong>{pendingCount} đơn hàng</strong> chưa thanh toán — hoàn tất để kích hoạt khóa học!
-              </p>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <Link
-                to="/lich-su-don-hang"
-                onClick={() => setPendingBannerDismissed(true)}
-                className="inline-flex items-center gap-1 px-3 py-1 bg-white text-orange-600 text-xs font-bold rounded-full hover:bg-orange-50 transition-colors"
-              >
-                Xem ngay
-              </Link>
-              <button
-                onClick={() => setPendingBannerDismissed(true)}
-                className="p-1 rounded-full hover:bg-white/20 transition-colors"
-                aria-label="Đóng"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {mobileOpen && (
         <div className="fixed inset-0 z-[70] bg-secret-ink/50 lg:hidden">
           <div className="absolute inset-y-0 right-0 w-full max-w-sm bg-secret-paper text-secret-ink shadow-2xl shadow-secret-ink/20 flex flex-col">
@@ -551,22 +509,6 @@ const Header = () => {
                   className="w-full rounded-full border border-secret-ink/20 bg-white/70 py-2 pl-9 pr-3 text-sm text-secret-ink placeholder:text-secret-ink/40 focus:border-secret-wax focus:outline-none focus:ring-2 focus:ring-secret-wax/20"
                 />
               </div>
-
-              {currentUser && (
-                <Link
-                  to="/lich-su-don-hang"
-                  onClick={closeMobileMenu}
-                  className="flex items-center gap-3 px-2 py-2 text-secret-ink font-medium hover:text-secret-wax transition"
-                >
-                  <Clock className="h-5 w-5" />
-                  Lịch sử đơn hàng
-                  {pendingCount > 0 && (
-                    <span className="ml-auto text-xs font-bold text-orange-500 bg-orange-50 px-2 py-0.5 rounded-full border border-orange-200">
-                      {pendingCount} chưa TT
-                    </span>
-                  )}
-                </Link>
-              )}
 
               <nav className="space-y-3">
                 {MENU_ITEMS.map((item) => {
