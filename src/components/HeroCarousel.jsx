@@ -381,11 +381,9 @@ const HeroCarousel = () => {
         );
       })}
 
-      <div className="pointer-events-none absolute inset-x-4 top-5 z-20 flex justify-center sm:top-7 md:top-9">
-        <h1 className="max-w-4xl rounded-2xl bg-black/35 px-4 py-3 text-center font-serif text-xl font-bold leading-tight text-white shadow-lg backdrop-blur-sm sm:px-6 sm:text-3xl md:text-4xl lg:text-5xl">
-          Mali Edu – Khai mở tiềm thức, kiến tạo cuộc sống thịnh vượng
-        </h1>
-      </div>
+      <h1 className="sr-only">
+        Mali Edu – Khai mở tiềm thức, kiến tạo cuộc sống thịnh vượng
+      </h1>
 
       {slideCount > 1 && (
         <>

@@ -1,4 +1,4 @@
-import { Phone, MessageCircle } from "lucide-react";
+import { Phone } from "lucide-react";
 import { HOTLINE } from "../menuData";
 import { useLocation } from "react-router";
 
@@ -43,11 +43,20 @@ const FloatingContact = () => {
                 href={zaloLink}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="group relative flex items-center justify-center w-12 h-12 bg-blue-600 rounded-full shadow-lg shadow-blue-600/30 text-white hover:bg-blue-700 hover:scale-110 transition-all duration-300"
+                className="group relative flex items-center justify-center w-12 h-12 bg-[#0068FF] rounded-full shadow-lg shadow-blue-600/30 text-white hover:bg-[#0057d6] hover:scale-110 transition-all duration-300"
                 title="Chat Zalo"
+                aria-label="Chat Zalo"
             >
-                <svg className="w-6 h-6" viewBox="0 0 48 48" fill="currentColor">
-                    <path d="M24 0C10.745 0 0 9.958 0 22.237c0 7.125 3.657 13.475 9.373 17.661L7.5 48l9.177-4.364C18.918 44.497 21.389 45 24 45c13.255 0 24-9.958 24-22.237S37.255 0 24 0zm11.4 30.6l-3.6-4.2-6 4.2-6-4.2-3.6 4.2 9.6-10.2 9.6 10.2z" />
+                <svg className="w-7 h-7" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path
+                        d="M12 2C6.48 2 2 6.03 2 11c0 2.88 1.5 5.46 3.86 7.15l-1.02 3.07a.6.6 0 0 0 .76.76l3.52-1.26C10.19 20.9 11.08 21 12 21c5.52 0 10-4.03 10-10S17.52 2 12 2z"
+                        fill="#FFFFFF"
+                    />
+                    <path
+                        d="M12.49 10.2722v-.4496h1.3467v6.3218h-.7704a.576.576 0 01-.5763-.5729l-.0006.0005a3.273 3.273 0 01-1.9372.6321c-1.8138 0-3.2844-1.4697-3.2844-3.2823 0-1.8125 1.4706-3.2822 3.2844-3.2822a3.273 3.273 0 011.9372.6321l.0006.0005zM6.9188 7.7896v.205c0 .3823-.051.6944-.2995 1.0605l-.03.0343c-.0542.0615-.1815.206-.2421.2843L2.024 14.8h4.8948v.7682a.5764.5764 0 01-.5767.5761H0v-.3622c0-.4436.1102-.6414.2495-.8476L4.8582 9.23H.1922V7.7896h6.7266zm8.5513 8.3548a.4805.4805 0 01-.4803-.4798v-7.875h1.4416v8.3548H15.47zM20.6934 9.6C22.52 9.6 24 11.0807 24 12.9044c0 1.8252-1.4801 3.306-3.3066 3.306-1.8264 0-3.3066-1.4808-3.3066-3.306 0-1.8237 1.4802-3.3044 3.3066-3.3044zm-10.1412 5.253c1.0675 0 1.9324-.8645 1.9324-1.9312 0-1.065-.865-1.9295-1.9324-1.9295s-1.9324.8644-1.9324 1.9295c0 1.0667.865 1.9312 1.9324 1.9312zm10.1412-.0033c1.0737 0 1.945-.8707 1.945-1.9453 0-1.073-.8713-1.9436-1.945-1.9436-1.0753 0-1.945.8706-1.945 1.9453 0 1.0746.8697 1.9453 1.945 1.9453z"
+                        fill="#0068FF"
+                        transform="matrix(0.72 0 0 0.72 3.36 3.3)"
+                    />
                 </svg>
                 <span className="absolute right-full mr-3 bg-slate-900 text-white text-xs font-bold px-2 py-1 rounded shadow opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
                     Chat Zalo

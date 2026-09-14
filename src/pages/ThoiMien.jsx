@@ -641,7 +641,7 @@ const ThoiMien = ({ isPurchasedOnly = false }) => {
                             <div className="flex items-center bg-white border border-slate-200 rounded-xl p-1 shadow-sm">
                                 <button
                                     onClick={() => setViewMode('grid')}
-                                    title="Dạng lưới 2 cột"
+                                    title="Dạng lưới"
                                     className={`p-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 ${
                                         viewMode === 'grid' 
                                             ? 'bg-[#9B2528] text-white shadow-sm' 
@@ -649,7 +649,7 @@ const ThoiMien = ({ isPurchasedOnly = false }) => {
                                     }`}
                                 >
                                     <LayoutGrid className="w-3.5 h-3.5" />
-                                    <span className="text-[10px] hidden sm:inline">Lưới 2 cột</span>
+                                    <span className="text-[10px] hidden sm:inline">Dạng lưới</span>
                                 </button>
 
                                 <button
@@ -733,9 +733,9 @@ const ThoiMien = ({ isPurchasedOnly = false }) => {
                     )}
                 </div>
 
-                {/* ===== CHẾ ĐỘ 1: DẠNG LƯỚI 2 CỘT (MOBILE 2-COLUMN GRID) ===== */}
+                {/* ===== CHẾ ĐỘ 1: DẠNG LƯỚI RESPONSIVE (MOBILE 2 CỘT, TABLET 3 CỘT, DESKTOP 4 CỘT) ===== */}
                 {viewMode === 'grid' && (
-                    <div className="mt-5 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-4">
+                    <div className="mt-5 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-5">
                         {filteredTracks.map((track) => {
                             const isOwned = ownedTrackIds.includes(track.id);
                             const isThisPlaying = currentTrack?.id === track.id && isPlaying;
@@ -823,12 +823,12 @@ const ThoiMien = ({ isPurchasedOnly = false }) => {
                                                 <span className="hidden sm:inline text-slate-400 truncate">{track.brainwave ? track.brainwave.split('&')[0] : ''}</span>
                                             </div>
 
-                                            <h3 className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-[#9B2528] transition-colors line-clamp-2 leading-tight">
+                                            <h3 className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-[#9B2528] transition-colors line-clamp-2 leading-tight min-h-[2rem] sm:min-h-[2.5rem]">
                                                 {track.title}
                                             </h3>
 
                                             {/* Benefit / Lợi ích cốt lõi */}
-                                            <p className="mt-1 text-[10px] sm:text-xs text-slate-500 line-clamp-2 leading-snug">
+                                            <p className="mt-1 text-[10px] sm:text-xs text-slate-500 line-clamp-2 leading-snug min-h-[1.75rem] sm:min-h-[2rem]">
                                                 {track.benefit || track.description}
                                             </p>
 
@@ -860,7 +860,7 @@ const ThoiMien = ({ isPurchasedOnly = false }) => {
                                                     }`}
                                                 >
                                                     {isThisPlaying ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3 fill-current" />}
-                                                    <span>{isThisPlaying ? 'Tạm dừng' : 'Nghe ngay'}</span>
+                                                    <span className="truncate">{isThisPlaying ? 'Tạm dừng' : 'Nghe ngay'}</span>
                                                 </button>
                                                 <button
                                                     type="button"
@@ -872,7 +872,7 @@ const ThoiMien = ({ isPurchasedOnly = false }) => {
                                                     title="Xem cẩm nang hướng dẫn chuyên sâu"
                                                 >
                                                     <BookOpen className="w-3 h-3 text-amber-700 shrink-0" />
-                                                    <span>Hướng dẫn</span>
+                                                    <span className="truncate">Hướng dẫn</span>
                                                 </button>
                                             </div>
                                         ) : isOwned ? (
@@ -881,25 +881,25 @@ const ThoiMien = ({ isPurchasedOnly = false }) => {
                                                 className="w-full py-1.5 px-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-center border border-emerald-200 shadow-sm"
                                             >
                                                 <Check className="w-3.5 h-3.5" />
-                                                <span>Đã có • Mở nghe</span>
+                                                <span className="truncate">Đã có • Mở nghe</span>
                                             </Link>
                                         ) : track.isFree ? (
                                             <button
                                                 disabled={!track.available}
                                                 onClick={() => handleClaimFreeTrack(track)}
-                                                className="w-full py-1.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 bg-[#9B2528] text-white hover:bg-[#7E1E21] shadow-sm active:scale-95"
+                                                className="w-full py-1.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 bg-[#9B2528] text-white hover:bg-[#7E1E21] shadow-sm active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
                                             >
                                                 <Unlock className="w-3 h-3" />
-                                                <span>{track.available ? 'Nhận 0đ' : 'Chưa sẵn sàng'}</span>
+                                                <span className="truncate">{track.available ? 'Nhận 0đ' : 'Chưa sẵn sàng'}</span>
                                             </button>
                                         ) : (
                                             <button
                                                 disabled={!track.available}
                                                 onClick={() => navigate(`/thanh-toan/${track.id}`)}
-                                                className="w-full py-1.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 bg-gradient-to-r from-amber-500 to-amber-600 text-white hover:from-amber-600 hover:to-amber-700 shadow-sm active:scale-95"
+                                                className="w-full py-1.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 bg-gradient-to-r from-amber-500 to-amber-600 text-white hover:from-amber-600 hover:to-amber-700 shadow-sm active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
                                             >
                                                 <Lock className="w-3 h-3" />
-                                                <span>{track.available ? `Mua • ${track.price}` : 'Chưa sẵn sàng'}</span>
+                                                <span className="truncate">{track.available ? `Mua • ${track.price}` : 'Chưa sẵn sàng'}</span>
                                             </button>
                                         )}
                                     </div>
@@ -908,9 +908,9 @@ const ThoiMien = ({ isPurchasedOnly = false }) => {
                                     {!isPurchasedView && !isOwned && affInfo && (
                                         <div className="mt-2.5 pt-2 border-t border-dashed border-amber-200 bg-amber-50/70 -mx-2.5 sm:-mx-3.5 -mb-2.5 sm:-mb-3.5 px-2.5 py-2 rounded-b-2xl" onClick={(e) => e.stopPropagation()}>
                                             <div className="flex items-center justify-between gap-1 text-[10px] leading-tight mb-1.5">
-                                                <span className="font-bold text-amber-950 flex items-center gap-1 truncate">
+                                                <span className="font-bold text-amber-950 flex items-center gap-1 min-w-0">
                                                     <Sparkles className="w-3 h-3 text-amber-600 fill-amber-500 shrink-0" />
-                                                    <span>Hoa hồng: <strong className="text-red-700">{affInfo.label}</strong></span>
+                                                    <span className="truncate">Hoa hồng: <strong className="text-red-700">{affInfo.label}</strong></span>
                                                 </span>
                                                 {affInfo.buyerDiscount > 0 && (
                                                     <span className="text-[9px] font-bold text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded shrink-0 border border-emerald-300/60">
@@ -926,12 +926,12 @@ const ThoiMien = ({ isPurchasedOnly = false }) => {
                                                 {copiedTrackId === track.id ? (
                                                     <>
                                                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                                                        <span className="text-emerald-700">Đã chép link CTV!</span>
+                                                        <span className="text-emerald-700 truncate">Đã chép link CTV!</span>
                                                     </>
                                                 ) : (
                                                     <>
                                                         <Share2 className="w-3.5 h-3.5 text-amber-700 shrink-0" />
-                                                        <span>Tiếp thị ({affInfo.isFixed ? affInfo.label : `+${affInfo.estReward.toLocaleString('vi-VN')}đ`})</span>
+                                                        <span className="truncate">Tiếp thị ({affInfo.isFixed ? affInfo.label : `+${affInfo.estReward.toLocaleString('vi-VN')}đ`})</span>
                                                     </>
                                                 )}
                                             </button>

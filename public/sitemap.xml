@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Sitemap tự động sinh lúc build – 2026-09-09 -->
+<!-- Sitemap tự động sinh lúc build – 2026-09-14 -->
 <!-- Tổng URL: 19 (tĩnh: 18, khóa học: 1, tuyển dụng: 0) -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -79,6 +79,6 @@
   </url>
   <url>
     <loc>https://luathapdan.vn/khoa-hoc/khoa-hoc-tu-thoi-mien</loc>
-    <lastmod>2026-09-03</lastmod>
+    <lastmod>2026-09-11</lastmod>
   </url>
 </urlset>
