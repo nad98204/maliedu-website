@@ -1,6 +1,18 @@
 export const COURSE_CONTENT_COLLECTION = "course_content";
 export const COURSE_ACCESS_COLLECTION = "course_access";
-export const COURSE_CONTENT_SCHEMA_VERSION = 2;
+export const COURSE_CONTENT_SCHEMA_VERSION = 3;
+
+const LESSON_CONTENT_TYPES = new Set([
+  "video",
+  "article",
+  "image",
+  "article_image",
+]);
+
+const normalizeLessonContentType = (lesson = {}) => {
+  const contentType = lesson.contentType || lesson.type;
+  return LESSON_CONTENT_TYPES.has(contentType) ? contentType : "video";
+};
 
 const PRIVATE_ROOT_FIELDS = [
   "courseResources",
@@ -70,6 +82,10 @@ const normalizePrivateContent = (courseId, course = {}) => {
           return {
             ...lesson,
             id: lessonId,
+            contentType: normalizeLessonContentType(lesson),
+            images: Array.isArray(lesson?.images)
+              ? lesson.images.filter(Boolean)
+              : [],
             isFreePreview: Boolean(lesson?.isFreePreview),
           };
         }),
@@ -128,18 +144,36 @@ export const buildPublicCurriculum = (course, normalizedCurriculum) => {
     id: section.id,
     title: section.title || "",
     lessons: (section.lessons || []).map((lesson) => {
+      const contentType = normalizeLessonContentType(lesson);
       const publicLesson = {
         id: lesson.id,
         title: lesson.title || "",
         duration: lesson.duration || "",
-        type: lesson.type || "video",
+        contentType,
+        type: contentType,
         isFreePreview: previewableIds.has(lesson.id),
       };
 
-      if (previewableIds.has(lesson.id) && lesson.videoId) {
-        publicLesson.videoId = lesson.videoId;
-        publicLesson.videoProvider =
-          lesson.videoProvider === "bunny" ? "bunny" : "s3";
+      if (previewableIds.has(lesson.id)) {
+        if (contentType === "video" && lesson.videoId) {
+          publicLesson.videoId = lesson.videoId;
+          publicLesson.videoProvider =
+            lesson.videoProvider === "bunny" ? "bunny" : "s3";
+        }
+
+        if (
+          (contentType === "article" || contentType === "article_image") &&
+          lesson.articleContent
+        ) {
+          publicLesson.articleContent = lesson.articleContent;
+        }
+
+        if (contentType === "image" || contentType === "article_image") {
+          publicLesson.images = Array.isArray(lesson.images)
+            ? lesson.images.filter(Boolean)
+            : [];
+          if (lesson.imageUrl) publicLesson.imageUrl = lesson.imageUrl;
+        }
       }
 
       return publicLesson;

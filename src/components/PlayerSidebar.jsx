@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
     ArrowRight,
     CheckCircle2,
@@ -7,6 +7,7 @@ import {
     Download,
     Eye,
     FileText,
+    Image as ImageIcon,
     Lock,
     Play,
     PlayCircle,
@@ -18,6 +19,12 @@ import {
     ExternalLink
 } from 'lucide-react';
 import { formatPrice } from '../utils/orderService';
+import {
+    getLessonContentTypeLabel,
+    LESSON_CONTENT_TYPES,
+    lessonHasArticle,
+    normalizeLessonContentType,
+} from '../utils/lessonContent';
 
 const getViewerUrl = (url = '') => {
     const lower = url.toLowerCase().split('?')[0];
@@ -34,12 +41,10 @@ const PlayerSidebar = ({
     resourceGroups = [],
     lessonResourceMap = {},
     sectionResourceMap = {},
-    currentContextResources = [],
     hasResourceAccess = true,
     isPreviewMode = false,
     previewableLessonKeys = [],
     registrationPrice = 0,
-    originalPrice = 0,
     currentLessonId,
     progress = {},
     onLessonSelect,
@@ -58,6 +63,9 @@ const PlayerSidebar = ({
         () => (hasResourceAccess ? ['curriculum', 'resources'] : ['curriculum']),
         [hasResourceAccess]
     );
+    const displayedActiveTab = availableTabs.includes(activeTab)
+        ? activeTab
+        : availableTabs[0];
 
     const totalLessons = useMemo(
         () => sections.reduce((total, section) => total + (section.lessons?.length || 0), 0),
@@ -130,7 +138,7 @@ const PlayerSidebar = ({
         return null;
     }, [currentLessonId, sections]);
 
-    const currentLessonMeta = useMemo(() => {
+    const currentLessonMeta = (() => {
         if (!currentLessonId) return null;
 
         for (let sectionIndex = 0; sectionIndex < sections.length; sectionIndex += 1) {
@@ -158,7 +166,7 @@ const PlayerSidebar = ({
         }
 
         return null;
-    }, [currentLessonId, sections]);
+    })();
 
     const toggleSection = (sectionIndex, defaultOpen = false) => {
         setOpenSections((prev) => ({
@@ -174,14 +182,8 @@ const PlayerSidebar = ({
         }));
     };
 
-    useEffect(() => {
-        if (!availableTabs.includes(activeTab)) {
-            setActiveTab(availableTabs[0]);
-        }
-    }, [activeTab, availableTabs]);
-
-    const searchValue = activeTab === 'curriculum' ? lessonSearchTerm : resourceSearchTerm;
-    const setSearchValue = activeTab === 'curriculum' ? setLessonSearchTerm : setResourceSearchTerm;
+    const searchValue = displayedActiveTab === 'curriculum' ? lessonSearchTerm : resourceSearchTerm;
+    const setSearchValue = displayedActiveTab === 'curriculum' ? setLessonSearchTerm : setResourceSearchTerm;
 
     return (
         <div className="flex h-full flex-col bg-white text-slate-800 select-none">
@@ -255,14 +257,14 @@ const PlayerSidebar = ({
                         type="button"
                         onClick={() => setActiveTab('curriculum')}
                         className={`flex items-center justify-center gap-1.5 rounded-xl py-2 px-3 text-xs font-bold transition-all ${
-                            activeTab === 'curriculum'
+                            displayedActiveTab === 'curriculum'
                                 ? 'bg-white text-[#8B2E2E] shadow-sm font-black'
                                 : 'text-slate-500 hover:text-slate-800'
                         }`}
                     >
                         <span>Bài học</span>
                         <span className={`px-1.5 py-0.2 text-[10px] rounded-full font-bold ${
-                            activeTab === 'curriculum' ? 'bg-red-50 text-[#8B2E2E]' : 'bg-slate-200/70 text-slate-500'
+                            displayedActiveTab === 'curriculum' ? 'bg-red-50 text-[#8B2E2E]' : 'bg-slate-200/70 text-slate-500'
                         }`}>
                             {totalLessons}
                         </span>
@@ -272,14 +274,14 @@ const PlayerSidebar = ({
                         type="button"
                         onClick={() => setActiveTab('resources')}
                         className={`flex items-center justify-center gap-1.5 rounded-xl py-2 px-3 text-xs font-bold transition-all ${
-                            activeTab === 'resources'
+                            displayedActiveTab === 'resources'
                                 ? 'bg-white text-[#8B2E2E] shadow-sm font-black'
                                 : 'text-slate-500 hover:text-slate-800'
                         }`}
                     >
                         <span>Tài liệu</span>
                         <span className={`px-1.5 py-0.2 text-[10px] rounded-full font-bold ${
-                            activeTab === 'resources' ? 'bg-red-50 text-[#8B2E2E]' : 'bg-slate-200/70 text-slate-500'
+                            displayedActiveTab === 'resources' ? 'bg-red-50 text-[#8B2E2E]' : 'bg-slate-200/70 text-slate-500'
                         }`}>
                             {resources.length}
                         </span>
@@ -292,7 +294,7 @@ const PlayerSidebar = ({
                     <input
                         type="text"
                         placeholder={
-                            activeTab === 'curriculum'
+                            displayedActiveTab === 'curriculum'
                                 ? 'Tìm bài học theo tên...'
                                 : 'Tìm tài liệu, bài tập...'
                         }
@@ -311,7 +313,7 @@ const PlayerSidebar = ({
                 </div>
 
                 {/* Compact Progress Bar */}
-                {activeTab === 'curriculum' && totalLessons > 0 && (
+                {displayedActiveTab === 'curriculum' && totalLessons > 0 && (
                     <div className="pt-1 space-y-1">
                         <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500">
                             <span>Tiến độ: <strong className="text-slate-800">{completedLessons}/{totalLessons}</strong> bài</span>
@@ -329,7 +331,7 @@ const PlayerSidebar = ({
 
             {/* Scrollable Content Body */}
             <div className="custom-scrollbar flex-1 overflow-y-auto p-3 space-y-2.5">
-                {activeTab === 'curriculum' ? (
+                {displayedActiveTab === 'curriculum' ? (
                     filteredSections.length > 0 ? (
                         filteredSections.map((section, sIdx) => {
                             const sectionId = section.id || `section-${section.sectionIndex}`;
@@ -418,6 +420,12 @@ const PlayerSidebar = ({
                                                     isPreviewMode &&
                                                     !previewableLessonKeySet.has(lessonKey);
                                                 const lessonResources = lessonResourceMap[lessonKey] || [];
+                                                const lessonContentType = normalizeLessonContentType(lesson);
+                                                const LessonTypeIcon = lessonContentType === LESSON_CONTENT_TYPES.VIDEO
+                                                    ? Video
+                                                    : lessonHasArticle(lessonContentType)
+                                                        ? FileText
+                                                        : ImageIcon;
 
                                                 return (
                                                     <button
@@ -468,7 +476,12 @@ const PlayerSidebar = ({
                                                             </p>
 
                                                             <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
-                                                                {lesson.duration && (
+                                                                <span className="flex items-center gap-1 font-semibold text-slate-500">
+                                                                    <LessonTypeIcon className="h-3 w-3" />
+                                                                    {getLessonContentTypeLabel(lessonContentType, true)}
+                                                                </span>
+
+                                                                {lessonContentType === LESSON_CONTENT_TYPES.VIDEO && lesson.duration && (
                                                                     <span className="flex items-center gap-1">
                                                                         <Clock className="h-3 w-3" />
                                                                         {lesson.duration}

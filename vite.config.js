@@ -4,16 +4,17 @@ import fs from 'fs'
 import fsPromises from 'fs/promises'
 import path from 'path'
 import process from 'process'
+import { Buffer } from 'node:buffer'
 
 const cloudflareApiPlugin = () => ({
   name: 'cloudflare-api',
   configureServer(server) {
     server.middlewares.use(async (req, res, next) => {
       if (req.url.startsWith('/api/')) {
-        let bodyStr = '';
+        const bodyChunks = [];
         if (req.method === 'POST' || req.method === 'PUT' || req.method === 'DELETE') {
            for await (const chunk of req) {
-              bodyStr += chunk;
+              bodyChunks.push(Buffer.from(chunk));
            }
         }
         
@@ -42,13 +43,12 @@ const cloudflareApiPlugin = () => ({
                // They are passed only to the local function context and are never
                // exposed through import.meta.env in the browser bundle.
                const env = loadEnv(server.config.mode, process.cwd(), '');
-               const request = {
-                  json: async () => JSON.parse(bodyStr || '{}'),
-                  text: async () => bodyStr,
+               const bodyBuffer = Buffer.concat(bodyChunks);
+               const request = new Request('http://localhost' + req.url, {
                   method: req.method,
-                  url: 'http://localhost' + req.url,
-                  headers: req.headers
-               };
+                  headers: new Headers(req.headers),
+                  body: bodyBuffer.length > 0 ? bodyBuffer : undefined,
+               });
                const context = { request, env };
                const response = await handler(context);
                

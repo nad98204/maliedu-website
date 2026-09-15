@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   collection,
   doc,
@@ -49,6 +49,7 @@ import { crmFirestore, db } from "../../firebase";
 import RichTextEditor from "../../components/RichTextEditor";
 import { uploadFileToS3, uploadVideoToS3 } from "../../utils/s3UploadService";
 import { uploadVideoToBunny } from "../../utils/bunnyStreamService";
+import { uploadImageToBunny } from "../../utils/bunnyStorageService";
 import AdminCategories from "./AdminCategories";
 import AdminCoupons from "./AdminCoupons";
 import AdminInstructors from "./AdminInstructors"; // NEW IMPORT
@@ -71,6 +72,15 @@ import {
   getDefaultCourseAccessPlan,
   normalizeCourseAccessPlans,
 } from "../../utils/coursePricing";
+import {
+  getLessonContentTypeLabel,
+  getLessonImages,
+  LESSON_CONTENT_TYPES,
+  LESSON_CONTENT_TYPE_OPTIONS,
+  lessonHasArticle,
+  lessonHasImages,
+  normalizeLessonContentType,
+} from "../../utils/lessonContent";
 
 // --- CẤU HÌNH THÔNG TIN GIẢNG VIÊN MẶC ĐỊNH ---
 // Anh/chị có thể sửa nội dung mặc định tại đây:
@@ -177,7 +187,10 @@ const normalizeCurriculumForForm = (curriculum = []) => {
         createLocalId(`lesson-${sectionIndex}-${lessonIndex}`),
       ),
       isFreePreview: Boolean(lesson.isFreePreview),
+      contentType: normalizeLessonContentType(lesson),
       videoProvider: lesson.videoProvider === "bunny" ? "bunny" : "s3",
+      imageProvider: lesson.imageProvider === "bunny" ? "bunny" : "s3",
+      images: getLessonImages(lesson),
     })),
   }));
 };
@@ -238,6 +251,11 @@ const AdminCourses = () => {
   const [editingCourse, setEditingCourse] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [thumbnailStorageProvider, setThumbnailStorageProvider] =
+    useState("bunny");
+  const [thumbnailUploadProgress, setThumbnailUploadProgress] = useState(0);
+  const [thumbnailUploadError, setThumbnailUploadError] = useState("");
+  const thumbnailFileInputRef = useRef(null);
   const [isUploadingInstructorImage, setIsUploadingInstructorImage] =
     useState(false);
   const [toast, setToast] = useState(null);
@@ -251,6 +269,9 @@ const AdminCourses = () => {
   const [expandedResources, setExpandedResources] = useState({}); // Key: resource.id || idx, Value: boolean
   const [uploadTasks, setUploadTasks] = useState({}); // { 'key': { fileName, progress, status, error } }
   const [uploadProviders, setUploadProviders] = useState({});
+  const [quickLessonTypes, setQuickLessonTypes] = useState({});
+  const [uploadingLessonImages, setUploadingLessonImages] = useState({});
+  const [lessonImageUploadProgress, setLessonImageUploadProgress] = useState({});
 
   const getUploadProvider = (taskKey, fallbackProvider = "s3") =>
     uploadProviders[taskKey] ||
@@ -600,19 +621,28 @@ const AdminCourses = () => {
   };
 
   const handleAddLessonToSection = (sIdx, lesson) => {
-    const newCurriculum = [...formData.curriculum];
-    if (newCurriculum[sIdx]) {
-      newCurriculum[sIdx].lessons = [
-        ...(newCurriculum[sIdx].lessons || []),
-        {
-          ...lesson,
-          id: getLessonIdentifier(lesson, createLocalId("lesson")),
-          isFreePreview: false,
-          videoProvider: lesson.videoProvider === "bunny" ? "bunny" : "s3",
-        },
-      ];
-      setFormData((prev) => ({ ...prev, curriculum: newCurriculum }));
-    }
+    const lessonId = getLessonIdentifier(lesson, createLocalId("lesson"));
+    const nextLesson = {
+      ...lesson,
+      id: lessonId,
+      contentType: normalizeLessonContentType(lesson),
+      images: getLessonImages(lesson),
+      isFreePreview: false,
+      videoProvider: lesson.videoProvider === "bunny" ? "bunny" : "s3",
+    };
+
+    setFormData((current) => {
+      const curriculum = [...(current.curriculum || [])];
+      const section = curriculum[sIdx];
+      if (!section) return current;
+
+      curriculum[sIdx] = {
+        ...section,
+        lessons: [...(section.lessons || []), nextLesson],
+      };
+      return { ...current, curriculum };
+    });
+    setExpandedLessons((current) => ({ ...current, [lessonId]: true }));
   };
 
   const handleRemoveLessonFromSection = (sIdx, lIdx) => {
@@ -679,6 +709,120 @@ const AdminCourses = () => {
 
       const lessons = [...section.lessons];
       lessons[lIdx] = { ...lesson, [field]: value };
+      curriculum[sIdx] = { ...section, lessons };
+      return { ...current, curriculum };
+    });
+  };
+
+  const handleLessonContentTypeChange = (sIdx, lIdx, contentType) => {
+    setFormData((current) => {
+      const curriculum = [...(current.curriculum || [])];
+      const section = curriculum[sIdx];
+      const lesson = section?.lessons?.[lIdx];
+      if (!lesson) return current;
+
+      const lessons = [...section.lessons];
+      lessons[lIdx] = {
+        ...lesson,
+        contentType,
+        ...(contentType === LESSON_CONTENT_TYPES.VIDEO ? {} : { duration: "" }),
+      };
+      curriculum[sIdx] = { ...section, lessons };
+      return { ...current, curriculum };
+    });
+  };
+
+  const handleLessonImagesUpload = async (
+    event,
+    sIdx,
+    lIdx,
+    requestedProvider = "s3",
+  ) => {
+    const selectedFiles = Array.from(event.target.files || []);
+    event.target.value = "";
+    if (selectedFiles.length === 0) return;
+
+    if (selectedFiles.some((file) => !file.type.startsWith("image/"))) {
+      showToast("Vui lòng chỉ chọn tệp hình ảnh", "error");
+      return;
+    }
+
+    const uploadKey = `${sIdx}-${lIdx}`;
+    const provider = requestedProvider === "bunny" ? "bunny" : "s3";
+    setUploadingLessonImages((current) => ({ ...current, [uploadKey]: true }));
+    setLessonImageUploadProgress((current) => ({ ...current, [uploadKey]: 0 }));
+
+    try {
+      const imageUrls = [];
+      for (let fileIndex = 0; fileIndex < selectedFiles.length; fileIndex += 1) {
+        const file = selectedFiles[fileIndex];
+        const reportProgress = (fileProgress) => {
+          const totalProgress = Math.round(
+            ((fileIndex * 100 + Number(fileProgress || 0)) /
+              selectedFiles.length),
+          );
+          setLessonImageUploadProgress((current) => ({
+            ...current,
+            [uploadKey]: totalProgress,
+          }));
+        };
+        const imageUrl = provider === "bunny"
+          ? await uploadImageToBunny(file, reportProgress)
+          : await uploadFileToS3(file, reportProgress, {
+              folder: "course-lessons/images",
+            });
+        imageUrls.push(imageUrl);
+      }
+
+      setFormData((current) => {
+        const curriculum = [...(current.curriculum || [])];
+        const section = curriculum[sIdx];
+        const lesson = section?.lessons?.[lIdx];
+        if (!lesson) return current;
+
+        const lessons = [...section.lessons];
+        lessons[lIdx] = {
+          ...lesson,
+          images: Array.from(new Set([...getLessonImages(lesson), ...imageUrls])),
+          imageProvider: provider,
+        };
+        curriculum[sIdx] = { ...section, lessons };
+        return { ...current, curriculum };
+      });
+      showToast(
+        `Đã tải ${selectedFiles.length} ảnh lên ${provider === "bunny" ? "Bunny CDN" : "S3"}`,
+        "success",
+      );
+    } catch (error) {
+      console.error("Lỗi tải ảnh bài học:", error);
+      showToast(error.message || "Không thể tải ảnh bài học", "error");
+    } finally {
+      setUploadingLessonImages((current) => {
+        const next = { ...current };
+        delete next[uploadKey];
+        return next;
+      });
+      setLessonImageUploadProgress((current) => {
+        const next = { ...current };
+        delete next[uploadKey];
+        return next;
+      });
+    }
+  };
+
+  const handleRemoveLessonImage = (sIdx, lIdx, imageUrl) => {
+    setFormData((current) => {
+      const curriculum = [...(current.curriculum || [])];
+      const section = curriculum[sIdx];
+      const lesson = section?.lessons?.[lIdx];
+      if (!lesson) return current;
+
+      const lessons = [...section.lessons];
+      lessons[lIdx] = {
+        ...lesson,
+        images: getLessonImages(lesson).filter((url) => url !== imageUrl),
+        imageUrl: lesson.imageUrl === imageUrl ? "" : lesson.imageUrl,
+      };
       curriculum[sIdx] = { ...section, lessons };
       return { ...current, curriculum };
     });
@@ -1060,6 +1204,7 @@ const AdminCourses = () => {
       try {
         const courseData = {
           ...getNormalizedCourseData(formData),
+          thumbnailStorageProvider,
           isDraft: true,
           updatedAt: Date.now(),
         };
@@ -1082,7 +1227,13 @@ const AdminCourses = () => {
     return () => clearTimeout(timer);
   // The normalization helper is pure; form state is the actual autosave trigger.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData, isFormOpen, editingCourse, isSubmitting]);
+  }, [
+    formData,
+    isFormOpen,
+    editingCourse,
+    isSubmitting,
+    thumbnailStorageProvider,
+  ]);
 
   const handleCloseForm = () => {
     // Check if anything major changed
@@ -1238,32 +1389,60 @@ const AdminCourses = () => {
   };
 
   const handleImageUpload = async (event) => {
-    const selectedFile = event.target.files?.[0];
+    const fileInput = event.currentTarget;
+    const selectedFile = fileInput.files?.[0];
+
+    // Cho phép chọn lại cùng một file sau khi upload thành công hoặc thất bại.
+    fileInput.value = "";
     if (!selectedFile) return;
 
+    setThumbnailUploadError("");
+
     if (!selectedFile.type.startsWith("image/")) {
+      setThumbnailUploadError("Vui lòng chọn file ảnh hợp lệ");
       showToast("Vui lòng chọn file ảnh hợp lệ", "error");
       return;
     }
 
+    const provider = thumbnailStorageProvider;
     setIsUploadingImage(true);
+    setThumbnailUploadProgress(0);
     try {
-      const publicUrl = await uploadFileToS3(selectedFile, null, { folder: "thumbnails" });
+      const reportProgress = (percent) => {
+        setThumbnailUploadProgress(Math.max(0, Math.min(100, percent || 0)));
+      };
+      const publicUrl = provider === "bunny"
+        ? await uploadImageToBunny(selectedFile, reportProgress)
+        : await uploadFileToS3(selectedFile, reportProgress, {
+            folder: "thumbnails",
+          });
+
       setFormData((prev) => ({
         ...prev,
         thumbnailUrl: publicUrl,
       }));
-      showToast("Tải ảnh bìa thành công!");
+      showToast(
+        `Tải ảnh bìa lên ${provider === "bunny" ? "Bunny CDN" : "S3"} thành công!`,
+      );
     } catch (error) {
-      console.error("Lỗi upload:", error);
-      showToast("Lỗi khi tải ảnh lên", "error");
+      console.error("Lỗi upload ảnh bìa:", error);
+      const message = error?.message || "Lỗi khi tải ảnh lên";
+      setThumbnailUploadError(message);
+      showToast(message, "error");
     } finally {
+      if (thumbnailFileInputRef.current) {
+        thumbnailFileInputRef.current.value = "";
+      }
       setIsUploadingImage(false);
+      setThumbnailUploadProgress(0);
     }
   };
 
   const handleRemoveImage = () => {
     setFormData((prev) => ({ ...prev, thumbnailUrl: "" }));
+    if (thumbnailFileInputRef.current) {
+      thumbnailFileInputRef.current.value = "";
+    }
   };
 
   const handleInstructorImageUpload = async (event) => {
@@ -1296,6 +1475,13 @@ const AdminCourses = () => {
   };
 
   const handleAddNew = () => {
+    setUploadProviders({});
+    setQuickLessonTypes({});
+    setUploadingLessonImages({});
+    setLessonImageUploadProgress({});
+    setThumbnailStorageProvider("bunny");
+    setThumbnailUploadProgress(0);
+    setThumbnailUploadError("");
     setEditingCourse(null);
     setFormData({
       name: "",
@@ -1338,7 +1524,21 @@ const AdminCourses = () => {
   };
 
   const handleEdit = (course) => {
+    setUploadProviders({});
+    setQuickLessonTypes({});
+    setUploadingLessonImages({});
+    setLessonImageUploadProgress({});
+    setThumbnailStorageProvider(
+      course.thumbnailStorageProvider === "s3"
+        ? "s3"
+        : course.thumbnailStorageProvider === "bunny" ||
+            course.thumbnailUrl?.includes(".b-cdn.net")
+          ? "bunny"
+          : "s3",
+    );
+    setThumbnailUploadProgress(0);
     setEditingCourse(course);
+    setThumbnailUploadError("");
     setFormData({
       name: course.name || "",
       slug: course.slug || "",
@@ -1401,7 +1601,21 @@ const AdminCourses = () => {
   };
 
   const handleDuplicate = (course) => {
+    setUploadProviders({});
+    setQuickLessonTypes({});
+    setUploadingLessonImages({});
+    setLessonImageUploadProgress({});
+    setThumbnailStorageProvider(
+      course.thumbnailStorageProvider === "s3"
+        ? "s3"
+        : course.thumbnailStorageProvider === "bunny" ||
+            course.thumbnailUrl?.includes(".b-cdn.net")
+          ? "bunny"
+          : "s3",
+    );
+    setThumbnailUploadProgress(0);
     setEditingCourse(null);
+    setThumbnailUploadError("");
 
     const duplicatedCurriculum = JSON.parse(
       JSON.stringify(normalizeCurriculumForForm(course.curriculum)),
@@ -1617,6 +1831,7 @@ const AdminCourses = () => {
     try {
       const courseData = {
         ...getNormalizedCourseData(formData),
+        thumbnailStorageProvider,
         updatedAt: Date.now(),
       };
 
@@ -1805,7 +2020,8 @@ const AdminCourses = () => {
       {/* Toast */}
       {toast && (
         <div
-          className={`fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg text-white ${toast.type === "error" ? "bg-red-500" : "bg-green-500"}`}
+          role={toast.type === "error" ? "alert" : "status"}
+          className={`fixed top-4 right-4 z-[200] max-w-[calc(100vw-2rem)] px-6 py-3 rounded-lg shadow-lg text-white ${toast.type === "error" ? "bg-red-500" : "bg-green-500"}`}
         >
           {toast.message}
         </div>
@@ -2870,11 +3086,51 @@ const AdminCourses = () => {
                   <div className="space-y-8">
                     <div className="p-8 rounded-3xl bg-white border border-slate-100 shadow-sm space-y-8">
                       <div className="space-y-4">
-                        <label className="text-[11px] font-black uppercase tracking-widest text-slate-400">
-                          Ảnh minh họa khóa học
-                        </label>
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <span className="text-[11px] font-black uppercase tracking-widest text-slate-400">
+                            Ảnh minh họa khóa học
+                          </span>
+                          <div className="flex items-center gap-1 rounded-xl bg-slate-100 p-1">
+                            {[
+                              { value: "bunny", label: "Bunny" },
+                              { value: "s3", label: "S3" },
+                            ].map((option) => (
+                              <button
+                                key={option.value}
+                                type="button"
+                                onClick={() => {
+                                  setThumbnailStorageProvider(option.value);
+                                  setThumbnailUploadError("");
+                                }}
+                                disabled={isUploadingImage}
+                                className={`rounded-lg px-3 py-1.5 text-[10px] font-black uppercase tracking-wider transition-all disabled:cursor-not-allowed disabled:opacity-60 ${
+                                  thumbnailStorageProvider === option.value
+                                    ? "bg-white text-secret-wax shadow-sm"
+                                    : "text-slate-400 hover:text-slate-600"
+                                }`}
+                                title={option.value === "bunny" ? "Lưu ảnh bìa trên Bunny Storage và phân phối qua CDN" : "Lưu ảnh bìa trên S3"}
+                              >
+                                {option.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {thumbnailUploadError && (
+                          <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                            {thumbnailUploadError}
+                          </div>
+                        )}
 
                         <div className="grid grid-cols-1 gap-6">
+                          <input
+                            ref={thumbnailFileInputRef}
+                            type="file"
+                            className="hidden"
+                            accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
+                            onChange={handleImageUpload}
+                            disabled={isUploadingImage}
+                          />
                           {formData.thumbnailUrl ? (
                             <div className="relative h-56 w-full group rounded-[24px] overflow-hidden shadow-xl shadow-slate-200 ring-1 ring-slate-100">
                               <img
@@ -2886,22 +3142,52 @@ const AdminCourses = () => {
                                   e.target.src = "https://via.placeholder.com/150?text=No+Image";
                                 }}
                               />
+                              {isUploadingImage && (
+                                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-slate-900/60 text-white backdrop-blur-sm">
+                                  <div className="h-10 w-10 animate-spin rounded-full border-4 border-white/25 border-t-white" />
+                                  <span className="text-sm font-black">
+                                    Đang tải lên {thumbnailStorageProvider === "bunny" ? "Bunny" : "S3"}
+                                    {thumbnailUploadProgress > 0 ? ` ${thumbnailUploadProgress}%` : "..."}
+                                  </span>
+                                </div>
+                              )}
                               <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3 backdrop-blur-sm">
                                 <button
                                   type="button"
+                                  onClick={() => thumbnailFileInputRef.current?.click()}
+                                  disabled={isUploadingImage}
+                                  className="p-3 bg-white text-secret-wax rounded-2xl shadow-xl hover:scale-110 transition-transform disabled:cursor-not-allowed disabled:opacity-60"
+                                  title="Thay ảnh bìa"
+                                  aria-label="Thay ảnh bìa"
+                                >
+                                  <Upload className="w-5 h-5" />
+                                </button>
+                                <button
+                                  type="button"
                                   onClick={handleRemoveImage}
-                                  className="p-3 bg-white text-rose-600 rounded-2xl shadow-xl hover:scale-110 transition-transform"
+                                  disabled={isUploadingImage}
+                                  className="p-3 bg-white text-rose-600 rounded-2xl shadow-xl hover:scale-110 transition-transform disabled:cursor-not-allowed disabled:opacity-60"
+                                  title="Xóa ảnh bìa"
+                                  aria-label="Xóa ảnh bìa"
                                 >
                                   <Trash2 className="w-5 h-5" />
                                 </button>
                               </div>
                             </div>
                           ) : (
-                            <label className="flex flex-col items-center justify-center h-56 w-full rounded-[24px] border-2 border-dashed border-slate-200 bg-slate-50/50 hover:bg-slate-50 hover:border-secret-wax transition-all cursor-pointer group">
+                            <button
+                              type="button"
+                              onClick={() => thumbnailFileInputRef.current?.click()}
+                              disabled={isUploadingImage}
+                              className="flex flex-col items-center justify-center h-56 w-full rounded-[24px] border-2 border-dashed border-slate-200 bg-slate-50/50 hover:bg-slate-50 hover:border-secret-wax transition-all cursor-pointer group disabled:cursor-wait disabled:opacity-80"
+                            >
                               {isUploadingImage ? (
                                 <div className="flex flex-col items-center gap-3">
                                   <div className="w-10 h-10 border-4 border-secret-wax/20 border-t-secret-wax rounded-full animate-spin" />
-                                  <span className="text-sm font-bold text-secret-wax">Đang xử lý ảnh...</span>
+                                  <span className="text-sm font-bold text-secret-wax">
+                                    Đang tải lên {thumbnailStorageProvider === "bunny" ? "Bunny" : "S3"}
+                                    {thumbnailUploadProgress > 0 ? ` ${thumbnailUploadProgress}%` : "..."}
+                                  </span>
                                 </div>
                               ) : (
                                 <>
@@ -2912,8 +3198,7 @@ const AdminCourses = () => {
                                   <span className="text-[10px] text-slate-400 mt-1 uppercase tracking-widest">JPG, PNG, WebP (16:9)</span>
                                 </>
                               )}
-                              <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} disabled={isUploadingImage} />
-                            </label>
+                            </button>
                           )}
 
                           <input
@@ -3236,7 +3521,26 @@ const AdminCourses = () => {
                           {isQuickAddExpanded(sIdx) && (
                           <div className="px-8 py-6 bg-slate-50/50 border-y border-slate-100 animate-in slide-in-from-top-2 duration-200">
                             <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-                              <div className="md:col-span-5">
+                              <div className="md:col-span-3">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2 block">Định dạng</label>
+                                <select
+                                  value={quickLessonTypes[sIdx] || LESSON_CONTENT_TYPES.VIDEO}
+                                  onChange={(event) =>
+                                    setQuickLessonTypes((current) => ({
+                                      ...current,
+                                      [sIdx]: event.target.value,
+                                    }))
+                                  }
+                                  className="w-full h-11 rounded-2xl bg-white border border-slate-200 px-4 text-sm font-bold text-slate-700 focus:ring-4 focus:ring-secret-wax/5 focus:border-secret-wax outline-none transition-all"
+                                >
+                                  {LESSON_CONTENT_TYPE_OPTIONS.map((option) => (
+                                    <option key={option.value} value={option.value}>
+                                      {option.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div className={(quickLessonTypes[sIdx] || LESSON_CONTENT_TYPES.VIDEO) === LESSON_CONTENT_TYPES.VIDEO ? "md:col-span-6" : "md:col-span-8"}>
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2 block">Tên bài học</label>
                                 <input
                                   type="text"
@@ -3245,7 +3549,63 @@ const AdminCourses = () => {
                                   id={`lesson-title-${sIdx}`}
                                 />
                               </div>
-                              <div className="md:col-span-4">
+                              {(quickLessonTypes[sIdx] || LESSON_CONTENT_TYPES.VIDEO) === LESSON_CONTENT_TYPES.VIDEO && (
+                              <div className="md:col-span-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2 block">Thời lượng</label>
+                                <input
+                                  type="text"
+                                  placeholder="VD: 5 phút"
+                                  className="w-full h-11 rounded-2xl bg-white border border-slate-200 px-4 text-sm font-bold focus:ring-4 focus:ring-secret-wax/5 focus:border-secret-wax outline-none transition-all"
+                                  id={`lesson-duration-${sIdx}`}
+                                />
+                              </div>
+                              )}
+                              <div className="md:col-span-1 flex items-end">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const titleInput = document.getElementById(`lesson-title-${sIdx}`);
+                                    const videoInput = document.getElementById(`lesson-video-${sIdx}`);
+                                    const durationInput = document.getElementById(`lesson-duration-${sIdx}`);
+                                    const contentType = quickLessonTypes[sIdx] || LESSON_CONTENT_TYPES.VIDEO;
+                                    const title = titleInput?.value.trim();
+                                    const videoId = videoInput?.value.trim() || "";
+
+                                    if (!title || (contentType === LESSON_CONTENT_TYPES.VIDEO && !videoId)) {
+                                      showToast(
+                                        contentType === LESSON_CONTENT_TYPES.VIDEO
+                                          ? "Vui lòng nhập tên và video"
+                                          : "Vui lòng nhập tên bài học",
+                                        "error",
+                                      );
+                                      return;
+                                    }
+
+                                    handleAddLessonToSection(sIdx, {
+                                      title,
+                                      contentType,
+                                      videoId,
+                                      videoProvider: getUploadProvider(`new-${sIdx}`),
+                                      articleContent: "",
+                                      images: [],
+                                      duration:
+                                        contentType === LESSON_CONTENT_TYPES.VIDEO
+                                          ? durationInput?.value.trim() || ""
+                                          : "",
+                                    });
+                                    titleInput.value = "";
+                                    if (videoInput) videoInput.value = "";
+                                    if (durationInput) durationInput.value = "";
+                                    setQuickAddExpanded((current) => ({ ...current, [sIdx]: false }));
+                                  }}
+                                  className="w-full h-11 bg-secret-wax text-white rounded-2xl flex items-center justify-center hover:bg-secret-ink shadow-lg shadow-secret-wax/20 transition-all"
+                                  title="Thêm bài học"
+                                >
+                                  <Plus className="w-5 h-5" />
+                                </button>
+                              </div>
+                              {(quickLessonTypes[sIdx] || LESSON_CONTENT_TYPES.VIDEO) === LESSON_CONTENT_TYPES.VIDEO && (
+                              <div className="md:col-span-12">
                                 <div className="mb-2 flex items-center justify-between gap-3">
                                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Nguồn lưu video</label>
                                   <div className="flex rounded-xl border border-slate-200 bg-white p-0.5">
@@ -3300,6 +3660,7 @@ const AdminCourses = () => {
                                   </label>
                                 </div>
                               </div>
+                              )}
                               {uploadTasks[`new-${sIdx}`] && (
                                 <div className="md:col-span-12">
                                   <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
@@ -3313,39 +3674,11 @@ const AdminCourses = () => {
                                   </p>
                                 </div>
                               )}
-                              <div className="md:col-span-2">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2 block">Thời lượng</label>
-                                <input
-                                  type="text"
-                                  placeholder="Phút..."
-                                  className="w-full h-11 rounded-2xl bg-white border border-slate-200 px-4 text-sm font-bold focus:ring-4 focus:ring-secret-wax/5 focus:border-secret-wax outline-none transition-all"
-                                  id={`lesson-duration-${sIdx}`}
-                                />
-                              </div>
-                              <div className="md:col-span-1 flex items-end">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const t = document.getElementById(`lesson-title-${sIdx}`);
-                                    const v = document.getElementById(`lesson-video-${sIdx}`);
-                                    const d = document.getElementById(`lesson-duration-${sIdx}`);
-                                    if (t.value && v.value) {
-                                      handleAddLessonToSection(sIdx, {
-                                        title: t.value,
-                                        videoId: v.value,
-                                        videoProvider: getUploadProvider(`new-${sIdx}`),
-                                        duration: d.value,
-                                      });
-                                      t.value = ""; v.value = ""; d.value = "";
-                                    } else {
-                                      showToast("Vui lòng nhập tên và video", "error");
-                                    }
-                                  }}
-                                  className="w-full h-11 bg-secret-wax text-white rounded-2xl flex items-center justify-center hover:bg-secret-ink shadow-lg shadow-secret-wax/20 transition-all"
-                                >
-                                  <Plus className="w-5 h-5" />
-                                </button>
-                              </div>
+                              {(quickLessonTypes[sIdx] || LESSON_CONTENT_TYPES.VIDEO) !== LESSON_CONTENT_TYPES.VIDEO && (
+                                <p className="md:col-span-12 text-xs font-medium text-slate-500">
+                                  Sau khi thêm, trình soạn thảo nội dung tương ứng sẽ tự mở bên dưới.
+                                </p>
+                              )}
                             </div>
                           </div>
                           )}
@@ -3359,6 +3692,13 @@ const AdminCourses = () => {
                               const lessonUploadProvider = getUploadProvider(
                                 uploadTaskKey,
                                 lesson.videoProvider,
+                              );
+                              const lessonContentType = normalizeLessonContentType(lesson);
+                              const lessonImages = getLessonImages(lesson);
+                              const imageUploadTaskKey = `image-${sIdx}-${lIdx}`;
+                              const lessonImageUploadProvider = getUploadProvider(
+                                imageUploadTaskKey,
+                                lesson.imageProvider,
                               );
 
                               return (
@@ -3396,6 +3736,25 @@ const AdminCourses = () => {
                                     </div>
 
                                     <div className="flex flex-wrap items-center justify-end gap-2">
+                                      <select
+                                        value={lessonContentType}
+                                        onChange={(event) =>
+                                          handleLessonContentTypeChange(
+                                            sIdx,
+                                            lIdx,
+                                            event.target.value,
+                                          )
+                                        }
+                                        className="h-9 rounded-xl border border-slate-200 bg-slate-50 px-2.5 text-[10px] font-black text-slate-600 outline-none focus:border-secret-wax focus:ring-2 focus:ring-secret-wax/10"
+                                        aria-label={`Định dạng của ${lesson.title || "bài học"}`}
+                                      >
+                                        {LESSON_CONTENT_TYPE_OPTIONS.map((option) => (
+                                          <option key={option.value} value={option.value}>
+                                            {option.label}
+                                          </option>
+                                        ))}
+                                      </select>
+                                      {lessonContentType === LESSON_CONTENT_TYPES.VIDEO && (
                                       <div className="relative group/vid flex items-center gap-1">
                                         <div className="mr-1 flex rounded-xl border border-slate-200 bg-slate-50 p-0.5">
                                           {[
@@ -3446,6 +3805,7 @@ const AdminCourses = () => {
                                           )}
                                         </label>
                                       </div>
+                                      )}
                                       <button
                                         type="button"
                                         role="switch"
@@ -3515,6 +3875,143 @@ const AdminCourses = () => {
 
                                   {isExp && (
                                     <div className="px-6 pb-6 pt-2 grid md:grid-cols-2 gap-6 animate-in fade-in slide-in-from-top-2 duration-300">
+                                      <div className="md:col-span-2 grid gap-4 sm:grid-cols-2">
+                                        <div className={`space-y-2 ${lessonContentType === LESSON_CONTENT_TYPES.VIDEO ? "" : "sm:col-span-2"}`}>
+                                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Định dạng bài học</label>
+                                          <div className="flex h-11 items-center gap-2 rounded-2xl bg-slate-50 px-4 text-sm font-bold text-slate-700">
+                                            {lessonContentType === LESSON_CONTENT_TYPES.VIDEO ? (
+                                              <Video className="h-4 w-4 text-secret-wax" />
+                                            ) : lessonHasImages(lessonContentType) && !lessonHasArticle(lessonContentType) ? (
+                                              <ImageIcon className="h-4 w-4 text-secret-wax" />
+                                            ) : (
+                                              <FileText className="h-4 w-4 text-secret-wax" />
+                                            )}
+                                            {getLessonContentTypeLabel(lessonContentType)}
+                                          </div>
+                                        </div>
+                                        {lessonContentType === LESSON_CONTENT_TYPES.VIDEO && (
+                                        <div className="space-y-2">
+                                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Thời lượng</label>
+                                          <input
+                                            type="text"
+                                            value={lesson.duration || ""}
+                                            onChange={(event) => handleUpdateLesson(sIdx, lIdx, "duration", event.target.value)}
+                                            className="h-11 w-full rounded-2xl border-0 bg-slate-50 px-4 text-sm font-bold text-slate-600 outline-none focus:bg-white focus:ring-4 focus:ring-secret-wax/5"
+                                            placeholder="VD: 5 phút"
+                                          />
+                                        </div>
+                                        )}
+                                      </div>
+
+                                      {lessonHasArticle(lessonContentType) && (
+                                        <div className="md:col-span-2 space-y-3">
+                                          <div>
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nội dung bài viết</label>
+                                            <p className="mt-1 text-[11px] text-slate-400">Soạn văn bản rich text hoặc nhập nhanh từ Markdown.</p>
+                                          </div>
+                                          <RichTextEditor
+                                            value={lesson.articleContent || ""}
+                                            onChange={(value) => handleUpdateLesson(sIdx, lIdx, "articleContent", value)}
+                                            placeholder="Viết nội dung hướng dẫn cho học viên..."
+                                          />
+                                        </div>
+                                      )}
+
+                                      {lessonHasImages(lessonContentType) && (
+                                        <div className="md:col-span-2 space-y-3 rounded-2xl border border-slate-100 bg-slate-50/60 p-4">
+                                          <div className="flex flex-wrap items-center justify-between gap-3">
+                                            <div>
+                                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Thư viện hình ảnh</label>
+                                              <p className="mt-1 text-[11px] text-slate-400">Có thể chọn và tải nhiều ảnh cùng lúc.</p>
+                                            </div>
+                                            <div className="flex flex-wrap items-center justify-end gap-2">
+                                              <div className="flex rounded-xl border border-slate-200 bg-white p-0.5">
+                                                {[
+                                                  { value: "s3", label: "S3" },
+                                                  { value: "bunny", label: "Bunny" },
+                                                ].map((option) => (
+                                                  <button
+                                                    key={option.value}
+                                                    type="button"
+                                                    onClick={() => setUploadProvider(imageUploadTaskKey, option.value)}
+                                                    disabled={Boolean(uploadingLessonImages[uploadTaskKey])}
+                                                    className={`rounded-lg px-3 py-1.5 text-[9px] font-black uppercase tracking-wide transition-all ${
+                                                      lessonImageUploadProvider === option.value
+                                                        ? "bg-secret-wax text-white shadow-sm"
+                                                        : "text-slate-400 hover:bg-slate-50 hover:text-slate-700"
+                                                    }`}
+                                                    title={option.value === "bunny" ? "Lưu ảnh trên Bunny Storage và phân phối qua CDN" : "Lưu ảnh trên S3"}
+                                                  >
+                                                    {option.label}
+                                                  </button>
+                                                ))}
+                                              </div>
+                                              <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-secret-wax px-4 py-2 text-xs font-black text-white shadow-md shadow-secret-wax/15 transition hover:bg-secret-ink">
+                                                <input
+                                                  type="file"
+                                                  accept="image/jpeg,image/png,image/gif,image/webp,image/avif"
+                                                  multiple
+                                                  className="hidden"
+                                                  disabled={Boolean(uploadingLessonImages[uploadTaskKey])}
+                                                  onChange={(event) =>
+                                                    handleLessonImagesUpload(
+                                                      event,
+                                                      sIdx,
+                                                      lIdx,
+                                                      lessonImageUploadProvider,
+                                                    )
+                                                  }
+                                                />
+                                                {uploadingLessonImages[uploadTaskKey] ? (
+                                                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                                                ) : (
+                                                  <Upload className="h-4 w-4" />
+                                                )}
+                                                {uploadingLessonImages[uploadTaskKey]
+                                                  ? `Đang tải ${lessonImageUploadProgress[uploadTaskKey] || 0}%`
+                                                  : `Tải lên ${lessonImageUploadProvider === "bunny" ? "Bunny" : "S3"}`}
+                                              </label>
+                                            </div>
+                                          </div>
+
+                                          <div className="flex gap-2">
+                                            <input
+                                              type="url"
+                                              value={lesson.imageUrl || ""}
+                                              onChange={(event) => handleUpdateLesson(sIdx, lIdx, "imageUrl", event.target.value)}
+                                              className="h-10 flex-1 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 outline-none focus:border-secret-wax"
+                                              placeholder="Hoặc dán URL một hình ảnh..."
+                                            />
+                                          </div>
+
+                                          {lessonImages.length > 0 ? (
+                                            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                                              {lessonImages.map((imageUrl, imageIndex) => (
+                                                <div key={`${imageUrl}-${imageIndex}`} className="group/image relative aspect-[4/3] overflow-hidden rounded-xl bg-slate-100 ring-1 ring-slate-200">
+                                                  <img
+                                                    src={imageUrl}
+                                                    alt={`${lesson.title || "Bài học"} ${imageIndex + 1}`}
+                                                    className="h-full w-full object-cover"
+                                                  />
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => handleRemoveLessonImage(sIdx, lIdx, imageUrl)}
+                                                    className="absolute right-2 top-2 rounded-lg bg-slate-950/70 p-1.5 text-white opacity-0 transition hover:bg-rose-600 group-hover/image:opacity-100 focus:opacity-100"
+                                                    aria-label={`Xóa ảnh ${imageIndex + 1}`}
+                                                  >
+                                                    <X className="h-3.5 w-3.5" />
+                                                  </button>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          ) : (
+                                            <div className="rounded-xl border border-dashed border-slate-200 bg-white px-4 py-8 text-center text-xs font-medium text-slate-400">
+                                              Chưa có hình ảnh trong bài học.
+                                            </div>
+                                          )}
+                                        </div>
+                                      )}
+
                                       <div className="space-y-3">
                                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Mô tả bài giảng</label>
                                         <textarea

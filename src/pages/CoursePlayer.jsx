@@ -17,6 +17,7 @@ import { auth, db } from '../firebase';
 import PlayerSidebar from '../components/PlayerSidebar';
 import PlayerTabs from '../components/PlayerTabs';
 import RelatedCourses from '../components/RelatedCourses';
+import ArticleLessonViewer from '../components/ArticleLessonViewer';
 import VideoWrapper from '../components/VideoWrapper';
 import styles from './CoursePlayer.module.css';
 import {
@@ -28,6 +29,10 @@ import {
 } from '../utils/courseAccess';
 import { loadFullCourse } from '../utils/courseContentService';
 import { getBunnyPlayback } from '../utils/bunnyStreamService';
+import {
+    LESSON_CONTENT_TYPES,
+    normalizeLessonContentType,
+} from '../utils/lessonContent';
 
 const DEFAULT_SECTION_TITLE = 'Nội dung khóa học';
 const getSectionIdentifier = (section, fallbackId = '') => section?.id || fallbackId;
@@ -43,7 +48,11 @@ const normalizeSections = (curriculum = []) => {
 
     return sections.map((section, sectionIndex) => ({
         ...section,
-        id: getSectionIdentifier(section, `section-${sectionIndex}`)
+        id: getSectionIdentifier(section, `section-${sectionIndex}`),
+        lessons: (section.lessons || []).map((lesson) => ({
+            ...lesson,
+            contentType: normalizeLessonContentType(lesson),
+        })),
     }));
 };
 
@@ -299,12 +308,15 @@ const CoursePlayer = () => {
     );
 
     const currentLessonId = currentLesson?.id || currentLesson?.videoId;
+    const currentLessonContentType = normalizeLessonContentType(currentLesson);
+    const isVideoLesson = currentLessonContentType === LESSON_CONTENT_TYPES.VIDEO;
     const currentVideoProvider = currentLesson?.videoProvider === 'bunny' ? 'bunny' : 's3';
 
     useEffect(() => {
         let cancelled = false;
 
         if (
+            !isVideoLesson ||
             currentVideoProvider !== 'bunny' ||
             !course?.id ||
             !currentLessonId ||
@@ -347,7 +359,7 @@ const CoursePlayer = () => {
         return () => {
             cancelled = true;
         };
-    }, [course?.id, currentLesson?.videoId, currentLessonId, currentUser, currentVideoProvider]);
+    }, [course?.id, currentLesson?.videoId, currentLessonId, currentUser, currentVideoProvider, isVideoLesson]);
 
     useEffect(() => {
         if (
@@ -698,6 +710,7 @@ const CoursePlayer = () => {
             return false;
         }
 
+        setPlaying(false);
         setCurrentLesson(lesson);
         return true;
     };
@@ -800,6 +813,46 @@ const CoursePlayer = () => {
     if (accessDenied) {
         return <Navigate to={`/khoa-hoc/${course.id}`} replace />;
     }
+
+    const lessonFooter = (
+        <>
+            {!hasFullAccess && (
+                <div className="mt-5 rounded-2xl bg-gradient-to-r from-[#B91C1C] to-[#7F1D1D] p-4 text-white shadow-xl md:hidden">
+                    <p className="text-xs font-bold uppercase tracking-wider text-red-100">
+                        Muốn xem toàn bộ lộ trình?
+                    </p>
+                    <p className="mt-1 text-lg font-black">
+                        Đăng ký khóa học để mở khóa {Math.max(flatLessons.length - previewableLessonKeys.size, 0)} bài còn lại
+                    </p>
+                    <button
+                        type="button"
+                        onClick={handleRegisterCourse}
+                        className="mt-3 w-full rounded-xl bg-white px-5 py-3 text-sm font-black uppercase tracking-wide text-[#B91C1C] shadow-lg"
+                    >
+                        Đăng ký khóa học ngay
+                    </button>
+                </div>
+            )}
+            <PlayerTabs
+                description={currentLesson?.description ?? ''}
+                resources={currentTabResources}
+                resourceGroups={sidebarResourceGroups}
+                currentContextResources={sidebarCurrentContextResources}
+                resourceFocusRequest={hasFullAccess ? resourceFocusRequest : null}
+                lessonId={currentLessonId}
+                lessonTitle={currentLesson?.title}
+                currentUser={currentUser}
+                hasFullAccess={hasFullAccess}
+                onLessonSelect={handleLessonSelect}
+                onActiveTabChange={setActivePlayerTab}
+            />
+            <RelatedCourses
+                currentCourseId={course.id}
+                limit={2}
+                variant="player"
+            />
+        </>
+    );
 
     return (
         <div className={`${styles.player} flex min-h-screen flex-col bg-slate-100 text-slate-800 md:h-screen md:overflow-hidden md:bg-gray-50`}>
@@ -914,7 +967,8 @@ const CoursePlayer = () => {
                     id="player-scroll-container"
                 >
                     <div className="mx-auto max-w-[1600px] md:px-8 md:pt-8">
-                        <VideoWrapper
+                        {isVideoLesson ? (
+                            <VideoWrapper
                             videoUrl={
                                 currentVideoProvider === 'bunny'
                                     ? bunnyPlaybackUrl
@@ -943,43 +997,26 @@ const CoursePlayer = () => {
                             previewableLessonKeys={previewableLessonKeys}
                         >
                             <div className="px-3 pb-24 md:px-0 md:pb-20">
-                                {!hasFullAccess && (
-                                    <div className="mt-5 rounded-2xl bg-gradient-to-r from-[#B91C1C] to-[#7F1D1D] p-4 text-white shadow-xl md:hidden">
-                                        <p className="text-xs font-bold uppercase tracking-wider text-red-100">
-                                            Muốn xem toàn bộ lộ trình?
-                                        </p>
-                                        <p className="mt-1 text-lg font-black">
-                                            Đăng ký khóa học để mở khóa {Math.max(flatLessons.length - previewableLessonKeys.size, 0)} bài còn lại
-                                        </p>
-                                        <button
-                                            type="button"
-                                            onClick={handleRegisterCourse}
-                                            className="mt-3 w-full rounded-xl bg-white px-5 py-3 text-sm font-black uppercase tracking-wide text-[#B91C1C] shadow-lg"
-                                        >
-                                            Đăng ký khóa học ngay
-                                        </button>
-                                    </div>
-                                )}
-                                <PlayerTabs
-                                    description={currentLesson?.description ?? ''}
-                                    resources={currentTabResources}
-                                    resourceGroups={sidebarResourceGroups}
-                                    currentContextResources={sidebarCurrentContextResources}
-                                    resourceFocusRequest={hasFullAccess ? resourceFocusRequest : null}
-                                    lessonId={currentLessonId}
-                                    lessonTitle={currentLesson?.title}
-                                    currentUser={currentUser}
-                                    hasFullAccess={hasFullAccess}
-                                    onLessonSelect={handleLessonSelect}
-                                    onActiveTabChange={setActivePlayerTab}
-                                />
-                                <RelatedCourses
-                                    currentCourseId={course.id}
-                                    limit={2}
-                                    variant="player"
-                                />
+                                {lessonFooter}
                             </div>
-                        </VideoWrapper>
+                            </VideoWrapper>
+                        ) : (
+                            <div className="pb-20">
+                                <ArticleLessonViewer
+                                    key={currentLessonId}
+                                    lesson={currentLesson}
+                                    onNext={handleNextLesson}
+                                    onPrev={handlePrevLesson}
+                                    hasNext={currentLessonIndex < flatLessons.length - 1 || !hasFullAccess}
+                                    hasPrev={currentLessonIndex > 0}
+                                    isCompleted={!!progress[currentLessonId]}
+                                    onMarkComplete={handleLessonComplete}
+                                />
+                                <div className="mx-auto max-w-4xl px-3 md:px-0">
+                                    {lessonFooter}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
 

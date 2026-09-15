@@ -55,18 +55,19 @@ const createUpstreamRequest = async (request) => {
 };
 
 export async function onRequest(context) {
-  // Intake and its authenticated admin API run in the private Cloudflare service.
+  // These endpoints run directly in Cloudflare Pages instead of the Firebase proxy.
   const path = new URL(context.request.url).pathname.replace(/\/+$/, "");
-  const intakeMethods = {
+  const cloudflareMethods = {
     "/api/crm-leads": "POST",
     "/api/admin/lead-intake": "GET",
     "/api/admin/lead-intake/retry": "POST",
+    "/api/bunny-storage/upload": "POST",
   };
-  if (Object.hasOwn(intakeMethods, path)) {
-    if (context.request.method !== intakeMethods[path]) {
+  if (Object.hasOwn(cloudflareMethods, path)) {
+    if (context.request.method !== cloudflareMethods[path]) {
       return Response.json({ error: "Method not allowed" }, {
         status: 405,
-        headers: { Allow: intakeMethods[path], "Cache-Control": "no-store" },
+        headers: { Allow: cloudflareMethods[path], "Cache-Control": "no-store" },
       });
     }
     return context.next();
