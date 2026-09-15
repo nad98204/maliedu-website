@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
     addDoc,
     collection,
@@ -9,8 +9,11 @@ import {
     query,
     updateDoc
 } from 'firebase/firestore';
-import { Edit, Trash2, Plus, X, Search, Save, User, Mail, ImageIcon, FileText } from 'lucide-react';
+import { Edit, Trash2, Plus, X, Search, Save, User, Mail, ImageIcon, FileText, Upload, Loader2 } from 'lucide-react';
 import { db } from '../../firebase';
+import { uploadImageToBunny } from '../../utils/bunnyStorageService';
+import InstructorAvatar from '../../components/InstructorAvatar';
+import { syncInstructorToCourses } from '../../utils/instructorSyncService';
 
 const AdminInstructors = ({ hideHeader = false, searchQuery: externalSearchQuery = "" }) => {
     const [instructors, setInstructors] = useState([]);
@@ -26,6 +29,11 @@ const AdminInstructors = ({ hideHeader = false, searchQuery: externalSearchQuery
     });
     const [searchTerm, setSearchTerm] = useState('');
     const [toast, setToast] = useState(null);
+    const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+    const [avatarUploadProgress, setAvatarUploadProgress] = useState(0);
+    const [avatarUploadError, setAvatarUploadError] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
+    const avatarFileInputRef = useRef(null);
 
     // Fetch Instructors
     const fetchInstructors = async () => {
@@ -68,11 +76,15 @@ const AdminInstructors = ({ hideHeader = false, searchQuery: externalSearchQuery
     const handleAddNew = () => {
         setEditingInstructor(null);
         setFormData({ name: '', title: '', email: '', bio: '', avatar: '' });
+        setAvatarUploadError('');
+        setAvatarUploadProgress(0);
         setIsModalOpen(true);
     };
 
     const handleEdit = (instructor) => {
         setEditingInstructor(instructor);
+        setAvatarUploadError('');
+        setAvatarUploadProgress(0);
         setFormData({
             name: instructor.name || '',
             title: instructor.title || '',
@@ -83,15 +95,50 @@ const AdminInstructors = ({ hideHeader = false, searchQuery: externalSearchQuery
         setIsModalOpen(true);
     };
 
+    const handleAvatarUpload = async (event) => {
+        const input = event.currentTarget;
+        const file = input.files?.[0];
+        input.value = '';
+        if (!file || isUploadingAvatar || isSaving) return;
+
+        setIsUploadingAvatar(true);
+        setAvatarUploadProgress(0);
+        setAvatarUploadError('');
+        try {
+            const url = await uploadImageToBunny(file, setAvatarUploadProgress);
+            setFormData(prev => ({ ...prev, avatar: url }));
+            showToast('Tải ảnh đại diện lên Bunny thành công!');
+        } catch (error) {
+            const message = error?.message || 'Không thể tải ảnh đại diện lên Bunny.';
+            setAvatarUploadError(message);
+            showToast(message, 'error');
+        } finally {
+            setIsUploadingAvatar(false);
+            setAvatarUploadProgress(0);
+            if (avatarFileInputRef.current) avatarFileInputRef.current.value = '';
+        }
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (isUploadingAvatar || isSaving) return;
+        setIsSaving(true);
         try {
             if (editingInstructor) {
                 await updateDoc(doc(db, 'instructors', editingInstructor.id), {
                     ...formData,
                     updatedAt: Date.now()
                 });
-                showToast("Cập nhật giảng viên thành công!");
+                try {
+                    const result = await syncInstructorToCourses(editingInstructor.id);
+                    showToast(result.failed.length
+                        ? `Đã lưu giảng viên nhưng ${result.failed.length} khóa học chưa đồng bộ được. Trang chi tiết vẫn lấy hồ sơ mới nhất.`
+                        : `Cập nhật giảng viên thành công! Đã đồng bộ ${result.updated} khóa học.`,
+                    result.failed.length ? 'error' : 'success');
+                } catch (error) {
+                    console.error("Error syncing instructor courses:", error);
+                    showToast(`Đã lưu giảng viên nhưng chưa đồng bộ được khóa học: ${error?.message || 'Lỗi kết nối'}`, 'error');
+                }
             } else {
                 await addDoc(collection(db, 'instructors'), {
                     ...formData,
@@ -103,7 +150,9 @@ const AdminInstructors = ({ hideHeader = false, searchQuery: externalSearchQuery
             fetchInstructors();
         } catch (error) {
             console.error("Error saving instructor:", error);
-            showToast("Lỗi khi lưu giảng viên", "error");
+            showToast(error?.message || "Lỗi khi lưu giảng viên", "error");
+        } finally {
+            setIsSaving(false);
         }
     };
 
@@ -129,7 +178,7 @@ const AdminInstructors = ({ hideHeader = false, searchQuery: externalSearchQuery
         <div className="max-w-[1600px] mx-auto px-4 py-8 lg:px-12 lg:py-16 space-y-12">
             {/* Toast */}
             {toast && (
-                <div className={`fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg text-white ${toast.type === 'error' ? 'bg-red-500' : 'bg-green-500'}`}>
+                <div role={toast.type === 'error' ? 'alert' : 'status'} className={`fixed top-4 right-4 z-[200] max-w-[calc(100vw-2rem)] px-6 py-3 rounded-lg shadow-lg text-white ${toast.type === 'error' ? 'bg-red-500' : 'bg-green-500'}`}>
                     {toast.message}
                 </div>
             )}
@@ -192,11 +241,7 @@ const AdminInstructors = ({ hideHeader = false, searchQuery: externalSearchQuery
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-4">
                                                 <div className="relative">
-                                                  <img
-                                                      src={instructor.avatar || 'https://via.placeholder.com/150'}
-                                                      alt={instructor.name}
-                                                      className="w-12 h-12 rounded-full object-cover border-2 border-white shadow-sm ring-1 ring-slate-100"
-                                                  />
+                                                  <InstructorAvatar avatar={instructor.avatar} name={instructor.name} className="h-12 w-12" />
                                                   <div className="absolute -bottom-1 -right-1 bg-emerald-500 w-3 h-3 rounded-full border-2 border-white shadow-sm"></div>
                                                 </div>
                                                 <div>
@@ -250,13 +295,13 @@ const AdminInstructors = ({ hideHeader = false, searchQuery: externalSearchQuery
 
             {/* Modal */}
             {isModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                    <div className="w-full max-w-lg bg-white rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in duration-200 max-h-[90vh] overflow-y-auto">
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
+                    <div role="dialog" aria-modal="true" aria-labelledby="instructor-modal-title" className="w-full max-w-lg bg-white rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in duration-200 max-h-[90vh] overflow-y-auto">
                         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50">
-                            <h3 className="font-bold text-lg text-slate-800">
+                            <h3 id="instructor-modal-title" className="font-bold text-lg text-slate-800">
                                 {editingInstructor ? 'Sửa thông tin giảng viên' : 'Thêm giảng viên mới'}
                             </h3>
-                            <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+                            <button type="button" onClick={() => setIsModalOpen(false)} disabled={isUploadingAvatar || isSaving} aria-label="Đóng form giảng viên" className="text-slate-400 hover:text-slate-600 disabled:cursor-not-allowed disabled:opacity-40">
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
@@ -306,22 +351,58 @@ const AdminInstructors = ({ hideHeader = false, searchQuery: externalSearchQuery
                             </div>
 
                             <div className="space-y-2">
-                                <label className="text-sm font-medium text-slate-700">Ảnh đại diện (URL)</label>
+                                <label htmlFor="instructor-avatar-url" className="text-sm font-medium text-slate-700">Ảnh đại diện</label>
                                 <div className="relative">
                                     <ImageIcon className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                                     <input
                                         type="text"
+                                        id="instructor-avatar-url"
                                         name="avatar"
                                         value={formData.avatar}
                                         onChange={handleInputChange}
-                                        className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-secret-wax focus:ring-1 focus:ring-secret-wax/20"
-                                        placeholder="https://..."
+                                        disabled={isUploadingAvatar || isSaving}
+                                        className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-secret-wax focus:ring-1 focus:ring-secret-wax/20 disabled:bg-slate-50 disabled:opacity-60"
+                                        placeholder="Dán URL ảnh hoặc tải ảnh lên Bunny bên dưới..."
                                     />
                                 </div>
-                                {formData.avatar && (
-                                    <div className="mt-2 flex justify-center">
-                                        <img src={formData.avatar} alt="Preview" className="w-16 h-16 rounded-full object-cover border border-slate-200" />
+                                <input
+                                    ref={avatarFileInputRef}
+                                    type="file"
+                                    className="hidden"
+                                    accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
+                                    onChange={handleAvatarUpload}
+                                    disabled={isUploadingAvatar || isSaving}
+                                />
+                                <div className="flex flex-wrap items-center gap-3">
+                                    <InstructorAvatar avatar={formData.avatar} name={formData.name || 'Giảng viên'} className="h-16 w-16" />
+                                    <div className="min-w-0 flex-1">
+                                        <button
+                                            type="button"
+                                            onClick={() => avatarFileInputRef.current?.click()}
+                                            disabled={isUploadingAvatar || isSaving}
+                                            className="inline-flex items-center gap-2 rounded-lg bg-secret-wax px-3 py-2 text-sm font-bold text-white transition hover:bg-secret-ink disabled:cursor-not-allowed disabled:opacity-60"
+                                        >
+                                            {isUploadingAvatar ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                                            {isUploadingAvatar ? `Đang tải ${avatarUploadProgress}%` : 'Tải ảnh lên Bunny'}
+                                        </button>
+                                        <p className="mt-1 text-xs text-slate-500">JPG, PNG, WebP, GIF, AVIF · tối đa 20 MB</p>
                                     </div>
+                                    {formData.avatar && (
+                                        <button type="button" onClick={() => setFormData(prev => ({ ...prev, avatar: '' }))} disabled={isUploadingAvatar || isSaving} aria-label="Xóa ảnh đại diện khỏi form" className="rounded-lg p-2 text-rose-500 hover:bg-rose-50 disabled:opacity-40">
+                                            <X className="h-4 w-4" />
+                                        </button>
+                                    )}
+                                </div>
+                                {isUploadingAvatar && (
+                                    <div role="status" aria-live="polite" className="space-y-1">
+                                        <div role="progressbar" aria-label="Tiến trình tải ảnh đại diện" aria-valuemin={0} aria-valuemax={100} aria-valuenow={avatarUploadProgress} className="h-1.5 overflow-hidden rounded-full bg-slate-100">
+                                            <div style={{ width: `${avatarUploadProgress}%` }} className="h-full rounded-full bg-secret-wax transition-all" />
+                                        </div>
+                                        <p className="text-xs text-slate-500">{avatarUploadProgress >= 99 ? 'Đang hoàn tất tải ảnh...' : 'Đang tải ảnh lên Bunny Storage...'}</p>
+                                    </div>
+                                )}
+                                {avatarUploadError && (
+                                    <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{avatarUploadError}</p>
                                 )}
                             </div>
 
@@ -344,16 +425,18 @@ const AdminInstructors = ({ hideHeader = false, searchQuery: externalSearchQuery
                                 <button
                                     type="button"
                                     onClick={() => setIsModalOpen(false)}
-                                    className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg"
+                                    disabled={isUploadingAvatar || isSaving}
+                                    className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg disabled:cursor-not-allowed disabled:opacity-40"
                                 >
                                     Hủy
                                 </button>
                                 <button
                                     type="submit"
-                                    className="px-4 py-2 text-sm font-bold text-white bg-secret-wax hover:bg-secret-ink rounded-lg transition-colors flex items-center gap-2"
+                                    disabled={isUploadingAvatar || isSaving}
+                                    className="px-4 py-2 text-sm font-bold text-white bg-secret-wax hover:bg-secret-ink rounded-lg transition-colors flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-60"
                                 >
-                                    <Save className="w-4 h-4" />
-                                    Lưu giảng viên
+                                    {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                                    {isSaving ? 'Đang lưu...' : 'Lưu giảng viên'}
                                 </button>
                             </div>
                         </form>

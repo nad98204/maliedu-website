@@ -45,7 +45,7 @@ const getFirestoreStringArray = (document, field) =>
     .map((value) => value?.stringValue)
     .filter(Boolean);
 
-const requireCourseAdmin = async (context) => {
+const requireImageUploadAdmin = async (context) => {
   const token = getBearerToken(context.request);
   const projectId = String(context.env?.FIREBASE_PROJECT_ID || "").trim();
   const payload = decodeTokenPayload(token);
@@ -85,12 +85,16 @@ const requireCourseAdmin = async (context) => {
     email === SUPER_ADMIN_EMAIL && payload.email_verified === true;
   const isAdmin = getFirestoreString(profile, "role").toLowerCase() === "admin";
   const allowedModules = getFirestoreStringArray(profile, "allowedModules");
-  const canManageCourses =
+  const canUploadImages =
     isSuperAdmin ||
-    (isAdmin && (allowedModules.length === 0 || allowedModules.includes("courses")));
+    (isAdmin && (
+      allowedModules.length === 0 ||
+      allowedModules.includes("courses") ||
+      allowedModules.includes("instructors")
+    ));
 
-  if (!canManageCourses) {
-    throw Object.assign(new Error("Bạn không có quyền tải ảnh khóa học."), {
+  if (!canUploadImages) {
+    throw Object.assign(new Error("Bạn không có quyền tải ảnh khóa học hoặc giảng viên."), {
       status: 403,
     });
   }
@@ -219,7 +223,7 @@ const getBunnyConfig = (env = {}) => {
 
 export async function onRequestPost(context) {
   try {
-    await requireCourseAdmin(context);
+    await requireImageUploadAdmin(context);
     const image = await readImage(context.request);
     const config = getBunnyConfig(context.env);
     const filePath = `courses/images/${Date.now()}-${crypto.randomUUID()}.${image.extension}`;

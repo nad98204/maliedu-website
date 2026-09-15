@@ -5,6 +5,7 @@ import {
   getDocs,
   orderBy,
   query,
+  onSnapshot,
   writeBatch,
 } from "firebase/firestore";
 import {
@@ -47,6 +48,7 @@ import {
 
 import { crmFirestore, db } from "../../firebase";
 import RichTextEditor from "../../components/RichTextEditor";
+import InstructorAvatar from "../../components/InstructorAvatar";
 import { uploadFileToS3, uploadVideoToS3 } from "../../utils/s3UploadService";
 import { uploadVideoToBunny } from "../../utils/bunnyStreamService";
 import { uploadImageToBunny } from "../../utils/bunnyStorageService";
@@ -81,6 +83,12 @@ import {
   lessonHasImages,
   normalizeLessonContentType,
 } from "../../utils/lessonContent";
+import {
+  getCourseInstructors,
+  enrichCourseInstructors,
+  syncCourseInstructors,
+} from "../../utils/courseInstructors";
+import { loadLatestCourseInstructors } from "../../utils/instructorSyncService";
 
 // --- CẤU HÌNH THÔNG TIN GIẢNG VIÊN MẶC ĐỊNH ---
 // Anh/chị có thể sửa nội dung mặc định tại đây:
@@ -141,6 +149,29 @@ const comparePublicCourseOrder = (courseA, courseB) => {
 
 const createLocalId = (prefix) =>
   `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+const createInstructorDraft = (instructor = {}) => ({
+  badge: "",
+  name: "",
+  title: "",
+  avatar: "",
+  bio: "",
+  ...instructor,
+  _key: createLocalId("course-instructor"),
+});
+
+const getInstructorDrafts = (course) => {
+  const rows = getCourseInstructors(course);
+  return (rows.length > 0 ? rows : [
+    Array.isArray(course.instructors) ? {} : DEFAULT_INSTRUCTOR,
+  ]).map(createInstructorDraft);
+};
+
+const withInstructorDrafts = (data, rows) => ({
+  ...syncCourseInstructors({ ...data, instructors: rows }),
+  // Preserve stable local keys and unfinished text while editing; strip on save.
+  instructors: rows.map((row, index) => ({ ...row, isPrimary: index === 0 })),
+});
 
 const createAccessPlanDraft = ({
   accessType = ACCESS_PLAN_TYPES.DURATION,
@@ -256,8 +287,9 @@ const AdminCourses = () => {
   const [thumbnailUploadProgress, setThumbnailUploadProgress] = useState(0);
   const [thumbnailUploadError, setThumbnailUploadError] = useState("");
   const thumbnailFileInputRef = useRef(null);
-  const [isUploadingInstructorImage, setIsUploadingInstructorImage] =
-    useState(false);
+  const [uploadingInstructorKey, setUploadingInstructorKey] = useState(null);
+  const [expandedInstructorKey, setExpandedInstructorKey] = useState(null);
+  const [instructorImageProvider, setInstructorImageProvider] = useState("bunny");
   const [toast, setToast] = useState(null);
 
   const [mainTab, setMainTab] = useState("courses"); // courses, categories, coupons
@@ -477,6 +509,8 @@ const AdminCourses = () => {
     courseResources: [],
 
     // Instructor Info
+    instructors: [{ _key: "initial-instructor", name: "", title: "", avatar: "", bio: "", badge: "", isPrimary: true }],
+    authorId: "",
     instructorName: "",
     instructorTitle: "",
     instructorBio: "",
@@ -556,15 +590,11 @@ const AdminCourses = () => {
       }
     };
 
-    const fetchInstructors = async () => {
-      try {
-        const q = query(collection(db, "instructors"), orderBy("name", "asc"));
-        const snapshot = await getDocs(q);
-        setInstructors(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
-      } catch (err) {
-        console.error("Error fetching instructors:", err);
-      }
-    };
+    const unsubscribeInstructors = onSnapshot(
+      query(collection(db, "instructors"), orderBy("name", "asc")),
+      (snapshot) => setInstructors(snapshot.docs.map((d) => ({ ...d.data(), id: d.id }))),
+      (err) => console.error("Error fetching instructors:", err),
+    );
 
     const fetchLeadLandingOptions = async () => {
       try {
@@ -584,8 +614,8 @@ const AdminCourses = () => {
     };
 
     fetchCategories();
-    fetchInstructors();
     fetchLeadLandingOptions();
+    return unsubscribeInstructors;
   }, []);
 
   useEffect(() => {
@@ -1445,8 +1475,45 @@ const AdminCourses = () => {
     }
   };
 
-  const handleInstructorImageUpload = async (event) => {
-    const selectedFile = event.target.files?.[0];
+  const updateInstructorDrafts = (updater) => {
+    setFormData((current) => withInstructorDrafts(
+      current,
+      updater(current.instructors || []),
+    ));
+  };
+
+  const handleAddInstructor = () => {
+    const row = createInstructorDraft();
+    updateInstructorDrafts((rows) => [...rows, row]);
+    setExpandedInstructorKey(row._key);
+  };
+
+  const handleUpdateInstructor = (key, changes) => {
+    updateInstructorDrafts((rows) => rows.map((row) => (
+      row._key === key ? { ...row, ...changes } : row
+    )));
+  };
+
+  const handleMoveInstructor = (key, offset) => {
+    updateInstructorDrafts((rows) => {
+      const index = rows.findIndex((row) => row._key === key);
+      const nextIndex = index + offset;
+      if (index < 0 || nextIndex < 0 || nextIndex >= rows.length) return rows;
+      const nextRows = [...rows];
+      [nextRows[index], nextRows[nextIndex]] = [nextRows[nextIndex], nextRows[index]];
+      return nextRows;
+    });
+  };
+
+  const handleRemoveInstructor = (key) => {
+    updateInstructorDrafts((rows) => rows.length > 1
+      ? rows.filter((row) => row._key !== key)
+      : rows);
+  };
+
+  const handleInstructorImageUpload = async (event, instructorKey) => {
+    const selectedFile = event.currentTarget.files?.[0];
+    event.currentTarget.value = "";
     if (!selectedFile) return;
 
     if (!selectedFile.type.startsWith("image/")) {
@@ -1454,27 +1521,24 @@ const AdminCourses = () => {
       return;
     }
 
-    setIsUploadingInstructorImage(true);
+    setUploadingInstructorKey(instructorKey);
     try {
-      const publicUrl = await uploadFileToS3(selectedFile, null, { folder: "instructors" });
-      setFormData((prev) => ({
-        ...prev,
-        instructorImageUrl: publicUrl,
-      }));
+      const publicUrl = instructorImageProvider === "bunny"
+        ? await uploadImageToBunny(selectedFile)
+        : await uploadFileToS3(selectedFile, null, { folder: "instructors" });
+      handleUpdateInstructor(instructorKey, { avatar: publicUrl });
       showToast("Tải ảnh giảng viên thành công!");
     } catch (error) {
       console.error("Lỗi upload:", error);
-      showToast("Lỗi khi tải ảnh lên", "error");
+      showToast(error?.message || "Lỗi khi tải ảnh giảng viên lên", "error");
     } finally {
-      setIsUploadingInstructorImage(false);
+      setUploadingInstructorKey(null);
     }
   };
 
-  const handleRemoveInstructorImage = () => {
-    setFormData((prev) => ({ ...prev, instructorImageUrl: "" }));
-  };
-
   const handleAddNew = () => {
+    const instructorRows = [createInstructorDraft()];
+    setExpandedInstructorKey(instructorRows[0]._key);
     setUploadProviders({});
     setQuickLessonTypes({});
     setUploadingLessonImages({});
@@ -1495,6 +1559,8 @@ const AdminCourses = () => {
       defaultAccessPlanId: "",
       thumbnailUrl: "",
       instructorImageUrl: "",
+      instructors: instructorRows,
+      authorId: "",
       description: "",
       content: "",
       videoId: "",
@@ -1523,7 +1589,13 @@ const AdminCourses = () => {
     setIsFormOpen(true);
   };
 
-  const handleEdit = (course) => {
+  const handleEdit = async (course) => {
+    // Resolve fresh profiles before opening; never overwrite in-progress manual edits.
+    const cachedRows = enrichCourseInstructors(course, instructors);
+    const latestRows = await loadLatestCourseInstructors({ ...course, instructors: cachedRows });
+    if (latestRows.length) course = syncCourseInstructors({ ...course, instructors: latestRows });
+    const instructorRows = getInstructorDrafts(course);
+    setExpandedInstructorKey(instructorRows[0]._key);
     setUploadProviders({});
     setQuickLessonTypes({});
     setUploadingLessonImages({});
@@ -1558,6 +1630,8 @@ const AdminCourses = () => {
       defaultAccessPlanId: course.defaultAccessPlanId || "",
       thumbnailUrl: course.thumbnailUrl || "",
       instructorImageUrl: course.instructorImageUrl || "",
+      instructors: instructorRows,
+      authorId: course.authorId || "",
       description: course.description || "",
       content: course.content || "",
       videoId: course.videoId || "",
@@ -1601,6 +1675,8 @@ const AdminCourses = () => {
   };
 
   const handleDuplicate = (course) => {
+    const instructorRows = getInstructorDrafts(course);
+    setExpandedInstructorKey(instructorRows[0]._key);
     setUploadProviders({});
     setQuickLessonTypes({});
     setUploadingLessonImages({});
@@ -1648,6 +1724,7 @@ const AdminCourses = () => {
       defaultAccessPlanId: "",
       thumbnailUrl: course.thumbnailUrl || "",
       instructorImageUrl: course.instructorImageUrl || "",
+      instructors: instructorRows,
       authorId: course.authorId || "",
       description: course.description || "",
       content: course.content || "",
@@ -1755,7 +1832,7 @@ const AdminCourses = () => {
       : null;
 
     return {
-      ...data,
+      ...syncCourseInstructors(data),
       slug: data.slug || generateSlug(data.name),
       categories: data.categories || [],
       category: data.categories?.length > 0 ? data.categories[0] : "",
@@ -1795,6 +1872,19 @@ const AdminCourses = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    const instructorRows = formData.instructors || [];
+    const invalidInstructor = instructorRows.find((row) => !row.name?.trim());
+    if (instructorRows.length === 0 || invalidInstructor) {
+      showToast("Vui lòng nhập tên cho mỗi giảng viên (ít nhất một người)", "error");
+      setActiveTab("instructor");
+      if (invalidInstructor) setExpandedInstructorKey(invalidInstructor._key);
+      return;
+    }
+    if (uploadingInstructorKey) {
+      showToast("Vui lòng chờ ảnh giảng viên tải lên xong", "error");
+      return;
+    }
 
     if (
       formData.isForSale === false
@@ -3217,140 +3307,102 @@ const AdminCourses = () => {
                 </div>
               ) : activeTab === "instructor" ? (
                 <div className="space-y-10 animate-in fade-in duration-500">
-                  {/* Instructor Profile Card */}
-                  <div className="p-8 rounded-[32px] bg-white border border-slate-100 shadow-sm space-y-8">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-slate-50">
-                      <div className="flex items-center gap-4">
-                        <div className="p-3.5 rounded-2xl bg-indigo-50 text-indigo-600">
-                          <User className="w-6 h-6" />
-                        </div>
-                        <div>
-                          <h3 className="text-xl font-black text-slate-900 leading-tight">Hồ sơ Giảng viên</h3>
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Thông tin hiển thị trên trang khóa học</p>
-                        </div>
+                  {/* Course instructors: first in the list is always primary. */}
+                  <div className="rounded-[32px] border border-slate-100 bg-white p-6 shadow-sm sm:p-8">
+                    <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+                      <div>
+                        <h3 className="text-xl font-black text-slate-900">Giảng viên khóa học ({formData.instructors.length})</h3>
+                        <p className="mt-1 text-xs leading-relaxed text-slate-500">Thêm một hoặc nhiều giảng viên. Người đầu tiên là giảng viên chính và được đồng bộ vào dữ liệu cũ.</p>
                       </div>
-
-                      <div className="flex items-center gap-3">
-                        <div className="relative group">
-                          <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-secret-wax transition-colors" />
-                          <select
-                            onChange={(e) => {
-                              const instId = e.target.value;
-                              if (!instId) return;
-                              const inst = instructors.find(i => i.id === instId);
-                              if (inst) {
-                                setFormData(prev => ({
-                                  ...prev,
-                                  authorId: inst.id,
-                                  instructorName: inst.name || "",
-                                  instructorTitle: inst.title || "",
-                                  instructorBio: inst.bio || "",
-                                  instructorImageUrl: inst.avatar || "",
-                                }));
-                              }
-                            }}
-                            className="pl-9 pr-8 py-2.5 rounded-2xl bg-slate-50 border-0 text-sm font-bold text-slate-600 focus:bg-white focus:ring-4 focus:ring-secret-wax/5 outline-none transition-all cursor-pointer appearance-none"
-                          >
-                            <option value="">Chọn nhanh giảng viên...</option>
-                            {instructors.map((inst) => (
-                              <option key={inst.id} value={inst.id}>{inst.name}</option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => setFormData(prev => ({
-                            ...prev,
-                            instructorName: DEFAULT_INSTRUCTOR.name,
-                            instructorTitle: DEFAULT_INSTRUCTOR.title,
-                            instructorBio: DEFAULT_INSTRUCTOR.bio,
-                            instructorStudentCount: DEFAULT_INSTRUCTOR.studentCount,
-                            instructorCourseCount: DEFAULT_INSTRUCTOR.courseCount,
-                          }))}
-                          className="px-4 py-2.5 rounded-2xl border border-dashed border-slate-200 text-[11px] font-black text-slate-500 hover:text-secret-wax hover:border-secret-wax transition-all uppercase tracking-tight"
-                        >
-                          Dùng mặc định
-                        </button>
-                      </div>
+                      <button type="button" onClick={handleAddInstructor} className="inline-flex items-center gap-2 rounded-xl bg-secret-wax px-4 py-2.5 text-xs font-bold text-white hover:bg-secret-ink">
+                        <Plus className="h-4 w-4" />Thêm giảng viên
+                      </button>
                     </div>
 
-                    <div className="grid md:grid-cols-2 gap-10">
-                      <div className="space-y-6">
-                        <div className="space-y-2.5">
-                          <label className="text-[11px] font-black uppercase tracking-widest text-slate-400">Tên chuyên gia</label>
-                          <input
-                            type="text"
-                            name="instructorName"
-                            value={formData.instructorName}
-                            onChange={handleInputChange}
-                            className="w-full h-11 rounded-2xl bg-white border border-slate-100 px-4 text-sm font-bold text-slate-900 focus:ring-4 focus:ring-secret-wax/5 focus:border-secret-wax outline-none transition-all"
-                            placeholder="VD: Mong Coaching"
-                          />
-                        </div>
-                        <div className="space-y-2.5">
-                          <label className="text-[11px] font-black uppercase tracking-widest text-slate-400">Danh xưng / Học vị</label>
-                          <input
-                            type="text"
-                            name="instructorTitle"
-                            value={formData.instructorTitle}
-                            onChange={handleInputChange}
-                            className="w-full h-11 rounded-2xl bg-white border border-slate-100 px-4 text-sm font-bold text-slate-900 focus:ring-4 focus:ring-secret-wax/5 focus:border-secret-wax outline-none transition-all"
-                            placeholder="VD: Life Coach & Spiritual Mentor"
-                          />
-                        </div>
-
-                        <div className="space-y-2.5">
-                          <label className="text-[11px] font-black uppercase tracking-widest text-slate-400">Ảnh đại diện Giảng viên</label>
-                          <div className="flex items-center gap-4">
-                            {formData.instructorImageUrl ? (
-                              <div className="relative h-16 w-16 rounded-2xl overflow-hidden ring-2 ring-slate-100">
-                                <img 
-                                  src={formData.instructorImageUrl} 
-                                  alt="Instructor" 
-                                  className="w-full h-full object-cover" 
-                                  onError={(e) => {
-                                    e.target.onerror = null;
-                                    e.target.src = "https://via.placeholder.com/150?text=No+Instructor";
-                                  }}
-                                />
-                                <button type="button" onClick={handleRemoveInstructorImage} className="absolute inset-0 bg-black/40 flex items-center justify-center text-white opacity-0 hover:opacity-100 transition-opacity">
-                                  <X className="w-4 h-4" />
-                                </button>
+                    <div className="space-y-3">
+                      {formData.instructors.map((instructor, index) => {
+                        const isExpanded = expandedInstructorKey === instructor._key;
+                        const isUploading = uploadingInstructorKey === instructor._key;
+                        const fileInputId = `instructor-avatar-${instructor._key}`;
+                        return (
+                          <div key={instructor._key} className="overflow-hidden rounded-2xl border border-slate-200">
+                            <div className="flex items-center gap-3 bg-slate-50/60 p-4">
+                              <InstructorAvatar avatar={instructor.avatar} name={instructor.name || "Giảng viên"} className="h-11 w-11" />
+                              <button
+                                type="button"
+                                onClick={() => setExpandedInstructorKey(isExpanded ? null : instructor._key)}
+                                aria-expanded={isExpanded}
+                                aria-controls={`instructor-editor-${instructor._key}`}
+                                className="min-w-0 flex-1 text-left"
+                              >
+                                <span className="block truncate text-sm font-bold text-slate-900">{instructor.name || `Giảng viên ${index + 1}`}</span>
+                                <span className="mt-0.5 block break-words text-[11px] text-slate-500">{instructor.badge?.trim() || (index === 0 ? "Giảng viên chính" : "Giảng viên đồng hành")}</span>
+                              </button>
+                              <div className="flex shrink-0 items-center gap-1">
+                                <button type="button" onClick={() => handleMoveInstructor(instructor._key, -1)} disabled={index === 0} title="Đưa lên (người đầu tiên là giảng viên chính)" aria-label={`Đưa giảng viên ${index + 1} lên`} className="rounded-lg p-2 text-slate-500 hover:bg-white disabled:opacity-30"><ArrowUp className="h-4 w-4" /></button>
+                                <button type="button" onClick={() => handleMoveInstructor(instructor._key, 1)} disabled={index === formData.instructors.length - 1} title="Đưa xuống" aria-label={`Đưa giảng viên ${index + 1} xuống`} className="rounded-lg p-2 text-slate-500 hover:bg-white disabled:opacity-30"><ArrowDown className="h-4 w-4" /></button>
+                                <button type="button" onClick={() => handleRemoveInstructor(instructor._key)} disabled={formData.instructors.length === 1 || isUploading} title="Xóa giảng viên" aria-label={`Xóa giảng viên ${index + 1}`} className="rounded-lg p-2 text-rose-500 hover:bg-rose-50 disabled:opacity-30"><Trash2 className="h-4 w-4" /></button>
+                                <button type="button" onClick={() => setExpandedInstructorKey(isExpanded ? null : instructor._key)} aria-label={`${isExpanded ? "Thu gọn" : "Chỉnh sửa"} giảng viên ${index + 1}`} className="rounded-lg p-2 text-slate-500 hover:bg-white"><ChevronDown className={`h-4 w-4 transition-transform ${isExpanded ? "rotate-180" : ""}`} /></button>
                               </div>
-                            ) : (
-                              <label className="h-16 w-16 rounded-2xl border-2 border-dashed border-slate-100 flex items-center justify-center cursor-pointer hover:bg-slate-50 transition-colors">
-                                {isUploadingInstructorImage ? (
-                                  <div className="w-5 h-5 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
-                                ) : (
-                                  <ImageIcon className="w-6 h-6 text-slate-200" />
-                                )}
-                                <input type="file" className="hidden" accept="image/*" onChange={handleInstructorImageUpload} disabled={isUploadingInstructorImage} />
-                              </label>
+                            </div>
+                            {isExpanded && (
+                              <div id={`instructor-editor-${instructor._key}`} className="space-y-5 border-t border-slate-100 p-4 sm:p-5">
+                                <div className="flex flex-wrap gap-2">
+                                  <select
+                                    value={instructor.id || ""}
+                                    aria-label={`Chọn hồ sơ giảng viên ${index + 1}`}
+                                    onChange={(event) => {
+                                      const selected = instructors.find((row) => row.id === event.target.value);
+                                      handleUpdateInstructor(instructor._key, selected ? {
+                                        id: selected.id, name: selected.name || "", title: selected.title || "", avatar: selected.avatar || "", bio: selected.bio || "",
+                                      } : { id: "" });
+                                    }}
+                                    className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-secret-wax"
+                                  >
+                                    <option value="">Nhập thủ công / Chọn hồ sơ hệ thống...</option>
+                                    {instructor.id && !instructors.some((row) => row.id === instructor.id) && <option value={instructor.id}>{instructor.name} (hồ sơ đã liên kết)</option>}
+                                    {instructors.map((row) => <option key={row.id} value={row.id} disabled={formData.instructors.some((other) => other._key !== instructor._key && other.id === row.id)}>{row.name}</option>)}
+                                  </select>
+                                  <button type="button" onClick={() => handleUpdateInstructor(instructor._key, { ...DEFAULT_INSTRUCTOR, id: "", avatar: "" })} className="rounded-xl border border-dashed border-slate-200 px-3 py-2 text-xs font-bold text-slate-500 hover:border-secret-wax hover:text-secret-wax">Dùng mặc định</button>
+                                </div>
+                                <div className="grid gap-4 sm:grid-cols-2">
+                                  <label className="space-y-2 text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                                    <span>Tên chuyên gia <span className="text-rose-500">*</span></span>
+                                    <input type="text" value={instructor.name} onChange={(event) => handleUpdateInstructor(instructor._key, { name: event.target.value })} placeholder="VD: Mong Coaching" className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm font-medium normal-case tracking-normal text-slate-900 outline-none focus:border-secret-wax" />
+                                  </label>
+                                  <label className="space-y-2 text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                                    <span>Danh xưng / Học vị</span>
+                                    <input type="text" value={instructor.title} onChange={(event) => handleUpdateInstructor(instructor._key, { title: event.target.value })} placeholder="VD: Life Coach & Spiritual Mentor" className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm font-medium normal-case tracking-normal text-slate-900 outline-none focus:border-secret-wax" />
+                                  </label>
+                                  <label className="space-y-2 text-[11px] font-bold uppercase tracking-wide text-slate-500 sm:col-span-2">
+                                    <span>Vai trò trong khóa học (Badge)</span>
+                                    <input type="text" value={instructor.badge || ""} onChange={(event) => handleUpdateInstructor(instructor._key, { badge: event.target.value })} aria-label={`Vai trò trong khóa học (Badge) giảng viên ${index + 1}`} maxLength={80} placeholder={index === 0 ? "VD: Giảng viên chính, Chuyên gia thôi miên..." : "VD: Chuyên gia thôi miên, Cố vấn chuyên môn..."} className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm font-medium normal-case tracking-normal text-slate-900 outline-none focus:border-secret-wax" />
+                                    <p className="text-[10px] font-normal normal-case tracking-normal text-slate-400">Nhãn riêng cho khóa học này, hiển thị in hoa phía trên tên giảng viên. Để trống để dùng cách hiển thị mặc định.</p>
+                                  </label>
+                                  <label className="space-y-2 text-[11px] font-bold uppercase tracking-wide text-slate-500 sm:col-span-2">
+                                    <span>Tiểu sử ngắn</span>
+                                    <textarea value={instructor.bio} onChange={(event) => handleUpdateInstructor(instructor._key, { bio: event.target.value })} rows={3} placeholder="Mô tả tóm tắt kinh nghiệm giảng viên..." className="w-full rounded-xl border border-slate-200 p-3 text-sm font-medium normal-case tracking-normal text-slate-600 outline-none focus:border-secret-wax" />
+                                  </label>
+                                </div>
+                                <div className="space-y-2">
+                                  <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Ảnh đại diện giảng viên</p>
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <input type="url" value={instructor.avatar} onChange={(event) => handleUpdateInstructor(instructor._key, { avatar: event.target.value })} aria-label={`URL ảnh giảng viên ${index + 1}`} placeholder="Dán URL ảnh đại diện..." className="h-10 min-w-0 flex-1 rounded-xl border border-slate-200 px-3 text-xs text-slate-600 outline-none focus:border-secret-wax" />
+                                    <select value={instructorImageProvider} onChange={(event) => setInstructorImageProvider(event.target.value)} disabled={Boolean(uploadingInstructorKey)} aria-label="Nơi lưu ảnh giảng viên" className="h-10 rounded-xl border border-slate-200 px-2 text-xs text-slate-600">
+                                      <option value="bunny">Bunny</option><option value="s3">S3</option>
+                                    </select>
+                                    <input id={fileInputId} type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/avif" className="hidden" disabled={Boolean(uploadingInstructorKey)} onChange={(event) => handleInstructorImageUpload(event, instructor._key)} />
+                                    <button type="button" onClick={() => document.getElementById(fileInputId)?.click()} disabled={Boolean(uploadingInstructorKey)} className="inline-flex h-10 items-center gap-2 rounded-xl bg-secret-wax px-3 text-xs font-bold text-white disabled:opacity-50">
+                                      <Upload className="h-3.5 w-3.5" />{isUploading ? "Đang tải..." : "Tải ảnh"}
+                                    </button>
+                                    {instructor.avatar && <button type="button" disabled={isUploading} onClick={() => handleUpdateInstructor(instructor._key, { avatar: "" })} aria-label={`Xóa ảnh giảng viên ${index + 1}`} className="rounded-xl p-2 text-rose-500 hover:bg-rose-50 disabled:opacity-50"><X className="h-4 w-4" /></button>}
+                                  </div>
+                                </div>
+                              </div>
                             )}
-                            <input
-                              type="text"
-                              name="instructorImageUrl"
-                              value={formData.instructorImageUrl}
-                              onChange={handleInputChange}
-                              className="flex-1 h-11 rounded-2xl bg-slate-50 px-4 text-xs font-bold text-slate-500 focus:bg-white focus:ring-4 focus:ring-secret-wax/5 outline-none transition-all"
-                              placeholder="Dán URL ảnh đại diện..."
-                            />
                           </div>
-                        </div>
-                      </div>
-
-                      <div className="space-y-2.5">
-                        <label className="text-[11px] font-black uppercase tracking-widest text-slate-400">Tiểu sử ngắn</label>
-                        <textarea
-                          name="instructorBio"
-                          value={formData.instructorBio}
-                          onChange={handleInputChange}
-                          rows="6"
-                          className="w-full rounded-2xl bg-white border border-slate-100 p-4 text-sm font-medium text-slate-600 focus:ring-4 focus:ring-secret-wax/5 focus:border-secret-wax outline-none transition-all leading-relaxed"
-                          placeholder="Mô tả tóm tắt kinh nghiệm giảng viên..."
-                        />
-                      </div>
+                        );
+                      })}
                     </div>
                   </div>
 

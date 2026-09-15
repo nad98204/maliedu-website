@@ -11,6 +11,7 @@ import Breadcrumb from '../components/Breadcrumb';
 import CourseCurriculum from '../components/CourseCurriculum';
 import RelatedCourses from '../components/RelatedCourses';
 import CourseReviews from '../components/CourseReviews';
+import CourseInstructorCard from '../components/CourseInstructorCard';
 import AuthModal from '../components/AuthModal';
 import { getLessonKey, getPreferredPreviewLesson, resolveCourseAccess } from '../utils/courseAccess';
 import { normalizeCloudinaryImage } from '../utils/imageUtils';
@@ -20,6 +21,8 @@ import { sanitizeRichHtml } from '../utils/sanitizeHtml';
 import NotFound from './NotFound';
 import { SITE_URL } from '../seo/routeSeo';
 import { getDefaultCourseAccessPlan, getPlanEffectivePrice } from '../utils/coursePricing';
+import { DEFAULT_COURSE_INSTRUCTOR, getCourseInstructors } from '../utils/courseInstructors';
+import { loadLatestCourseInstructors } from '../utils/instructorSyncService';
 
 const recordCourseView = async (courseId) => {
     const viewKey = `mali_view_${courseId}`;
@@ -61,7 +64,8 @@ const CourseDetail = () => {
     const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
     const [activeSection, setActiveSection] = useState('intro');
     const [isDescExpanded, setIsDescExpanded] = useState(false);
-    const [instructorStats, setInstructorStats] = useState({ courses: 0, students: 0 });
+    const [instructorStats, setInstructorStats] = useState({});
+    const [enrichedInstructors, setEnrichedInstructors] = useState(null);
     const [isEnrolled, setIsEnrolled] = useState(false);
     const [realStudentCount, setRealStudentCount] = useState(null);
 
@@ -238,32 +242,46 @@ const CourseDetail = () => {
     }, [currentUser, course]);
 
     useEffect(() => {
+        let cancelled = false;
         const fetchInstructorStats = async () => {
             if (!course?.id) return;
-
-            try {
-                setRealStudentCount(Number(course.enrollmentCount || 0));
-
-                if (course?.authorId) {
-                    const q = query(collection(db, 'courses'), where('authorId', '==', course.authorId));
-                    const snapshot = await getDocs(q);
-                    const totalC = snapshot.size;
-                    const totalS = snapshot.docs.reduce(
-                        (total, courseSnapshot) =>
-                            total + Number(courseSnapshot.data().enrollmentCount || 0),
-                        0
-                    );
-
-                    setInstructorStats({ courses: totalC, students: totalS });
+            setRealStudentCount(Number(course.enrollmentCount || 0));
+            setInstructorStats({});
+            const ids = [...new Set(getCourseInstructors(course).map((row) => row.id).filter(Boolean))];
+            const entries = await Promise.all(ids.map(async (id) => {
+                try {
+                    // Merge legacy primary-only courses with new co-taught courses.
+                    const snapshots = await Promise.all([
+                        getDocs(query(collection(db, 'courses'), where('authorId', '==', id))),
+                        getDocs(query(collection(db, 'courses'), where('instructorIds', 'array-contains', id))),
+                    ]);
+                    const uniqueCourses = new Map(snapshots.flatMap((snapshot) => snapshot.docs.map((item) => [item.id, item.data()])));
+                    return [id, {
+                        courses: uniqueCourses.size,
+                        students: [...uniqueCourses.values()].reduce((total, item) => total + Number(item.enrollmentCount || 0), 0),
+                    }];
+                } catch (err) {
+                    console.error("Instructor stats error", err);
+                    return null;
                 }
-            } catch (err) {
-                console.error("Stats error", err);
-            }
+            }));
+            if (!cancelled) setInstructorStats(Object.fromEntries(entries.filter(Boolean)));
         };
 
         if (course) {
             fetchInstructorStats();
         }
+        return () => { cancelled = true; };
+    }, [course]);
+
+    useEffect(() => {
+        let cancelled = false;
+        if (course) {
+            loadLatestCourseInstructors(course).then((rows) => {
+                if (!cancelled) setEnrichedInstructors({ source: course, rows });
+            });
+        }
+        return () => { cancelled = true; };
     }, [course]);
 
     if (loading) {
@@ -307,6 +325,12 @@ const CourseDetail = () => {
     if (!course) {
         return <NotFound />;
     }
+
+    const normalizedInstructors = (enrichedInstructors?.source === course
+        ? enrichedInstructors.rows : getCourseInstructors(course)).filter((row) => row.name);
+    const courseInstructors = normalizedInstructors.length > 0
+        ? normalizedInstructors
+        : [{ ...DEFAULT_COURSE_INSTRUCTOR, isPrimary: true }];
 
     const whatYouWillLearn = Array.isArray(course?.whatYouWillLearn)
         ? course.whatYouWillLearn
@@ -362,7 +386,7 @@ const CourseDetail = () => {
                         "image": normalizeCloudinaryImage(course.thumbnailUrl || '', 'f_auto,q_auto,w_1200'),
                         "provider": {
                             "@type": "Organization",
-                            "name": course.instructorName || "Mali Edu",
+                            "name": courseInstructors[0].name || "Mali Edu",
                             "sameAs": SITE_URL
                         },
                         ...(!isLeadGenerationCourse(course) ? {
@@ -374,11 +398,12 @@ const CourseDetail = () => {
                                 "url": `${SITE_URL}/khoa-hoc/${course.slug || course.id}`
                             }
                         } : {}),
-                        ...(course.instructorName ? {
-                            "instructor": {
+                        ...(courseInstructors.length > 0 ? {
+                            "instructor": courseInstructors.map((instructor) => ({
                                 "@type": "Person",
-                                "name": course.instructorName
-                            }
+                                "name": instructor.name,
+                                ...(instructor.id ? { "url": `${SITE_URL}/giang-vien/${encodeURIComponent(instructor.id)}` } : {})
+                            }))
                         } : {})
                     },
                     {
@@ -544,35 +569,19 @@ const CourseDetail = () => {
 
                     {/* INSTRUCTOR SECTION */}
                     <div id="instructor" className="scroll-mt-24">
-                        <h2 className="text-2xl font-bold font-sans text-slate-900 mb-6">Giảng viên</h2>
-                        <div className="bg-white border border-slate-200 rounded-xl p-6 flex flex-col md:flex-row items-center md:items-start gap-6">
-                            <Link to={`/giang-vien/${course.authorId || ''}`} className="shrink-0">
-                                <img
-                                    src={normalizeCloudinaryImage(course.instructorImageUrl || "https://res.cloudinary.com/dstukyjzd/image/upload/v1736737568/z6127415478441_3dd15f40940dc417387405e608a28796_c459o5.jpg", 'f_auto,q_auto,c_thumb,g_face,w_200,h_200')}
-                                    alt={course.instructorName}
-                                    loading="lazy"
-                                    className="w-24 h-24 rounded-full object-cover border-4 border-slate-50 shadow-md hover:border-secret-wax transition-colors"
+                        <div className="mb-4 flex items-center justify-between gap-3">
+                            <h2 className="text-2xl font-bold font-sans text-slate-900">Giảng viên</h2>
+                            {courseInstructors.length > 1 && <span className="text-sm text-slate-500">{courseInstructors.length} chuyên gia đồng hành</span>}
+                        </div>
+                        <div className={`grid items-start gap-3 ${courseInstructors.length >= 3 ? "sm:grid-cols-2 xl:grid-cols-3" : courseInstructors.length === 2 ? "sm:grid-cols-2" : ""}`}>
+                            {courseInstructors.map((instructor, index) => (
+                                <CourseInstructorCard
+                                    key={`${course.id}-${instructor.id || instructor.name}-${index}`}
+                                    instructor={instructor}
+                                    stats={instructorStats[instructor.id]}
+                                    showPrimary={courseInstructors.length > 1}
                                 />
-                            </Link>
-                            <div className="text-center md:text-left">
-                                <Link to={`/giang-vien/${course.authorId || ''}`} className="hover:text-secret-wax transition-colors">
-                                    <h3 className="text-xl font-bold text-slate-900">{course.instructorName || "Mong Coaching"}</h3>
-                                </Link>
-                                <p className="text-secret-wax font-medium text-sm mb-3">{course.instructorTitle || "Life Coach & Spiritual Mentor"}</p>
-                                <div className="flex items-center justify-center md:justify-start gap-3 text-sm text-slate-600 mb-4">
-                                    <span className="flex items-center gap-2 border border-slate-200 rounded-full px-4 py-1.5 bg-slate-50">
-                                        <Users className="w-4 h-4 text-slate-500" />
-                                        {instructorStats.students.toLocaleString('vi-VN')} Học viên
-                                    </span>
-                                    <span className="flex items-center gap-2 border border-slate-200 rounded-full px-4 py-1.5 bg-slate-50">
-                                        <PlayCircle className="w-4 h-4 text-slate-500" />
-                                        {instructorStats.courses} Khóa học
-                                    </span>
-                                </div>
-                                <p className="text-slate-600 text-sm leading-relaxed whitespace-pre-line">
-                                    {course.instructorBio || "Với kinh nghiệm đồng hành cùng hàng ngàn học viên, Mong Coaching sẽ giúp bạn tìm lại chính mình, chữa lành những tổn thương và kiến tạo một cuộc đời thịnh vượng, hạnh phúc từ gốc rễ."}
-                                </p>
-                            </div>
+                            ))}
                         </div>
                     </div>
 
