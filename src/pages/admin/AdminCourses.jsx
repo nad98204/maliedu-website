@@ -89,6 +89,7 @@ import {
   syncCourseInstructors,
 } from "../../utils/courseInstructors";
 import { loadLatestCourseInstructors } from "../../utils/instructorSyncService";
+import { getLessonTitleFromFileName, mergeQuickLessonDrafts } from "../../utils/courseQuickAdd";
 
 // --- CẤU HÌNH THÔNG TIN GIẢNG VIÊN MẶC ĐỊNH ---
 // Anh/chị có thể sửa nội dung mặc định tại đây:
@@ -327,6 +328,13 @@ const AdminCourses = () => {
     const taskKey = isNew ? `new-${sIdx}` : `${sIdx}-${lIdx}`;
     const provider = requestedProvider === "bunny" ? "bunny" : "s3";
 
+    if (isNew) {
+      const titleInput = document.getElementById(`lesson-title-${sIdx}`);
+      if (titleInput && !titleInput.value.trim()) {
+        titleInput.value = getLessonTitleFromFileName(file.name);
+      }
+    }
+
     setUploadTasks(prev => ({
       ...prev,
       [taskKey]: { fileName: file.name, progress: 0, status: 'uploading', provider }
@@ -356,16 +364,34 @@ const AdminCourses = () => {
       }
 
       if (isNew) {
-        const input = document.getElementById(`lesson-video-${sIdx}`);
-        if (input) {
-          input.value = videoId;
-          const durInput = document.getElementById(`lesson-duration-${sIdx}`);
-          if (provider === "s3" && durInput && !durInput.value) {
-            fetchVideoDuration(videoId).then(duration => {
-              if (duration) durInput.value = duration;
-            });
-          }
+        const titleInput = document.getElementById(`lesson-title-${sIdx}`);
+        const videoInput = document.getElementById(`lesson-video-${sIdx}`);
+        const durInput = document.getElementById(`lesson-duration-${sIdx}`);
+        const descInput = document.getElementById(`lesson-description-${sIdx}`);
+        const title = titleInput?.value.trim()
+          || getLessonTitleFromFileName(file.name)
+          || "Bài học video";
+        let duration = durInput?.value.trim() || "";
+        if (provider === "s3" && !duration) {
+          duration = await fetchVideoDuration(videoId) || "";
         }
+
+        handleAddLessonToSection(sIdx, {
+          title,
+          contentType: LESSON_CONTENT_TYPES.VIDEO,
+          videoId,
+          videoProvider: provider,
+          duration,
+          description: descInput?.value.trim() || "",
+          articleContent: "",
+          images: [],
+          ...(provider === "bunny" ? { bunnyStatus: "processing" } : {}),
+        });
+        if (titleInput) titleInput.value = "";
+        if (videoInput) videoInput.value = "";
+        if (durInput) durInput.value = "";
+        if (descInput) descInput.value = "";
+        setQuickAddExpanded((current) => ({ ...current, [sIdx]: false }));
       } else {
         setFormData((current) => {
           const curriculum = [...(current.curriculum || [])];
@@ -393,7 +419,7 @@ const AdminCourses = () => {
         return next;
       });
       showToast(
-        `Tải "${file.name}" lên ${provider === "bunny" ? "Bunny Stream" : "S3"} thành công!`,
+        `Tải "${file.name}" lên ${provider === "bunny" ? "Bunny Stream" : "S3"} thành công${isNew ? " và đã thêm vào bài học!" : "!"}`,
         "success",
       );
     } catch (err) {
@@ -1873,6 +1899,39 @@ const AdminCourses = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    if (Object.values(uploadTasks).some((task) => task?.status === "uploading")) {
+      showToast("Vui lòng chờ video tải lên xong trước khi lưu khóa học", "error");
+      setActiveTab("curriculum");
+      return;
+    }
+
+    const quickDrafts = (formData.curriculum || []).map((_, sectionIndex) => ({
+      sectionIndex,
+      title: document.getElementById(`lesson-title-${sectionIndex}`)?.value || "",
+      videoId: document.getElementById(`lesson-video-${sectionIndex}`)?.value || "",
+      duration: document.getElementById(`lesson-duration-${sectionIndex}`)?.value || "",
+      description: document.getElementById(`lesson-description-${sectionIndex}`)?.value || "",
+      contentType: quickLessonTypes[sectionIndex] || LESSON_CONTENT_TYPES.VIDEO,
+      videoProvider: getUploadProvider(`new-${sectionIndex}`),
+      articleContent: "",
+      images: [],
+    }));
+    const pendingQuickAdd = mergeQuickLessonDrafts(
+      formData.curriculum || [],
+      quickDrafts,
+      () => createLocalId("lesson"),
+    );
+    if (pendingQuickAdd.incomplete.length > 0) {
+      const firstSection = pendingQuickAdd.incomplete[0];
+      showToast("Bài học đang nhập chưa có video. Vui lòng chọn video hoặc xóa tên bài trước khi lưu.", "error");
+      setActiveTab("curriculum");
+      setQuickAddExpanded((current) => ({ ...current, [firstSection]: true }));
+      return;
+    }
+    const formDataToSave = pendingQuickAdd.added.length > 0
+      ? { ...formData, curriculum: pendingQuickAdd.curriculum }
+      : formData;
+
     const instructorRows = formData.instructors || [];
     const invalidInstructor = instructorRows.find((row) => !row.name?.trim());
     if (instructorRows.length === 0 || invalidInstructor) {
@@ -1920,7 +1979,7 @@ const AdminCourses = () => {
     setIsSubmitting(true);
     try {
       const courseData = {
-        ...getNormalizedCourseData(formData),
+        ...getNormalizedCourseData(formDataToSave),
         thumbnailStorageProvider,
         updatedAt: Date.now(),
       };
@@ -3619,6 +3678,7 @@ const AdminCourses = () => {
                                     const titleInput = document.getElementById(`lesson-title-${sIdx}`);
                                     const videoInput = document.getElementById(`lesson-video-${sIdx}`);
                                     const durationInput = document.getElementById(`lesson-duration-${sIdx}`);
+                                    const descriptionInput = document.getElementById(`lesson-description-${sIdx}`);
                                     const contentType = quickLessonTypes[sIdx] || LESSON_CONTENT_TYPES.VIDEO;
                                     const title = titleInput?.value.trim();
                                     const videoId = videoInput?.value.trim() || "";
@@ -3640,6 +3700,7 @@ const AdminCourses = () => {
                                       videoProvider: getUploadProvider(`new-${sIdx}`),
                                       articleContent: "",
                                       images: [],
+                                      description: descriptionInput?.value.trim() || "",
                                       duration:
                                         contentType === LESSON_CONTENT_TYPES.VIDEO
                                           ? durationInput?.value.trim() || ""
@@ -3648,6 +3709,7 @@ const AdminCourses = () => {
                                     titleInput.value = "";
                                     if (videoInput) videoInput.value = "";
                                     if (durationInput) durationInput.value = "";
+                                    if (descriptionInput) descriptionInput.value = "";
                                     setQuickAddExpanded((current) => ({ ...current, [sIdx]: false }));
                                   }}
                                   className="w-full h-11 bg-secret-wax text-white rounded-2xl flex items-center justify-center hover:bg-secret-ink shadow-lg shadow-secret-wax/20 transition-all"
@@ -3702,7 +3764,7 @@ const AdminCourses = () => {
                                         e.target.files[0],
                                         true,
                                         getUploadProvider(`new-${sIdx}`),
-                                      )}
+                                      ).finally(() => { e.target.value = ""; })}
                                     />
                                     {uploadTasks[`new-${sIdx}`] ? (
                                       <div className="w-5 h-5 border-2 border-secret-wax/30 border-t-secret-wax rounded-full animate-spin" />
@@ -3713,6 +3775,17 @@ const AdminCourses = () => {
                                 </div>
                               </div>
                               )}
+                              <div className="md:col-span-12">
+                                <label htmlFor={`lesson-description-${sIdx}`} className="mb-2 block text-[10px] font-black uppercase tracking-wider text-slate-400">
+                                  Hướng dẫn bài học
+                                </label>
+                                <textarea
+                                  id={`lesson-description-${sIdx}`}
+                                  rows={3}
+                                  placeholder="Viết hướng dẫn thực hành, các bước cần làm hoặc tóm tắt cho bài học này..."
+                                  className="w-full rounded-2xl border border-slate-200 bg-white p-3 text-xs font-medium text-slate-700 outline-none transition-all placeholder:text-slate-300 focus:border-secret-wax focus:ring-4 focus:ring-secret-wax/5"
+                                />
+                              </div>
                               {uploadTasks[`new-${sIdx}`] && (
                                 <div className="md:col-span-12">
                                   <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
@@ -4065,7 +4138,7 @@ const AdminCourses = () => {
                                       )}
 
                                       <div className="space-y-3">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Mô tả bài giảng</label>
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Hướng dẫn bài học</label>
                                         <textarea
                                           value={lesson.description || ""}
                                           onChange={(e) => handleUpdateLesson(sIdx, lIdx, "description", e.target.value)}

@@ -16,6 +16,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from '../firebase';
 import PlayerSidebar from '../components/PlayerSidebar';
 import PlayerTabs from '../components/PlayerTabs';
+import QuickLessonResources from '../components/QuickLessonResources';
 import RelatedCourses from '../components/RelatedCourses';
 import ArticleLessonViewer from '../components/ArticleLessonViewer';
 import VideoWrapper from '../components/VideoWrapper';
@@ -33,6 +34,7 @@ import {
     LESSON_CONTENT_TYPES,
     normalizeLessonContentType,
 } from '../utils/lessonContent';
+import { getQuickLessonResources } from '../utils/quickLessonResources';
 
 const DEFAULT_SECTION_TITLE = 'Nội dung khóa học';
 const getSectionIdentifier = (section, fallbackId = '') => section?.id || fallbackId;
@@ -683,6 +685,15 @@ const CoursePlayer = () => {
     const sidebarLessonResourceMap = hasFullAccess ? lessonResourceMap : {};
     const sidebarSectionResourceMap = hasFullAccess ? sectionResourceMap : {};
     const sidebarCurrentContextResources = hasFullAccess ? currentContextResources : [];
+    const activeLessonResources = useMemo(
+        () => getQuickLessonResources({
+            hasFullAccess,
+            contextResources: hasFullAccess ? currentContextResources : [],
+            currentLesson,
+            currentLessonId
+        }),
+        [currentLesson, currentLessonId, currentContextResources, hasFullAccess]
+    );
 
     const currentLessonIndex = useMemo(() => {
         if (!currentLessonId) return -1;
@@ -816,6 +827,11 @@ const CoursePlayer = () => {
 
     const lessonFooter = (
         <>
+            <QuickLessonResources
+                resources={activeLessonResources}
+                lessonTitle={currentLesson?.title || ''}
+                onOpenAllResources={() => setActivePlayerTab('resources')}
+            />
             {!hasFullAccess && (
                 <div className="mt-5 rounded-2xl bg-gradient-to-r from-[#B91C1C] to-[#7F1D1D] p-4 text-white shadow-xl md:hidden">
                     <p className="text-xs font-bold uppercase tracking-wider text-red-100">
@@ -839,6 +855,7 @@ const CoursePlayer = () => {
                 resourceGroups={sidebarResourceGroups}
                 currentContextResources={sidebarCurrentContextResources}
                 resourceFocusRequest={hasFullAccess ? resourceFocusRequest : null}
+                requestedActiveTab={activePlayerTab}
                 lessonId={currentLessonId}
                 lessonTitle={currentLesson?.title}
                 currentUser={currentUser}

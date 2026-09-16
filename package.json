@@ -16,6 +16,8 @@
     "test:affiliate": "node --test functions/_lib/affiliate.test.js",
     "test:landing": "node scripts/test-landing-performance.mjs",
     "test:course-instructors": "node --test scripts/test-course-instructors.mjs",
+    "test:course-quick-add": "node --test scripts/test-course-quick-add.mjs",
+    "test:quick-resources": "node --test scripts/test-quick-lesson-resources.mjs",
     "test:bunny-storage": "node --test scripts/test-bunny-storage-upload.mjs",
     "test:secret-landing": "node --test scripts/test-secret-landing.mjs",
     "lint": "eslint .",

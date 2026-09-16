@@ -131,6 +131,7 @@ const PlayerTabs = ({
     resourceGroups = [],
     currentContextResources = [],
     resourceFocusRequest,
+    requestedActiveTab,
     lessonId,
     currentUser,
     hasFullAccess = true,
@@ -231,7 +232,7 @@ const PlayerTabs = ({
 
     const visibleTabs = useMemo(() => {
         const tabs = [
-            { id: 'overview', label: 'Mô tả', icon: BookOpen },
+            { id: 'overview', label: 'Hướng dẫn', icon: BookOpen },
             { id: 'resources', label: 'Tài liệu', icon: FileText },
             { id: 'notes', label: 'Ghi chép', icon: PenTool },
             { id: 'discussion', label: 'Thảo luận', icon: MessageCircle }
@@ -252,6 +253,12 @@ const PlayerTabs = ({
             setActiveTab(visibleTabs[0].id);
         }
     }, [activeTab, visibleTabs]);
+
+    useEffect(() => {
+        if (requestedActiveTab && visibleTabs.some((tab) => tab.id === requestedActiveTab)) {
+            setActiveTab(requestedActiveTab);
+        }
+    }, [requestedActiveTab, visibleTabs]);
 
     useEffect(() => {
         if (typeof window === 'undefined') {
@@ -411,7 +418,7 @@ const PlayerTabs = ({
                 {activeTab === 'overview' && (
                     <div className="prose max-w-none">
                         <h3 className="mb-3 text-lg font-bold text-slate-800 md:mb-4 md:text-xl">
-                            Giới thiệu bài học
+                            Hướng dẫn bài học
                         </h3>
                         {formattedDescription ? (
                             <div
@@ -420,7 +427,7 @@ const PlayerTabs = ({
                             />
                         ) : (
                             <div className="text-sm leading-relaxed text-slate-600 md:text-base">
-                                Chưa có mô tả cho bài học này.
+                                Chưa có hướng dẫn cho bài học này.
                             </div>
                         )}
                     </div>
