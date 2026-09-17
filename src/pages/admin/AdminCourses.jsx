@@ -437,7 +437,7 @@ const AdminCourses = () => {
   const [lessonDropTarget, setLessonDropTarget] = useState(null);
 
   const getLessonExpansionKey = (lesson, sIdx, lIdx) =>
-    getLessonIdentifier(lesson, `lesson-${sIdx}-${lIdx}`);
+    lesson?.id || `lesson-${sIdx}-${lIdx}`;
 
   const toggleLessonExpansion = (lesson, sIdx, lIdx) => {
     const key = getLessonExpansionKey(lesson, sIdx, lIdx);
@@ -448,44 +448,21 @@ const AdminCourses = () => {
   };
 
   // --- SECTION EXPANSION (COLLAPSE/EXPAND) ---
-  const STORAGE_KEY = "admin_courses_expanded_sections";
-
-  const loadExpandedSectionsFromStorage = () => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        setExpandedSections(parsed);
-      }
-    } catch (error) {
-      console.error("Error loading expanded sections from localStorage:", error);
-    }
-  };
-
-  const saveExpandedSectionsToStorage = (sections) => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(sections));
-    } catch (error) {
-      console.error("Error saving expanded sections to localStorage:", error);
-    }
-  };
-
   const getSectionExpansionKey = (section, sIdx) =>
-    getSectionIdentifier(section, `section-${sIdx}`);
-
-  const toggleSectionExpansion = (section, sIdx) => {
-    const key = getSectionExpansionKey(section, sIdx);
-    setExpandedSections((prev) => {
-      const next = { ...prev, [key]: !prev[key] };
-      saveExpandedSectionsToStorage(next);
-      return next;
-    });
-  };
+    section?.id || `section-${sIdx}`;
 
   const isSectionExpanded = (section, sIdx) => {
     const key = getSectionExpansionKey(section, sIdx);
-    // Mặc định mở (true) nếu chưa có trong state
     return expandedSections[key] !== false;
+  };
+
+  const toggleSectionExpansion = (section, sIdx) => {
+    const key = getSectionExpansionKey(section, sIdx);
+    const currentlyExpanded = isSectionExpanded(section, sIdx);
+    setExpandedSections((prev) => ({
+      ...prev,
+      [key]: !currentlyExpanded,
+    }));
   };
 
   const toggleQuickAdd = (sIdx) => {
@@ -648,11 +625,6 @@ const AdminCourses = () => {
     fetchCourses();
   }, [fetchCourses]);
 
-  // Load expanded sections state from localStorage on mount
-  useEffect(() => {
-    loadExpandedSectionsFromStorage();
-  }, []);
-
   // -- SECTION & LESSON HANDLERS --
   const handleAddSection = (hasTitle = true) => {
     setFormData((prev) => ({
@@ -804,7 +776,10 @@ const AdminCourses = () => {
     }
 
     const uploadKey = `${sIdx}-${lIdx}`;
-    const provider = requestedProvider === "bunny" ? "bunny" : "s3";
+    const providerTaskKey = `image-${sIdx}-${lIdx}`;
+    const preferredProvider = requestedProvider === "bunny" ? "bunny" : "s3";
+    let actualProvider = preferredProvider;
+    let usedS3Fallback = false;
     setUploadingLessonImages((current) => ({ ...current, [uploadKey]: true }));
     setLessonImageUploadProgress((current) => ({ ...current, [uploadKey]: 0 }));
 
@@ -822,11 +797,45 @@ const AdminCourses = () => {
             [uploadKey]: totalProgress,
           }));
         };
-        const imageUrl = provider === "bunny"
-          ? await uploadImageToBunny(file, reportProgress)
-          : await uploadFileToS3(file, reportProgress, {
-              folder: "course-lessons/images",
-            });
+        let imageUrl = "";
+        if (actualProvider === "bunny") {
+          try {
+            imageUrl = await uploadImageToBunny(file, reportProgress);
+          } catch (bunnyError) {
+            const bunnyMessage =
+              bunnyError?.message || "Không thể kết nối Bunny Storage.";
+            console.warn(
+              "Bunny Storage lỗi, tự động chuyển ảnh bài học sang S3:",
+              bunnyError,
+            );
+            showToast(
+              `Bunny Storage chưa sẵn sàng (${bunnyMessage}) Đang tự động lưu ảnh qua S3...`,
+              "info",
+            );
+
+            actualProvider = "s3";
+            usedS3Fallback = true;
+            setUploadProvider(providerTaskKey, "s3");
+            reportProgress(0);
+
+            try {
+              imageUrl = await uploadFileToS3(file, reportProgress, {
+                folder: "course-lessons/images",
+              });
+            } catch (s3Error) {
+              throw new Error(
+                `Bunny Storage lỗi: ${bunnyMessage} S3 dự phòng cũng lỗi: ${
+                  s3Error?.message || "Không thể tải ảnh lên S3."
+                }`,
+                { cause: s3Error },
+              );
+            }
+          }
+        } else {
+          imageUrl = await uploadFileToS3(file, reportProgress, {
+            folder: "course-lessons/images",
+          });
+        }
         imageUrls.push(imageUrl);
       }
 
@@ -840,13 +849,15 @@ const AdminCourses = () => {
         lessons[lIdx] = {
           ...lesson,
           images: Array.from(new Set([...getLessonImages(lesson), ...imageUrls])),
-          imageProvider: provider,
+          imageProvider: actualProvider,
         };
         curriculum[sIdx] = { ...section, lessons };
         return { ...current, curriculum };
       });
       showToast(
-        `Đã tải ${selectedFiles.length} ảnh lên ${provider === "bunny" ? "Bunny CDN" : "S3"}`,
+        usedS3Fallback
+          ? `Bunny Storage gặp lỗi; đã tự động lưu ${selectedFiles.length} ảnh qua S3.`
+          : `Đã tải ${selectedFiles.length} ảnh lên ${actualProvider === "bunny" ? "Bunny CDN" : "S3"}`,
         "success",
       );
     } catch (error) {
@@ -1564,6 +1575,8 @@ const AdminCourses = () => {
 
   const handleAddNew = () => {
     const instructorRows = [createInstructorDraft()];
+    setExpandedLessons({});
+    setExpandedSections({});
     setExpandedInstructorKey(instructorRows[0]._key);
     setUploadProviders({});
     setQuickLessonTypes({});
@@ -1616,6 +1629,8 @@ const AdminCourses = () => {
   };
 
   const handleEdit = async (course) => {
+    setExpandedLessons({});
+    setExpandedSections({});
     // Resolve fresh profiles before opening; never overwrite in-progress manual edits.
     const cachedRows = enrichCourseInstructors(course, instructors);
     const latestRows = await loadLatestCourseInstructors({ ...course, instructors: cachedRows });
@@ -1702,6 +1717,8 @@ const AdminCourses = () => {
 
   const handleDuplicate = (course) => {
     const instructorRows = getInstructorDrafts(course);
+    setExpandedLessons({});
+    setExpandedSections({});
     setExpandedInstructorKey(instructorRows[0]._key);
     setUploadProviders({});
     setQuickLessonTypes({});
@@ -2170,7 +2187,13 @@ const AdminCourses = () => {
       {toast && (
         <div
           role={toast.type === "error" ? "alert" : "status"}
-          className={`fixed top-4 right-4 z-[200] max-w-[calc(100vw-2rem)] px-6 py-3 rounded-lg shadow-lg text-white ${toast.type === "error" ? "bg-red-500" : "bg-green-500"}`}
+          className={`fixed top-4 right-4 z-[200] max-w-[calc(100vw-2rem)] px-6 py-3 rounded-lg shadow-lg text-white ${
+            toast.type === "error"
+              ? "bg-red-500"
+              : toast.type === "info"
+                ? "bg-amber-500"
+                : "bg-green-500"
+          }`}
         >
           {toast.message}
         </div>
@@ -3965,9 +3988,19 @@ const AdminCourses = () => {
                                       <button
                                         type="button"
                                         onClick={() => toggleLessonExpansion(lesson, sIdx, lIdx)}
-                                        className={`p-2 rounded-xl transition-all ${isExp ? 'bg-secret-wax text-white' : 'bg-slate-50 text-slate-400 hover:text-slate-600'}`}
+                                        className={`flex items-center gap-1.5 rounded-xl p-2 px-2.5 transition-all ${
+                                          isExp
+                                            ? "bg-secret-wax text-white shadow-sm"
+                                            : "bg-slate-50 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                                        }`}
+                                        title={isExp ? "Thu gọn chi tiết bài học" : "Chỉnh sửa chi tiết bài học"}
                                       >
                                         <Edit className="w-4 h-4" />
+                                        <ChevronDown
+                                          className={`h-3.5 w-3.5 transition-transform duration-200 ${
+                                            isExp ? "rotate-180" : ""
+                                          }`}
+                                        />
                                       </button>
                                       <button
                                         type="button"
@@ -4183,6 +4216,17 @@ const AdminCourses = () => {
                                           </button>
                                         </div>
                                       </div>
+
+                                      <div className="md:col-span-2 flex justify-end border-t border-slate-100 pt-4">
+                                        <button
+                                          type="button"
+                                          onClick={() => toggleLessonExpansion(lesson, sIdx, lIdx)}
+                                          className="flex items-center gap-1.5 rounded-xl bg-slate-100 px-4 py-2 text-xs font-bold text-slate-600 transition-all hover:bg-slate-200"
+                                        >
+                                          <ChevronDown className="h-3.5 w-3.5 rotate-180" />
+                                          Thu gọn bài học này
+                                        </button>
+                                      </div>
                                     </div>
                                   )}
                                 </div>
@@ -4197,12 +4241,22 @@ const AdminCourses = () => {
                           </div>
                         </>
                       ) : (
-                        /* Collapsed State - Show summary */
-                        <div className="px-8 py-4 bg-slate-50/30 border-t border-slate-100">
-                          <p className="text-sm text-slate-400 font-medium">
-                            {(section.lessons || []).length} bài học • Click để mở rộng
+                        <button
+                          type="button"
+                          onClick={() => toggleSectionExpansion(section, sIdx)}
+                          className="flex w-full cursor-pointer items-center justify-between border-t border-slate-100 bg-slate-50/50 px-8 py-4 text-left transition-colors hover:bg-slate-100/70"
+                        >
+                          <p className="flex items-center gap-2 text-sm font-bold text-slate-500">
+                            <span>{(section.lessons || []).length} bài học</span>
+                            <span className="text-slate-300">•</span>
+                            <span className="text-xs font-normal text-slate-400">
+                              Nhấn vào đây để mở rộng danh sách bài học
+                            </span>
                           </p>
-                        </div>
+                          <span className="flex items-center gap-1 text-xs font-bold text-secret-wax">
+                            Mở rộng <ChevronDown className="h-4 w-4 -rotate-90" />
+                          </span>
+                        </button>
                       )}
                         </div>
                       ))}

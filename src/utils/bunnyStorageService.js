@@ -18,6 +18,17 @@ const parseJson = (value) => {
   }
 };
 
+const getUploadErrorMessage = (data, status) => {
+  const serverMessage =
+    (typeof data?.message === "string" && data.message.trim()) ||
+    (typeof data?.error === "string" && data.error.trim());
+
+  return (
+    serverMessage ||
+    `Lỗi tải ảnh lên Bunny (${status || "không xác định"}): Vui lòng kiểm tra cấu hình Bunny Storage.`
+  );
+};
+
 const validateImage = (file) => {
   if (!(file instanceof File) || file.size <= 0) {
     throw new Error("Vui lòng chọn file hình ảnh.");
@@ -43,14 +54,20 @@ const uploadWithToken = (file, token, onProgress) =>
       if (!event.lengthComputable) return;
       onProgress?.(Math.min(99, Math.round((event.loaded / event.total) * 100)));
     };
-    xhr.onerror = () => reject(new Error("Mất kết nối khi tải ảnh lên Bunny Storage."));
-    xhr.onabort = () => reject(new Error("Đã hủy tải ảnh lên Bunny Storage."));
+    xhr.onerror = () => {
+      const error = new Error("Mất kết nối khi tải ảnh lên Bunny Storage.");
+      error.status = 0;
+      reject(error);
+    };
+    xhr.onabort = () => {
+      const error = new Error("Đã hủy tải ảnh lên Bunny Storage.");
+      error.status = 0;
+      reject(error);
+    };
     xhr.onload = () => {
       const data = parseJson(xhr.responseText);
       if (xhr.status < 200 || xhr.status >= 300 || !data?.url) {
-        const error = new Error(
-          data?.message || `Tải ảnh lên Bunny Storage thất bại (${xhr.status}).`,
-        );
+        const error = new Error(getUploadErrorMessage(data, xhr.status));
         error.status = xhr.status;
         reject(error);
         return;
