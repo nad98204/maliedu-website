@@ -17,7 +17,6 @@ import { auth, db } from '../firebase';
 import PlayerSidebar from '../components/PlayerSidebar';
 import PlayerTabs from '../components/PlayerTabs';
 import QuickLessonResources from '../components/QuickLessonResources';
-import RelatedCourses from '../components/RelatedCourses';
 import ArticleLessonViewer from '../components/ArticleLessonViewer';
 import VideoWrapper from '../components/VideoWrapper';
 import styles from './CoursePlayer.module.css';
@@ -862,11 +861,6 @@ const CoursePlayer = () => {
                 hasFullAccess={hasFullAccess}
                 onLessonSelect={handleLessonSelect}
                 onActiveTabChange={setActivePlayerTab}
-            />
-            <RelatedCourses
-                currentCourseId={course.id}
-                limit={2}
-                variant="player"
             />
         </>
     );

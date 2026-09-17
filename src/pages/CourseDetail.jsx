@@ -592,7 +592,7 @@ const CourseDetail = () => {
                     </div>
 
                     {/* RELATED COURSES */}
-                    <RelatedCourses currentCourseId={course.id} />
+                    <RelatedCourses currentCourseId={course.id} limit={2} />
                 </div>
 
                 {/* RIGHT COLUMN (SIDEBAR) */}

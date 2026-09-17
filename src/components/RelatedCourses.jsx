@@ -117,7 +117,13 @@ const RelatedCourses = ({ currentCourseId, limit = 3, variant = 'default' }) => 
                 )}
             </div>
 
-            <div className={`grid grid-cols-1 gap-6 ${isPlayerVariant ? '2xl:grid-cols-2' : 'md:grid-cols-2 lg:grid-cols-3'}`}>
+            <div className={`grid grid-cols-1 gap-6 ${
+                isPlayerVariant
+                    ? '2xl:grid-cols-2'
+                    : courses.length === 1
+                        ? 'max-w-md'
+                        : 'sm:grid-cols-2'
+            }`}>
                 {courses.map((course) => (
                     <CourseCard key={course.id} course={course} />
                 ))}
