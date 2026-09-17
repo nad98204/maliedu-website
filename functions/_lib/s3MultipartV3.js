@@ -9,7 +9,7 @@ const DEFAULT_MAX_UPLOAD_BYTES = 20 * 1024 * 1024 * 1024;
 const MAX_FILE_NAME_LENGTH = 180;
 const MAX_OBJECT_KEY_LENGTH = 1024;
 const ALLOWED_FOLDER_PATTERN =
-  /^(?:files(?:\/[a-zA-Z0-9_-]+){0,4}|videos|thumbnails|instructors|posts(?:\/content)?|banners\/(?:news-sidebar|home-hero))$/;
+  /^(?:files(?:\/[a-zA-Z0-9_-]+){0,4}|videos|thumbnails|instructors|course-lessons(?:\/[a-zA-Z0-9_-]+){0,4}|courses(?:\/[a-zA-Z0-9_-]+){0,4}|posts(?:\/content)?|banners\/(?:news-sidebar|home-hero))$/;
 const DANGEROUS_FILE_EXTENSION =
   /\.(?:css|htm|html|js|mjs|svg|xht|xhtml|xml)$/i;
 const DANGEROUS_CONTENT_TYPES = new Set([

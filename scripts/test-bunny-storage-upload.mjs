@@ -3,20 +3,25 @@ import assert from "node:assert/strict";
 import { onRequestPost } from "../functions/api/bunny-storage/upload.js";
 
 const projectId = "demo-image-upload";
-const token = `header.${Buffer.from(JSON.stringify({
-  sub: "test-admin", aud: projectId,
-  iss: `https://securetoken.google.com/${projectId}`,
+const makeToken = ({
+  project = projectId,
+  email = "admin@example.com",
+  emailVerified = true,
+} = {}) => `header.${Buffer.from(JSON.stringify({
+  sub: "test-admin", aud: project,
+  iss: `https://securetoken.google.com/${project}`,
   exp: Math.floor(Date.now() / 1000) + 3600,
-  email: "admin@example.com", email_verified: true,
+  email, email_verified: emailVerified,
 })).toString("base64url")}.signature`;
+const token = makeToken();
 const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aWZkAAAAASUVORK5CYII=", "base64");
 
-const makeContext = (overrides = {}) => {
+const makeContext = (overrides = {}, authToken = token) => {
   const body = new FormData();
   body.append("file", new File([png], "avatar.png", { type: "image/png" }));
   return {
     request: new Request("https://local.example/api/bunny-storage/upload", {
-      method: "POST", headers: { Authorization: `Bearer ${token}` }, body,
+      method: "POST", headers: { Authorization: `Bearer ${authToken}` }, body,
     }),
     env: {
       FIREBASE_PROJECT_ID: projectId,
@@ -88,4 +93,47 @@ test("missing storage configuration reports setting names without exposing secre
   assert.match(data.message, /BUNNY_STORAGE_ZONE_NAME/);
   assert.equal(JSON.stringify(data).includes("test-server-only-key"), false);
   assert.equal(uploads.length, 0);
+});
+
+test("uses the production Firebase project fallback when the environment value is missing", async (t) => {
+  const requests = [];
+  const previous = globalThis.fetch;
+  globalThis.fetch = async (url, options) => {
+    requests.push(String(url));
+    if (String(url).startsWith("https://firestore.googleapis.com/")) {
+      return new Response("", { status: 404 });
+    }
+    return new Response("", { status: 201 });
+  };
+  t.after(() => { globalThis.fetch = previous; });
+
+  const context = makeContext(
+    { FIREBASE_PROJECT_ID: "" },
+    makeToken({ project: "maliedu-web", email: "mongcoaching@gmail.com" }),
+  );
+  const response = await onRequestPost(context);
+
+  assert.equal(response.status, 200);
+  assert.match(requests[0], /projects\/maliedu-web\/databases/);
+  assert.match(requests[1], /^https:\/\/storage\.bunnycdn\.com\//);
+});
+
+test("does not trust a decoded super-admin claim before Google validates the token", async (t) => {
+  const requests = [];
+  const previous = globalThis.fetch;
+  globalThis.fetch = async (url) => {
+    requests.push(String(url));
+    return new Response("", { status: 401 });
+  };
+  t.after(() => { globalThis.fetch = previous; });
+
+  const context = makeContext(
+    { FIREBASE_PROJECT_ID: "" },
+    makeToken({ project: "maliedu-web", email: "mongcoaching@gmail.com" }),
+  );
+  const response = await onRequestPost(context);
+
+  assert.equal(response.status, 401);
+  assert.equal(requests.length, 1);
+  assert.match(requests[0], /^https:\/\/firestore\.googleapis\.com\//);
 });

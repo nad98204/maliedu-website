@@ -820,7 +820,7 @@ const AdminCourses = () => {
 
             try {
               imageUrl = await uploadFileToS3(file, reportProgress, {
-                folder: "course-lessons/images",
+                folder: "files/course-lessons/images",
               });
             } catch (s3Error) {
               throw new Error(
@@ -833,7 +833,7 @@ const AdminCourses = () => {
           }
         } else {
           imageUrl = await uploadFileToS3(file, reportProgress, {
-            folder: "course-lessons/images",
+            folder: "files/course-lessons/images",
           });
         }
         imageUrls.push(imageUrl);

@@ -1,5 +1,6 @@
 const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
 const SUPER_ADMIN_EMAIL = "mongcoaching@gmail.com";
+const DEFAULT_FIREBASE_PROJECT_ID = "maliedu-web";
 const IMAGE_TYPES = Object.freeze({
   "image/avif": "avif",
   "image/gif": "gif",
@@ -47,7 +48,9 @@ const getFirestoreStringArray = (document, field) =>
 
 const requireImageUploadAdmin = async (context) => {
   const token = getBearerToken(context.request);
-  const projectId = String(context.env?.FIREBASE_PROJECT_ID || "").trim();
+  const projectId = String(
+    context.env?.FIREBASE_PROJECT_ID || DEFAULT_FIREBASE_PROJECT_ID,
+  ).trim();
   const payload = decodeTokenPayload(token);
   const uid = String(payload?.sub || payload?.user_id || "").trim();
   const now = Math.floor(Date.now() / 1000);
@@ -65,6 +68,12 @@ const requireImageUploadAdmin = async (context) => {
     throw Object.assign(new Error("Phiên đăng nhập không hợp lệ."), { status: 401 });
   }
 
+  const email = String(payload.email || "").trim().toLowerCase();
+  const isSuperAdmin =
+    email === SUPER_ADMIN_EMAIL && payload.email_verified === true;
+
+  // The decoded JWT payload is not trusted by itself. This Firestore request
+  // makes Google validate the bearer token before any role receives access.
   const profileResponse = await fetch(
     `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(projectId)}/databases/(default)/documents/users/${encodeURIComponent(uid)}`,
     { headers: { Authorization: `Bearer ${token}` } },
@@ -79,19 +88,19 @@ const requireImageUploadAdmin = async (context) => {
     });
   }
 
+  if (isSuperAdmin) {
+    return;
+  }
+
   const profile = profileResponse.ok ? await profileResponse.json() : null;
-  const email = String(payload.email || "").trim().toLowerCase();
-  const isSuperAdmin =
-    email === SUPER_ADMIN_EMAIL && payload.email_verified === true;
   const isAdmin = getFirestoreString(profile, "role").toLowerCase() === "admin";
   const allowedModules = getFirestoreStringArray(profile, "allowedModules");
   const canUploadImages =
-    isSuperAdmin ||
-    (isAdmin && (
+    isAdmin && (
       allowedModules.length === 0 ||
       allowedModules.includes("courses") ||
       allowedModules.includes("instructors")
-    ));
+    );
 
   if (!canUploadImages) {
     throw Object.assign(new Error("Bạn không có quyền tải ảnh khóa học hoặc giảng viên."), {
