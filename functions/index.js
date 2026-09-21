@@ -1544,19 +1544,21 @@ export const onCrmLeadCreated = onValueCreated(
   }
 );
 
-export const uploadApi = onRequest(
+const UPLOAD_API_SECRETS = [
+  META_CAPI_ACCESS_TOKEN_SECRET,
+  S3_ACCESS_KEY_SECRET,
+  S3_SECRET_KEY_SECRET,
+  STORAGE_MEDIA_TOKEN_SECRET,
+  SEPAY_WEBHOOK_SECRET,
+  BUNNY_STREAM_API_KEY_SECRET,
+  BUNNY_STREAM_TOKEN_KEY_SECRET,
+];
+
+const createUploadApi = (region) => onRequest(
   {
     invoker: "public",
-    region: "asia-southeast1",
-    secrets: [
-      META_CAPI_ACCESS_TOKEN_SECRET,
-      S3_ACCESS_KEY_SECRET,
-      S3_SECRET_KEY_SECRET,
-      STORAGE_MEDIA_TOKEN_SECRET,
-      SEPAY_WEBHOOK_SECRET,
-      BUNNY_STREAM_API_KEY_SECRET,
-      BUNNY_STREAM_TOKEN_KEY_SECRET,
-    ],
+    region,
+    secrets: UPLOAD_API_SECRETS,
   },
   async (request, response) => {
     const normalizedPath = normalizeRequestPath(request);
@@ -1652,6 +1654,9 @@ export const uploadApi = onRequest(
     }
   },
 );
+
+export const uploadApi = createUploadApi("asia-southeast1");
+export const uploadApiFallback = createUploadApi("asia-southeast2");
 
 // Ghi nhận hoa hồng cho mọi cách hoàn tất đơn (SePay, Casso hoặc admin duyệt tay).
 // Transaction trong processAffiliateCommission dùng mã đơn làm khóa nên trigger

@@ -18,8 +18,8 @@
       {
         "source": "/api/**",
         "function": {
-          "functionId": "uploadApi",
-          "region": "asia-southeast1"
+          "functionId": "uploadApiFallback",
+          "region": "asia-southeast2"
         }
       },
       {
