@@ -5,6 +5,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { doc, onSnapshot } from "firebase/firestore";
 import { auth, db } from "../firebase";
 import { isAdminUser, isSuperAdminEmail, getFirstAllowedAdminPath } from "../utils/adminAccess";
+import { DEFAULT_MENU_CONFIG, subscribeMenuConfig } from "../utils/menuConfigService";
 import MobileActionSheet from "./MobileActionSheet";
 
 const NAV_ITEMS = [
@@ -66,6 +67,9 @@ const BottomNav = () => {
     const [activeMenu, setActiveMenu] = useState(null);
     const [isAdmin, setIsAdmin] = useState(false);
     const [adminPath, setAdminPath] = useState("/admin/dashboard");
+    const [menuConfig, setMenuConfig] = useState(DEFAULT_MENU_CONFIG);
+
+    useEffect(() => subscribeMenuConfig(setMenuConfig), []);
 
     useEffect(() => {
         let unsubscribeDoc = () => {};
@@ -112,17 +116,28 @@ const BottomNav = () => {
         }
     };
 
-    const currentNavItems = [...NAV_ITEMS];
+    const currentNavItems = NAV_ITEMS.filter((item) => {
+        if (item.id === 'home') return menuConfig.showHome !== false;
+        if (item.id === 'about') return menuConfig.showAbout !== false;
+        if (item.id === 'training') return menuConfig.showTraining !== false;
+        if (item.id === 'courses') return menuConfig.showOnlineCourses !== false;
+        if (item.id === 'hypnosis') return menuConfig.showHypnosis !== false;
+        return true;
+    });
+
     if (isAdmin) {
         currentNavItems.push({ id: 'admin', label: "Quản trị", icon: Layout, path: adminPath });
     }
 
-    const gridColsClass = currentNavItems.length === 6 ? "grid-cols-6" : "grid-cols-5";
+    if (currentNavItems.length === 0) return null;
 
     return (
         <>
             <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 lg:hidden block">
-                <div className={`grid ${gridColsClass} h-16`}>
+                <div
+                    className="grid h-16"
+                    style={{ gridTemplateColumns: `repeat(${currentNavItems.length}, minmax(0, 1fr))` }}
+                >
                     {currentNavItems.map((item) => {
                         const isActive = location.pathname === item.path || (item.path !== "/" && location.pathname.startsWith(item.path));
                         const Icon = item.icon;
