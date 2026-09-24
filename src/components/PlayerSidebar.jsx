@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
     ArrowRight,
     CheckCircle2,
@@ -61,6 +61,29 @@ const PlayerSidebar = ({
     const [resourceSearchTerm, setResourceSearchTerm] = useState('');
     const [openSections, setOpenSections] = useState({});
     const [openResourceGroups, setOpenResourceGroups] = useState({});
+    const swipeStartRef = useRef(null);
+
+    const handleDrawerTouchStart = (event) => {
+        if (event.touches.length !== 1) return;
+
+        const touch = event.touches[0];
+        swipeStartRef.current = { x: touch.clientX, y: touch.clientY };
+    };
+
+    const handleDrawerTouchEnd = (event) => {
+        const swipeStart = swipeStartRef.current;
+        swipeStartRef.current = null;
+        if (!swipeStart || event.changedTouches.length !== 1) return;
+
+        const touch = event.changedTouches[0];
+        const deltaX = touch.clientX - swipeStart.x;
+        const deltaY = touch.clientY - swipeStart.y;
+
+        // Vuốt ngang theo một trong hai hướng để đóng bảng và quay lại video.
+        if (Math.abs(deltaX) >= 70 && Math.abs(deltaX) > Math.abs(deltaY) * 1.25) {
+            onClose?.();
+        }
+    };
 
     const availableTabs = useMemo(
         () => (hasResourceAccess ? ['curriculum', 'resources'] : ['curriculum']),
@@ -141,36 +164,6 @@ const PlayerSidebar = ({
         return null;
     }, [currentLessonId, sections]);
 
-    const currentLessonMeta = (() => {
-        if (!currentLessonId) return null;
-
-        for (let sectionIndex = 0; sectionIndex < sections.length; sectionIndex += 1) {
-            const section = sections[sectionIndex];
-            const lessonIndex = (section.lessons || []).findIndex(
-                (lesson) => (lesson.id || lesson.videoId) === currentLessonId
-            );
-
-            if (lessonIndex >= 0) {
-                return {
-                    lesson: section.lessons[lessonIndex],
-                    sectionTitle: section.title,
-                    lessonNumber:
-                        sections
-                            .slice(0, sectionIndex)
-                            .reduce(
-                                (total, currentSection) =>
-                                    total + (currentSection.lessons?.length || 0),
-                                0
-                            ) +
-                        lessonIndex +
-                        1
-                };
-            }
-        }
-
-        return null;
-    })();
-
     const toggleSection = (sectionIndex, defaultOpen = false) => {
         setOpenSections((prev) => ({
             ...prev,
@@ -189,7 +182,14 @@ const PlayerSidebar = ({
     const setSearchValue = displayedActiveTab === 'curriculum' ? setLessonSearchTerm : setResourceSearchTerm;
 
     return (
-        <div className="flex h-full flex-col bg-white text-slate-800 select-none">
+        <div
+            className="flex h-full touch-pan-y flex-col overscroll-x-contain bg-white text-slate-800 select-none"
+            onTouchStart={handleDrawerTouchStart}
+            onTouchEnd={handleDrawerTouchEnd}
+            onTouchCancel={() => {
+                swipeStartRef.current = null;
+            }}
+        >
             {/* Header Area */}
             <div className="sticky top-0 z-10 space-y-3.5 border-b border-slate-100 bg-white/95 p-4 backdrop-blur-md">
                 
@@ -234,32 +234,13 @@ const PlayerSidebar = ({
                     </div>
                 )}
 
-                {/* Mobile Drawer Header */}
-                <div className="md:hidden flex items-center justify-between pb-1 border-b border-slate-100">
-                    <div className="min-w-0 flex-1 pr-2">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-[#8B2E2E]">
-                            Nội dung bài học
-                        </p>
-                        <h3 className="line-clamp-1 text-sm font-bold text-slate-900">
-                            {currentLessonMeta?.lesson?.title || 'Danh sách bài học'}
-                        </h3>
-                    </div>
-                    <button
-                        type="button"
-                        onClick={() => onClose?.()}
-                        className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors"
-                        aria-label="Đóng menu"
-                    >
-                        <X className="h-4 w-4" />
-                    </button>
-                </div>
-
                 {/* Segmented Tabs */}
-                <div className="grid grid-cols-2 gap-1 rounded-2xl bg-slate-100/80 p-1 border border-slate-200/50">
+                <div className="flex items-stretch gap-2">
+                <div className="grid min-w-0 flex-1 grid-cols-2 gap-1 rounded-2xl border border-slate-200/50 bg-slate-100/80 p-1">
                     <button
                         type="button"
                         onClick={() => setActiveTab('curriculum')}
-                        className={`flex items-center justify-center gap-1.5 rounded-xl py-2 px-3 text-xs font-bold transition-all ${
+                        className={`flex items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-[15px] font-bold transition-all md:py-2 md:text-xs ${
                             displayedActiveTab === 'curriculum'
                                 ? 'bg-white text-[#8B2E2E] shadow-sm font-black'
                                 : 'text-slate-500 hover:text-slate-800'
@@ -276,7 +257,7 @@ const PlayerSidebar = ({
                     <button
                         type="button"
                         onClick={() => setActiveTab('resources')}
-                        className={`flex items-center justify-center gap-1.5 rounded-xl py-2 px-3 text-xs font-bold transition-all ${
+                        className={`flex items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-[15px] font-bold transition-all md:py-2 md:text-xs ${
                             displayedActiveTab === 'resources'
                                 ? 'bg-white text-[#8B2E2E] shadow-sm font-black'
                                 : 'text-slate-500 hover:text-slate-800'
@@ -288,6 +269,16 @@ const PlayerSidebar = ({
                         }`}>
                             {resources.length}
                         </span>
+                    </button>
+                </div>
+                    <button
+                        type="button"
+                        onClick={() => onClose?.()}
+                        className="flex shrink-0 items-center justify-center gap-1 rounded-xl bg-[#8B2E2E] px-2.5 text-white shadow-md shadow-red-900/20 transition-all hover:bg-[#722525] active:scale-95 md:hidden"
+                        aria-label="Đóng danh sách và quay lại video"
+                    >
+                        <X className="h-5 w-5" strokeWidth={2.5} />
+                        <span className="text-[13px] font-black">Đóng</span>
                     </button>
                 </div>
 
@@ -303,7 +294,7 @@ const PlayerSidebar = ({
                         }
                         value={searchValue}
                         onChange={(e) => setSearchValue(e.target.value)}
-                        className="w-full rounded-xl border border-slate-200/80 bg-slate-50/70 py-2 pl-8 pr-7 text-xs font-medium outline-none transition-all placeholder-slate-400 focus:border-red-500 focus:bg-white focus:ring-2 focus:ring-red-500/10"
+                        className="w-full rounded-xl border border-slate-200/80 bg-slate-50/70 py-2.5 pl-9 pr-8 text-sm font-medium outline-none transition-all placeholder-slate-400 focus:border-red-500 focus:bg-white focus:ring-2 focus:ring-red-500/10 md:py-2 md:pl-8 md:pr-7 md:text-xs"
                     />
                     {searchValue && (
                         <button
@@ -318,7 +309,7 @@ const PlayerSidebar = ({
                 {/* Compact Progress Bar */}
                 {displayedActiveTab === 'curriculum' && totalLessons > 0 && (
                     <div className="pt-1 space-y-1">
-                        <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500">
+                        <div className="flex items-center justify-between text-[13px] font-semibold text-slate-500 md:text-[11px]">
                             <span>Tiến độ: <strong className="text-slate-800">{completedLessons}/{totalLessons}</strong> bài</span>
                             <span className="text-[#8B2E2E] font-bold">{progressPercent}%</span>
                         </div>
@@ -370,12 +361,12 @@ const PlayerSidebar = ({
                                             }`}
                                         >
                                             <div className="min-w-0 flex-1">
-                                                <h4 className={`text-xs font-bold leading-snug line-clamp-2 ${
+                                                <h4 className={`line-clamp-2 text-[15px] font-bold leading-relaxed md:text-xs md:leading-snug ${
                                                     isSectionOpen ? 'text-[#8B2E2E]' : 'text-slate-800'
                                                 }`}>
                                                     {section.title}
                                                 </h4>
-                                                <div className="mt-1 flex items-center gap-2 text-[11px] text-slate-500 font-medium">
+                                                <div className="mt-1 flex items-center gap-2 text-[13px] font-medium text-slate-500 md:text-[11px]">
                                                     <span>{section.lessons.length} bài học</span>
                                                     {sectionLevelResources.length > 0 && (
                                                         <span className="flex items-center gap-1 text-red-600">
@@ -443,7 +434,7 @@ const PlayerSidebar = ({
                                                                 ? onLockedLessonSelect?.(lesson)
                                                                 : onLessonSelect?.(lesson)
                                                         }
-                                                        className={`flex w-full items-start gap-2.5 px-3.5 py-3 text-left transition-all relative ${
+                                                        className={`relative flex w-full items-start gap-3 px-3.5 py-4 text-left transition-all md:gap-2.5 md:py-3 ${
                                                             isCurrent
                                                                 ? 'bg-red-50/80 border-l-4 border-l-[#8B2E2E]'
                                                                 : isLocked
@@ -472,7 +463,7 @@ const PlayerSidebar = ({
 
                                                         {/* Title & Meta info */}
                                                         <div className="min-w-0 flex-1">
-                                                            <p className={`text-xs leading-snug line-clamp-2 ${
+                                                            <p className={`line-clamp-3 text-[15px] leading-relaxed md:line-clamp-2 md:text-xs md:leading-snug ${
                                                                 isCurrent
                                                                     ? 'font-bold text-[#8B2E2E]'
                                                                     : isLocked
@@ -482,7 +473,7 @@ const PlayerSidebar = ({
                                                                 {lesson.title}
                                                             </p>
 
-                                                            <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
+                                                            <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[13px] text-slate-400 md:text-[11px]">
                                                                 <span className="flex items-center gap-1 font-semibold text-slate-500">
                                                                     <LessonTypeIcon className="h-3 w-3" />
                                                                     {getLessonContentTypeLabel(lessonContentType, true)}

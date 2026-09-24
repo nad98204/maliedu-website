@@ -954,9 +954,12 @@ const CoursePlayer = () => {
                         <ChevronLeft className="h-5 w-5" />
                         <span className="hidden md:inline">Trang chủ khóa học</span>
                     </Link>
-                    <div className="min-w-0 max-w-[140px] flex-1 md:hidden">
-                        <p className="line-clamp-1 text-xs font-bold text-white">
-                            {currentLesson?.title || 'Bài giảng'}
+                    <div className="min-w-0 max-w-[112px] flex-1 md:hidden">
+                        <p className="text-[9px] font-semibold leading-tight text-red-100">
+                            Bấm nút bên phải để
+                        </p>
+                        <p className="text-[11px] font-black leading-tight text-white">
+                            xem các buổi học khác →
                         </p>
                     </div>
                     <div className="hidden h-6 w-px bg-red-400/50 md:block"></div>
@@ -1033,10 +1036,10 @@ const CoursePlayer = () => {
                     <button
                         onClick={() => setIsSidebarOpen((prev) => !prev)}
                         aria-label="Mở chương học và bài tập"
-                        className="inline-flex items-center gap-2 rounded-full bg-red-900/35 px-3 py-2 text-white ring-1 ring-white/10 transition-colors hover:bg-red-900 md:hidden"
+                        className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-2 text-[#991B1B] shadow-md ring-2 ring-white/30 transition-all hover:bg-red-50 active:scale-95 md:hidden"
                     >
                         <Menu className="h-4 w-4" />
-                        <span className="text-xs font-semibold">Chương, bài tập</span>
+                        <span className="text-[11px] font-extrabold">Danh sách bài học</span>
                     </button>
                 </div>
             </header>
@@ -1052,7 +1055,7 @@ const CoursePlayer = () => {
                 )}
 
                 <div
-                    className={`${styles.content} relative z-10 w-full min-w-0 flex-1 pb-24 md:pb-8 md:overflow-y-auto md:custom-scrollbar`}
+                    className={`${styles.content} relative z-10 w-full min-w-0 flex-1 pb-2 md:pb-8 md:overflow-y-auto md:custom-scrollbar`}
                     id="player-scroll-container"
                 >
                     <div className="mx-auto max-w-[1600px] md:px-8 md:pt-8">
@@ -1091,7 +1094,7 @@ const CoursePlayer = () => {
                             isPreviewMode={!hasFullAccess}
                             previewableLessonKeys={previewableLessonKeys}
                         >
-                            <div className="px-3 pb-24 md:px-0 md:pb-20">
+                            <div className="px-3 md:px-0 md:pb-20">
                                 {afterVideoContentBlocks.length > 0 && (
                                     <div className="pt-6">
                                         <ArticleLessonViewer
@@ -1108,7 +1111,7 @@ const CoursePlayer = () => {
                             </VideoWrapper>
                             </>
                         ) : (
-                            <div className="pb-20">
+                            <div className="md:pb-20">
                                 <ArticleLessonViewer
                                     key={currentLessonId}
                                     lesson={currentLesson}
@@ -1159,7 +1162,7 @@ const CoursePlayer = () => {
                 </aside>
             </div>
 
-            <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-200/80 bg-white/95 px-4 py-2.5 shadow-[0_-4px_25px_rgba(0,0,0,0.08)] backdrop-blur-md md:hidden">
+            <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-200/70 bg-slate-100 px-4 py-2.5 md:hidden">
                 <div className="mx-auto grid max-w-lg grid-cols-2 gap-3">
                     <button
                         type="button"

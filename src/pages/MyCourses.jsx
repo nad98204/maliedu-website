@@ -5,7 +5,6 @@ import { onAuthStateChanged } from "firebase/auth";
 import {
     Play,
     PlayCircle,
-    Award,
     BookOpen,
     Clock,
     FileText,
@@ -19,7 +18,6 @@ import {
     X,
     GraduationCap,
     ArrowRight,
-    TrendingUp,
     ShieldAlert
 } from "lucide-react";
 
@@ -74,19 +72,6 @@ const MyCoursesSkeleton = () => {
     return (
         <div className="min-h-screen bg-slate-50/80 pt-8 pb-32 md:pt-24 md:pb-20">
             <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                {/* Header Skeleton */}
-                <div className="mb-10 rounded-3xl bg-white p-6 sm:p-8 border border-slate-200/80 shadow-sm animate-pulse">
-                    <div className="h-4 w-28 bg-slate-200 rounded mb-3" />
-                    <div className="h-8 w-64 bg-slate-200 rounded mb-2" />
-                    <div className="h-4 w-96 bg-slate-200 rounded" />
-                    
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8 pt-6 border-t border-slate-100">
-                        {[1, 2, 3, 4].map((i) => (
-                            <div key={i} className="h-20 bg-slate-100 rounded-2xl" />
-                        ))}
-                    </div>
-                </div>
-
                 {/* Cards Skeleton */}
                 <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                     {[1, 2, 3].map((i) => (
@@ -313,68 +298,6 @@ const MyCourses = () => {
     return (
         <div className="min-h-screen bg-slate-50/70 pt-6 pb-28 md:pt-24 md:pb-20">
             <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-8">
-                
-                {/* Hero Dashboard Banner */}
-                <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-white via-white to-amber-50/40 border border-slate-200/80 p-6 sm:p-8 lg:p-10 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)]">
-                    {/* Subtle decorative brand glows */}
-                    <div className="absolute -right-16 -top-16 w-64 h-64 bg-red-500/5 rounded-full blur-3xl pointer-events-none" />
-                    <div className="absolute -left-16 -bottom-16 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
-
-                    <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-                        <div className="space-y-1.5 max-w-2xl">
-                            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight text-slate-900">
-                                Khóa học của tôi
-                            </h1>
-                            <p className="text-sm sm:text-base font-medium text-slate-600 leading-relaxed">
-                                Xin chào, <span className="font-bold text-slate-900">{user?.displayName || user?.email?.split('@')[0] || "Học viên"}</span>!
-                            </p>
-                        </div>
-
-                        {/* Quick Stats Grid */}
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-                            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-3.5 sm:p-4 border border-slate-200/60 shadow-sm flex flex-col">
-                                <div className="flex items-center justify-between mb-1">
-                                    <span className="text-xs font-semibold text-slate-500">Khóa học</span>
-                                    <div className="w-7 h-7 rounded-lg bg-red-50 text-red-700 flex items-center justify-center">
-                                        <BookOpen className="w-3.5 h-3.5" />
-                                    </div>
-                                </div>
-                                <span className="text-xl sm:text-2xl font-black text-slate-900">{stats.total}</span>
-                            </div>
-
-                            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-3.5 sm:p-4 border border-slate-200/60 shadow-sm flex flex-col">
-                                <div className="flex items-center justify-between mb-1">
-                                    <span className="text-xs font-semibold text-slate-500">Đang học</span>
-                                    <div className="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
-                                        <Flame className="w-3.5 h-3.5" />
-                                    </div>
-                                </div>
-                                <span className="text-xl sm:text-2xl font-black text-slate-900">{stats.inProgress}</span>
-                            </div>
-
-                            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-3.5 sm:p-4 border border-slate-200/60 shadow-sm flex flex-col">
-                                <div className="flex items-center justify-between mb-1">
-                                    <span className="text-xs font-semibold text-slate-500">Hoàn thành</span>
-                                    <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                                        <Award className="w-3.5 h-3.5" />
-                                    </div>
-                                </div>
-                                <span className="text-xl sm:text-2xl font-black text-slate-900">{stats.completed}</span>
-                            </div>
-
-                            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-3.5 sm:p-4 border border-slate-200/60 shadow-sm flex flex-col">
-                                <div className="flex items-center justify-between mb-1">
-                                    <span className="text-xs font-semibold text-slate-500">Tiến độ TB</span>
-                                    <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                                        <TrendingUp className="w-3.5 h-3.5" />
-                                    </div>
-                                </div>
-                                <span className="text-xl sm:text-2xl font-black text-slate-900">{stats.avgProgress}%</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
                 {/* Search, Filter Tabs & Sort Controls */}
                 <div className="space-y-4">
                     <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
