@@ -52,7 +52,10 @@ import RichTextEditor from "../../components/RichTextEditor";
 import InstructorAvatar from "../../components/InstructorAvatar";
 import { uploadFileToS3, uploadVideoToS3 } from "../../utils/s3UploadService";
 import { uploadVideoToBunny } from "../../utils/bunnyStreamService";
-import { uploadImageToBunny } from "../../utils/bunnyStorageService";
+import {
+  uploadAudioToBunny,
+  uploadImageToBunny,
+} from "../../utils/bunnyStorageService";
 import AdminCategories from "./AdminCategories";
 import AdminCoupons from "./AdminCoupons";
 import AdminInstructors from "./AdminInstructors"; // NEW IMPORT
@@ -76,9 +79,11 @@ import {
   normalizeCourseAccessPlans,
 } from "../../utils/coursePricing";
 import {
-  getLessonContentTypeLabel,
+  getLessonContentOrder,
+  getLessonContentTypeForOrder,
   getLessonAudios,
   getLessonImages,
+  LESSON_BLOCK_KEYS,
   LESSON_CONTENT_TYPES,
   LESSON_CONTENT_TYPE_OPTIONS,
   lessonHasArticle,
@@ -107,6 +112,67 @@ const DEFAULT_INSTRUCTOR = {
 // ------------------------------------------------
 
 const DEFAULT_SECTION_TITLE = "Nội dung khóa học";
+
+const LESSON_CONTENT_BLOCK_OPTIONS = Object.freeze([
+  { key: LESSON_BLOCK_KEYS.VIDEO, label: "Video bài giảng", icon: Video },
+  { key: LESSON_BLOCK_KEYS.AUDIO, label: "Âm thanh / Bản thôi miên", icon: Headphones },
+  { key: LESSON_BLOCK_KEYS.ARTICLE, label: "Nội dung bài viết", icon: FileText },
+  { key: LESSON_BLOCK_KEYS.IMAGES, label: "Thư viện hình ảnh", icon: ImageIcon },
+]);
+
+const LessonContentBlock = ({
+  block,
+  index,
+  isFirst,
+  isLast,
+  onMoveUp,
+  onMoveDown,
+  children,
+}) => {
+  const Icon = block.icon;
+  return (
+    <section className="space-y-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
+        <div className="flex items-center gap-2">
+          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 text-xs font-black text-slate-600">
+            {index + 1}
+          </span>
+          <Icon className="h-4 w-4 text-secret-wax" />
+          <span className="text-xs font-black uppercase tracking-wider text-slate-800">
+            {block.label}
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            disabled={isFirst}
+            onClick={onMoveUp}
+            className={`flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-bold transition ${
+              isFirst
+                ? "cursor-not-allowed bg-slate-50 text-slate-300"
+                : "bg-slate-100 text-slate-700 hover:bg-slate-200 hover:text-secret-wax"
+            }`}
+          >
+            <ArrowUp className="h-3.5 w-3.5" /> Lên
+          </button>
+          <button
+            type="button"
+            disabled={isLast}
+            onClick={onMoveDown}
+            className={`flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-bold transition ${
+              isLast
+                ? "cursor-not-allowed bg-slate-50 text-slate-300"
+                : "bg-slate-100 text-slate-700 hover:bg-slate-200 hover:text-secret-wax"
+            }`}
+          >
+            <ArrowDown className="h-3.5 w-3.5" /> Xuống
+          </button>
+        </div>
+      </div>
+      {children}
+    </section>
+  );
+};
 
 const DEFAULT_LEAD_LANDING_OPTIONS = [
   { title: "Khơi Thông Dòng Tiền", path: "/dao-tao/khoi-thong-dong-tien" },
@@ -224,6 +290,7 @@ const normalizeCurriculumForForm = (curriculum = []) => {
       ),
       isFreePreview: Boolean(lesson.isFreePreview),
       contentType: normalizeLessonContentType(lesson),
+      contentOrder: getLessonContentOrder(lesson),
       videoProvider: lesson.videoProvider === "bunny" ? "bunny" : "s3",
       imageProvider: lesson.imageProvider === "bunny" ? "bunny" : "s3",
       audios: getLessonAudios(lesson),
@@ -699,6 +766,7 @@ const AdminCourses = () => {
       ...lesson,
       id: lessonId,
       contentType: normalizeLessonContentType(lesson),
+      contentOrder: getLessonContentOrder(lesson),
       audios: getLessonAudios(lesson),
       images: getLessonImages(lesson),
       isFreePreview: false,
@@ -799,13 +867,66 @@ const AdminCourses = () => {
       lessons[lIdx] = {
         ...lesson,
         contentType,
-        ...(
-          contentType === LESSON_CONTENT_TYPES.ARTICLE ||
-          contentType === LESSON_CONTENT_TYPES.IMAGE ||
-          contentType === LESSON_CONTENT_TYPES.ARTICLE_IMAGE
-            ? { duration: "" }
-            : {}
-        ),
+        contentOrder: getLessonContentOrder({ contentType }),
+      };
+      curriculum[sIdx] = { ...section, lessons };
+      return { ...current, curriculum };
+    });
+  };
+
+  const handleMoveContentBlock = (sIdx, lIdx, blockKey, direction) => {
+    setFormData((current) => {
+      const curriculum = [...(current.curriculum || [])];
+      const section = curriculum[sIdx];
+      const lesson = section?.lessons?.[lIdx];
+      if (!lesson) return current;
+
+      const currentOrder = [...getLessonContentOrder(lesson)];
+      const index = currentOrder.indexOf(blockKey);
+      if (index === -1) return current;
+
+      const targetIndex = direction === "up" ? index - 1 : index + 1;
+      if (targetIndex < 0 || targetIndex >= currentOrder.length) return current;
+
+      [currentOrder[index], currentOrder[targetIndex]] = [
+        currentOrder[targetIndex],
+        currentOrder[index],
+      ];
+
+      const lessons = [...section.lessons];
+      lessons[lIdx] = {
+        ...lesson,
+        contentOrder: currentOrder,
+        contentType: getLessonContentTypeForOrder(currentOrder),
+      };
+      curriculum[sIdx] = { ...section, lessons };
+      return { ...current, curriculum };
+    });
+  };
+
+  const handleToggleContentBlock = (sIdx, lIdx, blockKey) => {
+    setFormData((current) => {
+      const curriculum = [...(current.curriculum || [])];
+      const section = curriculum[sIdx];
+      const lesson = section?.lessons?.[lIdx];
+      if (!lesson) return current;
+
+      let currentOrder = [...getLessonContentOrder(lesson)];
+      if (currentOrder.includes(blockKey)) {
+        if (currentOrder.length <= 1) {
+          showToast("Bài học cần ít nhất một định dạng nội dung", "error");
+          return current;
+        }
+        currentOrder = currentOrder.filter((key) => key !== blockKey);
+      } else {
+        currentOrder.push(blockKey);
+      }
+
+      const lessons = [...section.lessons];
+      lessons[lIdx] = {
+        ...lesson,
+        contentOrder: currentOrder,
+        contentType: getLessonContentTypeForOrder(currentOrder),
       };
       curriculum[sIdx] = { ...section, lessons };
       return { ...current, curriculum };
@@ -947,7 +1068,12 @@ const AdminCourses = () => {
     });
   };
 
-  const handleLessonAudioUpload = async (event, sIdx, lIdx) => {
+  const handleLessonAudioUpload = async (
+    event,
+    sIdx,
+    lIdx,
+    requestedProvider = "s3",
+  ) => {
     const selectedFiles = Array.from(event.target.files || []);
     event.target.value = "";
     if (selectedFiles.length === 0) return;
@@ -965,6 +1091,10 @@ const AdminCourses = () => {
     }
 
     const uploadKey = `${sIdx}-${lIdx}`;
+    const providerTaskKey = `audio-${sIdx}-${lIdx}`;
+    const preferredProvider = requestedProvider === "bunny" ? "bunny" : "s3";
+    let actualProvider = preferredProvider;
+    let usedS3Fallback = false;
     setUploadingLessonAudio((current) => ({ ...current, [uploadKey]: true }));
     setLessonAudioUploadProgress((current) => ({ ...current, [uploadKey]: 0 }));
 
@@ -973,9 +1103,7 @@ const AdminCourses = () => {
       for (let fileIndex = 0; fileIndex < selectedFiles.length; fileIndex += 1) {
         const file = selectedFiles[fileIndex];
         const durationPromise = fetchAudioDuration(file);
-        const url = await uploadFileToS3(
-          file,
-          (fileProgress) => {
+        const reportProgress = (fileProgress) => {
             const totalProgress = Math.round(
               (fileIndex * 100 + Number(fileProgress || 0)) /
                 selectedFiles.length,
@@ -984,17 +1112,52 @@ const AdminCourses = () => {
               ...current,
               [uploadKey]: totalProgress,
             }));
-          },
-          {
+          };
+        let url = "";
+        if (actualProvider === "bunny") {
+          try {
+            url = await uploadAudioToBunny(file, reportProgress);
+          } catch (bunnyError) {
+            const bunnyMessage =
+              bunnyError?.message || "Không thể kết nối Bunny Storage.";
+            console.warn(
+              "Bunny Storage lỗi, tự động chuyển audio bài học sang S3:",
+              bunnyError,
+            );
+            showToast(
+              `Bunny Storage chưa sẵn sàng (${bunnyMessage}) Đang tự động lưu audio qua S3...`,
+              "info",
+            );
+            actualProvider = "s3";
+            usedS3Fallback = true;
+            setUploadProvider(providerTaskKey, "s3");
+            reportProgress(0);
+            try {
+              url = await uploadFileToS3(file, reportProgress, {
+                folder: "files/course-lessons/audios",
+                fallbackContentType: file.type || "audio/mpeg",
+              });
+            } catch (s3Error) {
+              throw new Error(
+                `Bunny Storage lỗi: ${bunnyMessage} S3 dự phòng cũng lỗi: ${
+                  s3Error?.message || "Không thể tải audio lên S3."
+                }`,
+                { cause: s3Error },
+              );
+            }
+          }
+        } else {
+          url = await uploadFileToS3(file, reportProgress, {
             folder: "files/course-lessons/audios",
             fallbackContentType: file.type || "audio/mpeg",
-          },
-        );
+          });
+        }
         uploadedTracks.push({
           id: createLocalId("audio"),
           title: getLessonTitleFromFileName(file.name) || `Bản âm thanh ${fileIndex + 1}`,
           url,
           duration: await durationPromise,
+          storageProvider: actualProvider,
         });
       }
 
@@ -1012,11 +1175,17 @@ const AdminCourses = () => {
           audioUrl: lesson.audioUrl || audios[0]?.url || "",
           audioTitle: lesson.audioTitle || audios[0]?.title || "",
           audioDuration: lesson.audioDuration || audios[0]?.duration || "",
+          audioProvider: actualProvider,
         };
         curriculum[sIdx] = { ...section, lessons };
         return { ...current, curriculum };
       });
-      showToast(`Đã tải ${uploadedTracks.length} tệp âm thanh lên S3`, "success");
+      showToast(
+        usedS3Fallback
+          ? `Bunny Storage gặp lỗi; đã tự động lưu ${uploadedTracks.length} tệp âm thanh qua S3.`
+          : `Đã tải ${uploadedTracks.length} tệp âm thanh lên ${actualProvider === "bunny" ? "Bunny CDN" : "S3"}`,
+        "success",
+      );
     } catch (error) {
       console.error("Lỗi tải âm thanh bài học:", error);
       showToast(error?.message || "Không thể tải âm thanh bài học", "error");
@@ -1086,6 +1255,7 @@ const AdminCourses = () => {
         audioUrl: audios[0]?.url || "",
         audioTitle: audios[0]?.title || "",
         audioDuration: audios[0]?.duration || "",
+        audioProvider: audios[0]?.storageProvider || "",
       };
       curriculum[sIdx] = { ...section, lessons };
       return { ...current, curriculum };
@@ -4055,9 +4225,14 @@ const AdminCourses = () => {
                                 lesson.videoProvider,
                               );
                               const lessonContentType = normalizeLessonContentType(lesson);
+                              const lessonContentOrder = getLessonContentOrder(lesson);
                               const lessonAudios = getLessonAudios(lesson);
                               const lessonImages = getLessonImages(lesson);
                               const audioUploadTaskKey = `audio-${sIdx}-${lIdx}`;
+                              const lessonAudioUploadProvider = getUploadProvider(
+                                audioUploadTaskKey,
+                                lesson.audioProvider || "bunny",
+                              );
                               const imageUploadTaskKey = `image-${sIdx}-${lIdx}`;
                               const lessonImageUploadProvider = getUploadProvider(
                                 imageUploadTaskKey,
@@ -4117,7 +4292,7 @@ const AdminCourses = () => {
                                           </option>
                                         ))}
                                       </select>
-                                      {lessonHasVideo(lessonContentType) && (
+                                      {lessonHasVideo(lesson) && (
                                       <div className="relative group/vid flex items-center gap-1">
                                         <div className="mr-1 flex rounded-xl border border-slate-200 bg-slate-50 p-0.5">
                                           {[
@@ -4247,55 +4422,153 @@ const AdminCourses = () => {
                                   )}
 
                                   {isExp && (
-                                    <div className="px-6 pb-6 pt-2 grid md:grid-cols-2 gap-6 animate-in fade-in slide-in-from-top-2 duration-300">
-                                      <div className="md:col-span-2 grid gap-4 sm:grid-cols-2">
-                                        <div className={`space-y-2 ${lessonHasVideo(lessonContentType) || lessonHasAudio(lessonContentType) ? "" : "sm:col-span-2"}`}>
-                                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Định dạng bài học</label>
-                                          <div className="flex h-11 items-center gap-2 rounded-2xl bg-slate-50 px-4 text-sm font-bold text-slate-700">
-                                            {lessonContentType === LESSON_CONTENT_TYPES.MIXED ? (
-                                              <Sparkles className="h-4 w-4 text-secret-wax" />
-                                            ) : lessonContentType === LESSON_CONTENT_TYPES.AUDIO ? (
-                                              <Headphones className="h-4 w-4 text-secret-wax" />
-                                            ) : lessonContentType === LESSON_CONTENT_TYPES.VIDEO ? (
-                                              <Video className="h-4 w-4 text-secret-wax" />
-                                            ) : lessonHasImages(lessonContentType) && !lessonHasArticle(lessonContentType) ? (
-                                              <ImageIcon className="h-4 w-4 text-secret-wax" />
-                                            ) : (
-                                              <FileText className="h-4 w-4 text-secret-wax" />
-                                            )}
-                                            {getLessonContentTypeLabel(lessonContentType)}
+                                    <div className="space-y-6 px-6 pb-6 pt-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                                      <div className="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4">
+                                        <div className="flex flex-wrap items-center justify-between gap-3">
+                                          <div>
+                                            <p className="text-[11px] font-black uppercase tracking-wider text-slate-700">
+                                              Các định dạng trong bài này
+                                            </p>
+                                            <p className="text-[11px] text-slate-400">
+                                              Bật nhiều định dạng cùng lúc và dùng nút Lên/Xuống để sắp xếp vị trí hiển thị.
+                                            </p>
+                                          </div>
+                                          <div className="flex flex-wrap items-center gap-1.5">
+                                            {LESSON_CONTENT_BLOCK_OPTIONS.map((block) => {
+                                              const BlockIcon = block.icon;
+                                              const isActive = lessonContentOrder.includes(block.key);
+                                              return (
+                                                <button
+                                                  key={block.key}
+                                                  type="button"
+                                                  onClick={() => handleToggleContentBlock(sIdx, lIdx, block.key)}
+                                                  className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition-all ${
+                                                    isActive
+                                                      ? "bg-secret-wax text-white shadow-sm"
+                                                      : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-100"
+                                                  }`}
+                                                >
+                                                  <BlockIcon className="h-3.5 w-3.5" />
+                                                  <span>{block.label}</span>
+                                                  <span className="text-[10px] opacity-75">{isActive ? "✓" : "+"}</span>
+                                                </button>
+                                              );
+                                            })}
                                           </div>
                                         </div>
-                                        {(lessonHasVideo(lessonContentType) || lessonHasAudio(lessonContentType)) && (
-                                        <div className="space-y-2">
-                                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Thời lượng</label>
-                                          <input
-                                            type="text"
-                                            value={lesson.duration || ""}
-                                            onChange={(event) => handleUpdateLesson(sIdx, lIdx, "duration", event.target.value)}
-                                            className="h-11 w-full rounded-2xl border-0 bg-slate-50 px-4 text-sm font-bold text-slate-600 outline-none focus:bg-white focus:ring-4 focus:ring-secret-wax/5"
-                                            placeholder="VD: 5 phút"
-                                          />
-                                        </div>
-                                        )}
                                       </div>
 
-                                      {lessonHasArticle(lessonContentType) && (
-                                        <div className="md:col-span-2 space-y-3">
-                                          <div>
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nội dung bài viết</label>
-                                            <p className="mt-1 text-[11px] text-slate-400">Soạn văn bản rich text hoặc nhập nhanh từ Markdown.</p>
-                                          </div>
-                                          <RichTextEditor
-                                            value={lesson.articleContent || ""}
-                                            onChange={(value) => handleUpdateLesson(sIdx, lIdx, "articleContent", value)}
-                                            placeholder="Viết nội dung hướng dẫn cho học viên..."
-                                          />
-                                        </div>
-                                      )}
+                                      <div className="flex flex-col gap-6">
+                                        {lessonHasVideo(lesson) && (() => {
+                                          const blockKey = LESSON_BLOCK_KEYS.VIDEO;
+                                          const blockIndex = lessonContentOrder.indexOf(blockKey);
+                                          const block = LESSON_CONTENT_BLOCK_OPTIONS.find((item) => item.key === blockKey);
+                                          return (
+                                            <div style={{ order: blockIndex }}>
+                                              <LessonContentBlock
+                                                block={block}
+                                                index={blockIndex}
+                                                isFirst={blockIndex === 0}
+                                                isLast={blockIndex === lessonContentOrder.length - 1}
+                                                onMoveUp={() => handleMoveContentBlock(sIdx, lIdx, blockKey, "up")}
+                                                onMoveDown={() => handleMoveContentBlock(sIdx, lIdx, blockKey, "down")}
+                                              >
+                                                <div className="grid gap-4 sm:grid-cols-2">
+                                                  <div className="space-y-2">
+                                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Video ID / Link</label>
+                                                    <div className="flex gap-2">
+                                                      <input
+                                                        type="text"
+                                                        value={lesson.videoId || ""}
+                                                        onChange={(event) => handleUpdateLesson(sIdx, lIdx, "videoId", event.target.value)}
+                                                        className="h-11 min-w-0 flex-1 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-xs font-bold outline-none focus:border-secret-wax focus:bg-white"
+                                                        placeholder="ID Bunny hoặc link S3..."
+                                                      />
+                                                      <label className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-xl bg-secret-wax text-white transition hover:bg-secret-ink">
+                                                        <input
+                                                          type="file"
+                                                          className="hidden"
+                                                          accept="video/*"
+                                                          onChange={(event) => handleStartUpload(sIdx, lIdx, event.target.files[0], false, lessonUploadProvider)}
+                                                        />
+                                                        <Upload className="h-4 w-4" />
+                                                      </label>
+                                                    </div>
+                                                    <div className="flex rounded-xl border border-slate-200 bg-slate-50 p-0.5">
+                                                      {[{ value: "s3", label: "S3" }, { value: "bunny", label: "Bunny Stream" }].map((option) => (
+                                                        <button
+                                                          key={option.value}
+                                                          type="button"
+                                                          onClick={() => setUploadProvider(uploadTaskKey, option.value)}
+                                                          className={`flex-1 rounded-lg px-2 py-1.5 text-[9px] font-black uppercase tracking-wide ${
+                                                            lessonUploadProvider === option.value
+                                                              ? "bg-secret-wax text-white"
+                                                              : "text-slate-400 hover:bg-white"
+                                                          }`}
+                                                        >
+                                                          {option.label}
+                                                        </button>
+                                                      ))}
+                                                    </div>
+                                                  </div>
+                                                  <div className="space-y-2">
+                                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Thời lượng</label>
+                                                    <input
+                                                      type="text"
+                                                      value={lesson.duration || ""}
+                                                      onChange={(event) => handleUpdateLesson(sIdx, lIdx, "duration", event.target.value)}
+                                                      className="h-11 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-xs font-bold outline-none focus:border-secret-wax focus:bg-white"
+                                                      placeholder="VD: 15 phút"
+                                                    />
+                                                  </div>
+                                                </div>
+                                              </LessonContentBlock>
+                                            </div>
+                                          );
+                                        })()}
 
-                                      {lessonHasAudio(lessonContentType) && (
-                                        <div className="md:col-span-2 space-y-4 rounded-2xl border border-amber-100 bg-amber-50/50 p-4">
+                                        {lessonHasArticle(lesson) && (() => {
+                                          const blockKey = LESSON_BLOCK_KEYS.ARTICLE;
+                                          const blockIndex = lessonContentOrder.indexOf(blockKey);
+                                          const block = LESSON_CONTENT_BLOCK_OPTIONS.find((item) => item.key === blockKey);
+                                          return (
+                                            <div style={{ order: blockIndex }}>
+                                              <LessonContentBlock
+                                                block={block}
+                                                index={blockIndex}
+                                                isFirst={blockIndex === 0}
+                                                isLast={blockIndex === lessonContentOrder.length - 1}
+                                                onMoveUp={() => handleMoveContentBlock(sIdx, lIdx, blockKey, "up")}
+                                                onMoveDown={() => handleMoveContentBlock(sIdx, lIdx, blockKey, "down")}
+                                              >
+                                                <div className="space-y-3">
+                                                  <p className="text-[11px] text-slate-400">Soạn văn bản rich text hoặc nhập nhanh từ Markdown.</p>
+                                                  <RichTextEditor
+                                                    value={lesson.articleContent || ""}
+                                                    onChange={(value) => handleUpdateLesson(sIdx, lIdx, "articleContent", value)}
+                                                    placeholder="Viết nội dung hướng dẫn cho học viên..."
+                                                  />
+                                                </div>
+                                              </LessonContentBlock>
+                                            </div>
+                                          );
+                                        })()}
+
+                                        {lessonHasAudio(lesson) && (() => {
+                                          const blockKey = LESSON_BLOCK_KEYS.AUDIO;
+                                          const blockIndex = lessonContentOrder.indexOf(blockKey);
+                                          const block = LESSON_CONTENT_BLOCK_OPTIONS.find((item) => item.key === blockKey);
+                                          return (
+                                            <div style={{ order: blockIndex }}>
+                                              <LessonContentBlock
+                                                block={block}
+                                                index={blockIndex}
+                                                isFirst={blockIndex === 0}
+                                                isLast={blockIndex === lessonContentOrder.length - 1}
+                                                onMoveUp={() => handleMoveContentBlock(sIdx, lIdx, blockKey, "up")}
+                                                onMoveDown={() => handleMoveContentBlock(sIdx, lIdx, blockKey, "down")}
+                                              >
+                                                <div className="space-y-4 rounded-2xl border border-amber-100 bg-amber-50/50 p-4">
                                           <div className="flex flex-wrap items-center justify-between gap-3">
                                             <div className="flex items-center gap-3">
                                               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-secret-wax text-white shadow-sm">
@@ -4306,24 +4579,54 @@ const AdminCourses = () => {
                                                 <p className="mt-0.5 text-[11px] text-slate-400">MP3, M4A, WAV, OGG, OPUS hoặc FLAC. Có thể tải nhiều tệp.</p>
                                               </div>
                                             </div>
-                                            <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-secret-wax px-4 py-2 text-xs font-black text-white shadow-md shadow-secret-wax/15 transition hover:bg-secret-ink">
-                                              <input
-                                                type="file"
-                                                accept="audio/*,.mp3,.m4a,.aac,.wav,.ogg,.oga,.opus,.flac,.webm"
-                                                multiple
-                                                className="hidden"
-                                                disabled={Boolean(uploadingLessonAudio[uploadTaskKey])}
-                                                onChange={(event) => handleLessonAudioUpload(event, sIdx, lIdx)}
-                                              />
-                                              {uploadingLessonAudio[uploadTaskKey] ? (
-                                                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                                              ) : (
-                                                <Upload className="h-4 w-4" />
-                                              )}
-                                              {uploadingLessonAudio[uploadTaskKey]
-                                                ? `Đang tải ${lessonAudioUploadProgress[uploadTaskKey] || 0}%`
-                                                : "Tải âm thanh lên S3"}
-                                            </label>
+                                            <div className="flex flex-wrap items-center justify-end gap-2">
+                                              <div className="flex rounded-xl border border-slate-200 bg-white p-0.5">
+                                                {[
+                                                  { value: "bunny", label: "Bunny" },
+                                                  { value: "s3", label: "S3" },
+                                                ].map((option) => (
+                                                  <button
+                                                    key={option.value}
+                                                    type="button"
+                                                    onClick={() => setUploadProvider(audioUploadTaskKey, option.value)}
+                                                    disabled={Boolean(uploadingLessonAudio[uploadTaskKey])}
+                                                    className={`rounded-lg px-3 py-1.5 text-[9px] font-black uppercase tracking-wide transition-all ${
+                                                      lessonAudioUploadProvider === option.value
+                                                        ? "bg-secret-wax text-white shadow-sm"
+                                                        : "text-slate-400 hover:bg-slate-50 hover:text-slate-700"
+                                                    }`}
+                                                    title={option.value === "bunny" ? "Lưu audio trên Bunny Storage và phát qua CDN" : "Lưu audio trên S3"}
+                                                  >
+                                                    {option.label}
+                                                  </button>
+                                                ))}
+                                              </div>
+                                              <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-secret-wax px-4 py-2 text-xs font-black text-white shadow-md shadow-secret-wax/15 transition hover:bg-secret-ink">
+                                                <input
+                                                  type="file"
+                                                  accept="audio/*,.mp3,.m4a,.aac,.wav,.ogg,.oga,.opus,.flac,.webm"
+                                                  multiple
+                                                  className="hidden"
+                                                  disabled={Boolean(uploadingLessonAudio[uploadTaskKey])}
+                                                  onChange={(event) =>
+                                                    handleLessonAudioUpload(
+                                                      event,
+                                                      sIdx,
+                                                      lIdx,
+                                                      lessonAudioUploadProvider,
+                                                    )
+                                                  }
+                                                />
+                                                {uploadingLessonAudio[uploadTaskKey] ? (
+                                                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                                                ) : (
+                                                  <Upload className="h-4 w-4" />
+                                                )}
+                                                {uploadingLessonAudio[uploadTaskKey]
+                                                  ? `Đang tải ${lessonAudioUploadProgress[uploadTaskKey] || 0}%`
+                                                  : `Tải lên ${lessonAudioUploadProvider === "bunny" ? "Bunny" : "S3"}`}
+                                              </label>
+                                            </div>
                                           </div>
 
                                           <div className="flex flex-col gap-2 sm:flex-row">
@@ -4386,11 +4689,27 @@ const AdminCourses = () => {
                                               Chưa có tệp âm thanh trong bài học.
                                             </div>
                                           )}
-                                        </div>
-                                      )}
+                                                </div>
+                                              </LessonContentBlock>
+                                            </div>
+                                          );
+                                        })()}
 
-                                      {lessonHasImages(lessonContentType) && (
-                                        <div className="md:col-span-2 space-y-3 rounded-2xl border border-slate-100 bg-slate-50/60 p-4">
+                                        {lessonHasImages(lesson) && (() => {
+                                          const blockKey = LESSON_BLOCK_KEYS.IMAGES;
+                                          const blockIndex = lessonContentOrder.indexOf(blockKey);
+                                          const block = LESSON_CONTENT_BLOCK_OPTIONS.find((item) => item.key === blockKey);
+                                          return (
+                                            <div style={{ order: blockIndex }}>
+                                              <LessonContentBlock
+                                                block={block}
+                                                index={blockIndex}
+                                                isFirst={blockIndex === 0}
+                                                isLast={blockIndex === lessonContentOrder.length - 1}
+                                                onMoveUp={() => handleMoveContentBlock(sIdx, lIdx, blockKey, "up")}
+                                                onMoveDown={() => handleMoveContentBlock(sIdx, lIdx, blockKey, "down")}
+                                              >
+                                                <div className="space-y-3 rounded-2xl border border-slate-100 bg-slate-50/60 p-4">
                                           <div className="flex flex-wrap items-center justify-between gap-3">
                                             <div>
                                               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Thư viện hình ảnh</label>
@@ -4481,8 +4800,12 @@ const AdminCourses = () => {
                                               Chưa có hình ảnh trong bài học.
                                             </div>
                                           )}
-                                        </div>
-                                      )}
+                                                </div>
+                                              </LessonContentBlock>
+                                            </div>
+                                          );
+                                        })()}
+                                      </div>
 
                                       <div className="space-y-3">
                                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Hướng dẫn bài học</label>

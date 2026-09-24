@@ -1,6 +1,11 @@
+import {
+  getLessonContentOrder,
+  LESSON_BLOCK_KEYS,
+} from "./lessonContent.js";
+
 export const COURSE_CONTENT_COLLECTION = "course_content";
 export const COURSE_ACCESS_COLLECTION = "course_access";
-export const COURSE_CONTENT_SCHEMA_VERSION = 4;
+export const COURSE_CONTENT_SCHEMA_VERSION = 5;
 
 const LESSON_CONTENT_TYPES = new Set([
   "video",
@@ -85,6 +90,7 @@ const normalizePrivateContent = (courseId, course = {}) => {
             ...lesson,
             id: lessonId,
             contentType: normalizeLessonContentType(lesson),
+            contentOrder: getLessonContentOrder(lesson),
             images: Array.isArray(lesson?.images)
               ? lesson.images.filter(Boolean)
               : [],
@@ -147,37 +153,39 @@ export const buildPublicCurriculum = (course, normalizedCurriculum) => {
     title: section.title || "",
     lessons: (section.lessons || []).map((lesson) => {
       const contentType = normalizeLessonContentType(lesson);
+      const contentOrder = getLessonContentOrder(lesson);
       const publicLesson = {
         id: lesson.id,
         title: lesson.title || "",
         duration: lesson.duration || "",
         contentType,
+        contentOrder,
         type: contentType,
         isFreePreview: previewableIds.has(lesson.id),
       };
 
       if (previewableIds.has(lesson.id)) {
-        if ((contentType === "video" || contentType === "mixed") && lesson.videoId) {
+        if (contentOrder.includes(LESSON_BLOCK_KEYS.VIDEO) && lesson.videoId) {
           publicLesson.videoId = lesson.videoId;
           publicLesson.videoProvider =
             lesson.videoProvider === "bunny" ? "bunny" : "s3";
         }
 
         if (
-          (contentType === "article" || contentType === "article_image" || contentType === "mixed") &&
+          contentOrder.includes(LESSON_BLOCK_KEYS.ARTICLE) &&
           lesson.articleContent
         ) {
           publicLesson.articleContent = lesson.articleContent;
         }
 
-        if (contentType === "image" || contentType === "article_image" || contentType === "mixed") {
+        if (contentOrder.includes(LESSON_BLOCK_KEYS.IMAGES)) {
           publicLesson.images = Array.isArray(lesson.images)
             ? lesson.images.filter(Boolean)
             : [];
           if (lesson.imageUrl) publicLesson.imageUrl = lesson.imageUrl;
         }
 
-        if (contentType === "audio" || contentType === "mixed") {
+        if (contentOrder.includes(LESSON_BLOCK_KEYS.AUDIO)) {
           publicLesson.audios = (Array.isArray(lesson.audios) ? lesson.audios : [])
             .filter((audio) => audio && typeof audio.url === "string" && audio.url.trim())
             .map((audio, audioIndex) => ({

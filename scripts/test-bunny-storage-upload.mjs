@@ -16,9 +16,17 @@ const makeToken = ({
 const token = makeToken();
 const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aWZkAAAAASUVORK5CYII=", "base64");
 
-const makeContext = (overrides = {}, authToken = token) => {
+const makeContext = (overrides = {}, authToken = token, uploadOptions = {}) => {
   const body = new FormData();
-  body.append("file", new File([png], "avatar.png", { type: "image/png" }));
+  body.append(
+    "file",
+    new File(
+      [uploadOptions.body || png],
+      uploadOptions.fileName || "avatar.png",
+      { type: uploadOptions.contentType || "image/png" },
+    ),
+  );
+  if (uploadOptions.mediaType) body.append("mediaType", uploadOptions.mediaType);
   return {
     request: new Request("https://local.example/api/bunny-storage/upload", {
       method: "POST", headers: { Authorization: `Bearer ${authToken}` }, body,
@@ -33,7 +41,12 @@ const makeContext = (overrides = {}, authToken = token) => {
   };
 };
 
-const mockFetch = (t, modules, role = "admin") => {
+const mockFetch = (
+  t,
+  modules,
+  role = "admin",
+  uploadPattern = /^https:\/\/storage\.bunnycdn\.com\/test-images\/courses\/images\//,
+) => {
   const requests = [];
   const previous = globalThis.fetch;
   globalThis.fetch = async (url, options) => {
@@ -43,7 +56,7 @@ const mockFetch = (t, modules, role = "admin") => {
         allowedModules: { arrayValue: { values: modules.map((item) => ({ stringValue: item })) } },
       } });
     }
-    assert.match(String(url), /^https:\/\/storage\.bunnycdn\.com\/test-images\/courses\/images\//);
+    assert.match(String(url), uploadPattern);
     requests.push({ url: String(url), options });
     return new Response("", { status: 201 });
   };
@@ -65,6 +78,30 @@ for (const modules of [["instructors"], ["courses"], []]) {
     assert.equal(JSON.stringify(data).includes("test-server-only-key"), false);
   });
 }
+
+test("uploads authenticated lesson audio to Bunny Storage", async (t) => {
+  const uploads = mockFetch(
+    t,
+    ["courses"],
+    "admin",
+    /^https:\/\/storage\.bunnycdn\.com\/test-images\/courses\/audios\//,
+  );
+  const audio = Buffer.from([0x49, 0x44, 0x33, 0x04, 0x00, 0x00, 0x00, 0x00]);
+  const response = await onRequestPost(
+    makeContext({}, token, {
+      body: audio,
+      contentType: "audio/mpeg",
+      fileName: "thoi-mien.mp3",
+      mediaType: "audio",
+    }),
+  );
+
+  assert.equal(response.status, 200);
+  const data = await response.json();
+  assert.equal(data.mediaType, "audio");
+  assert.match(data.url, /^https:\/\/test-images\.b-cdn\.net\/courses\/audios\/.*\.mp3$/);
+  assert.equal(uploads[0].options.headers["Content-Type"], "audio/mpeg");
+});
 
 test("rejects admins without course/instructor permissions before touching Bunny", async (t) => {
   const uploads = mockFetch(t, ["sales"]);

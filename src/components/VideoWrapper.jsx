@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import ReactPlayer from 'react-player';
-import { CheckCircle, ChevronDown, ChevronLeft, ChevronRight, Lock, Play, Settings } from 'lucide-react';
+import { CheckCircle, ChevronDown, Lock, Play, Settings } from 'lucide-react';
 
 const VideoWrapper = ({
     videoUrl,
@@ -13,10 +13,6 @@ const VideoWrapper = ({
     onProgress,
     playing,
     setPlaying,
-    onNext,
-    onPrev,
-    hasPrev,
-    hasNext,
     isCompleted,
     onMarkComplete,
     sections = [],
@@ -105,7 +101,7 @@ const VideoWrapper = ({
                 khi keyboard hiện lên và làm layout viewport thay đổi.
             */}
             <div 
-                className="sticky top-0 z-20 -mx-3 shrink-0 bg-slate-100/90 px-3 pb-2 pt-3 backdrop-blur-md md:static md:m-0 md:bg-transparent md:p-0 md:backdrop-blur-none"
+                className="sticky top-16 z-20 -mx-3 shrink-0 bg-slate-100/90 px-3 pb-2 pt-3 backdrop-blur-md md:static md:m-0 md:bg-transparent md:p-0 md:backdrop-blur-none"
                 style={{ transform: 'translateZ(0)' }}
             >
                 <div className="rounded-[24px] border border-slate-200/60 bg-white p-2 shadow-[0_8px_30px_rgb(0,0,0,0.06)] md:rounded-3xl md:p-3">
@@ -301,24 +297,6 @@ const VideoWrapper = ({
 
                 <div className="mt-4 flex flex-col gap-3 md:hidden">
                     <div className="flex flex-col w-full gap-3 md:flex-row md:items-center md:gap-4">
-                        <div className="grid grid-cols-2 gap-3 md:flex md:items-center">
-                            <button
-                                onClick={onPrev}
-                                disabled={!hasPrev}
-                                className={`flex items-center justify-center gap-2 rounded-2xl border px-5 py-3 text-[13px] font-extrabold active:scale-95 ${hasPrev ? 'border-slate-200 bg-white text-slate-700 shadow-sm hover:bg-slate-50' : 'border-slate-100 bg-slate-50 text-slate-300'}`}
-                            >
-                                <ChevronLeft className="h-4 w-4" />
-                                <span>{hasPrev ? 'Bài trước' : 'Trước'}</span>
-                            </button>
-                            <button
-                                onClick={onNext}
-                                disabled={!hasNext}
-                                className={`flex items-center justify-center gap-2 rounded-2xl px-5 py-3 text-[13px] font-extrabold shadow-md active:scale-95 ${hasNext ? 'bg-[#B91C1C] text-white shadow-red-500/10 hover:bg-red-800' : 'bg-slate-100 text-slate-300 shadow-none'}`}
-                            >
-                                <span>Tiếp theo</span>
-                                <ChevronRight className="h-4 w-4" />
-                            </button>
-                        </div>
                         <button
                             onClick={onMarkComplete}
                             className={`flex w-full items-center justify-center gap-2.5 rounded-2xl border px-6 py-3.5 text-[13px] font-extrabold active:scale-[0.98] ${isCompleted ? 'border-emerald-100 bg-emerald-50/60 text-emerald-700 shadow-sm shadow-emerald-100/50 hover:bg-emerald-100/80' : 'border-slate-200 bg-white text-slate-500 shadow-sm hover:bg-slate-50'}`}

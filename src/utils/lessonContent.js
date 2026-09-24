@@ -7,6 +7,15 @@ export const LESSON_CONTENT_TYPES = Object.freeze({
   ARTICLE_IMAGE: "article_image",
 });
 
+export const LESSON_BLOCK_KEYS = Object.freeze({
+  VIDEO: "video",
+  AUDIO: "audio",
+  ARTICLE: "article",
+  IMAGES: "images",
+});
+
+const VALID_BLOCK_KEYS = new Set(Object.values(LESSON_BLOCK_KEYS));
+
 export const LESSON_CONTENT_TYPE_OPTIONS = Object.freeze([
   { value: LESSON_CONTENT_TYPES.VIDEO, label: "Video", shortLabel: "Video" },
   { value: LESSON_CONTENT_TYPES.AUDIO, label: "Âm thanh", shortLabel: "Audio" },
@@ -37,6 +46,63 @@ export const normalizeLessonContentType = (lessonOrType) => {
   return VALID_CONTENT_TYPES.has(rawType)
     ? rawType
     : LESSON_CONTENT_TYPES.VIDEO;
+};
+
+export const getLessonContentOrder = (lesson = {}) => {
+  const explicitOrder = Array.isArray(lesson?.contentOrder)
+    ? Array.from(
+        new Set(
+          lesson.contentOrder.filter((blockKey) => VALID_BLOCK_KEYS.has(blockKey)),
+        ),
+      )
+    : [];
+
+  if (explicitOrder.length > 0) return explicitOrder;
+
+  const contentType = normalizeLessonContentType(lesson);
+  if (contentType === LESSON_CONTENT_TYPES.ARTICLE_IMAGE) {
+    return [LESSON_BLOCK_KEYS.ARTICLE, LESSON_BLOCK_KEYS.IMAGES];
+  }
+  if (contentType === LESSON_CONTENT_TYPES.IMAGE) {
+    return [LESSON_BLOCK_KEYS.IMAGES];
+  }
+  if (contentType === LESSON_CONTENT_TYPES.ARTICLE) {
+    return [LESSON_BLOCK_KEYS.ARTICLE];
+  }
+  if (contentType === LESSON_CONTENT_TYPES.AUDIO) {
+    return [LESSON_BLOCK_KEYS.AUDIO];
+  }
+  if (contentType === LESSON_CONTENT_TYPES.MIXED) {
+    return [
+      LESSON_BLOCK_KEYS.VIDEO,
+      LESSON_BLOCK_KEYS.AUDIO,
+      LESSON_BLOCK_KEYS.ARTICLE,
+      LESSON_BLOCK_KEYS.IMAGES,
+    ];
+  }
+
+  return [LESSON_BLOCK_KEYS.VIDEO];
+};
+
+export const getLessonContentTypeForOrder = (contentOrder = []) => {
+  const order = Array.from(
+    new Set(contentOrder.filter((blockKey) => VALID_BLOCK_KEYS.has(blockKey))),
+  );
+
+  if (order.length !== 1) {
+    const hasArticleAndImages =
+      order.length === 2 &&
+      order.includes(LESSON_BLOCK_KEYS.ARTICLE) &&
+      order.includes(LESSON_BLOCK_KEYS.IMAGES);
+    return hasArticleAndImages
+      ? LESSON_CONTENT_TYPES.ARTICLE_IMAGE
+      : LESSON_CONTENT_TYPES.MIXED;
+  }
+
+  if (order[0] === LESSON_BLOCK_KEYS.AUDIO) return LESSON_CONTENT_TYPES.AUDIO;
+  if (order[0] === LESSON_BLOCK_KEYS.ARTICLE) return LESSON_CONTENT_TYPES.ARTICLE;
+  if (order[0] === LESSON_BLOCK_KEYS.IMAGES) return LESSON_CONTENT_TYPES.IMAGE;
+  return LESSON_CONTENT_TYPES.VIDEO;
 };
 
 export const getLessonContentTypeLabel = (lessonOrType, short = false) => {
@@ -98,6 +164,9 @@ export const getLessonAudios = (lesson = {}) => {
 };
 
 export const lessonHasArticle = (lessonOrType) => {
+  if (typeof lessonOrType === "object" && Array.isArray(lessonOrType?.contentOrder)) {
+    return getLessonContentOrder(lessonOrType).includes(LESSON_BLOCK_KEYS.ARTICLE);
+  }
   const contentType = normalizeLessonContentType(lessonOrType);
   return (
     contentType === LESSON_CONTENT_TYPES.ARTICLE ||
@@ -108,6 +177,9 @@ export const lessonHasArticle = (lessonOrType) => {
 };
 
 export const lessonHasImages = (lessonOrType) => {
+  if (typeof lessonOrType === "object" && Array.isArray(lessonOrType?.contentOrder)) {
+    return getLessonContentOrder(lessonOrType).includes(LESSON_BLOCK_KEYS.IMAGES);
+  }
   const contentType = normalizeLessonContentType(lessonOrType);
   return (
     contentType === LESSON_CONTENT_TYPES.IMAGE ||
@@ -118,6 +190,9 @@ export const lessonHasImages = (lessonOrType) => {
 };
 
 export const lessonHasAudio = (lessonOrType) => {
+  if (typeof lessonOrType === "object" && Array.isArray(lessonOrType?.contentOrder)) {
+    return getLessonContentOrder(lessonOrType).includes(LESSON_BLOCK_KEYS.AUDIO);
+  }
   const contentType = normalizeLessonContentType(lessonOrType);
   return (
     contentType === LESSON_CONTENT_TYPES.AUDIO ||
@@ -127,6 +202,9 @@ export const lessonHasAudio = (lessonOrType) => {
 };
 
 export const lessonHasVideo = (lessonOrType) => {
+  if (typeof lessonOrType === "object" && Array.isArray(lessonOrType?.contentOrder)) {
+    return getLessonContentOrder(lessonOrType).includes(LESSON_BLOCK_KEYS.VIDEO);
+  }
   const contentType = normalizeLessonContentType(lessonOrType);
   return (
     contentType === LESSON_CONTENT_TYPES.VIDEO ||

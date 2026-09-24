@@ -1,6 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createQuickLesson, getLessonTitleFromFileName, mergeQuickLessonDrafts } from "../src/utils/courseQuickAdd.js";
+import {
+  getLessonContentOrder,
+  getLessonContentTypeForOrder,
+  lessonHasAudio,
+  lessonHasVideo,
+} from "../src/utils/lessonContent.js";
+import { splitCourseForStorage } from "../src/utils/courseDataPrivacy.js";
 
 test("derives a readable title from video filenames", () => {
   assert.equal(getLessonTitleFromFileName("Bài hướng dẫn thực hành.mp4"), "Bài hướng dẫn thực hành");
@@ -10,7 +17,7 @@ test("derives a readable title from video filenames", () => {
 test("creates a Bunny lesson with durable course fields", () => {
   const lesson = createQuickLesson({ title: "Bài 1", videoId: "bunny-id", videoProvider: "bunny", duration: "05:30", description: "  Thực hành bước 1  " }, () => "lesson-1");
   assert.deepEqual(lesson, {
-    id: "lesson-1", title: "Bài 1", contentType: "video", videoId: "bunny-id",
+    id: "lesson-1", title: "Bài 1", contentType: "video", contentOrder: ["video"], videoId: "bunny-id",
     videoProvider: "bunny", duration: "05:30", description: "Thực hành bước 1", articleContent: "", images: [],
     isFreePreview: false, bunnyStatus: "processing",
   });
@@ -65,4 +72,44 @@ test("creates audio and mixed lesson drafts without requiring a video", () => {
   assert.deepEqual(audio.audios, []);
   assert.equal(mixed.contentType, "mixed");
   assert.equal(mixed.videoId, "video-1");
+  assert.deepEqual(mixed.contentOrder, ["video", "audio", "article", "images"]);
+});
+
+test("keeps a validated custom content block order and derives compatible lesson types", () => {
+  const lesson = {
+    contentType: "mixed",
+    contentOrder: ["audio", "images", "video", "audio", "invalid"],
+  };
+
+  assert.deepEqual(getLessonContentOrder(lesson), ["audio", "images", "video"]);
+  assert.equal(getLessonContentTypeForOrder(["images"]), "image");
+  assert.equal(getLessonContentTypeForOrder(["article", "images"]), "article_image");
+  assert.equal(getLessonContentTypeForOrder(["audio", "video"]), "mixed");
+  assert.equal(lessonHasAudio(lesson), true);
+  assert.equal(lessonHasVideo({ ...lesson, contentOrder: ["audio", "images"] }), false);
+});
+
+test("persists content order without exposing disabled lesson blocks", () => {
+  const { publicCourse, privateCourse } = splitCourseForStorage("course-1", {
+    curriculum: [{
+      id: "section-1",
+      lessons: [{
+        id: "lesson-1",
+        title: "Thiền dẫn",
+        contentType: "mixed",
+        contentOrder: ["audio", "article"],
+        videoId: "hidden-video",
+        articleContent: "Hướng dẫn",
+        audios: [{ id: "audio-1", title: "Bản nghe", url: "https://cdn.test/audio.mp3" }],
+        isFreePreview: true,
+      }],
+    }],
+  });
+
+  const publicLesson = publicCourse.curriculum[0].lessons[0];
+  assert.deepEqual(publicLesson.contentOrder, ["audio", "article"]);
+  assert.equal(publicLesson.videoId, undefined);
+  assert.equal(publicLesson.articleContent, "Hướng dẫn");
+  assert.equal(publicLesson.audios.length, 1);
+  assert.deepEqual(privateCourse.curriculum[0].lessons[0].contentOrder, ["audio", "article"]);
 });

@@ -11,7 +11,7 @@ import {
     updateDoc,
     where
 } from 'firebase/firestore';
-import { CheckCircle, ChevronLeft, LockKeyhole, Menu, PlayCircle, Star, X } from 'lucide-react';
+import { CheckCircle, ChevronLeft, ChevronRight, LockKeyhole, Menu, PlayCircle, Star, X } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from '../firebase';
 import PlayerSidebar from '../components/PlayerSidebar';
@@ -30,9 +30,8 @@ import {
 import { loadFullCourse } from '../utils/courseContentService';
 import { getBunnyPlayback } from '../utils/bunnyStreamService';
 import {
-    getLessonAudios,
-    getLessonImages,
-    LESSON_CONTENT_TYPES,
+    getLessonContentOrder,
+    LESSON_BLOCK_KEYS,
     lessonHasVideo,
     normalizeLessonContentType,
 } from '../utils/lessonContent';
@@ -40,6 +39,14 @@ import { getQuickLessonResources } from '../utils/quickLessonResources';
 
 const DEFAULT_SECTION_TITLE = 'Nội dung khóa học';
 const getSectionIdentifier = (section, fallbackId = '') => section?.id || fallbackId;
+
+const scrollPlayerToTop = () => {
+    if (typeof window === 'undefined') return;
+
+    window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+    const scrollContainer = document.getElementById('player-scroll-container');
+    scrollContainer?.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+};
 
 const normalizeSections = (curriculum = []) => {
     if (!Array.isArray(curriculum) || curriculum.length === 0) {
@@ -56,6 +63,7 @@ const normalizeSections = (curriculum = []) => {
         lessons: (section.lessons || []).map((lesson) => ({
             ...lesson,
             contentType: normalizeLessonContentType(lesson),
+            contentOrder: getLessonContentOrder(lesson),
         })),
     }));
 };
@@ -264,12 +272,32 @@ const CoursePlayer = () => {
                     const requestedLesson = selectableLessons.find(
                         (lesson) => getLessonKey(lesson) === requestedPreviewLessonKey
                     );
-                    const previewStartLesson = previewLesson
+                    const previewStartLesson = !access.hasFullAccess && previewLesson
                         ? selectableLessons.find(
                               (lesson) => getLessonKey(lesson) === getLessonKey(previewLesson)
                           )
                         : null;
-                    const resumeLesson =
+                    let savedLessonKey = null;
+
+                    if (typeof window !== 'undefined') {
+                        try {
+                            savedLessonKey = window.localStorage.getItem(
+                                `last_lesson_${courseData.id}`
+                            );
+                        } catch (storageError) {
+                            console.warn(
+                                'Không thể đọc bài học gần nhất từ localStorage:',
+                                storageError
+                            );
+                        }
+                    }
+
+                    const localResumeLesson = savedLessonKey
+                        ? selectableLessons.find(
+                              (lesson) => getLessonKey(lesson) === savedLessonKey
+                          )
+                        : null;
+                    const accountResumeLesson =
                         access.hasFullAccess && enrollmentData?.lastPlayedLessonId
                             ? selectableLessons.find(
                                   (lesson) =>
@@ -283,7 +311,8 @@ const CoursePlayer = () => {
                     setCurrentLesson(
                         requestedLesson ||
                             previewStartLesson ||
-                            resumeLesson ||
+                            localResumeLesson ||
+                            accountResumeLesson ||
                             firstIncompleteLesson ||
                             selectableLessons[0]
                     );
@@ -312,15 +341,15 @@ const CoursePlayer = () => {
     );
 
     const currentLessonId = currentLesson?.id || currentLesson?.videoId;
-    const currentLessonContentType = normalizeLessonContentType(currentLesson);
-    const isVideoLesson =
-        currentLessonContentType === LESSON_CONTENT_TYPES.VIDEO ||
-        (lessonHasVideo(currentLesson) && Boolean(currentLesson?.videoId));
-    const hasMixedSupplementalContent =
-        currentLessonContentType === LESSON_CONTENT_TYPES.MIXED &&
-        (Boolean(String(currentLesson?.articleContent || '').trim()) ||
-            getLessonAudios(currentLesson).length > 0 ||
-            getLessonImages(currentLesson).length > 0);
+    const currentLessonContentOrder = getLessonContentOrder(currentLesson);
+    const isVideoLesson = lessonHasVideo(currentLesson) && Boolean(currentLesson?.videoId);
+    const videoBlockIndex = currentLessonContentOrder.indexOf(LESSON_BLOCK_KEYS.VIDEO);
+    const beforeVideoContentBlocks = videoBlockIndex > 0
+        ? currentLessonContentOrder.slice(0, videoBlockIndex)
+        : [];
+    const afterVideoContentBlocks = videoBlockIndex >= 0
+        ? currentLessonContentOrder.slice(videoBlockIndex + 1)
+        : currentLessonContentOrder.filter((blockKey) => blockKey !== LESSON_BLOCK_KEYS.VIDEO);
     const currentVideoProvider = currentLesson?.videoProvider === 'bunny' ? 'bunny' : 's3';
 
     useEffect(() => {
@@ -414,6 +443,44 @@ const CoursePlayer = () => {
             window.cancelAnimationFrame(secondFrame);
         };
     }, [activePlayerTab, currentLessonId]);
+
+    useEffect(() => {
+        if (!currentLessonId) return undefined;
+
+        scrollPlayerToTop();
+        const timer = window.setTimeout(scrollPlayerToTop, 80);
+        return () => window.clearTimeout(timer);
+    }, [currentLessonId]);
+
+    useEffect(() => {
+        if (!course?.id || !currentLessonId || typeof window === 'undefined') {
+            return undefined;
+        }
+
+        try {
+            window.localStorage.setItem(`last_lesson_${course.id}`, currentLessonId);
+        } catch (storageError) {
+            console.warn('Không thể lưu bài học vào localStorage:', storageError);
+        }
+
+        if (!enrollmentId || !hasFullAccess) {
+            return undefined;
+        }
+
+        const timer = window.setTimeout(async () => {
+            try {
+                const enrollmentRef = doc(db, 'enrollments', enrollmentId);
+                await updateDoc(enrollmentRef, {
+                    lastPlayedLessonId: currentLessonId,
+                    lastAccessedAt: Date.now()
+                });
+            } catch (syncError) {
+                console.warn('Không thể đồng bộ bài học lên tài khoản:', syncError);
+            }
+        }, 800);
+
+        return () => window.clearTimeout(timer);
+    }, [course?.id, currentLessonId, enrollmentId, hasFullAccess]);
 
     const lessonResourceLookup = useMemo(() => {
         const lookup = {};
@@ -732,6 +799,7 @@ const CoursePlayer = () => {
 
         setPlaying(false);
         setCurrentLesson(lesson);
+        scrollPlayerToTop();
         return true;
     };
 
@@ -877,7 +945,7 @@ const CoursePlayer = () => {
 
     return (
         <div className={`${styles.player} flex min-h-screen flex-col bg-slate-100 text-slate-800 md:h-screen md:overflow-hidden md:bg-gray-50`}>
-            <header className="z-20 flex h-16 shrink-0 items-center justify-between border-b border-white/5 bg-gradient-to-r from-[#B91C1C] via-[#B91C1C] to-[#991B1B] px-3 shadow-[0_4px_30px_-5px_rgba(0,0,0,0.25)] md:px-6">
+            <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center justify-between border-b border-white/5 bg-gradient-to-r from-[#B91C1C] via-[#B91C1C] to-[#991B1B] px-3 shadow-[0_4px_30px_-5px_rgba(0,0,0,0.25)] md:px-6">
                 <div className="flex min-w-0 flex-1 items-center gap-3 md:gap-6">
                     <Link
                         to={`/khoa-hoc/${course.id}`}
@@ -979,16 +1047,28 @@ const CoursePlayer = () => {
                         type="button"
                         aria-label="Đóng chương học và bài tập"
                         onClick={() => setIsSidebarOpen(false)}
-                        className="fixed inset-0 z-30 bg-slate-950/40 backdrop-blur-[2px] md:hidden"
+                        className="fixed inset-0 z-40 bg-slate-950/40 backdrop-blur-[2px] md:hidden"
                     />
                 )}
 
                 <div
-                    className={`${styles.content} relative z-10 w-full min-w-0 flex-1 md:overflow-y-auto md:custom-scrollbar`}
+                    className={`${styles.content} relative z-10 w-full min-w-0 flex-1 pb-24 md:pb-8 md:overflow-y-auto md:custom-scrollbar`}
                     id="player-scroll-container"
                 >
                     <div className="mx-auto max-w-[1600px] md:px-8 md:pt-8">
                         {isVideoLesson ? (
+                            <>
+                            {beforeVideoContentBlocks.length > 0 && (
+                                <div className="px-3 pb-6 md:px-0">
+                                    <ArticleLessonViewer
+                                        key={`before-video-${currentLessonId}`}
+                                        lesson={currentLesson}
+                                        contentBlocks={beforeVideoContentBlocks}
+                                        showNavigation={false}
+                                        showHeader={false}
+                                    />
+                                </div>
+                            )}
                             <VideoWrapper
                             videoUrl={
                                 currentVideoProvider === 'bunny'
@@ -1003,12 +1083,6 @@ const CoursePlayer = () => {
                             setPlaying={setPlaying}
                             isNotesMode={activePlayerTab === 'notes'}
                             onEnded={handleVideoEnded}
-                            onNext={handleNextLesson}
-                            onPrev={handlePrevLesson}
-                            hasNext={
-                                currentLessonIndex < flatLessons.length - 1 || !hasFullAccess
-                            }
-                            hasPrev={currentLessonIndex > 0}
                             isCompleted={!!progress[currentLessonId]}
                             onMarkComplete={handleLessonComplete}
                             sections={sections}
@@ -1018,11 +1092,12 @@ const CoursePlayer = () => {
                             previewableLessonKeys={previewableLessonKeys}
                         >
                             <div className="px-3 pb-24 md:px-0 md:pb-20">
-                                {hasMixedSupplementalContent && (
+                                {afterVideoContentBlocks.length > 0 && (
                                     <div className="pt-6">
                                         <ArticleLessonViewer
                                             key={`mixed-${currentLessonId}`}
                                             lesson={currentLesson}
+                                            contentBlocks={afterVideoContentBlocks}
                                             showNavigation={false}
                                             showHeader={false}
                                         />
@@ -1031,15 +1106,12 @@ const CoursePlayer = () => {
                                 {lessonFooter}
                             </div>
                             </VideoWrapper>
+                            </>
                         ) : (
                             <div className="pb-20">
                                 <ArticleLessonViewer
                                     key={currentLessonId}
                                     lesson={currentLesson}
-                                    onNext={handleNextLesson}
-                                    onPrev={handlePrevLesson}
-                                    hasNext={currentLessonIndex < flatLessons.length - 1 || !hasFullAccess}
-                                    hasPrev={currentLessonIndex > 0}
                                     isCompleted={!!progress[currentLessonId]}
                                     onMarkComplete={handleLessonComplete}
                                 />
@@ -1054,7 +1126,7 @@ const CoursePlayer = () => {
                 <aside
                     className={`
                         ${styles.sidebar}
-                        fixed bottom-0 right-0 top-[64px] z-30 flex w-[min(88vw,360px)] max-w-full flex-col overflow-hidden rounded-l-[28px] border-l border-slate-200 bg-white shadow-2xl transition-transform duration-300
+                        fixed bottom-0 right-0 top-[64px] z-50 flex w-[min(88vw,360px)] max-w-full flex-col overflow-hidden rounded-l-[28px] border-l border-slate-200 bg-white shadow-2xl transition-transform duration-300
                         md:relative md:bottom-auto md:top-auto md:z-20 md:w-96 md:translate-x-0 md:rounded-none md:shadow-xl
                         ${isSidebarOpen ? 'translate-x-0' : 'translate-x-full'}
                     `}
@@ -1085,6 +1157,35 @@ const CoursePlayer = () => {
                         progress={progress}
                     />
                 </aside>
+            </div>
+
+            <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-200/80 bg-white/95 px-4 py-2.5 shadow-[0_-4px_25px_rgba(0,0,0,0.08)] backdrop-blur-md md:hidden">
+                <div className="mx-auto grid max-w-lg grid-cols-2 gap-3">
+                    <button
+                        type="button"
+                        onClick={handlePrevLesson}
+                        disabled={currentLessonIndex <= 0}
+                        className={`flex items-center justify-center gap-2 rounded-2xl border px-5 py-3 text-[13px] font-extrabold transition-all active:scale-95 ${
+                            currentLessonIndex > 0
+                                ? 'border-slate-200 bg-white text-slate-700 shadow-sm active:bg-slate-50'
+                                : 'border-slate-100 bg-slate-50 text-slate-300'
+                        }`}
+                    >
+                        <ChevronLeft className="h-4 w-4" /> Bài trước
+                    </button>
+                    <button
+                        type="button"
+                        onClick={handleNextLesson}
+                        disabled={currentLessonIndex >= flatLessons.length - 1 && hasFullAccess}
+                        className={`flex items-center justify-center gap-2 rounded-2xl px-5 py-3 text-[13px] font-extrabold shadow-md transition-all active:scale-95 ${
+                            currentLessonIndex < flatLessons.length - 1 || !hasFullAccess
+                                ? 'bg-[#B91C1C] text-white shadow-red-500/10 active:bg-red-800'
+                                : 'bg-slate-100 text-slate-300 shadow-none'
+                        }`}
+                    >
+                        Tiếp theo <ChevronRight className="h-4 w-4" />
+                    </button>
+                </div>
             </div>
 
             {isRegistrationPromptOpen && (

@@ -1,4 +1,8 @@
-import { LESSON_CONTENT_TYPES, normalizeLessonContentType } from "./lessonContent.js";
+import {
+  getLessonContentOrder,
+  LESSON_CONTENT_TYPES,
+  normalizeLessonContentType,
+} from "./lessonContent.js";
 
 const text = (value) => typeof value === "string" ? value.trim() : "";
 
@@ -15,6 +19,7 @@ export const createQuickLesson = (draft = {}, createId = () => "") => {
     id: text(draft.id) || createId(),
     title,
     contentType,
+    contentOrder: getLessonContentOrder({ contentType }),
     videoId:
       contentType === LESSON_CONTENT_TYPES.VIDEO ||
       contentType === LESSON_CONTENT_TYPES.MIXED

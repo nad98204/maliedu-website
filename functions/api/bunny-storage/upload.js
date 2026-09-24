@@ -1,4 +1,5 @@
 const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
+const MAX_AUDIO_BYTES = 200 * 1024 * 1024;
 const SUPER_ADMIN_EMAIL = "mongcoaching@gmail.com";
 const DEFAULT_FIREBASE_PROJECT_ID = "maliedu-web";
 const IMAGE_TYPES = Object.freeze({
@@ -7,6 +8,30 @@ const IMAGE_TYPES = Object.freeze({
   "image/jpeg": "jpg",
   "image/png": "png",
   "image/webp": "webp",
+});
+const AUDIO_TYPES = Object.freeze({
+  "audio/aac": "aac",
+  "audio/flac": "flac",
+  "audio/mp4": "m4a",
+  "audio/mpeg": "mp3",
+  "audio/ogg": "ogg",
+  "audio/opus": "opus",
+  "audio/wav": "wav",
+  "audio/webm": "webm",
+  "audio/x-flac": "flac",
+  "audio/x-m4a": "m4a",
+  "audio/x-wav": "wav",
+});
+const AUDIO_EXTENSION_TYPES = Object.freeze({
+  aac: "audio/aac",
+  flac: "audio/flac",
+  m4a: "audio/mp4",
+  mp3: "audio/mpeg",
+  oga: "audio/ogg",
+  ogg: "audio/ogg",
+  opus: "audio/opus",
+  wav: "audio/wav",
+  webm: "audio/webm",
 });
 
 const json = (body, status = 200, extraHeaders = {}) =>
@@ -46,7 +71,7 @@ const getFirestoreStringArray = (document, field) =>
     .map((value) => value?.stringValue)
     .filter(Boolean);
 
-const requireImageUploadAdmin = async (context) => {
+const requireMediaUploadAdmin = async (context) => {
   const token = getBearerToken(context.request);
   const projectId = String(
     context.env?.FIREBASE_PROJECT_ID || DEFAULT_FIREBASE_PROJECT_ID,
@@ -95,15 +120,15 @@ const requireImageUploadAdmin = async (context) => {
   const profile = profileResponse.ok ? await profileResponse.json() : null;
   const isAdmin = getFirestoreString(profile, "role").toLowerCase() === "admin";
   const allowedModules = getFirestoreStringArray(profile, "allowedModules");
-  const canUploadImages =
+  const canUploadMedia =
     isAdmin && (
       allowedModules.length === 0 ||
       allowedModules.includes("courses") ||
       allowedModules.includes("instructors")
     );
 
-  if (!canUploadImages) {
-    throw Object.assign(new Error("Bạn không có quyền tải ảnh khóa học hoặc giảng viên."), {
+  if (!canUploadMedia) {
+    throw Object.assign(new Error("Bạn không có quyền tải nội dung khóa học hoặc giảng viên."), {
       status: 403,
     });
   }
@@ -135,32 +160,83 @@ const isValidImageSignature = (bytes, mimeType) => {
   return false;
 };
 
-const readImage = async (request) => {
+const isValidAudioSignature = (bytes, mimeType) => {
+  const startsWith = (...signature) =>
+    signature.every((value, index) => bytes[index] === value);
+  const textAt = (start, length) =>
+    String.fromCharCode(...bytes.slice(start, start + length));
+
+  if (mimeType === "audio/mpeg") {
+    return textAt(0, 3) === "ID3" || (bytes[0] === 0xff && (bytes[1] & 0xe0) === 0xe0);
+  }
+  if (mimeType === "audio/wav" || mimeType === "audio/x-wav") {
+    return textAt(0, 4) === "RIFF" && textAt(8, 4) === "WAVE";
+  }
+  if (mimeType === "audio/ogg" || mimeType === "audio/opus") {
+    return textAt(0, 4) === "OggS";
+  }
+  if (mimeType === "audio/flac" || mimeType === "audio/x-flac") {
+    return textAt(0, 4) === "fLaC";
+  }
+  if (mimeType === "audio/mp4" || mimeType === "audio/x-m4a") {
+    return textAt(4, 4) === "ftyp";
+  }
+  if (mimeType === "audio/aac") {
+    return bytes[0] === 0xff && (bytes[1] & 0xf6) === 0xf0;
+  }
+  if (mimeType === "audio/webm") {
+    return startsWith(0x1a, 0x45, 0xdf, 0xa3);
+  }
+  return false;
+};
+
+const readMedia = async (request) => {
   const requestType = String(request.headers.get("Content-Type") || "").toLowerCase();
   let upload;
   let mimeType;
+  let mediaType = "image";
 
   if (requestType.includes("multipart/form-data")) {
     const formData = await request.formData();
     upload = formData.get("file");
     mimeType = String(upload?.type || "").toLowerCase();
+    mediaType = String(formData.get("mediaType") || "image").toLowerCase();
+    if (mediaType === "audio" && !AUDIO_TYPES[mimeType]) {
+      const extension = String(upload?.name || "").split(".").pop()?.toLowerCase();
+      mimeType = AUDIO_EXTENSION_TYPES[extension] || mimeType;
+    }
   } else {
     upload = await request.arrayBuffer();
     mimeType = requestType.split(";", 1)[0].trim();
+    mediaType = String(request.headers.get("X-Upload-Media-Type") || "image").toLowerCase();
+  }
+
+  if (mediaType !== "image" && mediaType !== "audio") {
+    throw Object.assign(new Error("Loại nội dung tải lên không hợp lệ."), { status: 400 });
   }
 
   const size = Number(upload?.size ?? upload?.byteLength ?? 0);
   if (!upload || !Number.isFinite(size) || size <= 0) {
-    throw Object.assign(new Error("Vui lòng chọn file hình ảnh."), { status: 400 });
+    throw Object.assign(new Error(`Vui lòng chọn file ${mediaType === "audio" ? "âm thanh" : "hình ảnh"}.`), { status: 400 });
   }
-  if (size > MAX_IMAGE_BYTES) {
-    throw Object.assign(new Error("Ảnh vượt quá dung lượng tối đa 20 MB."), {
+  const maxBytes = mediaType === "audio" ? MAX_AUDIO_BYTES : MAX_IMAGE_BYTES;
+  if (size > maxBytes) {
+    throw Object.assign(new Error(
+      mediaType === "audio"
+        ? "Âm thanh vượt quá dung lượng tối đa 200 MB."
+        : "Ảnh vượt quá dung lượng tối đa 20 MB.",
+    ), {
       status: 413,
     });
   }
-  if (!IMAGE_TYPES[mimeType]) {
+  const supportedTypes = mediaType === "audio" ? AUDIO_TYPES : IMAGE_TYPES;
+  if (!supportedTypes[mimeType]) {
     throw Object.assign(
-      new Error("Chỉ hỗ trợ ảnh JPG, PNG, GIF, WebP hoặc AVIF."),
+      new Error(
+        mediaType === "audio"
+          ? "Chỉ hỗ trợ audio MP3, M4A, AAC, WAV, OGG, OPUS, FLAC hoặc WebM."
+          : "Chỉ hỗ trợ ảnh JPG, PNG, GIF, WebP hoặc AVIF.",
+      ),
       { status: 415 },
     );
   }
@@ -168,13 +244,21 @@ const readImage = async (request) => {
   const arrayBuffer =
     upload instanceof ArrayBuffer ? upload : await upload.arrayBuffer();
   const bytes = new Uint8Array(arrayBuffer);
-  if (!isValidImageSignature(bytes, mimeType)) {
-    throw Object.assign(new Error("Nội dung tệp không khớp định dạng hình ảnh."), {
+  const validSignature = mediaType === "audio"
+    ? isValidAudioSignature(bytes, mimeType)
+    : isValidImageSignature(bytes, mimeType);
+  if (!validSignature) {
+    throw Object.assign(new Error(`Nội dung tệp không khớp định dạng ${mediaType === "audio" ? "âm thanh" : "hình ảnh"}.`), {
       status: 415,
     });
   }
 
-  return { arrayBuffer, extension: IMAGE_TYPES[mimeType], mimeType };
+  return {
+    arrayBuffer,
+    extension: supportedTypes[mimeType],
+    mediaType,
+    mimeType,
+  };
 };
 
 const getBunnyConfig = (env = {}) => {
@@ -194,7 +278,7 @@ const getBunnyConfig = (env = {}) => {
   ].filter(Boolean);
   if (missingSettings.length > 0) {
     throw Object.assign(new Error(
-      `Bunny Storage thiếu cấu hình: ${missingSettings.join(", ")}. Cấu hình trên server hoặc chọn S3 để tải ảnh.`,
+      `Bunny Storage thiếu cấu hình: ${missingSettings.join(", ")}. Cấu hình trên server hoặc chọn S3 để tải tệp.`,
     ), {
       status: 503,
     });
@@ -232,18 +316,19 @@ const getBunnyConfig = (env = {}) => {
 
 export async function onRequestPost(context) {
   try {
-    await requireImageUploadAdmin(context);
-    const image = await readImage(context.request);
+    await requireMediaUploadAdmin(context);
+    const media = await readMedia(context.request);
     const config = getBunnyConfig(context.env);
-    const filePath = `courses/images/${Date.now()}-${crypto.randomUUID()}.${image.extension}`;
+    const folder = media.mediaType === "audio" ? "courses/audios" : "courses/images";
+    const filePath = `${folder}/${Date.now()}-${crypto.randomUUID()}.${media.extension}`;
     const storageUrl = `https://${config.storageApiHostname}/${encodeURIComponent(config.storageZone)}/${filePath}`;
     const bunnyResponse = await fetch(storageUrl, {
       method: "PUT",
       headers: {
         AccessKey: config.accessKey,
-        "Content-Type": image.mimeType,
+        "Content-Type": media.mimeType,
       },
-      body: image.arrayBuffer,
+      body: media.arrayBuffer,
     });
 
     if (!bunnyResponse.ok) {
@@ -256,6 +341,7 @@ export async function onRequestPost(context) {
 
     return json({
       success: true,
+      mediaType: media.mediaType,
       url: `${config.cdnBaseUrl}/${filePath}`,
     });
   } catch (error) {
@@ -265,8 +351,8 @@ export async function onRequestPost(context) {
         success: false,
         message:
           status >= 500 && status !== 503
-            ? "Không thể tải ảnh lên Bunny Storage lúc này."
-            : error?.message || "Tải ảnh lên Bunny Storage thất bại.",
+            ? "Không thể tải nội dung lên Bunny Storage lúc này."
+            : error?.message || "Tải nội dung lên Bunny Storage thất bại.",
       },
       status,
     );

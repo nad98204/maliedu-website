@@ -2,8 +2,6 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { marked } from 'marked';
 import {
     CheckCircle,
-    ChevronLeft,
-    ChevronRight,
     FileText,
     Headphones,
     Image as ImageIcon,
@@ -17,14 +15,14 @@ import {
 } from 'lucide-react';
 import { sanitizeRichHtml } from '../utils/sanitizeHtml';
 import {
+    getLessonContentOrder,
     getLessonContentTypeLabel,
     getLessonAudios,
     getLessonImages,
-    LESSON_CONTENT_TYPES,
+    LESSON_BLOCK_KEYS,
     lessonHasAudio,
     lessonHasArticle,
     lessonHasImages,
-    normalizeLessonContentType,
 } from '../utils/lessonContent';
 
 const renderArticleHtml = (content = '') => {
@@ -46,14 +44,11 @@ const formatAudioTime = (seconds) => {
 
 const ArticleLessonViewer = ({
     lesson,
-    onNext,
-    onPrev,
-    hasNext = false,
-    hasPrev = false,
     isCompleted = false,
     onMarkComplete,
     showNavigation = true,
     showHeader = true,
+    contentBlocks,
 }) => {
     const [activeImage, setActiveImage] = useState(null);
     const [activeAudioIndex, setActiveAudioIndex] = useState(0);
@@ -70,24 +65,28 @@ const ArticleLessonViewer = ({
         () => renderArticleHtml(lesson?.articleContent),
         [lesson?.articleContent],
     );
-    const showArticle = lessonHasArticle(lesson);
-    const showImages = lessonHasImages(lesson);
-    const showAudio = lessonHasAudio(lesson) && audios.length > 0;
-    const isMixedLesson = normalizeLessonContentType(lesson) === LESSON_CONTENT_TYPES.MIXED;
-    const activeAudio = audios[activeAudioIndex] || audios[0];
-
-    useEffect(() => {
-        setActiveAudioIndex(0);
-        setIsAudioPlaying(false);
-        setAudioCurrentTime(0);
-        setAudioDuration(0);
-        setAudioError('');
-    }, [lesson?.id, lesson?.audioUrl]);
-
-    useEffect(() => {
-        if (activeAudioIndex < audios.length) return;
-        setActiveAudioIndex(0);
-    }, [activeAudioIndex, audios.length]);
+    const visibleContentOrder = useMemo(() => {
+        const requestedBlocks = Array.isArray(contentBlocks)
+            ? new Set(contentBlocks)
+            : null;
+        return getLessonContentOrder(lesson).filter(
+            (blockKey) =>
+                blockKey !== LESSON_BLOCK_KEYS.VIDEO &&
+                (!requestedBlocks || requestedBlocks.has(blockKey)),
+        );
+    }, [contentBlocks, lesson]);
+    const showArticle =
+        visibleContentOrder.includes(LESSON_BLOCK_KEYS.ARTICLE) &&
+        lessonHasArticle(lesson);
+    const showImages =
+        visibleContentOrder.includes(LESSON_BLOCK_KEYS.IMAGES) &&
+        lessonHasImages(lesson);
+    const showAudio =
+        visibleContentOrder.includes(LESSON_BLOCK_KEYS.AUDIO) &&
+        lessonHasAudio(lesson) &&
+        audios.length > 0;
+    const safeAudioIndex = activeAudioIndex < audios.length ? activeAudioIndex : 0;
+    const activeAudio = audios[safeAudioIndex] || audios[0];
 
     const toggleAudioPlayback = async () => {
         const audio = audioRef.current;
@@ -153,9 +152,12 @@ const ArticleLessonViewer = ({
                     </h2>
                 </header>}
 
-                <div className="space-y-8 px-5 py-6 md:px-10 md:py-9">
+                <div className="flex flex-col gap-8 px-5 py-6 md:px-10 md:py-9">
                     {showAudio && activeAudio && (
-                        <section className="overflow-hidden rounded-3xl border border-red-100 bg-gradient-to-br from-red-50/80 via-white to-amber-50/60 shadow-sm">
+                        <section
+                            className="overflow-hidden rounded-3xl border border-red-100 bg-gradient-to-br from-red-50/80 via-white to-amber-50/60 shadow-sm"
+                            style={{ order: visibleContentOrder.indexOf(LESSON_BLOCK_KEYS.AUDIO) }}
+                        >
                             <div className="flex items-center gap-3 border-b border-red-100/70 px-4 py-4 md:px-6">
                                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#8B2E2E] text-white shadow-md shadow-red-200">
                                     <Headphones className="h-5 w-5" />
@@ -163,7 +165,7 @@ const ArticleLessonViewer = ({
                                 <div className="min-w-0">
                                     <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#8B2E2E]">Đang nghe</p>
                                     <h3 className="truncate text-sm font-black text-slate-900 md:text-base">
-                                        {activeAudio.title || `Bản âm thanh ${activeAudioIndex + 1}`}
+                                        {activeAudio.title || `Bản âm thanh ${safeAudioIndex + 1}`}
                                     </h3>
                                 </div>
                             </div>
@@ -185,7 +187,7 @@ const ArticleLessonViewer = ({
                                     onError={() => setAudioError('Tệp âm thanh không thể tải hoặc đường dẫn đã hết hiệu lực.')}
                                     onEnded={() => {
                                         setIsAudioPlaying(false);
-                                        if (activeAudioIndex < audios.length - 1) selectAudio(activeAudioIndex + 1);
+                                        if (safeAudioIndex < audios.length - 1) selectAudio(safeAudioIndex + 1);
                                     }}
                                 />
 
@@ -240,7 +242,7 @@ const ArticleLessonViewer = ({
                                 {audios.length > 1 && (
                                     <div className="grid gap-2 border-t border-red-100/70 pt-4 sm:grid-cols-2">
                                         {audios.map((audio, index) => (
-                                            <button key={audio.id || audio.url} type="button" onClick={() => selectAudio(index)} className={`flex min-w-0 items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs font-bold transition ${index === activeAudioIndex ? 'bg-[#8B2E2E] text-white shadow-sm' : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:text-[#8B2E2E]'}`}>
+                                            <button key={audio.id || audio.url} type="button" onClick={() => selectAudio(index)} className={`flex min-w-0 items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs font-bold transition ${index === safeAudioIndex ? 'bg-[#8B2E2E] text-white shadow-sm' : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:text-[#8B2E2E]'}`}>
                                                 <Headphones className="h-4 w-4 shrink-0" />
                                                 <span className="min-w-0 flex-1 truncate">{audio.title || `Bản âm thanh ${index + 1}`}</span>
                                                 {audio.duration && <span className="shrink-0 text-[10px] opacity-70">{audio.duration}</span>}
@@ -251,19 +253,23 @@ const ArticleLessonViewer = ({
                             </div>
                         </section>
                     )}
-                    {showArticle && articleHtml ? (
-                        <div
-                            className="prose prose-slate max-w-none prose-headings:font-black prose-headings:text-slate-900 prose-a:text-[#8B2E2E] prose-img:rounded-2xl prose-img:shadow-sm"
-                            dangerouslySetInnerHTML={{ __html: articleHtml }}
-                        />
-                    ) : showArticle && !isMixedLesson ? (
-                        <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-5 py-10 text-center text-sm text-slate-500">
-                            Nội dung bài viết đang được cập nhật.
+                    {showArticle && (
+                        <div style={{ order: visibleContentOrder.indexOf(LESSON_BLOCK_KEYS.ARTICLE) }}>
+                            {articleHtml ? (
+                                <div
+                                    className="prose prose-slate max-w-none prose-headings:font-black prose-headings:text-slate-900 prose-a:text-[#8B2E2E] prose-img:rounded-2xl prose-img:shadow-sm"
+                                    dangerouslySetInnerHTML={{ __html: articleHtml }}
+                                />
+                            ) : (
+                                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-5 py-10 text-center text-sm text-slate-500">
+                                    Nội dung bài viết đang được cập nhật.
+                                </div>
+                            )}
                         </div>
-                    ) : null}
+                    )}
 
                     {showImages && images.length > 0 && (
-                        <div>
+                        <div style={{ order: visibleContentOrder.indexOf(LESSON_BLOCK_KEYS.IMAGES) }}>
                             <div className={`grid gap-3 ${images.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
                                 {images.map((imageUrl, index) => (
                                     <button
@@ -289,8 +295,11 @@ const ArticleLessonViewer = ({
                         </div>
                     )}
 
-                    {showImages && images.length === 0 && !isMixedLesson && (
-                        <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-5 py-10 text-center text-sm text-slate-500">
+                    {showImages && images.length === 0 && (
+                        <div
+                            className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-5 py-10 text-center text-sm text-slate-500"
+                            style={{ order: visibleContentOrder.indexOf(LESSON_BLOCK_KEYS.IMAGES) }}
+                        >
                             Hình ảnh của bài học đang được cập nhật.
                         </div>
                     )}
@@ -298,24 +307,6 @@ const ArticleLessonViewer = ({
             </article>
 
             {showNavigation && <div className="mt-4 flex flex-col gap-3 px-1 md:hidden">
-                <div className="grid grid-cols-2 gap-3">
-                    <button
-                        type="button"
-                        onClick={onPrev}
-                        disabled={!hasPrev}
-                        className={`flex items-center justify-center gap-2 rounded-2xl border px-5 py-3 text-[13px] font-extrabold ${hasPrev ? 'border-slate-200 bg-white text-slate-700 shadow-sm' : 'border-slate-100 bg-slate-50 text-slate-300'}`}
-                    >
-                        <ChevronLeft className="h-4 w-4" /> Bài trước
-                    </button>
-                    <button
-                        type="button"
-                        onClick={onNext}
-                        disabled={!hasNext}
-                        className={`flex items-center justify-center gap-2 rounded-2xl px-5 py-3 text-[13px] font-extrabold ${hasNext ? 'bg-[#B91C1C] text-white shadow-md' : 'bg-slate-100 text-slate-300'}`}
-                    >
-                        Tiếp theo <ChevronRight className="h-4 w-4" />
-                    </button>
-                </div>
                 <button
                     type="button"
                     onClick={onMarkComplete}
