@@ -47,25 +47,40 @@ const setCachedConfig = (config) => {
   }
 };
 
+const normalizeConfigSnapshot = (snapshot) =>
+  snapshot?.exists()
+    ? { ...DEFAULT_MENU_CONFIG, ...snapshot.data() }
+    : null;
+
+const selectLatestConfig = (...configs) => {
+  const availableConfigs = configs.filter(Boolean);
+
+  if (availableConfigs.length === 0) return null;
+
+  return availableConfigs.reduce((latest, candidate) =>
+    Number(candidate.updatedAt || 0) > Number(latest.updatedAt || 0)
+      ? candidate
+      : latest
+  );
+};
+
 export const getMenuConfig = async () => {
   try {
-    const primarySnap = await getDoc(doc(db, PRIMARY_COLLECTION, MENU_CONFIG_DOC));
+    const [primaryResult, legacyResult] = await Promise.allSettled([
+      getDoc(doc(db, PRIMARY_COLLECTION, MENU_CONFIG_DOC)),
+      getDoc(doc(db, LEGACY_COLLECTION, MENU_CONFIG_DOC)),
+    ]);
+    const primaryConfig = primaryResult.status === "fulfilled"
+      ? normalizeConfigSnapshot(primaryResult.value)
+      : null;
+    const legacyConfig = legacyResult.status === "fulfilled"
+      ? normalizeConfigSnapshot(legacyResult.value)
+      : null;
+    const latestConfig = selectLatestConfig(primaryConfig, legacyConfig);
 
-    if (primarySnap.exists()) {
-      const data = { ...DEFAULT_MENU_CONFIG, ...primarySnap.data() };
-      setCachedConfig(data);
-      return data;
-    }
-
-    const legacySnap = await getDoc(doc(db, LEGACY_COLLECTION, MENU_CONFIG_DOC));
-
-    if (legacySnap.exists()) {
-      const data = { ...DEFAULT_MENU_CONFIG, ...legacySnap.data() };
-      setCachedConfig(data);
-
-      // Admin đầu tiên đọc cấu hình cũ sẽ tự động chuyển dữ liệu sang nơi công khai.
-      saveMenuConfig(data).catch(() => {});
-      return data;
+    if (latestConfig) {
+      setCachedConfig(latestConfig);
+      return latestConfig;
     }
   } catch (error) {
     console.warn("Lỗi khi tải cấu hình menu từ Firestore:", error);
@@ -83,14 +98,15 @@ export const saveMenuConfig = async (config) => {
 
   setCachedConfig(payload);
 
-  const primaryRef = doc(db, PRIMARY_COLLECTION, MENU_CONFIG_DOC);
-  await setDoc(primaryRef, payload, { merge: true });
+  // Ghi nguồn cũ trước để các tab Admin chưa tải lại vẫn tương thích.
+  const legacyRef = doc(db, LEGACY_COLLECTION, MENU_CONFIG_DOC);
+  await setDoc(legacyRef, payload, { merge: true });
 
   try {
-    const legacyRef = doc(db, LEGACY_COLLECTION, MENU_CONFIG_DOC);
-    await setDoc(legacyRef, payload, { merge: true });
+    const primaryRef = doc(db, PRIMARY_COLLECTION, MENU_CONFIG_DOC);
+    await setDoc(primaryRef, payload, { merge: true });
   } catch (error) {
-    console.warn("Không thể ghi cấu hình menu dự phòng:", error);
+    console.warn("Không thể ghi cấu hình menu công khai dự phòng:", error);
   }
 };
 
@@ -98,21 +114,52 @@ export const subscribeMenuConfig = (callback) => {
   callback(getCachedConfig());
 
   const primaryRef = doc(db, PRIMARY_COLLECTION, MENU_CONFIG_DOC);
-  return onSnapshot(
+  const legacyRef = doc(db, LEGACY_COLLECTION, MENU_CONFIG_DOC);
+  let primaryConfig = null;
+  let legacyConfig = null;
+  let primaryReady = false;
+  let legacyReady = false;
+
+  const emitLatestConfig = () => {
+    if (!primaryReady || !legacyReady) return;
+
+    const latestConfig = selectLatestConfig(primaryConfig, legacyConfig);
+    if (!latestConfig) return;
+
+    setCachedConfig(latestConfig);
+    callback(latestConfig);
+  };
+
+  const unsubscribePrimary = onSnapshot(
     primaryRef,
     (snap) => {
-      if (snap.exists()) {
-        const data = { ...DEFAULT_MENU_CONFIG, ...snap.data() };
-        setCachedConfig(data);
-        callback(data);
-        return;
-      }
-
-      getMenuConfig().then(callback);
+      primaryConfig = normalizeConfigSnapshot(snap);
+      primaryReady = true;
+      emitLatestConfig();
     },
     (error) => {
-      console.warn("Lỗi realtime menu, dùng cấu hình dự phòng:", error);
-      getMenuConfig().then(callback);
+      console.warn("Không thể lắng nghe cấu hình menu công khai:", error);
+      primaryReady = true;
+      emitLatestConfig();
     },
   );
+
+  const unsubscribeLegacy = onSnapshot(
+    legacyRef,
+    (snap) => {
+      legacyConfig = normalizeConfigSnapshot(snap);
+      legacyReady = true;
+      emitLatestConfig();
+    },
+    (error) => {
+      console.warn("Không thể lắng nghe cấu hình menu tương thích:", error);
+      legacyReady = true;
+      emitLatestConfig();
+    },
+  );
+
+  return () => {
+    unsubscribePrimary();
+    unsubscribeLegacy();
+  };
 };
