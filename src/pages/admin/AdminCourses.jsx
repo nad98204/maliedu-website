@@ -43,6 +43,7 @@ import {
   ListOrdered,
   Clock3,
   Crown,
+  Headphones,
   Sparkles,
 } from "lucide-react";
 
@@ -76,11 +77,14 @@ import {
 } from "../../utils/coursePricing";
 import {
   getLessonContentTypeLabel,
+  getLessonAudios,
   getLessonImages,
   LESSON_CONTENT_TYPES,
   LESSON_CONTENT_TYPE_OPTIONS,
   lessonHasArticle,
+  lessonHasAudio,
   lessonHasImages,
+  lessonHasVideo,
   normalizeLessonContentType,
 } from "../../utils/lessonContent";
 import {
@@ -222,6 +226,7 @@ const normalizeCurriculumForForm = (curriculum = []) => {
       contentType: normalizeLessonContentType(lesson),
       videoProvider: lesson.videoProvider === "bunny" ? "bunny" : "s3",
       imageProvider: lesson.imageProvider === "bunny" ? "bunny" : "s3",
+      audios: getLessonAudios(lesson),
       images: getLessonImages(lesson),
     })),
   }));
@@ -277,6 +282,43 @@ const fetchVideoDuration = (url) =>
     video.src = url;
   });
 
+const fetchAudioDuration = (file) =>
+  new Promise((resolve) => {
+    const audio = document.createElement("audio");
+    const objectUrl = URL.createObjectURL(file);
+    let settled = false;
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      URL.revokeObjectURL(objectUrl);
+      resolve(value);
+    };
+    const timeoutId = window.setTimeout(() => finish(""), 8000);
+
+    audio.preload = "metadata";
+    audio.onloadedmetadata = () => {
+      window.clearTimeout(timeoutId);
+      const duration = Number(audio.duration);
+      if (!Number.isFinite(duration) || duration <= 0) {
+        finish("");
+        return;
+      }
+      const hours = Math.floor(duration / 3600);
+      const minutes = Math.floor((duration % 3600) / 60);
+      const seconds = Math.floor(duration % 60);
+      finish(
+        hours > 0
+          ? `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`
+          : `${minutes}:${String(seconds).padStart(2, "0")}`,
+      );
+    };
+    audio.onerror = () => {
+      window.clearTimeout(timeoutId);
+      finish("");
+    };
+    audio.src = objectUrl;
+  });
+
 const AdminCourses = () => {
   const [courses, setCourses] = useState([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -305,6 +347,8 @@ const AdminCourses = () => {
   const [quickLessonTypes, setQuickLessonTypes] = useState({});
   const [uploadingLessonImages, setUploadingLessonImages] = useState({});
   const [lessonImageUploadProgress, setLessonImageUploadProgress] = useState({});
+  const [uploadingLessonAudio, setUploadingLessonAudio] = useState({});
+  const [lessonAudioUploadProgress, setLessonAudioUploadProgress] = useState({});
 
   const getUploadProvider = (taskKey, fallbackProvider = "s3") =>
     uploadProviders[taskKey] ||
@@ -378,12 +422,13 @@ const AdminCourses = () => {
 
         handleAddLessonToSection(sIdx, {
           title,
-          contentType: LESSON_CONTENT_TYPES.VIDEO,
+          contentType: quickLessonTypes[sIdx] || LESSON_CONTENT_TYPES.VIDEO,
           videoId,
           videoProvider: provider,
           duration,
           description: descInput?.value.trim() || "",
           articleContent: "",
+          audios: [],
           images: [],
           ...(provider === "bunny" ? { bunnyStatus: "processing" } : {}),
         });
@@ -654,6 +699,7 @@ const AdminCourses = () => {
       ...lesson,
       id: lessonId,
       contentType: normalizeLessonContentType(lesson),
+      audios: getLessonAudios(lesson),
       images: getLessonImages(lesson),
       isFreePreview: false,
       videoProvider: lesson.videoProvider === "bunny" ? "bunny" : "s3",
@@ -753,7 +799,13 @@ const AdminCourses = () => {
       lessons[lIdx] = {
         ...lesson,
         contentType,
-        ...(contentType === LESSON_CONTENT_TYPES.VIDEO ? {} : { duration: "" }),
+        ...(
+          contentType === LESSON_CONTENT_TYPES.ARTICLE ||
+          contentType === LESSON_CONTENT_TYPES.IMAGE ||
+          contentType === LESSON_CONTENT_TYPES.ARTICLE_IMAGE
+            ? { duration: "" }
+            : {}
+        ),
       };
       curriculum[sIdx] = { ...section, lessons };
       return { ...current, curriculum };
@@ -889,6 +941,151 @@ const AdminCourses = () => {
         ...lesson,
         images: getLessonImages(lesson).filter((url) => url !== imageUrl),
         imageUrl: lesson.imageUrl === imageUrl ? "" : lesson.imageUrl,
+      };
+      curriculum[sIdx] = { ...section, lessons };
+      return { ...current, curriculum };
+    });
+  };
+
+  const handleLessonAudioUpload = async (event, sIdx, lIdx) => {
+    const selectedFiles = Array.from(event.target.files || []);
+    event.target.value = "";
+    if (selectedFiles.length === 0) return;
+
+    const audioExtensionPattern = /\.(?:mp3|m4a|aac|wav|ogg|oga|opus|flac|webm)$/i;
+    if (
+      selectedFiles.some(
+        (file) =>
+          !(file.type || "").startsWith("audio/") &&
+          !audioExtensionPattern.test(file.name || ""),
+      )
+    ) {
+      showToast("Vui lòng chỉ chọn tệp âm thanh hợp lệ", "error");
+      return;
+    }
+
+    const uploadKey = `${sIdx}-${lIdx}`;
+    setUploadingLessonAudio((current) => ({ ...current, [uploadKey]: true }));
+    setLessonAudioUploadProgress((current) => ({ ...current, [uploadKey]: 0 }));
+
+    try {
+      const uploadedTracks = [];
+      for (let fileIndex = 0; fileIndex < selectedFiles.length; fileIndex += 1) {
+        const file = selectedFiles[fileIndex];
+        const durationPromise = fetchAudioDuration(file);
+        const url = await uploadFileToS3(
+          file,
+          (fileProgress) => {
+            const totalProgress = Math.round(
+              (fileIndex * 100 + Number(fileProgress || 0)) /
+                selectedFiles.length,
+            );
+            setLessonAudioUploadProgress((current) => ({
+              ...current,
+              [uploadKey]: totalProgress,
+            }));
+          },
+          {
+            folder: "files/course-lessons/audios",
+            fallbackContentType: file.type || "audio/mpeg",
+          },
+        );
+        uploadedTracks.push({
+          id: createLocalId("audio"),
+          title: getLessonTitleFromFileName(file.name) || `Bản âm thanh ${fileIndex + 1}`,
+          url,
+          duration: await durationPromise,
+        });
+      }
+
+      setFormData((current) => {
+        const curriculum = [...(current.curriculum || [])];
+        const section = curriculum[sIdx];
+        const lesson = section?.lessons?.[lIdx];
+        if (!lesson) return current;
+
+        const audios = [...getLessonAudios(lesson), ...uploadedTracks];
+        const lessons = [...section.lessons];
+        lessons[lIdx] = {
+          ...lesson,
+          audios,
+          audioUrl: lesson.audioUrl || audios[0]?.url || "",
+          audioTitle: lesson.audioTitle || audios[0]?.title || "",
+          audioDuration: lesson.audioDuration || audios[0]?.duration || "",
+        };
+        curriculum[sIdx] = { ...section, lessons };
+        return { ...current, curriculum };
+      });
+      showToast(`Đã tải ${uploadedTracks.length} tệp âm thanh lên S3`, "success");
+    } catch (error) {
+      console.error("Lỗi tải âm thanh bài học:", error);
+      showToast(error?.message || "Không thể tải âm thanh bài học", "error");
+    } finally {
+      setUploadingLessonAudio((current) => {
+        const next = { ...current };
+        delete next[uploadKey];
+        return next;
+      });
+      setLessonAudioUploadProgress((current) => {
+        const next = { ...current };
+        delete next[uploadKey];
+        return next;
+      });
+    }
+  };
+
+  const handleAddCustomAudioUrl = (sIdx, lIdx, rawUrl) => {
+    const url = String(rawUrl || "").trim();
+    if (!/^https?:\/\//i.test(url)) {
+      showToast("Vui lòng nhập URL âm thanh hợp lệ", "error");
+      return false;
+    }
+
+    setFormData((current) => {
+      const curriculum = [...(current.curriculum || [])];
+      const section = curriculum[sIdx];
+      const lesson = section?.lessons?.[lIdx];
+      if (!lesson) return current;
+      const currentAudios = getLessonAudios(lesson);
+      if (currentAudios.some((audio) => audio.url === url)) return current;
+
+      const nextAudio = {
+        id: createLocalId("audio"),
+        title: `Bản âm thanh ${currentAudios.length + 1}`,
+        url,
+        duration: "",
+      };
+      const audios = [...currentAudios, nextAudio];
+      const lessons = [...section.lessons];
+      lessons[lIdx] = {
+        ...lesson,
+        audios,
+        audioUrl: lesson.audioUrl || url,
+        audioTitle: lesson.audioTitle || nextAudio.title,
+      };
+      curriculum[sIdx] = { ...section, lessons };
+      return { ...current, curriculum };
+    });
+    return true;
+  };
+
+  const handleRemoveLessonAudio = (sIdx, lIdx, audioUrl) => {
+    setFormData((current) => {
+      const curriculum = [...(current.curriculum || [])];
+      const section = curriculum[sIdx];
+      const lesson = section?.lessons?.[lIdx];
+      if (!lesson) return current;
+
+      const audios = getLessonAudios(lesson).filter(
+        (audio) => audio.url !== audioUrl,
+      );
+      const lessons = [...section.lessons];
+      lessons[lIdx] = {
+        ...lesson,
+        audios,
+        audioUrl: audios[0]?.url || "",
+        audioTitle: audios[0]?.title || "",
+        audioDuration: audios[0]?.duration || "",
       };
       curriculum[sIdx] = { ...section, lessons };
       return { ...current, curriculum };
@@ -1582,6 +1779,8 @@ const AdminCourses = () => {
     setQuickLessonTypes({});
     setUploadingLessonImages({});
     setLessonImageUploadProgress({});
+    setUploadingLessonAudio({});
+    setLessonAudioUploadProgress({});
     setThumbnailStorageProvider("bunny");
     setThumbnailUploadProgress(0);
     setThumbnailUploadError("");
@@ -1641,6 +1840,8 @@ const AdminCourses = () => {
     setQuickLessonTypes({});
     setUploadingLessonImages({});
     setLessonImageUploadProgress({});
+    setUploadingLessonAudio({});
+    setLessonAudioUploadProgress({});
     setThumbnailStorageProvider(
       course.thumbnailStorageProvider === "s3"
         ? "s3"
@@ -1724,6 +1925,8 @@ const AdminCourses = () => {
     setQuickLessonTypes({});
     setUploadingLessonImages({});
     setLessonImageUploadProgress({});
+    setUploadingLessonAudio({});
+    setLessonAudioUploadProgress({});
     setThumbnailStorageProvider(
       course.thumbnailStorageProvider === "s3"
         ? "s3"
@@ -1921,6 +2124,14 @@ const AdminCourses = () => {
       setActiveTab("curriculum");
       return;
     }
+    if (
+      Object.values(uploadingLessonAudio).some(Boolean) ||
+      Object.values(uploadingLessonImages).some(Boolean)
+    ) {
+      showToast("Vui lòng chờ ảnh hoặc âm thanh tải lên xong trước khi lưu khóa học", "error");
+      setActiveTab("curriculum");
+      return;
+    }
 
     const quickDrafts = (formData.curriculum || []).map((_, sectionIndex) => ({
       sectionIndex,
@@ -1932,6 +2143,7 @@ const AdminCourses = () => {
       videoProvider: getUploadProvider(`new-${sectionIndex}`),
       articleContent: "",
       images: [],
+      audios: [],
     }));
     const pendingQuickAdd = mergeQuickLessonDrafts(
       formData.curriculum || [],
@@ -3674,7 +3886,7 @@ const AdminCourses = () => {
                                   ))}
                                 </select>
                               </div>
-                              <div className={(quickLessonTypes[sIdx] || LESSON_CONTENT_TYPES.VIDEO) === LESSON_CONTENT_TYPES.VIDEO ? "md:col-span-6" : "md:col-span-8"}>
+                              <div className={lessonHasVideo(quickLessonTypes[sIdx] || LESSON_CONTENT_TYPES.VIDEO) || lessonHasAudio(quickLessonTypes[sIdx] || LESSON_CONTENT_TYPES.VIDEO) ? "md:col-span-6" : "md:col-span-8"}>
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2 block">Tên bài học</label>
                                 <input
                                   type="text"
@@ -3683,7 +3895,7 @@ const AdminCourses = () => {
                                   id={`lesson-title-${sIdx}`}
                                 />
                               </div>
-                              {(quickLessonTypes[sIdx] || LESSON_CONTENT_TYPES.VIDEO) === LESSON_CONTENT_TYPES.VIDEO && (
+                              {(lessonHasVideo(quickLessonTypes[sIdx] || LESSON_CONTENT_TYPES.VIDEO) || lessonHasAudio(quickLessonTypes[sIdx] || LESSON_CONTENT_TYPES.VIDEO)) && (
                               <div className="md:col-span-2">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2 block">Thời lượng</label>
                                 <input
@@ -3724,8 +3936,9 @@ const AdminCourses = () => {
                                       articleContent: "",
                                       images: [],
                                       description: descriptionInput?.value.trim() || "",
+                                      audios: [],
                                       duration:
-                                        contentType === LESSON_CONTENT_TYPES.VIDEO
+                                        lessonHasVideo(contentType) || lessonHasAudio(contentType)
                                           ? durationInput?.value.trim() || ""
                                           : "",
                                     });
@@ -3741,7 +3954,7 @@ const AdminCourses = () => {
                                   <Plus className="w-5 h-5" />
                                 </button>
                               </div>
-                              {(quickLessonTypes[sIdx] || LESSON_CONTENT_TYPES.VIDEO) === LESSON_CONTENT_TYPES.VIDEO && (
+                              {lessonHasVideo(quickLessonTypes[sIdx] || LESSON_CONTENT_TYPES.VIDEO) && (
                               <div className="md:col-span-12">
                                 <div className="mb-2 flex items-center justify-between gap-3">
                                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Nguồn lưu video</label>
@@ -3822,7 +4035,7 @@ const AdminCourses = () => {
                                   </p>
                                 </div>
                               )}
-                              {(quickLessonTypes[sIdx] || LESSON_CONTENT_TYPES.VIDEO) !== LESSON_CONTENT_TYPES.VIDEO && (
+                              {!lessonHasVideo(quickLessonTypes[sIdx] || LESSON_CONTENT_TYPES.VIDEO) && (
                                 <p className="md:col-span-12 text-xs font-medium text-slate-500">
                                   Sau khi thêm, trình soạn thảo nội dung tương ứng sẽ tự mở bên dưới.
                                 </p>
@@ -3842,7 +4055,9 @@ const AdminCourses = () => {
                                 lesson.videoProvider,
                               );
                               const lessonContentType = normalizeLessonContentType(lesson);
+                              const lessonAudios = getLessonAudios(lesson);
                               const lessonImages = getLessonImages(lesson);
+                              const audioUploadTaskKey = `audio-${sIdx}-${lIdx}`;
                               const imageUploadTaskKey = `image-${sIdx}-${lIdx}`;
                               const lessonImageUploadProvider = getUploadProvider(
                                 imageUploadTaskKey,
@@ -3902,7 +4117,7 @@ const AdminCourses = () => {
                                           </option>
                                         ))}
                                       </select>
-                                      {lessonContentType === LESSON_CONTENT_TYPES.VIDEO && (
+                                      {lessonHasVideo(lessonContentType) && (
                                       <div className="relative group/vid flex items-center gap-1">
                                         <div className="mr-1 flex rounded-xl border border-slate-200 bg-slate-50 p-0.5">
                                           {[
@@ -4034,10 +4249,14 @@ const AdminCourses = () => {
                                   {isExp && (
                                     <div className="px-6 pb-6 pt-2 grid md:grid-cols-2 gap-6 animate-in fade-in slide-in-from-top-2 duration-300">
                                       <div className="md:col-span-2 grid gap-4 sm:grid-cols-2">
-                                        <div className={`space-y-2 ${lessonContentType === LESSON_CONTENT_TYPES.VIDEO ? "" : "sm:col-span-2"}`}>
+                                        <div className={`space-y-2 ${lessonHasVideo(lessonContentType) || lessonHasAudio(lessonContentType) ? "" : "sm:col-span-2"}`}>
                                           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Định dạng bài học</label>
                                           <div className="flex h-11 items-center gap-2 rounded-2xl bg-slate-50 px-4 text-sm font-bold text-slate-700">
-                                            {lessonContentType === LESSON_CONTENT_TYPES.VIDEO ? (
+                                            {lessonContentType === LESSON_CONTENT_TYPES.MIXED ? (
+                                              <Sparkles className="h-4 w-4 text-secret-wax" />
+                                            ) : lessonContentType === LESSON_CONTENT_TYPES.AUDIO ? (
+                                              <Headphones className="h-4 w-4 text-secret-wax" />
+                                            ) : lessonContentType === LESSON_CONTENT_TYPES.VIDEO ? (
                                               <Video className="h-4 w-4 text-secret-wax" />
                                             ) : lessonHasImages(lessonContentType) && !lessonHasArticle(lessonContentType) ? (
                                               <ImageIcon className="h-4 w-4 text-secret-wax" />
@@ -4047,7 +4266,7 @@ const AdminCourses = () => {
                                             {getLessonContentTypeLabel(lessonContentType)}
                                           </div>
                                         </div>
-                                        {lessonContentType === LESSON_CONTENT_TYPES.VIDEO && (
+                                        {(lessonHasVideo(lessonContentType) || lessonHasAudio(lessonContentType)) && (
                                         <div className="space-y-2">
                                           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Thời lượng</label>
                                           <input
@@ -4072,6 +4291,101 @@ const AdminCourses = () => {
                                             onChange={(value) => handleUpdateLesson(sIdx, lIdx, "articleContent", value)}
                                             placeholder="Viết nội dung hướng dẫn cho học viên..."
                                           />
+                                        </div>
+                                      )}
+
+                                      {lessonHasAudio(lessonContentType) && (
+                                        <div className="md:col-span-2 space-y-4 rounded-2xl border border-amber-100 bg-amber-50/50 p-4">
+                                          <div className="flex flex-wrap items-center justify-between gap-3">
+                                            <div className="flex items-center gap-3">
+                                              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-secret-wax text-white shadow-sm">
+                                                <Headphones className="h-4 w-4" />
+                                              </div>
+                                              <div>
+                                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Thư viện âm thanh</label>
+                                                <p className="mt-0.5 text-[11px] text-slate-400">MP3, M4A, WAV, OGG, OPUS hoặc FLAC. Có thể tải nhiều tệp.</p>
+                                              </div>
+                                            </div>
+                                            <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-secret-wax px-4 py-2 text-xs font-black text-white shadow-md shadow-secret-wax/15 transition hover:bg-secret-ink">
+                                              <input
+                                                type="file"
+                                                accept="audio/*,.mp3,.m4a,.aac,.wav,.ogg,.oga,.opus,.flac,.webm"
+                                                multiple
+                                                className="hidden"
+                                                disabled={Boolean(uploadingLessonAudio[uploadTaskKey])}
+                                                onChange={(event) => handleLessonAudioUpload(event, sIdx, lIdx)}
+                                              />
+                                              {uploadingLessonAudio[uploadTaskKey] ? (
+                                                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                                              ) : (
+                                                <Upload className="h-4 w-4" />
+                                              )}
+                                              {uploadingLessonAudio[uploadTaskKey]
+                                                ? `Đang tải ${lessonAudioUploadProgress[uploadTaskKey] || 0}%`
+                                                : "Tải âm thanh lên S3"}
+                                            </label>
+                                          </div>
+
+                                          <div className="flex flex-col gap-2 sm:flex-row">
+                                            <input
+                                              id={`${audioUploadTaskKey}-url`}
+                                              type="url"
+                                              className="h-10 min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 outline-none focus:border-secret-wax"
+                                              placeholder="Hoặc dán URL tệp âm thanh..."
+                                            />
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                const input = document.getElementById(`${audioUploadTaskKey}-url`);
+                                                if (handleAddCustomAudioUrl(sIdx, lIdx, input?.value)) input.value = "";
+                                              }}
+                                              className="h-10 rounded-xl border border-secret-wax/20 bg-white px-4 text-xs font-black text-secret-wax transition hover:bg-red-50"
+                                            >
+                                              Thêm URL
+                                            </button>
+                                          </div>
+
+                                          {lessonAudios.length > 0 ? (
+                                            <div className="space-y-2">
+                                              {lessonAudios.map((audio, audioIndex) => (
+                                                <div key={audio.id || audio.url} className="flex flex-col gap-2 rounded-xl border border-amber-100 bg-white p-3 sm:flex-row sm:items-center">
+                                                  <Headphones className="h-4 w-4 shrink-0 text-secret-wax" />
+                                                  <input
+                                                    type="text"
+                                                    value={audio.title || ""}
+                                                    onChange={(event) =>
+                                                      handleUpdateLesson(
+                                                        sIdx,
+                                                        lIdx,
+                                                        "audios",
+                                                        lessonAudios.map((item, index) =>
+                                                          index === audioIndex
+                                                            ? { ...item, title: event.target.value }
+                                                            : item,
+                                                        ),
+                                                      )
+                                                    }
+                                                    className="h-9 min-w-0 flex-1 rounded-lg border border-slate-100 bg-slate-50 px-3 text-xs font-bold text-slate-700 outline-none focus:border-secret-wax focus:bg-white"
+                                                    aria-label={`Tên bản âm thanh ${audioIndex + 1}`}
+                                                  />
+                                                  <span className="max-w-full truncate text-[10px] text-slate-400 sm:max-w-48" title={audio.url}>{audio.url}</span>
+                                                  {audio.duration && <span className="shrink-0 text-[10px] font-bold text-slate-500">{audio.duration}</span>}
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => handleRemoveLessonAudio(sIdx, lIdx, audio.url)}
+                                                    className="self-end rounded-lg bg-rose-50 p-2 text-rose-400 transition hover:bg-rose-100 hover:text-rose-600 sm:self-auto"
+                                                    aria-label={`Xóa bản âm thanh ${audioIndex + 1}`}
+                                                  >
+                                                    <Trash2 className="h-3.5 w-3.5" />
+                                                  </button>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          ) : (
+                                            <div className="rounded-xl border border-dashed border-amber-200 bg-white px-4 py-7 text-center text-xs font-medium text-slate-400">
+                                              Chưa có tệp âm thanh trong bài học.
+                                            </div>
+                                          )}
                                         </div>
                                       )}
 

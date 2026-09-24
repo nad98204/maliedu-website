@@ -55,3 +55,16 @@ test("still rejects an unrelated upload folder", async () => {
     /Upload folder is not allowed/,
   );
 });
+
+test("allows lesson audio uploads in the protected files namespace", async (t) => {
+  const requests = mockS3(t);
+  const result = await createMultipartUpload(env, {
+    folder: "files/course-lessons/audios",
+    fileName: "thuc-hanh.mp3",
+    contentType: "audio/mpeg",
+    fileSize: 2048,
+  });
+
+  assert.match(result.key, /^files\/course-lessons\/audios\//);
+  assert.equal(requests.length, 1);
+});

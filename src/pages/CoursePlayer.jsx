@@ -30,7 +30,10 @@ import {
 import { loadFullCourse } from '../utils/courseContentService';
 import { getBunnyPlayback } from '../utils/bunnyStreamService';
 import {
+    getLessonAudios,
+    getLessonImages,
     LESSON_CONTENT_TYPES,
+    lessonHasVideo,
     normalizeLessonContentType,
 } from '../utils/lessonContent';
 import { getQuickLessonResources } from '../utils/quickLessonResources';
@@ -310,7 +313,14 @@ const CoursePlayer = () => {
 
     const currentLessonId = currentLesson?.id || currentLesson?.videoId;
     const currentLessonContentType = normalizeLessonContentType(currentLesson);
-    const isVideoLesson = currentLessonContentType === LESSON_CONTENT_TYPES.VIDEO;
+    const isVideoLesson =
+        currentLessonContentType === LESSON_CONTENT_TYPES.VIDEO ||
+        (lessonHasVideo(currentLesson) && Boolean(currentLesson?.videoId));
+    const hasMixedSupplementalContent =
+        currentLessonContentType === LESSON_CONTENT_TYPES.MIXED &&
+        (Boolean(String(currentLesson?.articleContent || '').trim()) ||
+            getLessonAudios(currentLesson).length > 0 ||
+            getLessonImages(currentLesson).length > 0);
     const currentVideoProvider = currentLesson?.videoProvider === 'bunny' ? 'bunny' : 's3';
 
     useEffect(() => {
@@ -1008,6 +1018,16 @@ const CoursePlayer = () => {
                             previewableLessonKeys={previewableLessonKeys}
                         >
                             <div className="px-3 pb-24 md:px-0 md:pb-20">
+                                {hasMixedSupplementalContent && (
+                                    <div className="pt-6">
+                                        <ArticleLessonViewer
+                                            key={`mixed-${currentLessonId}`}
+                                            lesson={currentLesson}
+                                            showNavigation={false}
+                                            showHeader={false}
+                                        />
+                                    </div>
+                                )}
                                 {lessonFooter}
                             </div>
                             </VideoWrapper>

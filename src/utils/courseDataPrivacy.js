@@ -1,9 +1,11 @@
 export const COURSE_CONTENT_COLLECTION = "course_content";
 export const COURSE_ACCESS_COLLECTION = "course_access";
-export const COURSE_CONTENT_SCHEMA_VERSION = 3;
+export const COURSE_CONTENT_SCHEMA_VERSION = 4;
 
 const LESSON_CONTENT_TYPES = new Set([
   "video",
+  "audio",
+  "mixed",
   "article",
   "image",
   "article_image",
@@ -155,24 +157,38 @@ export const buildPublicCurriculum = (course, normalizedCurriculum) => {
       };
 
       if (previewableIds.has(lesson.id)) {
-        if (contentType === "video" && lesson.videoId) {
+        if ((contentType === "video" || contentType === "mixed") && lesson.videoId) {
           publicLesson.videoId = lesson.videoId;
           publicLesson.videoProvider =
             lesson.videoProvider === "bunny" ? "bunny" : "s3";
         }
 
         if (
-          (contentType === "article" || contentType === "article_image") &&
+          (contentType === "article" || contentType === "article_image" || contentType === "mixed") &&
           lesson.articleContent
         ) {
           publicLesson.articleContent = lesson.articleContent;
         }
 
-        if (contentType === "image" || contentType === "article_image") {
+        if (contentType === "image" || contentType === "article_image" || contentType === "mixed") {
           publicLesson.images = Array.isArray(lesson.images)
             ? lesson.images.filter(Boolean)
             : [];
           if (lesson.imageUrl) publicLesson.imageUrl = lesson.imageUrl;
+        }
+
+        if (contentType === "audio" || contentType === "mixed") {
+          publicLesson.audios = (Array.isArray(lesson.audios) ? lesson.audios : [])
+            .filter((audio) => audio && typeof audio.url === "string" && audio.url.trim())
+            .map((audio, audioIndex) => ({
+              id: audio.id || `audio-${audioIndex}`,
+              title: audio.title || audio.name || `Bản âm thanh ${audioIndex + 1}`,
+              url: audio.url,
+              duration: audio.duration || "",
+            }));
+          if (lesson.audioUrl) publicLesson.audioUrl = lesson.audioUrl;
+          if (lesson.audioTitle) publicLesson.audioTitle = lesson.audioTitle;
+          if (lesson.audioDuration) publicLesson.audioDuration = lesson.audioDuration;
         }
       }
 

@@ -16,12 +16,15 @@ import {
     Clock,
     X,
     Folder,
-    ExternalLink
+    ExternalLink,
+    Headphones,
+    Sparkles
 } from 'lucide-react';
 import { formatPrice } from '../utils/orderService';
 import {
     getLessonContentTypeLabel,
     LESSON_CONTENT_TYPES,
+    lessonHasAudio,
     lessonHasArticle,
     normalizeLessonContentType,
 } from '../utils/lessonContent';
@@ -421,11 +424,15 @@ const PlayerSidebar = ({
                                                     !previewableLessonKeySet.has(lessonKey);
                                                 const lessonResources = lessonResourceMap[lessonKey] || [];
                                                 const lessonContentType = normalizeLessonContentType(lesson);
-                                                const LessonTypeIcon = lessonContentType === LESSON_CONTENT_TYPES.VIDEO
-                                                    ? Video
-                                                    : lessonHasArticle(lessonContentType)
-                                                        ? FileText
-                                                        : ImageIcon;
+                                                const LessonTypeIcon = lessonContentType === LESSON_CONTENT_TYPES.MIXED
+                                                    ? Sparkles
+                                                    : lessonContentType === LESSON_CONTENT_TYPES.AUDIO
+                                                        ? Headphones
+                                                        : lessonContentType === LESSON_CONTENT_TYPES.VIDEO
+                                                            ? Video
+                                                            : lessonHasArticle(lessonContentType)
+                                                                ? FileText
+                                                                : ImageIcon;
 
                                                 return (
                                                     <button
@@ -481,7 +488,7 @@ const PlayerSidebar = ({
                                                                     {getLessonContentTypeLabel(lessonContentType, true)}
                                                                 </span>
 
-                                                                {lessonContentType === LESSON_CONTENT_TYPES.VIDEO && lesson.duration && (
+                                                                {(lessonContentType === LESSON_CONTENT_TYPES.VIDEO || lessonHasAudio(lessonContentType)) && lesson.duration && (
                                                                     <span className="flex items-center gap-1">
                                                                         <Clock className="h-3 w-3" />
                                                                         {lesson.duration}

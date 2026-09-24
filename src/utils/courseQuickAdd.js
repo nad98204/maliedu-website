@@ -15,14 +15,30 @@ export const createQuickLesson = (draft = {}, createId = () => "") => {
     id: text(draft.id) || createId(),
     title,
     contentType,
-    videoId: contentType === LESSON_CONTENT_TYPES.VIDEO ? videoId : "",
+    videoId:
+      contentType === LESSON_CONTENT_TYPES.VIDEO ||
+      contentType === LESSON_CONTENT_TYPES.MIXED
+        ? videoId
+        : "",
     videoProvider: draft.videoProvider === "bunny" ? "bunny" : "s3",
-    duration: contentType === LESSON_CONTENT_TYPES.VIDEO ? text(draft.duration) : "",
+    duration:
+      contentType === LESSON_CONTENT_TYPES.VIDEO ||
+      contentType === LESSON_CONTENT_TYPES.AUDIO ||
+      contentType === LESSON_CONTENT_TYPES.MIXED
+        ? text(draft.duration)
+        : "",
     description: text(draft.description),
     articleContent: text(draft.articleContent),
     images: Array.isArray(draft.images) ? draft.images : [],
+    ...(
+      contentType === LESSON_CONTENT_TYPES.AUDIO ||
+      contentType === LESSON_CONTENT_TYPES.MIXED ||
+      (Array.isArray(draft.audios) && draft.audios.length > 0)
+        ? { audios: Array.isArray(draft.audios) ? draft.audios : [] }
+        : {}
+    ),
     isFreePreview: false,
-    ...(contentType === LESSON_CONTENT_TYPES.VIDEO && draft.videoProvider === "bunny"
+    ...((contentType === LESSON_CONTENT_TYPES.VIDEO || contentType === LESSON_CONTENT_TYPES.MIXED) && videoId && draft.videoProvider === "bunny"
       ? { bunnyStatus: draft.bunnyStatus || "processing" }
       : {}),
   };

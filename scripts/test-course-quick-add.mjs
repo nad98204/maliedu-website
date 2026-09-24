@@ -49,3 +49,20 @@ test("pending save keeps lesson guidance for every content type", () => {
   ], () => "id");
   assert.deepEqual(result.curriculum.map((section) => section.lessons[0].description), ["Hướng dẫn video", "Hướng dẫn bài đọc"]);
 });
+
+test("creates audio and mixed lesson drafts without requiring a video", () => {
+  const audio = createQuickLesson(
+    { title: "Thiền dẫn", contentType: "audio", duration: "10:30" },
+    () => "audio-1",
+  );
+  const mixed = createQuickLesson(
+    { title: "Thực hành tổng hợp", contentType: "mixed", videoId: "video-1" },
+    () => "mixed-1",
+  );
+
+  assert.equal(audio.contentType, "audio");
+  assert.equal(audio.duration, "10:30");
+  assert.deepEqual(audio.audios, []);
+  assert.equal(mixed.contentType, "mixed");
+  assert.equal(mixed.videoId, "video-1");
+});
