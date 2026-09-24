@@ -34,10 +34,15 @@ import {
     Save,
     CheckCircle,
     ExternalLink,
-    Copy
+    Copy,
+    Menu,
+    Sparkles,
+    Share2,
+    Briefcase
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { getBankSettings, saveBankSettings, VIETNAM_BANKS, runAutoVerification } from '../../utils/bankPaymentService';
+import { DEFAULT_MENU_CONFIG, getMenuConfig, saveMenuConfig } from '../../utils/menuConfigService';
 import {
     ADMIN_MODULES,
     COURSE_ACCOUNT_MANAGER_MODULES,
@@ -91,6 +96,36 @@ const AdminSettings = () => {
     const [showSecrets, setShowSecrets] = useState({});
     const [isRunningVerify, setIsRunningVerify] = useState(false);
     const [verifyResult, setVerifyResult] = useState(null);
+
+    // Website Menu & Feature Settings
+    const [menuConfig, setMenuConfig] = useState(DEFAULT_MENU_CONFIG);
+    const [isSavingMenuConfig, setIsSavingMenuConfig] = useState(false);
+    const [savingMenuKey, setSavingMenuKey] = useState(null);
+
+    useEffect(() => {
+        getMenuConfig().then(setMenuConfig);
+    }, []);
+
+    const handleToggleMenu = async (key) => {
+        if (isSavingMenuConfig) return;
+
+        const previousConfig = menuConfig;
+        const updatedConfig = { ...menuConfig, [key]: !menuConfig[key] };
+        setMenuConfig(updatedConfig);
+        setIsSavingMenuConfig(true);
+        setSavingMenuKey(key);
+
+        try {
+            await saveMenuConfig(updatedConfig);
+            toast.success('Đã cập nhật trạng thái menu!');
+        } catch (error) {
+            setMenuConfig(previousConfig);
+            toast.error('Lỗi khi lưu cấu hình: ' + error.message);
+        } finally {
+            setIsSavingMenuConfig(false);
+            setSavingMenuKey(null);
+        }
+    };
 
     // Fetch Web Users to cross check
     const fetchWebUsers = async () => {
@@ -423,6 +458,12 @@ const AdminSettings = () => {
                     <CreditCard size={18} /> THANH TOÁN NGÂN HÀNG
                 </button>
                 <button
+                    onClick={() => setActiveTab('menu_config')}
+                    className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all ${activeTab === 'menu_config' ? 'bg-amber-600 text-white shadow-lg' : 'text-slate-500 hover:bg-white'}`}
+                >
+                    <Menu size={18} /> CẤU HÌNH MENU & TÍNH NĂNG
+                </button>
+                <button
                     onClick={() => setActiveTab('users')}
                     className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all ${activeTab === 'users' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-500 hover:bg-white'}`}
                 >
@@ -444,6 +485,130 @@ const AdminSettings = () => {
 
             {/* MAIN CONTENT AREA */}
             <div className="grid grid-cols-1 gap-6">
+
+                {/* TAB: CẤU HÌNH MENU & TÍNH NĂNG */}
+                {activeTab === 'menu_config' && (
+                    <div className="space-y-6">
+                        <div className="flex items-start gap-4 rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 p-5">
+                            <div className="shrink-0 rounded-xl bg-amber-100 p-3 text-amber-700">
+                                <Sparkles size={24} aria-hidden="true" />
+                            </div>
+                            <div>
+                                <h3 className="text-base font-black text-amber-950">Quản lý Bật / Tắt Menu & Tính năng</h3>
+                                <p className="mt-1 text-sm leading-relaxed text-amber-900">
+                                    Bật hoặc tắt công tắc để ẩn/hiện các mục trên thanh điều hướng website. Thay đổi được lưu vào Firestore và có hiệu lực ngay lập tức.
+                                </p>
+                            </div>
+                        </div>
+
+                        <section className="space-y-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6" aria-labelledby="topbar-settings-heading">
+                            <h4 id="topbar-settings-heading" className="flex items-center gap-2 text-sm font-black uppercase tracking-wider text-slate-800">
+                                <Share2 className="h-4 w-4 text-amber-600" aria-hidden="true" />
+                                Tính năng & Nút trên thanh Topbar
+                            </h4>
+                            <div className="divide-y divide-slate-100">
+                                {[
+                                    {
+                                        key: 'showAffiliate',
+                                        label: 'Tính năng Kiếm tiền Affiliate',
+                                        description: 'Ẩn nút Affiliate trên đầu trang, trong menu cá nhân và nút lấy link tiếp thị trong khóa học.',
+                                        icon: Share2,
+                                    },
+                                    {
+                                        key: 'showRecruitment',
+                                        label: 'Nút Tuyển dụng',
+                                        description: 'Ẩn hoặc hiện nút Tuyển dụng trên thanh topbar và menu di động.',
+                                        icon: Briefcase,
+                                    },
+                                ].map((item) => {
+                                    const isEnabled = menuConfig[item.key] !== false;
+                                    const ItemIcon = item.icon;
+
+                                    return (
+                                        <div key={item.key} className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                                            <div className="min-w-0">
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <ItemIcon className="h-4 w-4 shrink-0 text-slate-500" aria-hidden="true" />
+                                                    <span className="text-sm font-bold text-slate-900">{item.label}</span>
+                                                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase ${isEnabled ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
+                                                        {isEnabled ? 'Đang bật' : 'Đã ẩn'}
+                                                    </span>
+                                                    {savingMenuKey === item.key && (
+                                                        <span className="text-xs font-semibold text-amber-700" role="status">Đang lưu...</span>
+                                                    )}
+                                                </div>
+                                                <p className="mt-1 text-xs leading-relaxed text-slate-500">{item.description}</p>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                role="switch"
+                                                aria-checked={isEnabled}
+                                                aria-label={`${isEnabled ? 'Ẩn' : 'Hiện'} ${item.label}`}
+                                                disabled={isSavingMenuConfig}
+                                                onClick={() => handleToggleMenu(item.key)}
+                                                className="inline-flex min-h-11 min-w-14 shrink-0 items-center justify-center self-end rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60 sm:self-auto"
+                                            >
+                                                <span className={`relative inline-flex h-6 w-11 rounded-full transition-colors duration-200 ${isEnabled ? 'bg-emerald-600' : 'bg-slate-300'}`} aria-hidden="true">
+                                                    <span className={`inline-block h-5 w-5 translate-y-0.5 rounded-full bg-white shadow transition-transform duration-200 ${isEnabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                                                </span>
+                                            </button>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </section>
+
+                        <section className="space-y-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6" aria-labelledby="navbar-settings-heading">
+                            <h4 id="navbar-settings-heading" className="flex items-center gap-2 text-sm font-black uppercase tracking-wider text-slate-800">
+                                <Menu className="h-4 w-4 text-indigo-600" aria-hidden="true" />
+                                Các mục trên thanh Menu chính (Navbar)
+                            </h4>
+                            <div className="divide-y divide-slate-100">
+                                {[
+                                    { key: 'showTraining', label: 'Chương trình đào tạo', path: '/dao-tao', description: 'Trang các khóa đào tạo trực tiếp và chuyên sâu' },
+                                    { key: 'showHypnosis', label: 'Thôi miên', path: '/thoi-mien', description: 'Trang nghe các bản thôi miên tiềm thức' },
+                                    { key: 'showOnlineCourses', label: 'Khóa Học Online', path: '/khoa-hoc', description: 'Trang danh sách khóa học trực tuyến' },
+                                    { key: 'showAbout', label: 'Giới thiệu', path: '/gioi-thieu', description: 'Trang thông tin về Mali Edu và Mong Coaching' },
+                                    { key: 'showTestimonials', label: 'Cảm nhận học viên', path: '/cam-nhan', description: 'Trang chia sẻ kết quả từ học viên' },
+                                    { key: 'showHome', label: 'Trang chủ', path: '/', description: 'Nút liên kết về trang chủ chính' },
+                                ].map((item) => {
+                                    const isEnabled = menuConfig[item.key] !== false;
+
+                                    return (
+                                        <div key={item.key} className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                                            <div className="min-w-0">
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <span className="text-sm font-bold text-slate-900">{item.label}</span>
+                                                    <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[11px] text-slate-600">{item.path}</code>
+                                                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase ${isEnabled ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
+                                                        {isEnabled ? 'Hiển thị' : 'Đã ẩn'}
+                                                    </span>
+                                                    {savingMenuKey === item.key && (
+                                                        <span className="text-xs font-semibold text-amber-700" role="status">Đang lưu...</span>
+                                                    )}
+                                                </div>
+                                                <p className="mt-1 text-xs leading-relaxed text-slate-500">{item.description}</p>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                role="switch"
+                                                aria-checked={isEnabled}
+                                                aria-label={`${isEnabled ? 'Ẩn' : 'Hiện'} ${item.label}`}
+                                                disabled={isSavingMenuConfig}
+                                                onClick={() => handleToggleMenu(item.key)}
+                                                className="inline-flex min-h-11 min-w-14 shrink-0 items-center justify-center self-end rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60 sm:self-auto"
+                                            >
+                                                <span className={`relative inline-flex h-6 w-11 rounded-full transition-colors duration-200 ${isEnabled ? 'bg-emerald-600' : 'bg-slate-300'}`} aria-hidden="true">
+                                                    <span className={`inline-block h-5 w-5 translate-y-0.5 rounded-full bg-white shadow transition-transform duration-200 ${isEnabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                                                </span>
+                                            </button>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </section>
+                    </div>
+                )}
 
                 {/* TAB: THANH TOÁN NGÂN HÀNG */}
                 {activeTab === 'payment' && bankSettings && (

@@ -269,6 +269,13 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
+    // Cấu hình hiển thị menu cần được đọc công khai để toàn website đồng bộ.
+    // Chỉ quản trị viên mới có thể thay đổi tài liệu này.
+    match /system_settings/menu_config {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     // Sổ cái Affiliate chỉ được thay đổi qua API/Cloud Functions dùng Admin SDK.
     // Không mở quyền trực tiếp cho trình duyệt, kể cả tài khoản admin.
     match /affiliate_click_events/{documentId} { allow read, write: if false; }

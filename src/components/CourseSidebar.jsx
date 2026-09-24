@@ -19,6 +19,7 @@ import { formatPrice } from '../utils/orderService';
 import { HOTLINE } from '../menuData';
 import { getPreviewableLessonKeys } from '../utils/courseAccess';
 import { isLeadGenerationCourse, openCourseLeadLanding } from '../utils/courseMarketing';
+import { subscribeMenuConfig } from '../utils/menuConfigService';
 import {
     formatAccessDuration,
     getActiveCourseAccessPlans,
@@ -41,6 +42,12 @@ const CourseSidebar = ({ course, onBuyClick, onPreviewClick, isEnrolled }) => {
 
     const [affiliateProfile, setAffiliateProfile] = useState(null);
     const [copiedAffLink, setCopiedAffLink] = useState(false);
+    const [menuConfig, setMenuConfig] = useState({ showAffiliate: true });
+
+    useEffect(() => {
+        const unsubscribe = subscribeMenuConfig(setMenuConfig);
+        return unsubscribe;
+    }, []);
 
     useEffect(() => {
         const checkAffiliate = async () => {
@@ -227,29 +234,31 @@ const CourseSidebar = ({ course, onBuyClick, onPreviewClick, isEnrolled }) => {
 
                     {/* Compact Affiliate & Wishlist Row */}
                     <div className="mt-3 flex items-center gap-2">
-                        <button
-                            type="button"
-                            onClick={handleGetAffiliateLink}
-                            className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-amber-300/80 bg-gradient-to-r from-amber-50/80 to-amber-100/40 py-2.5 px-3 text-xs font-black text-[#9B2528] hover:bg-amber-100 transition-colors shadow-sm"
-                            title="Lấy link tiếp thị khóa học này để nhận hoa hồng 30%"
-                        >
-                            {copiedAffLink ? (
-                                <>
-                                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                                    <span className="text-emerald-700">Đã chép link!</span>
-                                </>
-                            ) : (
-                                <>
-                                    <Sparkles className="w-3.5 h-3.5 text-amber-500 fill-amber-400 shrink-0" />
-                                    <span>Lấy link tiếp thị ({course.affiliateCommissionPercent != null && course.affiliateCommissionPercent !== "" ? `${course.affiliateCommissionPercent}%` : "Hoa hồng"})</span>
-                                </>
-                            )}
-                        </button>
+                        {menuConfig.showAffiliate !== false && (
+                            <button
+                                type="button"
+                                onClick={handleGetAffiliateLink}
+                                className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-amber-300/80 bg-gradient-to-r from-amber-50/80 to-amber-100/40 py-2.5 px-3 text-xs font-black text-[#9B2528] hover:bg-amber-100 transition-colors shadow-sm"
+                                title="Lấy link tiếp thị khóa học này để nhận hoa hồng"
+                            >
+                                {copiedAffLink ? (
+                                    <>
+                                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                        <span className="text-emerald-700">Đã chép link!</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Share2 className="w-3.5 h-3.5 shrink-0" />
+                                        <span>Lấy link tiếp thị ({course.affiliateCommissionPercent != null && course.affiliateCommissionPercent !== "" ? `${course.affiliateCommissionPercent}%` : "Hoa hồng"})</span>
+                                    </>
+                                )}
+                            </button>
+                        )}
 
                         <button
                             type="button"
                             onClick={() => setWishlist(!wishlist)}
-                            className={`flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2.5 text-xs font-bold transition-colors shrink-0 ${
+                            className={`flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2.5 text-xs font-bold transition-colors ${menuConfig.showAffiliate === false ? 'flex-1' : 'shrink-0'} ${
                                 wishlist
                                     ? 'border-rose-200 bg-rose-50 text-rose-600'
                                     : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-800'

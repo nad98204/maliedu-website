@@ -36,6 +36,7 @@ import {
   isSuperAdminEmail,
 } from "../utils/adminAccess";
 import { MALI_LOGO_URL } from "../constants/brandAssets.js";
+import { DEFAULT_MENU_CONFIG, subscribeMenuConfig } from "../utils/menuConfigService";
 
 const SOCIAL_LINKS = [
   { name: "Facebook", href: SOCIALS.facebook, Icon: Facebook },
@@ -78,9 +79,25 @@ const Header = () => {
   const [coursesMenuOpen, setCoursesMenuOpen] = useState(false);
   const [hypnosisMenuOpen, setHypnosisMenuOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [menuConfig, setMenuConfig] = useState(DEFAULT_MENU_CONFIG);
   const navigate = useNavigate();
   const coursesMenuRef = useRef(null);
   const hypnosisMenuRef = useRef(null);
+
+  useEffect(() => {
+    const unsubscribe = subscribeMenuConfig(setMenuConfig);
+    return unsubscribe;
+  }, []);
+
+  const visibleMenuItems = MENU_ITEMS.filter((item) => {
+    if (item.path === "/" && menuConfig.showHome === false) return false;
+    if (item.path === "/gioi-thieu" && menuConfig.showAbout === false) return false;
+    if (item.path === "/dao-tao" && menuConfig.showTraining === false) return false;
+    if (item.path === "/khoa-hoc" && menuConfig.showOnlineCourses === false) return false;
+    if (item.path === "/thoi-mien" && menuConfig.showHypnosis === false) return false;
+    if (item.path === "/cam-nhan" && menuConfig.showTestimonials === false) return false;
+    return true;
+  });
 
   useEffect(() => {
     const closeDropdowns = (event) => {
@@ -228,21 +245,25 @@ const Header = () => {
             </div>
           </div>
           <div className="flex items-center justify-center sm:justify-end gap-2">
-            <Link
-              to="/affiliate"
-              className="inline-flex items-center whitespace-nowrap gap-1 px-2 py-1 text-[10px] sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-xs rounded-full bg-amber-400 text-slate-950 font-black shadow-sm hover:bg-amber-300 transition"
-            >
-              <Share2 className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0 text-[#9B2528]" />
-              <span>Kiếm tiền Affiliate</span>
-            </Link>
+            {menuConfig.showAffiliate !== false && (
+              <Link
+                to="/affiliate"
+                className="inline-flex items-center whitespace-nowrap gap-1 px-2 py-1 text-[10px] sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-xs rounded-full bg-amber-400 text-slate-950 font-black shadow-sm hover:bg-amber-300 transition"
+              >
+                <Share2 className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0 text-[#9B2528]" />
+                <span>Kiếm tiền Affiliate</span>
+              </Link>
+            )}
 
-            <Link
-              to="/tuyen-dung"
-              className="inline-flex items-center whitespace-nowrap gap-1.5 px-2 py-1 text-[10px] sm:gap-2 sm:px-3 sm:py-1.5 sm:text-xs rounded-full bg-secret-paper text-secret-wax font-medium shadow-sm hover:bg-white transition"
-            >
-              <Briefcase className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0" />
-              Tuyển dụng
-            </Link>
+            {menuConfig.showRecruitment !== false && (
+              <Link
+                to="/tuyen-dung"
+                className="inline-flex items-center whitespace-nowrap gap-1.5 px-2 py-1 text-[10px] sm:gap-2 sm:px-3 sm:py-1.5 sm:text-xs rounded-full bg-secret-paper text-secret-wax font-medium shadow-sm hover:bg-white transition"
+              >
+                <Briefcase className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0" />
+                Tuyển dụng
+              </Link>
+            )}
 
             {currentUser ? (
               <div className="relative">
@@ -292,14 +313,16 @@ const Header = () => {
                       <BookOpen className="h-4 w-4" />
                       Khóa học của tôi
                     </Link>
-                    <Link
-                      to="/affiliate"
-                      className="flex items-center gap-2 px-4 py-2 hover:bg-amber-50 text-sm font-bold text-[#9B2528]"
-                      onClick={() => setUserMenuOpen(false)}
-                    >
-                      <Share2 className="h-4 w-4 text-amber-500" />
-                      Kiếm tiền Affiliate
-                    </Link>
+                    {menuConfig.showAffiliate !== false && (
+                      <Link
+                        to="/affiliate"
+                        className="flex items-center gap-2 px-4 py-2 hover:bg-amber-50 text-sm font-bold text-[#9B2528]"
+                        onClick={() => setUserMenuOpen(false)}
+                      >
+                        <Share2 className="h-4 w-4 text-amber-500" />
+                        Kiếm tiền Affiliate
+                      </Link>
+                    )}
                     <button
                       onClick={handleLogout}
                       className="w-full flex items-center gap-2 px-4 py-2 hover:bg-red-50 text-red-600 text-sm font-medium text-left"
@@ -342,7 +365,7 @@ const Header = () => {
             </a>
 
             <nav className="hidden lg:flex flex-1 items-center justify-center gap-6">
-              {MENU_ITEMS.map((item) => {
+              {visibleMenuItems.map((item) => {
                 if (item.path === "/khoa-hoc") {
                   return (
                     <div key={item.path} ref={coursesMenuRef} className="relative">
@@ -511,7 +534,7 @@ const Header = () => {
               </div>
 
               <nav className="space-y-3">
-                {MENU_ITEMS.map((item) => {
+                {visibleMenuItems.map((item) => {
                   const hasChildren = item.children?.length;
                   const isOpen = openSubmenus[item.path];
 
@@ -635,13 +658,15 @@ const Header = () => {
               </nav>
 
               <div className="flex flex-col gap-2">
-                <Link
-                  to="/tuyen-dung"
-                  onClick={closeMobileMenu}
-                  className="w-full text-center px-4 py-2 rounded-full bg-secret-wax text-white text-sm font-semibold hover:bg-secret-wax/90 transition"
-                >
-                  Tuyển dụng
-                </Link>
+                {menuConfig.showRecruitment !== false && (
+                  <Link
+                    to="/tuyen-dung"
+                    onClick={closeMobileMenu}
+                    className="w-full text-center px-4 py-2 rounded-full bg-secret-wax text-white text-sm font-semibold hover:bg-secret-wax/90 transition"
+                  >
+                    Tuyển dụng
+                  </Link>
+                )}
 
                 {currentUser ? (
                   <div className="flex flex-col gap-2">
