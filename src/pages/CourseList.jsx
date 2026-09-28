@@ -8,11 +8,9 @@ import {
     ChevronLeft,
     ChevronRight,
     Filter,
-    Flame,
     Gift,
     MoveHorizontal,
     Search as SearchIcon,
-    Sparkles,
     Clock,
     X as XIcon,
     Award,
@@ -64,16 +62,16 @@ const getCarouselItemsPerView = () => (
 // Component hiển thị 1 hàng khung khóa học (Row Carousel)
 const CourseSectionRow = ({
     icon: Icon,
-    iconColor = 'text-[#9B2528]',
     badgeText,
     badgeBg = 'bg-red-50 text-[#9B2528] border-red-100',
     title,
-    description,
     courses = [],
     itemsPerView = 3,
-    highlightBg = false
+    highlightBg = false,
+    autoPlay = false,
 }) => {
     const carouselRef = useRef(null);
+    const [isAutoPlayPaused, setIsAutoPlayPaused] = useState(false);
     const [carouselState, setCarouselState] = useState({
         activePage: 0,
         canGoBack: false,
@@ -115,6 +113,34 @@ const CourseSectionRow = ({
         const frameId = window.requestAnimationFrame(syncState);
         return () => window.cancelAnimationFrame(frameId);
     }, [courses, syncState]);
+
+    useEffect(() => {
+        if (
+            !autoPlay
+            || isAutoPlayPaused
+            || !hasOverflow
+            || pageCount <= 1
+            || window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        ) {
+            return undefined;
+        }
+
+        const timerId = window.setInterval(() => {
+            const carousel = carouselRef.current;
+            if (!carousel || document.hidden) return;
+
+            const maxScroll = Math.max(carousel.scrollWidth - carousel.clientWidth, 0);
+            const isAtEnd = maxScroll - carousel.scrollLeft <= 3;
+            carousel.scrollTo({
+                left: isAtEnd
+                    ? 0
+                    : Math.min(carousel.scrollLeft + carousel.clientWidth, maxScroll),
+                behavior: 'smooth',
+            });
+        }, 4500);
+
+        return () => window.clearInterval(timerId);
+    }, [autoPlay, hasOverflow, isAutoPlayPaused, pageCount]);
 
     const scroll = (direction) => {
         const carousel = carouselRef.current;
@@ -184,9 +210,16 @@ const CourseSectionRow = ({
                 <div
                     ref={carouselRef}
                     onScroll={syncState}
-                    className="flex snap-x snap-mandatory gap-3 sm:gap-4 lg:gap-5 overflow-x-auto scroll-smooth pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                    onMouseEnter={() => setIsAutoPlayPaused(true)}
+                    onMouseLeave={() => setIsAutoPlayPaused(false)}
+                    onTouchStart={() => setIsAutoPlayPaused(true)}
+                    onTouchEnd={() => setIsAutoPlayPaused(false)}
+                    onFocus={() => setIsAutoPlayPaused(true)}
+                    onBlur={() => setIsAutoPlayPaused(false)}
+                    className="flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-smooth pb-2 sm:gap-4 lg:gap-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                     role="region"
-                    aria-label={title}
+                    aria-label={title || badgeText}
+                    aria-live="off"
                     tabIndex={hasOverflow ? 0 : -1}
                 >
                     {courses.map((course) => (
@@ -233,8 +266,6 @@ const CourseList = () => {
     const [priceFilter, setPriceFilter] = useState('all');
     const [sortOption, setSortOption] = useState('popular');
     const [filters, setFilters] = useState({ categories: [], authors: [], prices: [] });
-    const [filterResetKey, setFilterResetKey] = useState(0);
-    const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
     const [isSortOpen, setIsSortOpen] = useState(false);
     const [carouselItemsPerView, setCarouselItemsPerView] = useState(getCarouselItemsPerView);
 
@@ -331,36 +362,7 @@ const CourseList = () => {
         });
     }, [activeCategory, filters, priceFilter, searchTerm]);
 
-    // 1. KHÓA HỌC HOT NHẤT (Sắp xếp theo độ phổ biến, lượt xem, lượt học viên)
-    const hotCourses = useMemo(() => {
-        const sorted = [...courses].sort((a, b) => {
-            const scoreA = getPopularityScore(a);
-            const scoreB = getPopularityScore(b);
-            if (scoreB !== scoreA) return scoreB - scoreA;
-            return compareListingPriority(a, b);
-        });
-        return applySearchAndFilters(sorted);
-    }, [courses, applySearchAndFilters]);
-
-    // 2. KHÓA HỌC ĐẶC BIỆT (Khóa học do Admin tự chỉnh / ghim / đánh dấu isSpecial / listingPriority > 0)
-    const specialCourses = useMemo(() => {
-        let list = courses.filter((c) => 
-            c.isSpecial === true || 
-            c.isPinned === true || 
-            c.isFeatured === true || 
-            Number(c.listingPriority || 0) > 0
-        );
-
-        // Nếu chưa có khóa học nào được đánh dấu đặc biệt thủ công, lấy các khóa học tiêu biểu
-        if (list.length === 0 && courses.length > 0) {
-            list = courses.slice(0, 4);
-        }
-
-        const sorted = list.sort(compareListingPriority);
-        return applySearchAndFilters(sorted);
-    }, [courses, applySearchAndFilters]);
-
-    // 3. KHÓA HỌC MỚI NHẤT (Sắp xếp theo thời gian tạo mới nhất)
+    // KHÓA HỌC MỚI NHẤT (Sắp xếp theo thời gian tạo mới nhất)
     const newestCourses = useMemo(() => {
         const sorted = [...courses].sort((a, b) => {
             const timeA = a.createdAt?.seconds || (a.createdAt ? new Date(a.createdAt).getTime() / 1000 : 0);
@@ -407,7 +409,6 @@ const CourseList = () => {
         setActiveCategory('all');
         setPriceFilter('all');
         setFilters({ categories: [], authors: [], prices: [] });
-        setFilterResetKey((key) => key + 1);
     };
 
     const selectCategory = (categoryId) => {
@@ -545,7 +546,7 @@ const CourseList = () => {
                                     className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-black text-rose-600 hover:bg-rose-100 transition-colors"
                                 >
                                     <XIcon className="h-3.5 w-3.5" />
-                                    <span>Xóa lọc (Xem 3 khung)</span>
+                                    <span>Xóa lọc</span>
                                 </button>
                             )}
 
@@ -591,11 +592,11 @@ const CourseList = () => {
                 {loading ? (
                     /* Loading Skeleton */
                     <div className="space-y-8">
-                        {[1, 2, 3].map((i) => (
+                        {[1].map((i) => (
                             <div key={i} className="rounded-3xl border border-slate-200 bg-white p-6 animate-pulse">
                                 <div className="h-6 w-48 bg-slate-200 rounded mb-2" />
                                 <div className="h-4 w-72 bg-slate-100 rounded mb-6" />
-                                <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                                     {[1, 2, 3].map((j) => (
                                         <div key={j} className="h-64 bg-slate-100 rounded-2xl" />
                                     ))}
@@ -625,7 +626,7 @@ const CourseList = () => {
                                 onClick={resetFilters}
                                 className="text-xs font-bold text-[#9B2528] hover:underline"
                             >
-                                Quay lại xem 3 khung
+                                Quay lại danh sách mới ra mắt
                             </button>
                         </div>
 
@@ -635,7 +636,6 @@ const CourseList = () => {
                                     <CourseCard
                                         key={course.id}
                                         course={course}
-                                        compact
                                     />
                                 ))}
                             </div>
@@ -661,33 +661,37 @@ const CourseList = () => {
                         )}
                     </div>
                 ) : (
-                    /* DEFAULT 3-FRAME VIEW (THE 3 SECTIONS REQUESTED BY USER) */
+                    /* Mới ra mắt vuốt ngang, toàn bộ khóa học đọc theo chiều dọc */
                     <div className="space-y-8">
-                        
-                        {/* 1. KHUNG 1: KHÓA HỌC HOT NHẤT */}
-                        <section aria-labelledby="hot-courses-heading">
-                            <CourseSectionRow
-                                icon={Flame}
-                                badgeText="HOT & BÁN CHẠY"
-                                badgeBg="bg-gradient-to-r from-amber-50 to-orange-50 text-amber-800 border-amber-300/80"
-                                courses={hotCourses}
-                                itemsPerView={carouselItemsPerView}
-                            />
+
+                        <section aria-labelledby="all-courses-heading">
+                            <div className="rounded-3xl border border-slate-200/80 bg-white p-4 shadow-sm sm:p-6">
+                                <div className="mb-4 flex flex-wrap items-center justify-between gap-3 sm:mb-5">
+                                    <div>
+                                        <span
+                                            id="all-courses-heading"
+                                            className="inline-flex items-center gap-2 rounded-2xl border border-red-100 bg-red-50 px-4 py-2 text-xs font-black uppercase tracking-wider text-[#9B2528] shadow-sm sm:px-5 sm:py-2.5 sm:text-sm"
+                                        >
+                                            <BookOpen className="h-4 w-4 shrink-0" />
+                                            Các khóa học
+                                        </span>
+                                    </div>
+                                    <span className="rounded-full border border-slate-200/60 bg-slate-100 px-3 py-1 text-xs font-bold text-slate-500">
+                                        {allFilteredCourses.length} khóa học
+                                    </span>
+                                </div>
+
+                                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                                    {allFilteredCourses.map((course) => (
+                                        <CourseCard
+                                            key={`all-${course.id}`}
+                                            course={course}
+                                        />
+                                    ))}
+                                </div>
+                            </div>
                         </section>
 
-                        {/* 2. KHUNG 2: KHÓA HỌC ĐẶC BIỆT (TỰ CHỈNH / GHIM / TUYỂN CHỌN) */}
-                        <section aria-labelledby="special-courses-heading">
-                            <CourseSectionRow
-                                icon={Sparkles}
-                                badgeText="ĐẶC BIỆT & TUYỂN CHỌN"
-                                badgeBg="bg-gradient-to-r from-red-50 to-amber-50 text-[#9B2528] border-red-200"
-                                courses={specialCourses}
-                                itemsPerView={carouselItemsPerView}
-                                highlightBg={true}
-                            />
-                        </section>
-
-                        {/* 3. KHUNG 3: KHÓA HỌC MỚI NHẤT */}
                         <section aria-labelledby="newest-courses-heading">
                             <CourseSectionRow
                                 icon={Clock}
@@ -695,6 +699,7 @@ const CourseList = () => {
                                 badgeBg="bg-gradient-to-r from-blue-50 to-slate-50 text-blue-800 border-blue-200"
                                 courses={newestCourses}
                                 itemsPerView={carouselItemsPerView}
+                                autoPlay
                             />
                         </section>
 

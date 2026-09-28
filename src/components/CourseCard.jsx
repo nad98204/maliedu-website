@@ -54,6 +54,14 @@ const CourseCard = ({ course, featured = false, compact = false }) => {
     const isLeadCourse = isLeadGenerationCourse(course);
     const startingPlan = getCourseStartingPlan(course);
     const startingPrice = getPlanEffectivePrice(startingPlan);
+    const hasDiscount = startingPlan?.salePrice !== null
+        && Number(startingPlan?.price || 0) > Number(startingPlan?.salePrice || 0);
+    const discountPercent = hasDiscount
+        ? Math.round(
+            ((Number(startingPlan.price) - Number(startingPlan.salePrice))
+                / Number(startingPlan.price)) * 100
+        )
+        : 0;
     const actionUrl = isLeadCourse
         ? normalizeCourseLandingUrl(getCourseLeadLandingUrl(course))
         : previewUrl;
@@ -111,23 +119,49 @@ const CourseCard = ({ course, featured = false, compact = false }) => {
                 )}
 
                 {/* Metrics */}
-                <div className={`flex flex-wrap items-center font-bold text-slate-600 ${compact ? 'mb-2.5 mt-auto gap-1 text-[9px] sm:mb-3 sm:gap-1.5 sm:text-[11px]' : `gap-2 text-[12px] ${featured ? 'mb-7' : 'mb-5 mt-auto'}`}`}>
-                    <div className={`flex items-center rounded-lg bg-slate-50 ${compact ? 'gap-1 px-1.5 py-1.5 sm:px-2' : 'gap-1.5 px-2.5 py-1.5'}`} title="Lượt xem khóa học">
-                        <Eye className={`${compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} text-[#9B2528]`} />
-                        <span>{formatMetric(course.views)}<span className={compact ? 'hidden 2xl:inline' : ''}> lượt xem</span></span>
+                {compact ? (
+                    <div className="mb-2.5 mt-auto flex flex-wrap items-center gap-1 text-[9px] font-bold text-slate-600 sm:mb-3 sm:gap-1.5 sm:text-[11px]">
+                        <div className="flex items-center gap-1 rounded-lg bg-slate-50 px-1.5 py-1.5 sm:px-2" title="Lượt xem khóa học">
+                            <Eye className="h-3.5 w-3.5 text-[#9B2528]" />
+                            <span>{formatMetric(course.views)}</span>
+                        </div>
+                        <div className="flex items-center gap-1 rounded-lg bg-slate-50 px-1.5 py-1.5 sm:px-2" title="Số lượng học viên">
+                            <Users className="h-3.5 w-3.5 text-[#9B2528]" />
+                            <span>{formatMetric(studentCount)}</span>
+                        </div>
+                        <div className="flex items-center gap-1 rounded-lg bg-slate-50 px-1.5 py-1.5 sm:px-2" title="Số bài học">
+                            <BookOpen className="h-3.5 w-3.5 text-[#9B2528]" />
+                            <span>{formatMetric(lessonCount)}</span>
+                        </div>
                     </div>
-                    <div className={`flex items-center rounded-lg bg-slate-50 ${compact ? 'gap-1 px-1.5 py-1.5 sm:px-2' : 'gap-1.5 px-2.5 py-1.5'}`} title="Số lượng học viên">
-                        <Users className={`${compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} text-[#9B2528]`} />
-                        <span>{formatMetric(studentCount)}<span className={compact ? 'hidden 2xl:inline' : ''}> học viên</span></span>
+                ) : (
+                    <div className={`grid grid-cols-3 divide-x divide-slate-200 overflow-hidden rounded-xl border border-slate-100 bg-slate-50/80 ${featured ? 'mb-7' : 'mb-4 mt-auto'}`}>
+                        <div className="flex min-w-0 flex-col items-center justify-center px-1 py-2 text-center" title="Lượt xem khóa học">
+                            <div className="flex items-center gap-1">
+                                <Eye className="h-3.5 w-3.5 text-[#9B2528]" />
+                                <strong className="text-xs font-black leading-none text-slate-700">{formatMetric(course.views)}</strong>
+                            </div>
+                            <span className="mt-1 text-[9px] font-semibold leading-none text-slate-400">lượt xem</span>
+                        </div>
+                        <div className="flex min-w-0 flex-col items-center justify-center px-1 py-2 text-center" title="Số lượng học viên">
+                            <div className="flex min-w-0 items-center gap-1">
+                                <Users className="h-3.5 w-3.5 shrink-0 text-[#9B2528]" />
+                                <strong className="max-w-full truncate text-xs font-black leading-none text-slate-700">{formatMetric(studentCount)}</strong>
+                            </div>
+                            <span className="mt-1 text-[9px] font-semibold leading-none text-slate-400">học viên</span>
+                        </div>
+                        <div className="flex min-w-0 flex-col items-center justify-center px-1 py-2 text-center" title="Số bài học">
+                            <div className="flex items-center gap-1">
+                                <BookOpen className="h-3.5 w-3.5 text-[#9B2528]" />
+                                <strong className="text-xs font-black leading-none text-slate-700">{formatMetric(lessonCount)}</strong>
+                            </div>
+                            <span className="mt-1 text-[9px] font-semibold leading-none text-slate-400">bài học</span>
+                        </div>
                     </div>
-                    <div className={`flex items-center rounded-lg bg-slate-50 ${compact ? 'gap-1 px-1.5 py-1.5 sm:px-2' : 'gap-1.5 px-2.5 py-1.5'}`} title="Số bài học">
-                        <BookOpen className={`${compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} text-[#9B2528]`} />
-                        <span>{formatMetric(lessonCount)}<span className={compact ? 'hidden 2xl:inline' : ''}> bài học</span></span>
-                    </div>
-                </div>
+                )}
 
                 {/* Footer: Price & Button */}
-                <div className={`mt-auto flex gap-3 border-t border-slate-100 ${compact ? 'flex-col items-stretch pt-2.5 sm:pt-3' : 'items-center justify-between pt-5'}`}>
+                <div className={`mt-auto flex gap-3 border-t border-slate-100 ${compact ? 'flex-col items-stretch pt-2.5 sm:pt-3' : 'flex-col items-stretch pt-5 sm:flex-row sm:items-end sm:justify-between'}`}>
                     <div className="flex flex-col">
                         {isLeadCourse ? (
                             <>
@@ -142,20 +176,49 @@ const CourseCard = ({ course, featured = false, compact = false }) => {
                             <span className={`${compact ? 'text-lg' : 'text-xl'} font-black text-emerald-600`}>
                                 Miễn phí
                             </span>
-                        ) : startingPlan?.salePrice !== null && startingPlan?.price > startingPlan?.salePrice ? (
-                            <div className="space-y-1">
-                                <div className="flex items-center gap-2">
-                                    <span className="text-xs text-slate-400 line-through font-bold">
-                                        {course.accessPlansEnabled ? 'Giá gốc ' : ''}{formatPrice(startingPlan.price)}
-                                    </span>
-                                    <span className="inline-flex items-center rounded-md bg-[#F85149] px-2 py-0.5 text-[11px] sm:text-xs font-black text-white shadow-sm">
-                                        GIẢM {Math.round(((startingPlan.price - startingPlan.salePrice) / startingPlan.price) * 100)}%
-                                    </span>
+                        ) : hasDiscount ? (
+                            compact ? (
+                                <div className="min-w-0 rounded-xl border border-red-100 bg-gradient-to-br from-red-50 via-white to-amber-50 p-2">
+                                    <div className="flex min-w-0 items-center justify-between gap-1.5">
+                                        <span className="min-w-0 truncate text-[11px] font-bold text-slate-500 line-through">
+                                            {course.accessPlansEnabled ? 'Giá gốc ' : ''}{formatPrice(startingPlan.price)}
+                                        </span>
+                                        <span className="inline-flex shrink-0 items-center rounded-full bg-[#E5484D] px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-white shadow-sm">
+                                            -{discountPercent}%
+                                        </span>
+                                    </div>
+                                    <div className="mt-1.5 whitespace-nowrap text-[18px] font-black leading-none tracking-tight text-[#8B2E2E] sm:text-[20px]">
+                                        {course.accessPlansEnabled ? 'Từ ' : ''}{formatPrice(startingPrice)}
+                                    </div>
                                 </div>
-                                <div className={`${compact ? 'text-[18px] sm:text-[20px]' : 'text-[20px] md:text-[24px]'} whitespace-nowrap font-black leading-none text-[#8B2E2E]`}>
-                                    {course.accessPlansEnabled ? 'Từ ' : ''}{formatPrice(startingPrice)}
+                            ) : (
+                                <div className="w-full min-w-0 rounded-2xl border border-red-100 bg-gradient-to-br from-red-50 via-white to-amber-50 p-3.5 shadow-sm sm:min-w-[210px]">
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div className="min-w-0">
+                                            <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#9B2528]/70">
+                                                Giá ưu đãi
+                                            </p>
+                                            <div className="mt-1 whitespace-nowrap text-[24px] font-black leading-none tracking-tight text-[#8B2E2E]">
+                                                {course.accessPlansEnabled ? 'Từ ' : ''}{formatPrice(startingPrice)}
+                                            </div>
+                                        </div>
+                                        <span className="inline-flex shrink-0 flex-col items-center rounded-xl bg-[#E5484D] px-3 py-1.5 text-white shadow-md shadow-red-500/15">
+                                            <span className="text-[9px] font-bold uppercase tracking-wide text-red-100">
+                                                Tiết kiệm
+                                            </span>
+                                            <span className="text-sm font-black leading-tight">
+                                                {discountPercent}%
+                                            </span>
+                                        </span>
+                                    </div>
+                                    <div className="mt-3 flex items-center justify-between gap-3 border-t border-red-100/80 pt-2">
+                                        <span className="text-sm font-extrabold text-slate-600">Giá gốc</span>
+                                        <span className="whitespace-nowrap text-sm font-extrabold text-slate-500 line-through decoration-slate-400 decoration-2">
+                                            {formatPrice(startingPlan.price)}
+                                        </span>
+                                    </div>
                                 </div>
-                            </div>
+                            )
                         ) : (
                             <span className={`${compact ? 'text-[18px] sm:text-[20px]' : 'text-[20px] md:text-[24px]'} whitespace-nowrap font-black leading-none text-[#8B2E2E]`}>
                                 {course.accessPlansEnabled ? 'Từ ' : ''}{formatPrice(startingPrice)}
@@ -163,10 +226,10 @@ const CourseCard = ({ course, featured = false, compact = false }) => {
                         )}
                     </div>
 
-                    <div className={`flex shrink-0 flex-col items-stretch gap-2 ${compact ? 'w-full' : ''}`}>
+                    <div className={`flex shrink-0 flex-col items-stretch gap-2 ${compact ? 'w-full' : 'w-full sm:w-auto'}`}>
                         <ActionLink
                             {...actionLinkProps}
-                            className={`inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-[#9B2528] font-black text-white shadow-lg shadow-red-950/10 transition-all hover:bg-[#7E1E21] hover:shadow-xl active:scale-[0.98] ${featured ? 'px-5 py-3.5 text-sm' : compact ? 'w-full px-1.5 py-2.5 text-[10px] sm:px-3 sm:text-xs' : 'px-4 py-2.5 text-[12px] md:px-5 md:text-[13px]'}`}
+                            className={`inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-[#9B2528] font-black text-white shadow-lg shadow-red-950/10 transition-all hover:bg-[#7E1E21] hover:shadow-xl active:scale-[0.98] ${featured ? 'px-5 py-3.5 text-sm' : compact ? 'w-full px-1.5 py-2.5 text-[10px] sm:px-3 sm:text-xs' : 'w-full px-4 py-3 text-[13px] sm:w-auto md:px-5'}`}
                         >
                             <span>
                                 {isLeadCourse

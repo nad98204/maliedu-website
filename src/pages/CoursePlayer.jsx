@@ -954,14 +954,19 @@ const CoursePlayer = () => {
                         <ChevronLeft className="h-5 w-5" />
                         <span className="hidden md:inline">Trang chủ khóa học</span>
                     </Link>
-                    <div className="min-w-0 max-w-[112px] flex-1 md:hidden">
+                    <button
+                        type="button"
+                        onClick={() => setIsSidebarOpen(true)}
+                        className="min-w-0 max-w-[112px] flex-1 rounded-lg px-1 py-1 text-left transition-colors hover:bg-white/10 active:bg-white/15 md:hidden"
+                        aria-label="Mở danh sách bài học"
+                    >
                         <p className="text-[9px] font-semibold leading-tight text-red-100">
                             Bấm nút bên phải để
                         </p>
                         <p className="text-[11px] font-black leading-tight text-white">
                             xem các buổi học khác →
                         </p>
-                    </div>
+                    </button>
                     <div className="hidden h-6 w-px bg-red-400/50 md:block"></div>
                     <h1 className="hidden min-w-0 flex-1 line-clamp-1 text-sm font-bold text-white md:block md:max-w-lg md:text-lg">
                         {currentLesson?.title || course.name}
