@@ -454,15 +454,6 @@ const FormDangKy = ({
     try {
       engageCrm();
       
-      let clientIp = "";
-      try {
-        const ipRes = await fetch("https://api64.ipify.org?format=json");
-        const ipData = await ipRes.json();
-        clientIp = ipData.ip || "";
-      } catch (ipErr) {
-        console.error("IP Fetch error", ipErr);
-      }
-
       let cfg = remoteConfig;
       try {
         cfg = await fetchLandingRemoteConfig();
@@ -593,7 +584,8 @@ const FormDangKy = ({
         sourceUrl: window.location.href,
         landingPageId: cfg.landingPageId || "",
         landingPageSlug: currentPathNormalized,
-        // IDs cho Server-side CAPI matching
+        // Mỗi event dùng chung event_id giữa Browser Pixel và CAPI để khử trùng.
+        // Giữ CompleteRegistration trong giai đoạn chuyển dần các chiến dịch cũ sang Lead.
         meta_event_id: completeRegistrationEventId,
         lead_event_id: leadEventId,
         fbp: fbp || "",
@@ -603,22 +595,30 @@ const FormDangKy = ({
         fbEventValue: 0,
         fbCurrency: "VND",
         userAgent: navigator.userAgent,
-        clientIp: clientIp,
       });
 
       completeRegistrationEventId = crmResponse.registrationEventId || completeRegistrationEventId;
       leadEventId = crmResponse.leadEventId || leadEventId;
-      // Optional tracking must never turn an accepted registration into an error.
-      try {
+
       // --- PHẦN 4: XỬ LÝ HASH DATA CHO FB ---
       const normalizedPhone = formState.phone.replace(/\D/g, "").replace(/^0/, "84");
-      const hashedPhone = normalizedPhone ? await hashData(normalizedPhone) : "";
       const nameParts = formState.name.trim().split(/\s+/).filter(Boolean);
       const firstName = nameParts.length > 0 ? nameParts[nameParts.length - 1] : "";
       const lastName = nameParts.length > 1 ? nameParts.slice(0, -1).join(" ") : "";
-      const hashedFn = firstName ? await hashData(normalizeNameForHash(firstName)) : "";
-      const hashedLn = lastName ? await hashData(normalizeNameForHash(lastName)) : "";
-      const hashedExternalId = crmResponse?.id ? await hashData(String(crmResponse.id)) : "";
+      const safeHash = async (value) => {
+        if (!value) return "";
+        try {
+          return await hashData(value);
+        } catch {
+          return "";
+        }
+      };
+      const [hashedPhone, hashedFn, hashedLn, hashedExternalId] = await Promise.all([
+        safeHash(normalizedPhone),
+        safeHash(firstName ? normalizeNameForHash(firstName) : ""),
+        safeHash(lastName ? normalizeNameForHash(lastName) : ""),
+        safeHash(crmResponse?.id ? String(crmResponse.id) : ""),
+      ]);
 
       const leadEventData = {
         content_name: "Đăng ký Khơi Thông Dòng Tiền",
@@ -632,16 +632,18 @@ const FormDangKy = ({
       };
 
       // --- PHẦN 5: TRACKING ---
-      
-      // 5.1 Browser Pixel
-      if (trackingEnabled && cfg.fbPixel) {
-        initMetaPixel(cfg.fbPixel);
-        setMetaUserData(userDataCommon, cfg.fbPixel);
-        // Chú ý: Ở đây chỉ bắn Lead. CompleteRegistration bắn ở trang Cảm ơn.
-        trackMetaEventForPixel(cfg.fbPixel, "Lead", leadEventData, { eventID: leadEventId });
-      }
 
-      } catch { /* Already saved; continue to the thank-you page. */ }
+      // Browser Lead vẫn phải bắn kể cả khi một trường Advanced Matching hash thất bại.
+      try {
+        if (trackingEnabled && cfg.fbPixel) {
+          initMetaPixel(cfg.fbPixel);
+          if (Object.keys(userDataCommon).length > 0) {
+            setMetaUserData(userDataCommon, cfg.fbPixel);
+          }
+          trackMetaEventForPixel(cfg.fbPixel, "Lead", leadEventData, { eventID: leadEventId });
+        }
+      } catch { /* CRM và CAPI đã nhận lead; tiếp tục sang trang cảm ơn. */ }
+
       toast.success("Đăng ký thành công!");
       setFormState({ name: "", phone: "", referrer: "", otherReferrer: "", hasLearnedLOA: "" });
       setShowAlternateReferrerInput(false);
