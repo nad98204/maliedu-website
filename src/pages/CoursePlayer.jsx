@@ -87,6 +87,7 @@ const CoursePlayer = () => {
     const [bunnyPlaybackUrl, setBunnyPlaybackUrl] = useState(null);
     const [bunnyPlaybackLoading, setBunnyPlaybackLoading] = useState(false);
     const [bunnyPlaybackError, setBunnyPlaybackError] = useState('');
+    const [bunnyPlaybackRetryKey, setBunnyPlaybackRetryKey] = useState(0);
 
     const [playing, setPlaying] = useState(false);
     const [activePlayerTab, setActivePlayerTab] = useState('overview');
@@ -354,6 +355,9 @@ const CoursePlayer = () => {
 
     useEffect(() => {
         let cancelled = false;
+        const controller = typeof AbortController === 'function'
+            ? new AbortController()
+            : null;
 
         if (
             !isVideoLesson ||
@@ -377,6 +381,7 @@ const CoursePlayer = () => {
             lessonId: currentLessonId,
             videoId: currentLesson.videoId,
             user: currentUser,
+            signal: controller?.signal,
         })
             .then((result) => {
                 if (cancelled) return;
@@ -398,8 +403,17 @@ const CoursePlayer = () => {
 
         return () => {
             cancelled = true;
+            controller?.abort();
         };
-    }, [course?.id, currentLesson?.videoId, currentLessonId, currentUser, currentVideoProvider, isVideoLesson]);
+    }, [
+        bunnyPlaybackRetryKey,
+        course?.id,
+        currentLesson?.videoId,
+        currentLessonId,
+        currentUser,
+        currentVideoProvider,
+        isVideoLesson,
+    ]);
 
     useEffect(() => {
         if (
@@ -1078,27 +1092,33 @@ const CoursePlayer = () => {
                                 </div>
                             )}
                             <VideoWrapper
-                            videoUrl={
-                                currentVideoProvider === 'bunny'
-                                    ? bunnyPlaybackUrl
-                                    : currentLesson?.videoId
-                            }
-                            videoProvider={currentVideoProvider}
-                            videoLoading={bunnyPlaybackLoading}
-                            videoError={bunnyPlaybackError}
-                            title={currentLesson?.title}
-                            playing={playing}
-                            setPlaying={setPlaying}
-                            isNotesMode={activePlayerTab === 'notes'}
-                            onEnded={handleVideoEnded}
-                            isCompleted={!!progress[currentLessonId]}
-                            onMarkComplete={handleLessonComplete}
-                            sections={sections}
-                            currentLessonId={currentLessonId}
-                            onLessonSelect={handleLessonSelect}
-                            isPreviewMode={!hasFullAccess}
-                            previewableLessonKeys={previewableLessonKeys}
-                        >
+                                key={`video-wrapper-${currentLessonId}`}
+                                videoUrl={
+                                    currentVideoProvider === 'bunny'
+                                        ? bunnyPlaybackUrl
+                                        : currentLesson?.videoId
+                                }
+                                videoProvider={currentVideoProvider}
+                                videoLoading={bunnyPlaybackLoading}
+                                videoError={bunnyPlaybackError}
+                                onRetryVideo={() => {
+                                    if (currentVideoProvider === 'bunny') {
+                                        setBunnyPlaybackRetryKey((current) => current + 1);
+                                    }
+                                }}
+                                title={currentLesson?.title}
+                                playing={playing}
+                                setPlaying={setPlaying}
+                                isNotesMode={activePlayerTab === 'notes'}
+                                onEnded={handleVideoEnded}
+                                isCompleted={!!progress[currentLessonId]}
+                                onMarkComplete={handleLessonComplete}
+                                sections={sections}
+                                currentLessonId={currentLessonId}
+                                onLessonSelect={handleLessonSelect}
+                                isPreviewMode={!hasFullAccess}
+                                previewableLessonKeys={previewableLessonKeys}
+                            >
                             <div className="px-3 md:px-0 md:pb-20">
                                 {afterVideoContentBlocks.length > 0 && (
                                     <div className="pt-6">

@@ -1,12 +1,108 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import ReactPlayer from 'react-player';
-import { CheckCircle, ChevronDown, Lock, Play, Settings } from 'lucide-react';
+import { CheckCircle, ChevronDown, Lock, Play, RefreshCw, Settings, WifiOff } from 'lucide-react';
+
+const PLAYER_LOAD_TIMEOUT_MS = 20_000;
+
+const parseVideoUrl = (value, selectedQuality) => {
+    if (!value || typeof value !== 'string') return { default: null, qualities: {} };
+
+    const source = value.trim();
+
+    // Handle JSON format: {"720p": "url1", "1080p": "url2"}
+    if (source.startsWith('{')) {
+        try {
+            const qualities = JSON.parse(source);
+            const keys = Object.keys(qualities);
+            return {
+                default: qualities[selectedQuality] || qualities[keys[0]] || null,
+                qualities,
+            };
+        } catch (error) {
+            console.error('Error parsing video qualities JSON:', error);
+        }
+    }
+
+    // Handle comma format: 720p:url1,1080p:url2
+    if (source.includes(':http') && source.includes(',')) {
+        const qualities = {};
+        source.split(',').forEach((part) => {
+            const [label, ...srcParts] = part.split(':');
+            if (label && srcParts.length > 0) {
+                qualities[label.trim()] = srcParts.join(':').trim();
+            }
+        });
+        const keys = Object.keys(qualities);
+        return {
+            default: qualities[selectedQuality] || qualities[keys[0]] || null,
+            qualities,
+        };
+    }
+
+    return { default: source, qualities: {} };
+};
+
+const getPlayableUrl = (value) => {
+    if (!value || typeof value !== 'string') return null;
+    const source = value.trim();
+    if (!source) return null;
+
+    if (source.startsWith('<iframe') && source.includes('src="')) {
+        const match = source.match(/src="([^"]+)"/);
+        if (match?.[1]) return match[1];
+    }
+
+    if (/^[a-zA-Z0-9_-]{11}$/.test(source)) {
+        return `https://www.youtube.com/watch?v=${source}`;
+    }
+
+    if (
+        !source.startsWith('http')
+        && !source.startsWith('//')
+        && source.includes('.')
+        && !source.includes(' ')
+    ) {
+        return `https://${source}`;
+    }
+
+    return source;
+};
+
+const getMediaPathname = (value) => {
+    if (!value) return '';
+    try {
+        const baseOrigin = globalThis.location?.origin || 'https://localhost';
+        return new URL(value, baseOrigin).pathname.toLowerCase();
+    } catch {
+        return String(value).split(/[?#]/)[0].toLowerCase();
+    }
+};
+
+const isDirectVideoFile = (value) => /\.(?:mp4|m4v|webm|ogg|ogv|mov)$/.test(getMediaPathname(value));
+const isHlsStream = (value) => /\.m3u8$/.test(getMediaPathname(value));
+
+const getMediaErrorMessage = (event) => {
+    const mediaError = event?.currentTarget?.error || event?.target?.error;
+    switch (mediaError?.code) {
+        case 1:
+            return 'Video đã bị dừng tải. Vui lòng thử lại.';
+        case 2:
+            return 'Kết nối mạng bị gián đoạn khi tải video.';
+        case 3:
+            return 'Thiết bị không giải mã được video này.';
+        case 4:
+            return 'Định dạng hoặc đường dẫn video không được thiết bị hỗ trợ.';
+        default:
+            return 'Không tải được video. Vui lòng kiểm tra mạng và thử lại.';
+    }
+};
 
 const VideoWrapper = ({
     videoUrl,
     videoProvider = 's3',
     videoLoading = false,
     videoError = '',
+    onRetryVideo,
     title,
     onEnded,
     onDuration,
@@ -25,73 +121,109 @@ const VideoWrapper = ({
     const [isSwitcherOpen, setIsSwitcherOpen] = useState(false);
     const [isQualityOpen, setIsQualityOpen] = useState(false);
     const [selectedQuality, setSelectedQuality] = useState('720p');
+    const [playerAttempt, setPlayerAttempt] = useState(0);
+    const [playerStatus, setPlayerStatus] = useState('loading');
+    const [playerError, setPlayerError] = useState('');
+    const [isOnline, setIsOnline] = useState(() => (
+        typeof navigator === 'undefined' ? true : navigator.onLine
+    ));
 
-    const parseVideoUrl = (url) => {
-        if (!url) return { default: null, qualities: {} };
-        
-        // Handle JSON format: {"720p": "url1", "1080p": "url2"}
-        if (url.trim().startsWith('{')) {
-            try {
-                const qualities = JSON.parse(url);
-                const keys = Object.keys(qualities);
-                return { 
-                    default: qualities[selectedQuality] || qualities[keys[0]], 
-                    qualities 
-                };
-            } catch (e) {
-                console.error('Error parsing video qualities JSON:', e);
-            }
-        }
-
-        // Handle Comma format: 720p:url1,1080p:url2
-        if (url.includes(':http') && url.includes(',')) {
-            const parts = url.split(',');
-            const qualities = {};
-            parts.forEach(p => {
-                const [label, ...srcParts] = p.split(':');
-                if (label && srcParts.length > 0) {
-                    qualities[label.trim()] = srcParts.join(':').trim();
-                }
-            });
-            const keys = Object.keys(qualities);
-            return { 
-                default: qualities[selectedQuality] || qualities[keys[0]], 
-                qualities 
-            };
-        }
-
-        return { default: url.trim(), qualities: {} };
-    };
-
-    const videoData = parseVideoUrl(videoUrl);
+    const videoData = useMemo(
+        () => parseVideoUrl(videoUrl, selectedQuality),
+        [selectedQuality, videoUrl],
+    );
     const currentUrl = videoData.qualities[selectedQuality] || videoData.default;
-
-    const getPlayableUrl = (url) => {
-        if (!url) return null;
-        const cleanUrl = url.trim();
-        if (cleanUrl.startsWith('<iframe') && cleanUrl.includes('src="')) {
-            const match = cleanUrl.match(/src="([^"]+)"/);
-            if (match?.[1]) return match[1];
-        }
-        const ytIdRegex = /^[a-zA-Z0-9_-]{11}$/;
-        if (ytIdRegex.test(cleanUrl)) {
-            return `https://www.youtube.com/watch?v=${cleanUrl}`;
-        }
-        if (!cleanUrl.startsWith('http') && !cleanUrl.startsWith('//') && cleanUrl.includes('.') && !cleanUrl.includes(' ')) {
-            return `https://${cleanUrl}`;
-        }
-        return cleanUrl;
-    };
-
-    const isVideoFile = (url) => /\.(mp4|webm|ogg|mov)$/i.test(url);
-    const isHLS = (url) => url.includes('.m3u8');
     const playableUrl = getPlayableUrl(currentUrl);
-    const isFile = playableUrl && isVideoFile(playableUrl);
-    const useHLS = playableUrl && isHLS(playableUrl);
+    const isFile = playableUrl && isDirectVideoFile(playableUrl);
+    const useHLS = playableUrl && isHlsStream(playableUrl);
+    const effectiveError = videoError
+        || playerError
+        || (!isOnline ? 'Thiết bị đang mất kết nối mạng.' : '')
+        || (!videoLoading && !playableUrl ? 'Bài học chưa có đường dẫn video hợp lệ.' : '');
     const activeSections = sections.filter(
         (section) => (section.lessons || []).length > 0
     );
     const previewableLessonKeySet = new Set(previewableLessonKeys);
+
+    const markPlayerReady = useCallback(() => {
+        setPlayerError('');
+        setPlayerStatus('ready');
+    }, []);
+
+    const markPlayerLoading = useCallback(() => {
+        setPlayerStatus('loading');
+    }, []);
+
+    const markPlayerBuffering = useCallback(() => {
+        setPlayerStatus('buffering');
+    }, []);
+
+    const markPlayerFailed = useCallback((message, error) => {
+        if (error) console.error('Video playback error:', error);
+        setPlaying?.(false);
+        setPlayerStatus('error');
+        setPlayerError(message || 'Không tải được video. Vui lòng thử lại.');
+    }, [setPlaying]);
+
+    const handleRetryPlayer = useCallback(() => {
+        setPlaying?.(false);
+        setPlayerError('');
+        setPlayerStatus('loading');
+        setPlayerAttempt((current) => current + 1);
+        onRetryVideo?.();
+    }, [onRetryVideo, setPlaying]);
+
+    useEffect(() => {
+        const handleOnline = () => {
+            setIsOnline(true);
+            handleRetryPlayer();
+        };
+        const handleOffline = () => {
+            setIsOnline(false);
+            markPlayerFailed('Thiết bị đang mất kết nối mạng.');
+        };
+        window.addEventListener('online', handleOnline);
+        window.addEventListener('offline', handleOffline);
+        return () => {
+            window.removeEventListener('online', handleOnline);
+            window.removeEventListener('offline', handleOffline);
+        };
+    }, [handleRetryPlayer, markPlayerFailed]);
+
+    useEffect(() => {
+        if (
+            videoLoading
+            || !playableUrl
+            || !['loading', 'buffering'].includes(playerStatus)
+        ) return undefined;
+        const timerId = window.setTimeout(() => {
+            markPlayerFailed(
+                'Video tải quá lâu. Hãy kiểm tra mạng rồi bấm “Tải lại video”.',
+            );
+        }, PLAYER_LOAD_TIMEOUT_MS);
+        return () => window.clearTimeout(timerId);
+    }, [markPlayerFailed, playableUrl, playerAttempt, playerStatus, videoLoading]);
+
+    useEffect(() => {
+        if (!playableUrl || typeof document === 'undefined') return;
+        try {
+            const origin = new URL(playableUrl, window.location.origin).origin;
+            if (origin === window.location.origin) return;
+            const hasExistingHint = [...document.head.querySelectorAll('link[data-video-preconnect]')]
+                .some((item) => item.dataset.videoPreconnect === origin);
+            if (hasExistingHint) return;
+            const link = document.createElement('link');
+            link.rel = 'preconnect';
+            link.href = origin;
+            link.crossOrigin = 'anonymous';
+            link.dataset.videoPreconnect = origin;
+            document.head.appendChild(link);
+        } catch {
+            // Invalid URLs are handled by the visible player error state.
+        }
+    }, [playableUrl]);
+
+    const playerKey = `${currentLessonId || 'lesson'}-${selectedQuality}-${playerAttempt}-${playableUrl || 'empty'}`;
 
     return (
         <div className="mx-auto w-full max-w-6xl" onContextMenu={(e) => e.preventDefault()}>
@@ -116,14 +248,31 @@ const VideoWrapper = ({
                                     <div className="h-9 w-9 animate-spin rounded-full border-2 border-white/25 border-t-white" />
                                     <p className="text-sm font-bold">Đang chuẩn bị video...</p>
                                 </div>
-                            ) : videoError ? (
+                            ) : effectiveError ? (
                                 <div className="max-w-md px-6 text-center text-white">
-                                    <p className="text-sm font-extrabold">Chưa thể mở bài giảng</p>
-                                    <p className="mt-2 text-xs leading-relaxed text-white/65">{videoError}</p>
+                                    {isOnline ? (
+                                        <RefreshCw className="mx-auto h-8 w-8 text-white/80" />
+                                    ) : (
+                                        <WifiOff className="mx-auto h-8 w-8 text-white/80" />
+                                    )}
+                                    <p className="mt-3 text-sm font-extrabold">
+                                        {isOnline ? 'Chưa thể mở bài giảng' : 'Thiết bị đang mất kết nối mạng'}
+                                    </p>
+                                    <p className="mt-2 text-xs leading-relaxed text-white/65">
+                                        {isOnline ? effectiveError : 'Hãy bật Wi-Fi hoặc dữ liệu di động rồi thử lại.'}
+                                    </p>
+                                    <button
+                                        type="button"
+                                        onClick={handleRetryPlayer}
+                                        className="mt-4 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white px-5 py-2.5 text-sm font-extrabold text-slate-900 transition hover:bg-slate-100 active:scale-[0.98]"
+                                    >
+                                        <RefreshCw className="h-4 w-4" />
+                                        Tải lại video
+                                    </button>
                                 </div>
                             ) : videoProvider === 'bunny' && playableUrl ? (
                                 <iframe
-                                    key={playableUrl}
+                                    key={playerKey}
                                     src={playableUrl}
                                     title={title || 'Bài giảng Bunny Stream'}
                                     className="h-full w-full border-0"
@@ -131,57 +280,98 @@ const VideoWrapper = ({
                                     allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture; fullscreen"
                                     allowFullScreen
                                     referrerPolicy="strict-origin-when-cross-origin"
+                                    onLoad={markPlayerReady}
+                                    onError={(error) => markPlayerFailed(
+                                        'Không kết nối được máy chủ video Bunny. Vui lòng thử lại.',
+                                        error,
+                                    )}
                                 />
                             ) : (isFile && !useHLS) ? (
                                 <video
-                                    key={playableUrl} // Force re-render on URL change
+                                    key={playerKey}
                                     src={playableUrl}
                                     className="h-full w-full object-contain"
                                     controls
                                     playsInline
                                     autoPlay={playing}
-                                    preload="auto"
+                                    preload="metadata"
                                     controlsList="nodownload"
                                     onContextMenu={(e) => e.preventDefault()}
                                     onEnded={onEnded}
                                     onTimeUpdate={(e) => onProgress?.({ playedSeconds: e.target.currentTime })}
-                                    onLoadedMetadata={(e) => onDuration?.(e.target.duration)}
-                                    onPlay={() => setPlaying(true)}
-                                    onPause={() => setPlaying(false)}
-                                    onError={(e) => console.error('Native Video Error:', e)}
+                                    onLoadedMetadata={(e) => {
+                                        onDuration?.(e.target.duration);
+                                        markPlayerReady();
+                                    }}
+                                    onCanPlay={markPlayerReady}
+                                    onLoadStart={markPlayerLoading}
+                                    onWaiting={markPlayerBuffering}
+                                    onStalled={markPlayerBuffering}
+                                    onPlaying={markPlayerReady}
+                                    onPlay={() => setPlaying?.(true)}
+                                    onPause={() => setPlaying?.(false)}
+                                    onError={(event) => markPlayerFailed(getMediaErrorMessage(event), event)}
                                 />
                             ) : (
                                 <ReactPlayer
-                                    url={playableUrl}
+                                    key={playerKey}
+                                    src={playableUrl}
                                     width="100%"
                                     height="100%"
+                                    style={{ width: '100%', height: '100%' }}
                                     playing={playing}
                                     controls
-                                    playsinline
-                                    pip
-                                    stopOnUnmount={false}
-                                    onError={(error) => console.error('ReactPlayer Error:', error)}
+                                    playsInline
+                                    preload="metadata"
+                                    controlsList="nodownload"
+                                    onError={(error) => markPlayerFailed(getMediaErrorMessage(error), error)}
                                     onEnded={onEnded}
-                                    onDuration={onDuration}
-                                    onProgress={onProgress}
-                                    onPlay={() => setPlaying(true)}
-                                    onPause={() => setPlaying(false)}
-                                    config={{ 
-                                        youtube: { playerVars: { showinfo: 1, rel: 0 } },
-                                        file: { 
-                                            forceHLS: useHLS,
-                                            attributes: {
-                                                preload: 'auto',
-                                                controlsList: 'nodownload',
-                                                style: { width: '100%', height: '100%', objectFit: 'contain' }
-                                            }
-                                        }
+                                    onDurationChange={(event) => onDuration?.(event?.currentTarget?.duration)}
+                                    onTimeUpdate={(event) => onProgress?.({
+                                        playedSeconds: event?.currentTarget?.currentTime || 0,
+                                    })}
+                                    onCanPlay={markPlayerReady}
+                                    onLoadStart={markPlayerLoading}
+                                    onWaiting={markPlayerBuffering}
+                                    onStalled={markPlayerBuffering}
+                                    onPlaying={markPlayerReady}
+                                    onPlay={() => setPlaying?.(true)}
+                                    onPause={() => setPlaying?.(false)}
+                                    config={{
+                                        youtube: { rel: 0 },
                                     }}
                                 />
+                            )}
+
+                            {!videoLoading && !effectiveError && playerStatus === 'loading' && (
+                                <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/55 text-white/90">
+                                    <div className="h-9 w-9 animate-spin rounded-full border-2 border-white/25 border-t-white" />
+                                    <p className="text-sm font-bold">Đang tải video...</p>
+                                </div>
+                            )}
+
+                            {!videoLoading && !effectiveError && playerStatus === 'buffering' && (
+                                <div className="pointer-events-none absolute left-3 top-3 inline-flex items-center gap-2 rounded-full bg-black/70 px-3 py-1.5 text-[11px] font-bold text-white shadow-lg">
+                                    <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                                    Mạng chậm, đang tải thêm...
+                                </div>
                             )}
                         </div>
                     </div>
                 </div>
+
+                {!videoLoading && playableUrl && (
+                    <div className="mt-2 flex justify-end px-1">
+                        <button
+                            type="button"
+                            onClick={handleRetryPlayer}
+                            className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-bold text-slate-600 shadow-sm transition hover:border-red-200 hover:text-[#9B2528] active:scale-[0.98]"
+                        >
+                            <RefreshCw className="h-3.5 w-3.5" />
+                            Video không chạy? Tải lại
+                        </button>
+                    </div>
+                )}
                 
                 {/* Quality Selector (if multiple qualities exist) */}
                 {Object.keys(videoData.qualities).length > 0 && (
@@ -204,6 +394,8 @@ const VideoWrapper = ({
                                         <button
                                             key={q}
                                             onClick={() => {
+                                                setPlayerError('');
+                                                setPlayerStatus('loading');
                                                 setSelectedQuality(q);
                                                 setIsQualityOpen(false);
                                             }}

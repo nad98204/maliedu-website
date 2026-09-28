@@ -4,6 +4,26 @@ import { auth } from "../firebase";
 
 const BUNNY_API_BASE = "/api/bunny-stream";
 const MAX_VIDEO_BYTES = 100 * 1024 * 1024 * 1024;
+const REQUEST_TIMEOUT_MS = 15_000;
+const PLAYBACK_RETRY_DELAYS_MS = [0, 900, 2_200];
+const PLAYBACK_CACHE_MIN_TTL_MS = 60_000;
+const playbackCache = new Map();
+
+const wait = (milliseconds) => new Promise((resolve) => {
+  globalThis.setTimeout(resolve, milliseconds);
+});
+
+const createRequestError = (message, status = 0, cause) => {
+  const error = new Error(message);
+  error.status = status;
+  if (cause) error.cause = cause;
+  return error;
+};
+
+const isTransientPlaybackError = (error) => {
+  const status = Number(error?.status) || 0;
+  return status === 0 || status === 408 || status === 429 || status >= 500;
+};
 
 const parseJsonBody = (value) => {
   try {
@@ -16,7 +36,13 @@ const parseJsonBody = (value) => {
 const requestJson = async (
   path,
   payload,
-  { user = auth.currentUser, requireAuth = false, retryAfterRefresh = true } = {},
+  {
+    user = auth.currentUser,
+    requireAuth = false,
+    retryAfterRefresh = true,
+    timeoutMs = REQUEST_TIMEOUT_MS,
+    signal,
+  } = {},
 ) => {
   if (requireAuth && !user) {
     throw new Error("Vui lòng đăng nhập tài khoản quản trị trước khi tải video.");
@@ -25,31 +51,71 @@ const requestJson = async (
   const token = user
     ? await user.getIdToken(!retryAfterRefresh)
     : null;
-  const response = await fetch(`${BUNNY_API_BASE}${path}`, {
-    method: "POST",
-    credentials: "same-origin",
-    headers: {
-      ...(token ? { authorization: `Bearer ${token}` } : {}),
-      "content-type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
+
+  const controller = typeof AbortController === "function"
+    ? new AbortController()
+    : null;
+  const abortFromCaller = () => controller?.abort();
+  if (signal?.aborted) abortFromCaller();
+  signal?.addEventListener?.("abort", abortFromCaller, { once: true });
+  const timeoutId = controller
+    ? globalThis.setTimeout(() => controller.abort(), timeoutMs)
+    : null;
+
+  let response;
+  try {
+    response = await fetch(`${BUNNY_API_BASE}${path}`, {
+      method: "POST",
+      credentials: "same-origin",
+      cache: "no-store",
+      headers: {
+        ...(token ? { authorization: `Bearer ${token}` } : {}),
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(payload),
+      ...(controller ? { signal: controller.signal } : {}),
+    });
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      if (signal?.aborted) {
+        throw createRequestError("Yêu cầu phát video đã được hủy.", 499, error);
+      }
+      throw createRequestError(
+        "Máy chủ video phản hồi quá lâu. Vui lòng thử lại.",
+        408,
+        error,
+      );
+    }
+    throw createRequestError(
+      typeof navigator !== "undefined" && navigator.onLine === false
+        ? "Thiết bị đang mất kết nối mạng."
+        : "Không kết nối được máy chủ video. Vui lòng thử lại.",
+      0,
+      error,
+    );
+  } finally {
+    if (timeoutId) globalThis.clearTimeout(timeoutId);
+    signal?.removeEventListener?.("abort", abortFromCaller);
+  }
 
   if (response.status === 401 && user && retryAfterRefresh) {
     return requestJson(path, payload, {
       user,
       requireAuth,
       retryAfterRefresh: false,
+      timeoutMs,
+      signal,
     });
   }
 
   const bodyText = await response.text();
   const data = parseJsonBody(bodyText);
   if (!response.ok) {
-    throw new Error(
+    throw createRequestError(
       typeof data?.error === "string" && data.error.trim()
         ? data.error.trim()
         : `Bunny Stream request failed (${response.status})`,
+      response.status,
     );
   }
 
@@ -141,14 +207,59 @@ export const uploadVideoToBunny = async (file, onProgress, { moduleKey = 'course
   };
 };
 
-export const getBunnyPlayback = async ({ courseId, lessonId, videoId, user }) => {
+export const getBunnyPlayback = async ({ courseId, lessonId, videoId, user, signal }) => {
   if (!courseId || !lessonId || !videoId) {
     throw new Error("Thiếu thông tin bài học Bunny Stream.");
   }
 
-  return requestJson(
-    "/playback",
-    { courseId, lessonId, videoId },
-    { user, requireAuth: false },
-  );
+  const cacheKey = [user?.uid || "anonymous", courseId, lessonId, videoId].join(":");
+  const cached = playbackCache.get(cacheKey);
+  const cachedExpiresAt = Number(cached?.expires || 0) * 1000;
+  if (
+    cached?.playbackUrl
+    && cachedExpiresAt > Date.now() + PLAYBACK_CACHE_MIN_TTL_MS
+  ) {
+    return cached;
+  }
+  playbackCache.delete(cacheKey);
+
+  let lastError = null;
+
+  for (const delayMs of PLAYBACK_RETRY_DELAYS_MS) {
+    if (signal?.aborted) {
+      throw createRequestError("Yêu cầu phát video đã được hủy.", 499);
+    }
+    if (delayMs > 0) await wait(delayMs);
+    try {
+      const result = await requestJson(
+        "/playback",
+        { courseId, lessonId, videoId },
+        { user, requireAuth: false, signal },
+      );
+      if (result?.playbackUrl && Number(result?.expires) > 0) {
+        playbackCache.set(cacheKey, result);
+      }
+      return result;
+    } catch (error) {
+      lastError = error;
+      if (!isTransientPlaybackError(error)) throw error;
+    }
+  }
+
+  const status = Number(lastError?.status) || 0;
+  if (status === 429) {
+    throw createRequestError(
+      "Có quá nhiều yêu cầu phát video. Vui lòng chờ một chút rồi thử lại.",
+      status,
+      lastError,
+    );
+  }
+  if (status >= 500 || status === 408 || status === 0) {
+    throw createRequestError(
+      "Máy chủ video đang chậm hoặc mất kết nối. Vui lòng bấm tải lại video.",
+      status,
+      lastError,
+    );
+  }
+  throw lastError;
 };
