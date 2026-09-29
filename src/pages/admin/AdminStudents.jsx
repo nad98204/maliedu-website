@@ -56,6 +56,7 @@ const AdminStudents = () => {
     const [courseFilter, setCourseFilter] = useState('all'); // 'all' or courseId
     const [enrollmentSearch, setEnrollmentSearch] = useState('');
     const [enrollmentCourseFilter, setEnrollmentCourseFilter] = useState('all');
+    const [removingEnrollmentId, setRemovingEnrollmentId] = useState(null);
 
     // FORMS
     // 1. Activate Course Form (Modal)
@@ -238,30 +239,35 @@ const AdminStudents = () => {
         }
     };
 
-    const handleDeleteEnrollment = async (id) => {
-        if (!window.confirm("Hủy kích hoạt khóa học này?")) return;
-        try {
-            const enrollment = enrollments.find(e => e.id === id);
-            if (enrollment) {
-                const batch = writeBatch(db);
-                batch.delete(doc(db, 'enrollments', id));
-                batch.delete(
-                    doc(
-                        db,
-                        COURSE_ACCESS_COLLECTION,
-                        getCourseAccessId(enrollment.userId, enrollment.courseId)
-                    )
-                );
-                batch.update(doc(db, 'courses', enrollment.courseId), {
-                    enrollmentCount: increment(-1)
-                });
-                await batch.commit();
-            }
+    const handleDeleteEnrollment = async (enrollment) => {
+        const confirmed = window.confirm(
+            `Hủy khóa học "${enrollment.courseName}" của ${enrollment.userEmail}?\n\nHọc viên sẽ mất quyền truy cập khóa học này ngay lập tức.`
+        );
+        if (!confirmed) return;
 
-            showToast("Đã hủy kích hoạt");
-            setEnrollments(prev => prev.filter(e => e.id !== id));
-        } catch {
-            showToast("Lỗi xóa", "error");
+        setRemovingEnrollmentId(enrollment.id);
+        try {
+            const batch = writeBatch(db);
+            batch.delete(doc(db, 'enrollments', enrollment.id));
+            batch.delete(
+                doc(
+                    db,
+                    COURSE_ACCESS_COLLECTION,
+                    getCourseAccessId(enrollment.userId, enrollment.courseId)
+                )
+            );
+            batch.update(doc(db, 'courses', enrollment.courseId), {
+                enrollmentCount: increment(-1)
+            });
+            await batch.commit();
+
+            showToast(`Đã hủy khóa học: ${enrollment.courseName}`);
+            setEnrollments(prev => prev.filter(e => e.id !== enrollment.id));
+        } catch (error) {
+            console.error("Delete enrollment error:", error);
+            showToast("Không thể hủy khóa học. Vui lòng thử lại.", "error");
+        } finally {
+            setRemovingEnrollmentId(null);
         }
     };
 
@@ -491,21 +497,40 @@ const AdminStudents = () => {
                                                                          </div>
                                                                      );
                                                                      return userEnrollments.map((e) => (
-                                                                         <button
+                                                                         <div
                                                                              key={e.id}
-                                                                             onClick={() => {
-                                                                                 setEnrollmentSearch('');
-                                                                                 setEnrollmentCourseFilter(e.courseId);
-                                                                                 setActiveTab('enrollments');
-                                                                             }}
-                                                                             title="Nhấp để xem chi tiết kích hoạt"
-                                                                             className="group/course flex items-center gap-2 w-full text-left px-3 py-2 rounded-xl bg-indigo-50 border border-indigo-100 hover:bg-indigo-600 hover:border-indigo-600 transition-all"
+                                                                             className="flex items-stretch gap-1.5 w-full"
                                                                          >
-                                                                             <div className="w-6 h-6 rounded-lg bg-white border border-indigo-200 group-hover/course:bg-indigo-500 group-hover/course:border-indigo-400 flex items-center justify-center shrink-0 transition-colors">
-                                                                                 <BookOpen className="w-3 h-3 text-indigo-500 group-hover/course:text-white transition-colors" />
-                                                                             </div>
-                                                                             <span className="text-xs lg:text-[10px] font-bold text-indigo-700 group-hover/course:text-white transition-colors line-clamp-2 lg:whitespace-nowrap">{e.courseName}</span>
-                                                                         </button>
+                                                                             <button
+                                                                                 type="button"
+                                                                                 onClick={() => {
+                                                                                     setEnrollmentSearch('');
+                                                                                     setEnrollmentCourseFilter(e.courseId);
+                                                                                     setActiveTab('enrollments');
+                                                                                 }}
+                                                                                 title="Nhấp để xem chi tiết kích hoạt"
+                                                                                 className="group/course flex flex-1 min-w-0 items-center gap-2 text-left px-3 py-2 rounded-xl bg-indigo-50 border border-indigo-100 hover:bg-indigo-600 hover:border-indigo-600 transition-all"
+                                                                             >
+                                                                                 <div className="w-6 h-6 rounded-lg bg-white border border-indigo-200 group-hover/course:bg-indigo-500 group-hover/course:border-indigo-400 flex items-center justify-center shrink-0 transition-colors">
+                                                                                     <BookOpen className="w-3 h-3 text-indigo-500 group-hover/course:text-white transition-colors" />
+                                                                                 </div>
+                                                                                 <span className="text-xs lg:text-[10px] font-bold text-indigo-700 group-hover/course:text-white transition-colors line-clamp-2 lg:whitespace-nowrap">{e.courseName}</span>
+                                                                             </button>
+                                                                             <button
+                                                                                 type="button"
+                                                                                 onClick={() => handleDeleteEnrollment(e)}
+                                                                                 disabled={removingEnrollmentId === e.id}
+                                                                                 className="flex w-10 shrink-0 items-center justify-center rounded-xl border border-red-200 bg-red-50 text-red-600 transition-all hover:border-red-600 hover:bg-red-600 hover:text-white disabled:cursor-wait disabled:opacity-50"
+                                                                                 title={`Hủy khóa học ${e.courseName}`}
+                                                                                 aria-label={`Hủy khóa học ${e.courseName} của ${u.email}`}
+                                                                             >
+                                                                                 {removingEnrollmentId === e.id ? (
+                                                                                     <div className="h-4 w-4 animate-spin rounded-full border-2 border-red-300 border-t-red-600" />
+                                                                                 ) : (
+                                                                                     <Trash2 className="h-4 w-4" />
+                                                                                 )}
+                                                                             </button>
+                                                                         </div>
                                                                      ));
                                                                  })()}
                                                              </div>
@@ -640,8 +665,19 @@ const AdminStudents = () => {
                                                         </td>
                                                     )}
                                                     <td className="px-4 py-3 text-right">
-                                                        <button onClick={() => handleDeleteEnrollment(e.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Hủy kích hoạt">
-                                                            <Trash2 className="w-4 h-4" />
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleDeleteEnrollment(e)}
+                                                            disabled={removingEnrollmentId === e.id}
+                                                            className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:cursor-wait disabled:opacity-50"
+                                                            title={`Hủy khóa học ${e.courseName}`}
+                                                            aria-label={`Hủy khóa học ${e.courseName} của ${e.userEmail}`}
+                                                        >
+                                                            {removingEnrollmentId === e.id ? (
+                                                                <div className="h-4 w-4 animate-spin rounded-full border-2 border-red-200 border-t-red-600" />
+                                                            ) : (
+                                                                <Trash2 className="w-4 h-4" />
+                                                            )}
                                                         </button>
                                                     </td>
                                                 </tr>

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Sitemap tự động sinh lúc build – 2026-09-24 -->
+<!-- Sitemap tự động sinh lúc build – 2026-09-29 -->
 <!-- Tổng URL: 21 (tĩnh: 18, khóa học: 3, tuyển dụng: 0) -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -87,6 +87,6 @@
   </url>
   <url>
     <loc>https://luathapdan.vn/khoa-hoc/luat-hap-dan</loc>
-    <lastmod>2026-09-24</lastmod>
+    <lastmod>2026-09-28</lastmod>
   </url>
 </urlset>
