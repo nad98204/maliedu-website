@@ -25,7 +25,7 @@ test('missing or failing service binding fails closed without claiming success',
 });
 
 test('only approved intake routes bypass Firebase proxy and wrong methods cannot read public lead data',async()=>{
-  for(const [path,method] of [['/api/crm-leads','POST'],['/api/admin/lead-intake','GET'],['/api/admin/lead-intake/retry','POST']]) {
+  for(const [path,method] of [['/api/crm-leads','POST'],['/api/admin/lead-intake','GET'],['/api/admin/referral-leads','GET'],['/api/admin/lead-intake/retry','POST']]) {
     const response=await onRequest({request:new Request('https://example.test'+path,{method}),next:()=>Response.json({privateService:true})});
     assert.equal((await response.json()).privateService,true);
   }

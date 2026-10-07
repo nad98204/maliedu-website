@@ -69,6 +69,8 @@ export async function retryLead(db, id, actor, now = Date.now()) {
 export function listFilter(params) {
   const clauses = [];
   const values = [];
+  const source = params.get('source');
+  if (source) { clauses.push('source_key = ?'); values.push(source); }
   const status = params.get('sync') || 'all';
   if (status !== 'all') {
     if (!['pending', 'sending', 'synced', 'attention'].includes(status)) fail(400, 'Bộ lọc không hợp lệ.');
@@ -93,7 +95,15 @@ export const publicLead = row => ({
   lastError: row.last_error, crmLeadId: row.sync_status === 'synced' ? row.id : null,
 });
 
-export async function listLeads(db, params) {
+export const referralLead = row => {
+  const payload = JSON.parse(row.payload_json);
+  return { ...publicLead(row), courseId: payload.landingPageId || '',
+    landingPageId: payload.landingPageId || '', courseName: payload.courseName || '',
+    referralCode: payload.referrer || 'cong-ty', sourceUrl: payload.sourceUrl || '',
+    note: payload.note || '', utmSource: payload.cpSource || '', isIntake: true };
+};
+
+export async function listLeads(db, params, mapper = publicLead) {
   const { sql, values, snapshot } = listFilter(params);
   const page = Math.max(0, Math.min(100000, Math.floor(Number(params.get('page')) || 0)));
   const pageSize = Math.max(1, Math.min(100, Math.floor(Number(params.get('limit')) || 20)));
@@ -108,5 +118,5 @@ export async function listLeads(db, params) {
       MIN(CASE WHEN sync_status != 'synced' THEN created_at END) AS oldestPendingAt FROM lead_intake`).first(),
     db.prepare("SELECT * FROM intake_health WHERE id = 'scheduled'").first(),
   ]);
-  return { leads: rows.results.map(publicLead), total: total.count, page, pageSize, snapshot, summary, health };
+  return { leads: rows.results.map(mapper), total: total.count, page, pageSize, snapshot, summary, health };
 }

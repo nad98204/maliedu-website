@@ -271,6 +271,12 @@ service cloud.firestore {
 
     // Cấu hình hiển thị menu cần được đọc công khai để toàn website đồng bộ.
     // Chỉ quản trị viên mới có thể thay đổi tài liệu này.
+    // Public course metadata only; contains no customer or employee details.
+    match /system_settings/referral_course_runs {
+      allow get: if true;
+      allow write: if hasAdminModule('referral-customers');
+    }
+
     match /system_settings/menu_config {
       allow read: if true;
       allow write: if isAdmin();

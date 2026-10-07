@@ -1,6 +1,6 @@
 import { fail, json, parseLead, readJson } from './payload.js';
-import { requireDataAdsAdmin } from './googleAuth.js';
-import { listLeads, persistLead, publicLead, retryLead } from './store.js';
+import { requireDataAdsAdmin, requireModuleAdmin } from './googleAuth.js';
+import { listLeads, persistLead, publicLead, referralLead, retryLead } from './store.js';
 import { sweepPending, syncLead } from './sync.js';
 
 export async function handleRequest(request, env, context) {
@@ -21,6 +21,13 @@ export async function handleRequest(request, env, context) {
     if (path === '/api/admin/lead-intake' && request.method === 'GET') {
       await requireDataAdsAdmin(request, env);
       return json(await listLeads(env.LEAD_DB, new URL(request.url).searchParams));
+    }
+    if (path === '/api/admin/referral-leads' && request.method === 'GET') {
+      await requireModuleAdmin(request, env, 'referral-customers');
+      const params = new URL(request.url).searchParams;
+      params.set('source', 'chinh_phuc_muc_tieu_web');
+      const result = await listLeads(env.LEAD_DB, params, referralLead);
+      return json({ leads: result.leads, total: result.total, snapshot: result.snapshot });
     }
     if (path === '/api/admin/lead-intake/retry' && request.method === 'POST') {
       const user = await requireDataAdsAdmin(request, env);

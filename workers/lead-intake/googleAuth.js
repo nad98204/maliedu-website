@@ -59,7 +59,7 @@ export async function verifyFirebaseToken(token, projectId, fetcher = fetch) {
   } catch (error) { if (error.status) throw error; fail(401, 'Vui lòng đăng nhập lại.'); }
 }
 
-export async function requireDataAdsAdmin(request, env, fetcher = fetch) {
+export async function requireModuleAdmin(request, env, moduleKey, fetcher = fetch) {
   const token = /^Bearer ([A-Za-z0-9._~-]+)$/i.exec(request.headers.get('authorization') || '')?.[1];
   if (!token) fail(401, 'Vui lòng đăng nhập tài khoản quản trị.');
   const projectId = env.WEBSITE_FIREBASE_PROJECT_ID || 'maliedu-web';
@@ -74,7 +74,10 @@ export async function requireDataAdsAdmin(request, env, fetcher = fetch) {
   if (fields.allowedModules) {
     if (!fields.allowedModules.arrayValue) fail(403, 'Bạn chưa có quyền xem Data Ads.');
     const modules = (fields.allowedModules.arrayValue.values || []).map(v => v.stringValue);
-    if (modules.length && !modules.includes('data-ads')) fail(403, 'Bạn chưa có quyền xem Data Ads.');
+    if (modules.length && !modules.includes(moduleKey)) fail(403, 'Bạn chưa có quyền xem dữ liệu này.');
   }
   return user;
 }
+
+export const requireDataAdsAdmin = (request, env, fetcher = fetch) =>
+  requireModuleAdmin(request, env, 'data-ads', fetcher);

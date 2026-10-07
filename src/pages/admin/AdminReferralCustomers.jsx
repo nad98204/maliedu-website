@@ -2,20 +2,19 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   collection,
   doc,
-  getCountFromServer,
   getDocs,
-  limit,
   orderBy,
   query,
   serverTimestamp,
   setDoc,
-  startAfter,
-  updateDoc,
-  where,
+  onSnapshot,
+  runTransaction,
 } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import {
   Check,
+  CircleStop,
+  RefreshCw,
   ChevronLeft,
   ChevronRight,
   ClipboardCopy,
@@ -34,6 +33,8 @@ import { toast } from "react-hot-toast";
 import { auth, db } from "../../firebase";
 import { isSuperAdminEmail } from "../../utils/adminAccess";
 import { normalizeLeadSearchText } from "../../utils/leadSearch";
+import { loadReferralIntake } from '../../services/referralLeadsService';
+import { DEFAULT_REFERRAL_RUNS, REFERRAL_RUNS_DOCUMENT, finishReferralRun, mergeReferralLeads } from '../../utils/referralCourseRuns';
 
 const COURSE_OPTIONS = [
   {
@@ -128,6 +129,7 @@ const getLeadCourseId = (lead = {}) => {
   const slug = String(lead.landingPageSlug || lead.sourceUrl || "").toLowerCase();
   const courseName = normalizeLeadSearchText(lead.courseName || "");
 
+  if (explicitId.startsWith('chinh-phuc-muc-tieu-')) return explicitId;
   const matchedCourse = COURSE_OPTIONS.find(
     (course) =>
       explicitId === course.id ||
@@ -300,6 +302,9 @@ const getStoredReferralCustomerFilters = () => {
     const rawValue = window.localStorage.getItem(REFERRAL_CUSTOMERS_FILTER_STORAGE_KEY);
     const storedValue = rawValue ? JSON.parse(rawValue) : {};
     const validCourseIds = COURSE_OPTIONS.map((course) => course.id);
+    for (const value of [storedValue.courseFilter, storedValue.linkCourseId]) {
+      if (/^chinh-phuc-muc-tieu-\d+$/.test(value || '')) validCourseIds.push(value);
+    }
     const validStatusValues = STATUS_OPTIONS.map((status) => status.value);
     const validDedupeModes = DEDUPE_MODE_OPTIONS.map((option) => option.value);
 
@@ -340,6 +345,20 @@ const getStoredReferralCustomerFilters = () => {
 };
 
 const AdminReferralCustomers = () => {
+  const [runsConfig, setRunsConfig] = useState(DEFAULT_REFERRAL_RUNS);
+  const COURSE_OPTIONS = useMemo(() => [...runsConfig.runs].reverse().map(run => ({
+    ...run, name: run.name + (run.status === 'ended' ? ' — Đã kết thúc' : ''),
+    path: '/dao-tao/chinh-phuc-muc-tieu', sources: ['chinh-phuc-muc-tieu'],
+  })), [runsConfig]);
+  const [dataSources, setDataSources] = useState({ history: [], intake: [] });
+  const allReferralLeads = useMemo(() => mergeReferralLeads(dataSources.history, dataSources.intake, runsConfig), [dataSources, runsConfig]);
+  const [dataError, setDataError] = useState('');
+  const [closingRun, setClosingRun] = useState(null);
+  const [nextRunName, setNextRunName] = useState('Chinh Phục Mục Tiêu — 10–11–12/10/2026');
+  const [isClosingRun, setIsClosingRun] = useState(false);
+  const [closureAgreed, setClosureAgreed] = useState(false);
+  const [nextRunStartsAt, setNextRunStartsAt] = useState('');
+  const [runsLoaded, setRunsLoaded] = useState(false);
   const [storedFilters] = useState(getStoredReferralCustomerFilters);
   const [currentUser, setCurrentUser] = useState(null);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
@@ -360,8 +379,6 @@ const AdminReferralCustomers = () => {
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(storedFilters.searchTerm);
   const [pageSize, setPageSize] = useState(storedFilters.pageSize);
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageCursors, setPageCursors] = useState({ 1: null });
-  const [pageEndCursor, setPageEndCursor] = useState(null);
   const [hasNextPage, setHasNextPage] = useState(false);
   const [leadStats, setLeadStats] = useState({
     total: 0,
@@ -436,7 +453,6 @@ const AdminReferralCustomers = () => {
     const timeout = window.setTimeout(() => {
       setDebouncedSearchTerm(searchTerm);
       setCurrentPage(1);
-      setPageCursors({ 1: null });
     }, 350);
 
     return () => window.clearTimeout(timeout);
@@ -503,12 +519,62 @@ const AdminReferralCustomers = () => {
 
   const filteredLeads = leads;
 
-  const resetPagination = useCallback(() => {
-    setCurrentPage(1);
-    setPageCursors({ 1: null });
-    setPageEndCursor(null);
-    setHasNextPage(false);
-  }, []);
+  const resetPagination = useCallback(() => { setCurrentPage(1); }, []);
+
+  useEffect(() => onSnapshot(doc(db, 'system_settings', REFERRAL_RUNS_DOCUMENT), snapshot => {
+    setRunsConfig(snapshot.exists() ? snapshot.data() : DEFAULT_REFERRAL_RUNS);
+    setRunsLoaded(true);
+  }, () => setDataError('Chưa tải được cấu hình đợt học.')), []);
+
+  const reloadReferralData = useCallback(async () => {
+    if (!currentUser) return;
+    setIsLoadingLeads(true);
+    try {
+      const [history, intake] = await Promise.all([
+        getDocs(query(collection(db, 'leads'), orderBy('createdAt', 'desc'))), loadReferralIntake(),
+      ]);
+      setDataSources({ history: history.docs.map(mapLeadDoc), intake });
+      setDataError('');
+    } catch (error) { setDataError(error.message); }
+    finally { setIsLoadingLeads(false); }
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (!runsLoaded) return;
+    if (!runsConfig.runs.some(run => run.id === linkCourseId)) setLinkCourseId(runsConfig.activeRunId);
+    if (courseFilter !== 'all' && !runsConfig.runs.some(run => run.id === courseFilter)) setCourseFilter(runsConfig.activeRunId);
+  }, [runsLoaded, runsConfig, linkCourseId, courseFilter]);
+
+  useEffect(() => {
+    reloadReferralData();
+    const timer = setInterval(() => { if (document.visibilityState === 'visible') reloadReferralData(); }, 30000);
+    return () => clearInterval(timer);
+  }, [reloadReferralData]);
+
+  const confirmFinishRun = async () => {
+    if (!closingRun || isClosingRun || !closureAgreed) return;
+    setIsClosingRun(true);
+    try {
+      const result = await runTransaction(db, async transaction => {
+        const ref = doc(db, 'system_settings', REFERRAL_RUNS_DOCUMENT);
+        const snapshot = await transaction.get(ref);
+        const config = snapshot.exists() ? snapshot.data() : DEFAULT_REFERRAL_RUNS;
+        const cutoff = new Date(nextRunStartsAt).getTime();
+        if (!Number.isFinite(cutoff) || cutoff > Date.now()) throw new Error('Chọn thời điểm bắt đầu đợt mới từ hiện tại trở về trước.');
+        const next = finishReferralRun(config, closingRun.id, nextRunName, cutoff);
+        transaction.set(ref, next);
+        transaction.set(doc(db, 'system_settings', `referral_run_event-${next.activeRunId}`), {
+          endedRunId: closingRun.id, newRunId: next.activeRunId, cutoff,
+          confirmedAt: serverTimestamp(), confirmedBy: currentUser.email,
+        });
+        return next;
+      });
+      setRunsConfig(result); setCourseFilter(result.activeRunId); setLinkCourseId(result.activeRunId);
+      resetPagination(); setClosingRun(null);
+      toast.success('Đã kết thúc đợt cũ và mở đợt mới. Data cũ được giữ nguyên.');
+    } catch (error) { toast.error(error.message); }
+    finally { setIsClosingRun(false); }
+  };
 
   useEffect(() => {
     if (partnerFilter !== "all" && partners.length > 0 && !partnerByCode.has(partnerFilter)) {
@@ -520,36 +586,22 @@ const AdminReferralCustomers = () => {
   const selectedCourseSources = useMemo(
     () =>
       courseFilter === "all"
-        ? COURSE_OPTIONS.flatMap((course) => course.sources)
+        ? [...new Set(COURSE_OPTIONS.flatMap((course) => course.sources))]
         : COURSE_OPTIONS.find((course) => course.id === courseFilter)?.sources || [],
-    [courseFilter]
+    [courseFilter, COURSE_OPTIONS]
   );
 
-  const countLeads = useCallback(async ({ sources, referralCode, referralCodes, status }) => {
-    const codesToCount = referralCodes?.length
-      ? referralCodes
-      : referralCode
-        ? [referralCode]
-        : [""];
-    const counts = await Promise.all(
-      sources.flatMap((source) =>
-        codesToCount.map(async (code) => {
-          const constraints = [where("source", "==", source)];
-          if (code) constraints.push(where("referralCode", "==", code));
-          if (status) constraints.push(where("status", "==", status));
-          const snapshot = await getCountFromServer(
-            query(collection(db, "leads"), ...constraints)
-          );
-          return snapshot.data().count;
-        })
-      )
-    );
-    return counts.reduce((total, count) => total + count, 0);
-  }, []);
+  const countLeads = useCallback(async ({ sources, referralCode, referralCodes, status, courseId = courseFilter }) => {
+    const codes = referralCodes?.length ? referralCodes : referralCode ? [referralCode] : null;
+    return allReferralLeads.filter(lead => sources.includes(lead.source) &&
+      (courseId === 'all' || lead.courseId === courseId) &&
+      (!codes || codes.includes(lead.referralCode)) && (!status || lead.status === status)).length;
+  }, [allReferralLeads, courseFilter]);
 
   const matchesLeadFilters = useCallback(
     (lead) => {
       if (!selectedCourseSources.includes(lead.source)) return false;
+      if (courseFilter !== 'all' && lead.courseId !== courseFilter) return false;
       if (statusFilter !== "all" && lead.status !== statusFilter) return false;
       if (partnerFilter !== "all") {
         const selectedPartner = partnerByCode.get(partnerFilter);
@@ -575,6 +627,8 @@ const AdminReferralCustomers = () => {
       return haystack.includes(normalizedSearch);
     },
     [
+      courseFilter,
+      COURSE_OPTIONS,
       debouncedSearchTerm,
       partnerByCode,
       partnerFilter,
@@ -583,93 +637,16 @@ const AdminReferralCustomers = () => {
     ]
   );
 
+  const selectedCourseLeads = useMemo(() => allReferralLeads.filter(lead =>
+    selectedCourseSources.includes(lead.source) && (courseFilter === 'all' || lead.courseId === courseFilter)),
+    [allReferralLeads, courseFilter, selectedCourseSources]);
+
   const loadLeadPage = useCallback(async () => {
-    if (!currentUser || selectedCourseSources.length === 0) {
-      setLeads([]);
-      return;
-    }
-
-    setIsLoadingLeads(true);
-    try {
-      if (dedupeMode === "unique_phone") {
-        const snapshot = await getDocs(
-          query(collection(db, "leads"), orderBy("createdAt", "desc"))
-        );
-        const allMatchedLeads = sortLeadsNewestFirst(
-          applyLeadDedupeMode(
-            snapshot.docs
-              .map(mapLeadDoc)
-              .filter((lead) => selectedCourseSources.includes(lead.source)),
-            dedupeMode
-          ).filter(matchesLeadFilters)
-        );
-        const startIndex = (currentPage - 1) * pageSize;
-
-        setLeads(allMatchedLeads.slice(startIndex, startIndex + pageSize));
-        setPageEndCursor(null);
-        setHasNextPage(allMatchedLeads.length > startIndex + pageSize);
-        return;
-      }
-
-      const matchedLeads = [];
-      const scanSize = Math.max(pageSize * 2, 50);
-      let cursor = pageCursors[currentPage] || null;
-      let endCursor = cursor;
-      let nextPageExists = false;
-      let exhausted = false;
-
-      while (!exhausted && !nextPageExists) {
-        const constraints = [];
-        constraints.push(orderBy("createdAt", "desc"));
-        if (cursor) constraints.push(startAfter(cursor));
-        constraints.push(limit(scanSize));
-
-        const snapshot = await getDocs(
-          query(collection(db, "leads"), ...constraints)
-        );
-
-        if (snapshot.empty) {
-          exhausted = true;
-          break;
-        }
-
-        for (const leadDoc of snapshot.docs) {
-          const lead = mapLeadDoc(leadDoc);
-
-          if (matchesLeadFilters(lead)) {
-            if (matchedLeads.length < pageSize) {
-              matchedLeads.push(lead);
-              endCursor = leadDoc;
-            } else {
-              nextPageExists = true;
-              break;
-            }
-          }
-        }
-
-        cursor = snapshot.docs[snapshot.docs.length - 1];
-        if (snapshot.size < scanSize) exhausted = true;
-      }
-
-      setLeads(matchedLeads);
-      setPageEndCursor(endCursor);
-      setHasNextPage(nextPageExists);
-    } catch (error) {
-      console.error("Lỗi tải trang khách hàng:", error);
-      toast.error("Không thể tải trang khách hàng.");
-      setLeads([]);
-    } finally {
-      setIsLoadingLeads(false);
-    }
-  }, [
-    currentPage,
-    currentUser,
-    dedupeMode,
-    matchesLeadFilters,
-    pageCursors,
-    pageSize,
-    selectedCourseSources,
-  ]);
+    const filtered = sortLeadsNewestFirst(applyLeadDedupeMode(selectedCourseLeads, dedupeMode).filter(matchesLeadFilters));
+    const start = (currentPage - 1) * pageSize;
+    setLeads(filtered.slice(start, start + pageSize));
+    setHasNextPage(filtered.length > start + pageSize);
+  }, [currentPage, pageSize, selectedCourseLeads, dedupeMode, matchesLeadFilters]);
 
   useEffect(() => {
     loadLeadPage();
@@ -690,18 +667,8 @@ const AdminReferralCustomers = () => {
     const loadStats = async () => {
       try {
         if (dedupeMode === "unique_phone") {
-          const snapshot = await getDocs(
-            query(collection(db, "leads"), orderBy("createdAt", "desc"))
-          );
-          const dedupedLeads = applyLeadDedupeMode(
-            snapshot.docs
-              .map(mapLeadDoc)
-              .filter((lead) => selectedCourseSources.includes(lead.source)),
-            dedupeMode
-          ).filter((lead) => {
-            if (!selectedPartnerFilter) return true;
-            return leadBelongsToPartner(lead, selectedPartnerFilter);
-          });
+          const dedupedLeads = applyLeadDedupeMode(selectedCourseLeads, dedupeMode).filter(lead =>
+            !selectedPartnerFilter || leadBelongsToPartner(lead, selectedPartnerFilter));
           const contactedStatuses = ["contacted", "interested", "registered"];
 
           if (!isCancelled) {
@@ -743,6 +710,7 @@ const AdminReferralCustomers = () => {
     dedupeMode,
     partnerFilter,
     selectedPartnerFilter,
+    selectedCourseLeads,
     selectedCourseSources,
   ]);
 
@@ -757,8 +725,8 @@ const AdminReferralCustomers = () => {
         partners.map(async (partner) => {
           const referralCodes = getPartnerReferralCodes(partner);
           const [leadCount, registeredCount] = await Promise.all([
-            countLeads({ sources, referralCodes }),
-            countLeads({ sources, referralCodes, status: "registered" }),
+            countLeads({ sources, referralCodes, courseId: linkCourseId }),
+            countLeads({ sources, referralCodes, status: "registered", courseId: linkCourseId }),
           ]);
           return { ...partner, leadCount, registeredCount };
         })
@@ -772,7 +740,7 @@ const AdminReferralCustomers = () => {
     return () => {
       isCancelled = true;
     };
-  }, [activeView, countLeads, isSuperAdmin, linkCourseId, partners]);
+  }, [activeView, countLeads, isSuperAdmin, linkCourseId, partners, COURSE_OPTIONS]);
 
   const getReferralLink = (code, courseId = linkCourseId) => {
     const baseUrl =
@@ -787,8 +755,12 @@ const AdminReferralCustomers = () => {
   };
 
   const copyReferralLink = async (code, courseId = linkCourseId) => {
-    await navigator.clipboard.writeText(getReferralLink(code, courseId));
     const course = COURSE_OPTIONS.find((item) => item.id === courseId);
+    if (course?.status === 'ended') {
+      toast.error('Đợt này đã kết thúc. Chọn đợt đang nhận đăng ký để lấy link.');
+      return;
+    }
+    await navigator.clipboard.writeText(getReferralLink(code, courseId));
     toast.success(`Đã copy link ${course?.name || "khóa học"}.`);
   };
 
@@ -797,16 +769,8 @@ const AdminReferralCustomers = () => {
 
     setIsExportingLeads(true);
     try {
-      const snapshot = await getDocs(
-        query(collection(db, "leads"), orderBy("createdAt", "desc"))
-      );
       const exportLeads = sortLeadsNewestFirst(
-        applyLeadDedupeMode(
-          snapshot.docs
-            .map(mapLeadDoc)
-            .filter((lead) => selectedCourseSources.includes(lead.source)),
-          dedupeMode
-        ).filter(matchesLeadFilters)
+        applyLeadDedupeMode(selectedCourseLeads, dedupeMode).filter(matchesLeadFilters)
       );
 
       if (exportLeads.length === 0) {
@@ -863,6 +827,8 @@ const AdminReferralCustomers = () => {
     }
   }, [
     courseFilter,
+    COURSE_OPTIONS,
+    selectedCourseLeads,
     currentUser,
     dedupeMode,
     isExportingLeads,
@@ -941,74 +907,35 @@ const AdminReferralCustomers = () => {
     }
   };
 
+  const saveLeadPatch = async (leadId, patch) => {
+    const current = allReferralLeads.find(lead => lead.id === leadId);
+    if (!current) return;
+    const base = current.isIntake ? {
+      name: current.name, phone: current.phone, createdAt: current.createdAt,
+      source: current.source, courseId: current.courseId, courseName: current.courseName,
+      referralCode: current.referralCode, sourceUrl: current.sourceUrl,
+      status: current.status, note: current.note || '', utmSource: current.utmSource || '',
+    } : {};
+    const changes = { ...base, ...patch, updatedAt: Date.now(), updatedBy: currentUser?.email || '' };
+    await setDoc(doc(db, 'leads', leadId), changes, { merge: true });
+    setDataSources(existing => {
+      const history = existing.history.filter(lead => lead.id !== leadId);
+      return { ...existing, history: [...history, { ...current, ...changes }] };
+    });
+  };
+
   const handleStatusChange = async (leadId, status) => {
-    const previousStatus = leads.find((lead) => lead.id === leadId)?.status || "new";
-    setLeads((current) =>
-      current.map((lead) => (lead.id === leadId ? { ...lead, status } : lead))
-    );
-    const contactedStatuses = ["contacted", "interested", "registered"];
-    setLeadStats((current) => ({
-      ...current,
-      contacted:
-        current.contacted -
-        (contactedStatuses.includes(previousStatus) ? 1 : 0) +
-        (contactedStatuses.includes(status) ? 1 : 0),
-      registered:
-        current.registered -
-        (previousStatus === "registered" ? 1 : 0) +
-        (status === "registered" ? 1 : 0),
-    }));
-    try {
-      await updateDoc(doc(db, "leads", leadId), {
-        status,
-        updatedAt: Date.now(),
-        updatedBy: currentUser?.email || "",
-      });
-    } catch (error) {
-      console.error("Lỗi cập nhật trạng thái:", error);
-      toast.error("Không thể cập nhật trạng thái.");
-      setLeadStats((current) => ({
-        ...current,
-        contacted:
-          current.contacted -
-          (contactedStatuses.includes(status) ? 1 : 0) +
-          (contactedStatuses.includes(previousStatus) ? 1 : 0),
-        registered:
-          current.registered -
-          (status === "registered" ? 1 : 0) +
-          (previousStatus === "registered" ? 1 : 0),
-      }));
-      await loadLeadPage();
-    }
+    try { await saveLeadPatch(leadId, { status }); }
+    catch { toast.error('Không thể cập nhật trạng thái.'); }
   };
 
   const handleNoteSave = async (leadId, note) => {
-    const currentLead = leads.find((lead) => lead.id === leadId);
-    if (String(currentLead?.note || "") === String(note || "")) return;
-
-    setLeads((current) =>
-      current.map((lead) => (lead.id === leadId ? { ...lead, note } : lead))
-    );
+    if (String(allReferralLeads.find(lead => lead.id === leadId)?.note || '') === String(note || '')) return;
     try {
-      await updateDoc(doc(db, "leads", leadId), {
-        note: String(note || "").trim(),
-        updatedAt: Date.now(),
-        updatedBy: currentUser?.email || "",
-      });
-      toast.success("Đã lưu ghi chú.");
-    } catch (error) {
-      console.error("Lỗi lưu ghi chú:", error);
-      toast.error("Không thể lưu ghi chú.");
-    }
+      await saveLeadPatch(leadId, { note: String(note || '').trim() });
+      toast.success('Đã lưu ghi chú.');
+    } catch { toast.error('Không thể lưu ghi chú.'); }
   };
-
-  if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50">
-        <Loader2 className="h-10 w-10 animate-spin text-secret-wax" />
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-slate-50 p-4 font-sans text-slate-900 md:p-8">
@@ -1055,6 +982,62 @@ const AdminReferralCustomers = () => {
             </div>
           </div>
         </header>
+
+        <section className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
+          <div>
+            <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Đợt đang nhận đăng ký</p>
+            <p className="mt-1 text-lg font-black">{runsConfig.runs.find(run => run.id === runsConfig.activeRunId)?.name}</p>
+            <p className="mt-1 text-sm text-slate-600">Các đợt đã kết thúc vẫn xem được data và xuất Excel qua bộ lọc khóa học.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={reloadReferralData} disabled={isLoadingLeads || isLoading}
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold disabled:opacity-50">
+              <RefreshCw className="h-4 w-4" /> Làm mới data
+            </button>
+            {isSuperAdmin ? <button type="button" disabled={!runsLoaded || isClosingRun}
+              onClick={() => {
+                setClosingRun(runsConfig.runs.find(run => run.id === runsConfig.activeRunId));
+                setClosureAgreed(false);
+                const localNow = new Date(Date.now() - new Date().getTimezoneOffset() * 60000);
+                setNextRunStartsAt(localNow.toISOString().slice(0, 16));
+              }}
+              className="inline-flex items-center gap-2 rounded-xl bg-secret-wax px-4 py-3 text-sm font-black text-white disabled:opacity-50">
+              <CircleStop className="h-4 w-4" /> Kết thúc khóa
+            </button> : null}
+          </div>
+        </section>
+
+        {dataError ? <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+          Chưa tải đủ data: {dataError} Nhấn “Làm mới data” để thử lại.
+        </div> : null}
+
+        {closingRun ? <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
+          <form role="dialog" aria-modal="true" aria-labelledby="finish-course-title"
+            onSubmit={event => { event.preventDefault(); confirmFinishRun(); }}
+            className="max-h-[90vh] w-full max-w-xl space-y-5 overflow-y-auto rounded-3xl bg-white p-6 shadow-xl">
+            <h2 id="finish-course-title" className="text-xl font-black">Xác nhận kết thúc khóa</h2>
+            <p className="text-sm leading-relaxed text-slate-600">Khóa <strong>{closingRun.name}</strong> sẽ chuyển sang “Đã kết thúc”. Data và số khách của từng người được giữ lại để tra cứu và xuất Excel.</p>
+            <label className="block text-sm font-bold">Tên đợt mới
+              <input required maxLength={120} value={nextRunName} onChange={event => setNextRunName(event.target.value)} disabled={isClosingRun}
+                className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-3" />
+            </label>
+            <label className="block text-sm font-bold">Bắt đầu nhận đăng ký đợt mới
+              <input type="datetime-local" required value={nextRunStartsAt} onChange={event => setNextRunStartsAt(event.target.value)} disabled={isClosingRun}
+                className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-3" />
+            </label>
+            <p className="text-sm text-slate-600">Đăng ký trước mốc này thuộc đợt cũ; từ mốc này thuộc đợt mới. Nếu đã chạy đợt mới, chọn đúng ngày bắt đầu để tách cả data đã có. Link giới thiệu của nhân viên tiếp tục dùng cho đợt mới.</p>
+            <label className="flex items-start gap-3 rounded-xl bg-amber-50 p-4 text-sm font-bold text-amber-900">
+              <input type="checkbox" checked={closureAgreed} onChange={event => setClosureAgreed(event.target.checked)} disabled={isClosingRun} className="mt-1" />
+              Tôi đồng ý kết thúc khóa cũ và mở đợt mới theo thông tin trên.
+            </label>
+            <div className="flex justify-end gap-3">
+              <button type="button" disabled={isClosingRun} onClick={() => setClosingRun(null)} className="rounded-xl border border-slate-300 px-4 py-3 font-bold">Hủy</button>
+              <button type="submit" disabled={!closureAgreed || isClosingRun} className="rounded-xl bg-secret-wax px-4 py-3 font-black text-white disabled:opacity-40">
+                {isClosingRun ? 'Đang kết thúc…' : 'Đồng ý kết thúc khóa'}
+              </button>
+            </div>
+          </form>
+        </div> : null}
 
         <>
             <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -1409,18 +1392,7 @@ const AdminReferralCustomers = () => {
                     </span>
                     <button
                       type="button"
-                      onClick={() => {
-                        if (dedupeMode === "unique_phone") {
-                          setCurrentPage((page) => page + 1);
-                          return;
-                        }
-                        if (!pageEndCursor) return;
-                        setPageCursors((current) => ({
-                          ...current,
-                          [currentPage + 1]: pageEndCursor,
-                        }));
-                        setCurrentPage((page) => page + 1);
-                      }}
+                      onClick={() => setCurrentPage(page => page + 1)}
                       disabled={!hasNextPage || isLoadingLeads}
                       className="inline-flex min-h-10 items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 text-sm font-black text-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
                     >
@@ -1552,6 +1524,14 @@ const AdminReferralCustomers = () => {
                             <span className="rounded-xl bg-emerald-50 px-3 py-2 text-sm font-black text-emerald-700">
                               {partner.registeredCount} đăng ký
                             </span>
+                            {COURSE_OPTIONS.find(course => course.id === linkCourseId)?.status === 'ended' ? (
+                              <button type="button" onClick={() => {
+                                setCourseFilter(linkCourseId); setPartnerFilter(partner.code);
+                                setActiveView('customers'); resetPagination();
+                              }} className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-bold">
+                                Xem data đợt cũ
+                              </button>
+                            ) : <>
                             <button
                               type="button"
                               onClick={() => copyReferralLink(partner.code, linkCourseId)}
@@ -1569,6 +1549,7 @@ const AdminReferralCustomers = () => {
                               <ExternalLink className="h-4 w-4" />
                               Mở
                             </a>
+                            </>}
                           </div>
                         </div>
                       </article>

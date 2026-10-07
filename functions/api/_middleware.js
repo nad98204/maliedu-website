@@ -60,6 +60,7 @@ export async function onRequest(context) {
   const cloudflareMethods = {
     "/api/crm-leads": "POST",
     "/api/admin/lead-intake": "GET",
+    "/api/admin/referral-leads": "GET",
     "/api/admin/lead-intake/retry": "POST",
     "/api/bunny-storage/upload": "POST",
   };

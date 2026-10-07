@@ -26,6 +26,9 @@ import SEO from "../../../components/SEO";
 import Footer from "../../../components/Footer";
 import { submitToCRM } from "../../../services/crmService";
 import { normalizeLeadPhoneDigits } from "../../../utils/leadSearch";
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../../../firebase';
+import { DEFAULT_REFERRAL_RUNS, REFERRAL_RUNS_DOCUMENT } from '../../../utils/referralCourseRuns';
 
 const COURSE_IMAGE =
   "https://s3-hn1-api.longvan.vn/video-khoa-hoc/files/1782120213116-146839060-Chinh-Ph-c-M-c-Ti-u-2026-3-2.jpg";
@@ -492,16 +495,21 @@ const RegistrationModal = ({ isOpen, onClose }) => {
 
     setIsSubmitting(true);
     try {
+      const runsDoc = await getDoc(doc(db, 'system_settings', REFERRAL_RUNS_DOCUMENT));
+      const runsConfig = runsDoc.exists() ? runsDoc.data() : DEFAULT_REFERRAL_RUNS;
+      const activeRun = runsConfig.runs.find(run => run.id === runsConfig.activeRunId && run.status === 'active');
+      if (!activeRun) throw new Error('Đợt đăng ký đã kết thúc. Vui lòng tải lại trang.');
       await submitToCRM({
         name,
         phone,
         email: "",
         targetFunnel: "ads",
         source_key: "chinh_phuc_muc_tieu_web",
-        courseName: "Chinh Phục Mục Tiêu",
+        courseName: activeRun.name,
+        batch_id: activeRun.id,
         note: "Đăng ký tư vấn từ landing Chinh Phục Mục Tiêu",
         sourceUrl: window.location.href,
-        landingPageId: "chinh-phuc-muc-tieu",
+        landingPageId: activeRun.id,
         landingPageSlug: window.location.pathname,
         referrer: referralCode,
         referrer_type:

@@ -8,7 +8,7 @@ import { parseLead } from '../workers/lead-intake/payload.js';
 import { persistLead, getLead, claimLead, listLeads, retryLead } from '../workers/lead-intake/store.js';
 import { deliverToCrm, sweepPending, syncLead } from '../workers/lead-intake/sync.js';
 import { handleRequest } from '../workers/lead-intake/index.js';
-import { requireDataAdsAdmin, verifyFirebaseToken } from '../workers/lead-intake/googleAuth.js';
+import { requireDataAdsAdmin, requireModuleAdmin, verifyFirebaseToken } from '../workers/lead-intake/googleAuth.js';
 import { getRegistrationAttempt } from '../src/services/registrationAttempt.js';
 
 const payload = { name: 'Khách kiểm thử', phone: '8497 253 7633', source_key: 'test_ads_k55', course_k: 'K55',
@@ -186,6 +186,10 @@ test('admin token audience, signature and Data Ads module permission are verifie
   const req=new Request('https://example.test/api/admin/lead-intake',{headers:{Authorization:'Bearer '+token}});
   await assert.rejects(()=>requireDataAdsAdmin(req,{},fetcher),{status:403});
   allowed=['data-ads'];assert.equal((await requireDataAdsAdmin(req,{},fetcher)).sub,'admin-test');
+  await assert.rejects(()=>requireModuleAdmin(req,{},'referral-customers',fetcher),{status:403});
+  allowed=['referral-customers'];
+  assert.equal((await requireModuleAdmin(req,{},'referral-customers',fetcher)).sub,'admin-test');
+  await assert.rejects(()=>requireDataAdsAdmin(req,{},fetcher),{status:403});
   await assert.rejects(()=>verifyFirebaseToken(token.slice(0,-10)+'AAAAAAAAAA','maliedu-web',fetcher),{status:401});
   async function invalid(changes) { await assert.rejects(()=>createToken(changes).then(t=>verifyFirebaseToken(t,'maliedu-web',fetcher)),{status:401}); }
   await invalid({aud:'different-project'});await invalid({exp:now-1});
