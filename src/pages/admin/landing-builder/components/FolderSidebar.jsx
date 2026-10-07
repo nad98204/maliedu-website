@@ -6,6 +6,7 @@ import { Folder, ChevronRight, MoreVertical, Trash2, Edit2 } from 'lucide-react'
  */
 const FolderSidebar = ({ 
   folders = [], 
+  templateCount = 0,
   selectedFolderId, 
   onSelectFolder, 
   onEditFolder, 
@@ -73,7 +74,7 @@ const FolderSidebar = ({
           <div className="flex-1 text-left">
             <div className="text-sm font-semibold">Tất cả Templates</div>
             <div className="text-xs opacity-75">
-              {folders.reduce((sum, f) => sum + (f.templateCount || 0), 0)} templates
+              {templateCount} templates
             </div>
           </div>
           <ChevronRight size={16} className={selectedFolderId === null ? 'opacity-100' : 'opacity-0'} />

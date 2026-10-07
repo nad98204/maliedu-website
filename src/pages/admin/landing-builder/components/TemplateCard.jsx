@@ -20,7 +20,7 @@ const TemplateCard = ({ template, config, onPreview, onCreate, onDelete, onMoveT
       {/* Thumbnail */}
       <div className="h-48 bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center relative overflow-hidden">
         {config?.thumbnail ? (
-          <img src={config.thumbnail} alt={config.name} className="w-full h-full object-cover" />
+          <img src={config.thumbnail} alt={config.name} className={`w-full h-full ${config.thumbnailFit === 'contain' ? 'object-contain p-4' : 'object-cover'}`} />
         ) : (
           <div className="text-center">
             <Sparkles size={48} className="text-indigo-400 mx-auto mb-2" />

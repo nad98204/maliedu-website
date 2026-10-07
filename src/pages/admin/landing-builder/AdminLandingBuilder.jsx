@@ -10,7 +10,7 @@ import exampleConfig from "../../../landing-templates/example-template/config.js
 import thienGiaoThuaConfig from "../../../landing-templates/thien-giao-thua/config.json";
 import khoiThongConfig from "../../../landing-templates/khoi-thong-dong-tien/config.json";
 import khoiThongThuongHieuConfig from "../../../landing-templates/khoi-thong-dong-tien-thuonghieu/config.json";
-import khoiThongPreview from "../../../landing-templates/khoi-thong-dong-tien/preview.png";
+import { HERO_TITLE_WEBP as khoiThongPreview } from "../../../landing-templates/khoi-thong-dong-tien/heroAssets";
 import biMatLuatHapDanConfig from "../../../landing-templates/bi-mat-luat-hap-dan/config.json";
 
 /**
@@ -21,6 +21,19 @@ const AdminLandingBuilder = () => {
     // Load templates trực tiếp khi khởi tạo state
     const [templates, setTemplates] = useState(() => {
         return [
+            {
+                id: 'khoi-thong-dong-tien',
+                component: LandingTemplates.KhoiThongDongTien,
+                config: {
+                    ...khoiThongConfig,
+                    description: 'Landing gốc của khóa Khơi Thông Dòng Tiền — 4 buổi học online miễn phí, đăng ký về phễu ADS.',
+                    thumbnail: khoiThongPreview,
+                    thumbnailFit: 'contain',
+                    slug: '/dao-tao/khoi-thong-dong-tien',
+                    status: 'active',
+                    folderId: null
+                }
+            },
             {
                 id: 'bi-mat-luat-hap-dan',
                 component: LandingTemplates.BiMatLuatHapDan,
@@ -42,25 +55,15 @@ const AdminLandingBuilder = () => {
                 config: {...dongTienThinhVuongTuBanTheConfig, folderId: null}
             },
             {
-                id: 'khoi-thong-dong-tien',
-                component: LandingTemplates.KhoiThongDongTien,
-                config: {
-                    ...khoiThongConfig,
-                    thumbnail: khoiThongPreview,
-                    slug: '/dao-tao/khoi-thong-dong-tien',
-                    status: 'active',
-                    folderId: null
-                }
-            },
-            {
                 id: 'khoi-thong-dong-tien-leader',
-                component: LandingTemplates.KhoiThongDongTien,
+                component: LandingTemplates.KhoiThongDongTienLeader,
                 config: {
                     ...khoiThongConfig,
                     id: 'khoi-thong-dong-tien-leader',
                     name: 'Khơi Thông Dòng Tiền — Leader',
                     description: 'Bản dành riêng cho Leader. Data đổ về funnel/leader thay vì funnel/ads.',
                     thumbnail: khoiThongPreview,
+                    thumbnailFit: 'contain',
                     slug: '/dao-tao/khoi-thong-dong-tien-leader',
                     status: 'active',
                     folderId: null
@@ -71,7 +74,9 @@ const AdminLandingBuilder = () => {
                 component: LandingTemplates.KhoiThongDongTienThuongHieu,
                 config: {
                     ...khoiThongThuongHieuConfig,
+                    name: 'Khơi Thông Dòng Tiền — Thương hiệu',
                     thumbnail: khoiThongPreview,
+                    thumbnailFit: 'contain',
                     slug: '/dao-tao/khoi-thong-dong-tien-thuonghieu',
                     status: 'active',
                     folderId: null
@@ -260,6 +265,7 @@ const AdminLandingBuilder = () => {
             {/* FOLDER SIDEBAR */}
             <FolderSidebar
                 folders={folders}
+                templateCount={templates.length}
                 selectedFolderId={selectedFolderId}
                 onSelectFolder={setSelectedFolderId}
                 onEditFolder={handleEditFolder}
