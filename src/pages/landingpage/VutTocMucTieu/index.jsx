@@ -428,7 +428,7 @@ const CourseSchedule = () => {
   );
 };
 
-const ZALO_GROUP_LINK = "https://zalo.me/g/hx6v1zuwxgvulcnr7b2c"; // Đường dẫn nhóm Zalo học tập
+const ZALO_GROUP_LINK = "https://zalo.me/g/6q8bsvrnamr40yfkjzct"; // Đường dẫn nhóm Zalo học tập
 
 const RegistrationModal = ({ isOpen, onClose }) => {
   const titleId = useId();
