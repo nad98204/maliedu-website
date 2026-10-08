@@ -31,7 +31,7 @@ import { db } from '../../../firebase';
 import { DEFAULT_REFERRAL_RUNS, REFERRAL_RUNS_DOCUMENT } from '../../../utils/referralCourseRuns';
 
 const COURSE_IMAGE =
-  "https://s3-hn1-api.longvan.vn/video-khoa-hoc/files/1782120213116-146839060-Chinh-Ph-c-M-c-Ti-u-2026-3-2.jpg";
+  "https://malieduimages.b-cdn.net/%E1%BA%A2nh/Chinh-Ph%E1%BB%A5c-M%E1%BB%A5c-Ti%C3%AAu-2026-3-2.jpg";
 const HERO_IMAGE = "/assets/landing/chinh-phuc-muc-tieu/hero.png";
 const MODULE_1_IMAGE = "/assets/landing/chinh-phuc-muc-tieu/module1.png";
 const MODULE_2_IMAGE = "/assets/landing/chinh-phuc-muc-tieu/module2.png";
@@ -602,9 +602,6 @@ const RegistrationModal = ({ isOpen, onClose }) => {
               <h2 id={titleId} className="mt-2 text-[28px] font-black leading-tight text-[#242424] sm:text-3xl">
                 Để lại thông tin của bạn
               </h2>
-              <p className="mt-2.5 text-[17px] leading-7 text-[#555] sm:mt-3 sm:text-lg">
-                Mali Edu sẽ gọi điện để tư vấn rõ ràng trước khi bạn quyết định tham gia.
-              </p>
             </div>
 
             <form className="mt-5 space-y-4 sm:mt-7 sm:space-y-5" onSubmit={handleSubmit} noValidate>
