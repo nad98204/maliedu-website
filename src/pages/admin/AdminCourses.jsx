@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router';
 import {
   collection,
   doc,
   getDocs,
+  getDoc,
   orderBy,
   query,
   onSnapshot,
@@ -37,6 +39,7 @@ import {
   TrendingUp,
   MessageSquare,
   ArrowRight,
+  ArrowLeft,
   ChevronDown,
   Copy,
   Pin,
@@ -61,6 +64,7 @@ import AdminCoupons from "./AdminCoupons";
 import AdminInstructors from "./AdminInstructors"; // NEW IMPORT
 import S3VideoUploader from "../../components/S3VideoUploader";
 import { COURSE_VIDEO_PROVIDERS, getCourseVideoValidationError, normalizeCourseVideoProvider } from '../../utils/courseVideo';
+import { isCourseEditorPath } from '../../utils/courseEditorRoute';
 import {
   COURSE_CONTENT_COLLECTION,
   mergeCourseWithContent,
@@ -388,6 +392,15 @@ const fetchAudioDuration = (file) =>
   });
 
 const AdminCourses = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { courseId: editorCourseId } = useParams();
+  const [searchParams] = useSearchParams();
+  const copyCourseId = searchParams.get('copy');
+  const isEditorPage = isCourseEditorPath(location.pathname);
+  const [editorLoading, setEditorLoading] = useState(isEditorPage);
+  const [editorError, setEditorError] = useState('');
+  const [editorLoadAttempt, setEditorLoadAttempt] = useState(0);
   const [courses, setCourses] = useState([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingCourse, setEditingCourse] = useState(null);
@@ -403,7 +416,7 @@ const AdminCourses = () => {
   const [instructorImageProvider, setInstructorImageProvider] = useState("bunny");
   const [toast, setToast] = useState(null);
 
-  const [mainTab, setMainTab] = useState("courses"); // courses, categories, coupons
+  const [mainTab, setMainTab] = useState(location.state?.courseListTab || "courses");
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("info");
   const [expandedLessons, setExpandedLessons] = useState({}); // Key: `${sIdx}-${lIdx}`, Value: boolean
@@ -743,8 +756,8 @@ const AdminCourses = () => {
   }, []);
 
   useEffect(() => {
-    fetchCourses();
-  }, [fetchCourses]);
+    if (!isEditorPage) fetchCourses();
+  }, [fetchCourses, isEditorPage]);
 
   // -- SECTION & LESSON HANDLERS --
   const handleAddSection = (hasTitle = true) => {
@@ -1691,6 +1704,7 @@ const AdminCourses = () => {
       }
     }
     setIsFormOpen(false);
+    navigate('/admin/courses', { state: { courseListTab: location.state?.courseListTab || (editingCourse?.isForSale === false ? 'offline_courses' : 'courses') } });
   };
 
   // Auto-generate slug from name
@@ -1949,7 +1963,11 @@ const AdminCourses = () => {
     }
   };
 
-  const handleAddNew = () => {
+  const handleAddNew = () => navigate('/admin/courses/new', { state: { courseListTab: mainTab } });
+  const handleEdit = (course) => navigate(`/admin/courses/${encodeURIComponent(course.id)}/edit`, { state: { courseListTab: mainTab } });
+  const handleDuplicate = (course) => navigate(`/admin/courses/new?copy=${encodeURIComponent(course.id)}`, { state: { courseListTab: mainTab } });
+
+  const initializeNewCourse = () => {
     const instructorRows = [createInstructorDraft()];
     setExpandedLessons({});
     setExpandedSections({});
@@ -2006,12 +2024,13 @@ const AdminCourses = () => {
     setIsFormOpen(true);
   };
 
-  const handleEdit = async (course) => {
-    setExpandedLessons({});
-    setExpandedSections({});
+  const initializeExistingCourse = async (course, isCurrent) => {
     // Resolve fresh profiles before opening; never overwrite in-progress manual edits.
     const cachedRows = enrichCourseInstructors(course, instructors);
     const latestRows = await loadLatestCourseInstructors({ ...course, instructors: cachedRows });
+    if (!isCurrent()) return;
+    setExpandedLessons({});
+    setExpandedSections({});
     if (latestRows.length) course = syncCourseInstructors({ ...course, instructors: latestRows });
     const instructorRows = getInstructorDrafts(course);
     setExpandedInstructorKey(instructorRows[0]._key);
@@ -2063,7 +2082,7 @@ const AdminCourses = () => {
       isPinned: Boolean(course.isPinned),
       isSpecial: Boolean(course.isSpecial),
       listingPriority: Number(course.listingPriority || 0),
-      freeLessonsCount: course.freeLessonsCount || 3,
+      freeLessonsCount: course.freeLessonsCount ?? 3,
       affiliateCommissionPercent: course.affiliateCommissionPercent != null ? course.affiliateCommissionPercent : "",
 
       // Instructor
@@ -2095,7 +2114,7 @@ const AdminCourses = () => {
     setIsFormOpen(true);
   };
 
-  const handleDuplicate = (course) => {
+  const initializeDuplicateCourse = (course) => {
     const instructorRows = getInstructorDrafts(course);
     setExpandedLessons({});
     setExpandedSections({});
@@ -2160,7 +2179,7 @@ const AdminCourses = () => {
       leadLandingUrl: course.leadLandingUrl || "",
       isPinned: false,
       listingPriority: 0,
-      freeLessonsCount: course.freeLessonsCount || 3,
+      freeLessonsCount: course.freeLessonsCount ?? 3,
       instructorName: course.instructorName || "",
       instructorTitle: course.instructorTitle || "",
       instructorBio: course.instructorBio || "",
@@ -2179,6 +2198,51 @@ const AdminCourses = () => {
     setActiveTab("info");
     setIsFormOpen(true);
   };
+
+  useEffect(() => {
+    if (!isEditorPage) return undefined;
+    let cancelled = false;
+    setIsFormOpen(false);
+    setEditorLoading(true);
+    setEditorError('');
+    const loadEditor = async () => {
+      try {
+        const requestedId = editorCourseId || copyCourseId;
+        if (!requestedId) {
+          initializeNewCourse();
+          return;
+        }
+        const snapshot = await getDoc(doc(db, 'courses', requestedId));
+        if (!snapshot.exists()) throw new Error('Không tìm thấy khóa học này.');
+        const content = await getPrivateCourseContent(db, snapshot.id);
+        if (cancelled) return;
+        const course = mergeCourseWithContent({ id: snapshot.id, ...snapshot.data() }, content);
+        if (editorCourseId) await initializeExistingCourse(course, () => !cancelled);
+        else initializeDuplicateCourse(course);
+      } catch (error) {
+        if (!cancelled) setEditorError(error.message || 'Không thể tải khóa học. Vui lòng thử lại.');
+      } finally {
+        if (!cancelled) setEditorLoading(false);
+      }
+    };
+    loadEditor();
+    return () => { cancelled = true; };
+    // Initialize once per editor URL. Live instructor updates must not replace
+    // a form the administrator is currently editing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEditorPage, editorCourseId, copyCourseId, editorLoadAttempt]);
+
+  useEffect(() => {
+    if (!isEditorPage) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    const previousPadding = document.body.style.paddingBottom;
+    document.body.style.overflow = 'hidden';
+    document.body.style.paddingBottom = '0px';
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.body.style.paddingBottom = previousPadding;
+    };
+  }, [isEditorPage]);
 
   const getNormalizedCourseData = (data) => {
     const normalizedCurriculum = normalizeCurriculumForForm(data.curriculum);
@@ -2436,7 +2500,7 @@ const AdminCourses = () => {
         showToast("Tạo khóa học thành công!");
       }
       setIsFormOpen(false);
-      fetchCourses();
+      navigate('/admin/courses', { state: { courseListTab: location.state?.courseListTab || (formData.isForSale === false ? 'offline_courses' : 'courses') } });
     } catch (error) {
       console.error("Error saving course:", error);
       showToast("Lỗi khi lưu khóa học", "error");
@@ -2589,7 +2653,7 @@ const AdminCourses = () => {
   );
 
   return (
-    <div className="max-w-[1600px] mx-auto px-4 py-8 lg:px-12 lg:py-16 space-y-12">
+    <div className={isEditorPage ? 'h-dvh min-h-0 bg-slate-50' : 'max-w-[1600px] mx-auto px-4 py-8 lg:px-12 lg:py-16 space-y-12'}>
       {/* Toast */}
       {toast && (
         <div
@@ -2606,6 +2670,7 @@ const AdminCourses = () => {
         </div>
       )}
 
+      {!isEditorPage && <>
       {/* Header section */}
       <div className="flex flex-col gap-8 pb-4">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
@@ -3041,31 +3106,45 @@ const AdminCourses = () => {
       {mainTab === "categories" && <AdminCategories hideHeader={true} searchQuery={searchQuery} />}
       {mainTab === "instructors" && <AdminInstructors hideHeader={true} searchQuery={searchQuery} />}
       {mainTab === "coupons" && <AdminCoupons hideHeader={true} searchQuery={searchQuery} />}
+      </>}
 
-      {/* Modal - Sophisticated White Design */}
-      {isFormOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-in fade-in duration-300">
-          <div className="w-full max-w-5xl max-h-[92vh] flex flex-col rounded-[32px] bg-white shadow-2xl shadow-slate-200/50 overflow-hidden ring-1 ring-slate-100 animate-in zoom-in-95 duration-300">
-            {/* Modal Header */}
-            <div className="sticky top-0 z-10 flex items-center justify-between px-10 py-6 bg-white border-b border-slate-50">
-              <div>
-                <h2 className="text-2xl font-black text-slate-900 tracking-tight">
+      {isEditorPage && !isFormOpen && (
+        <div className="flex h-dvh flex-col items-center justify-center gap-5 px-6 text-center">
+          {editorLoading ? <><div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-secret-wax" /><p role="status" className="font-semibold text-slate-600">Đang tải khóa học...</p></> : <>
+            <h1 className="text-xl font-bold text-slate-900">Chưa thể mở trình chỉnh sửa</h1>
+            <p role="alert" className="max-w-lg text-slate-600">{editorError}</p>
+            <div className="flex flex-wrap justify-center gap-3">
+              <button type="button" onClick={() => navigate('/admin/courses')} className="rounded-xl border border-slate-200 bg-white px-5 py-3 font-bold text-slate-700">Quay lại danh sách</button>
+              <button type="button" onClick={() => setEditorLoadAttempt(current => current + 1)} className="rounded-xl bg-secret-wax px-5 py-3 font-bold text-white">Thử lại</button>
+            </div>
+          </>}
+        </div>
+      )}
+
+      {isEditorPage && isFormOpen && (
+        <div data-course-editor className="flex h-dvh min-h-0 flex-col overflow-hidden bg-slate-50">
+          <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
+            {/* Full-page editor header */}
+            <div className="z-10 shrink-0 border-b border-slate-200 bg-white px-4 py-4 sm:px-8">
+              <div className="mx-auto flex w-full max-w-[1600px] items-center gap-3 sm:gap-5">
+              <button type="button" onClick={handleCloseForm} className="flex shrink-0 items-center gap-2 rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-bold text-slate-600 transition hover:bg-slate-50" aria-label="Quay lại danh sách khóa học">
+                <ArrowLeft className="h-5 w-5" /><span className="hidden sm:inline">Danh sách khóa học</span>
+              </button>
+              <div className="min-w-0 flex-1">
+                <h1 className="text-lg font-black text-slate-900 tracking-tight sm:text-2xl">
                   {editingCourse ? "Chỉnh sửa khóa học" : "Thiết lập khóa học mới"}
-                </h2>
-                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-1">
-                  ID: {editingCourse?.id || 'HỆ THỐNG TỰ TẠO'}
+                </h1>
+                <p className="mt-1 truncate text-sm text-slate-500">
+                  {formData.name || 'Nhập thông tin và xây dựng lộ trình bài học'}
                 </p>
               </div>
-              <button
-                onClick={handleCloseForm}
-                className="group p-2.5 rounded-2xl bg-slate-50 text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all active:scale-90"
-              >
-                <X className="h-6 w-6 transition-transform group-hover:rotate-90" />
-              </button>
+              <span className="hidden rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-500 xl:block">ID: {editingCourse?.id || 'Tự tạo khi lưu'}</span>
+              </div>
             </div>
 
             {/* Premium Tabs Section */}
-            <div className="flex px-10 gap-10 bg-white">
+            <div className="shrink-0 border-b border-slate-200 bg-white px-4 sm:px-8">
+            <div className="mx-auto flex w-full max-w-[1600px] gap-5 overflow-x-auto sm:gap-10">
               {[
                 { id: 'info', label: 'Thông tin chung', icon: FileText },
                 { id: 'instructor', label: 'Giảng viên & Chỉ số', icon: Users },
@@ -3074,7 +3153,8 @@ const AdminCourses = () => {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`group relative py-6 flex items-center gap-2.5 text-sm font-bold transition-all ${activeTab === tab.id
+                  type="button"
+                  className={`group relative flex shrink-0 items-center gap-2 py-4 text-sm font-bold transition-all ${activeTab === tab.id
                       ? "text-secret-wax"
                       : "text-slate-400 hover:text-slate-600"
                     }`}
@@ -3087,11 +3167,14 @@ const AdminCourses = () => {
                 </button>
               ))}
             </div>
+            </div>
 
             <form
+              id="course-editor-form"
               onSubmit={handleSubmit}
-              className="p-10 overflow-y-auto flex-1 custom-scrollbar space-y-8 bg-slate-50/30"
+              className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-6 custom-scrollbar sm:px-8"
             >
+              <div className="mx-auto w-full max-w-[1600px] space-y-8">
               {activeTab === "info" ? (
                 <div className="grid gap-10 lg:grid-cols-2">
                   {/* Left Column: Essential Info */}
@@ -5082,21 +5165,23 @@ const AdminCourses = () => {
                   </div>
                 </div>
               )}
+              </div>
             </form>
 
-            {/* Modal Footer */}
-            <div className="p-8 border-t border-slate-100 bg-white flex items-center justify-end gap-4 rounded-b-[40px]">
+            {/* Save actions remain visible while the form scrolls. */}
+            <div className="shrink-0 border-t border-slate-200 bg-white px-4 py-3 sm:px-8" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
+            <div className="mx-auto flex w-full max-w-[1600px] items-center justify-end gap-3">
               <button
                 type="button"
-                onClick={() => setIsFormOpen(false)}
-                className="px-8 py-3.5 rounded-2xl bg-white border border-slate-200 text-sm font-black text-slate-500 hover:bg-slate-50 hover:border-slate-300 transition-all"
+                onClick={handleCloseForm}
+                className="px-5 py-3 rounded-xl bg-white border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all sm:px-8"
               >
-                Hủy bỏ
+                Quay lại
               </button>
               <button
                 type="button"
                 onClick={handleSubmit}
-                className="px-10 py-3.5 rounded-2xl bg-secret-wax text-white text-sm font-black hover:bg-secret-ink transition-all shadow-xl shadow-secret-wax/20 flex items-center gap-2 group"
+                className="px-6 py-3 rounded-xl bg-secret-wax text-white text-sm font-black hover:bg-secret-ink transition-all shadow-lg shadow-secret-wax/10 flex items-center gap-2 group sm:px-10"
                 disabled={isSubmitting}
               >
                 {isSubmitting ? (
@@ -5111,6 +5196,7 @@ const AdminCourses = () => {
                   </>
                 )}
               </button>
+            </div>
             </div>
           </div>
         </div>

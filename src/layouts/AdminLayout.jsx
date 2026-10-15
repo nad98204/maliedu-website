@@ -33,6 +33,7 @@ import {
 import { auth, db } from "../firebase";
 import { hasModuleAccess, isSuperAdminEmail } from "../utils/adminAccess";
 import { MALI_LOGO_URL } from "../constants/brandAssets.js";
+import { isCourseEditorPath } from '../utils/courseEditorRoute';
 
 const AdminLayout = () => {
   const navigate = useNavigate();
@@ -96,6 +97,8 @@ const AdminLayout = () => {
         ? "bg-secret-wax text-white shadow-lg shadow-secret-wax/20 border border-secret-wax/10 scale-[1.02]"
         : "text-slate-500 hover:bg-slate-50 hover:text-secret-wax",
     ].join(" ");
+
+  if (isCourseEditorPath(location.pathname)) return <Outlet />;
 
   return (
     <div className="relative flex min-h-screen flex-col bg-slate-50/50 font-sans transition-all duration-300 lg:h-[calc(100dvh-110px)] lg:min-h-0 lg:flex-row">

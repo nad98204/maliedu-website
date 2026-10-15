@@ -11,6 +11,7 @@ import ScrollToTop from "./components/ScrollToTop";
 import useAffiliateTracker from "./hooks/useAffiliateTracker";
 import RouteStyles from "./styles/RouteStyles";
 import { getPendingGoogleRedirectIntent } from "./utils/googleAuthRedirectState";
+import { isCourseEditorPath } from './utils/courseEditorRoute';
 
 /** Chunk riêng: không cần trên funnel hideChrome hoặc tách Meta khỏi entry (giảm JS đầu tải / “unused”). */
 const Footer = lazy(() => import("./components/Footer"));
@@ -112,7 +113,7 @@ const AppShell = () => {
     "/dao-tao/bi-mat-luat-hap-dan",
     "/mongcoaching",
   ];
-  const hideChrome = hideChromePaths.some((path) =>
+  const hideChrome = isCourseEditorPath(location.pathname) || hideChromePaths.some((path) =>
     location.pathname.startsWith(path)
   );
 
@@ -200,6 +201,8 @@ const AppShell = () => {
               <Route path="dashboard" element={<AdminDashboard />} />
               <Route path="banners" element={<AdminBanners />} />
               <Route path="courses" element={<AdminCourses />} />
+              <Route path="courses/new" element={<AdminCourses />} />
+              <Route path="courses/:courseId/edit" element={<AdminCourses />} />
               <Route path="hypnosis" element={<AdminHypnosis />} />
               <Route path="categories" element={<AdminCategories />} />
               <Route path="orders" element={<AdminOrders />} />
