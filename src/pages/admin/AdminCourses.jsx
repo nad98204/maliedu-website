@@ -60,6 +60,7 @@ import AdminCategories from "./AdminCategories";
 import AdminCoupons from "./AdminCoupons";
 import AdminInstructors from "./AdminInstructors"; // NEW IMPORT
 import S3VideoUploader from "../../components/S3VideoUploader";
+import { COURSE_VIDEO_PROVIDERS, getCourseVideoValidationError, normalizeCourseVideoProvider } from '../../utils/courseVideo';
 import {
   COURSE_CONTENT_COLLECTION,
   mergeCourseWithContent,
@@ -291,7 +292,7 @@ const normalizeCurriculumForForm = (curriculum = []) => {
       isFreePreview: Boolean(lesson.isFreePreview),
       contentType: normalizeLessonContentType(lesson),
       contentOrder: getLessonContentOrder(lesson),
-      videoProvider: lesson.videoProvider === "bunny" ? "bunny" : "s3",
+      videoProvider: normalizeCourseVideoProvider(lesson.videoProvider, lesson.videoId),
       imageProvider: lesson.imageProvider === "bunny" ? "bunny" : "s3",
       audios: getLessonAudios(lesson),
       images: getLessonImages(lesson),
@@ -419,13 +420,17 @@ const AdminCourses = () => {
 
   const getUploadProvider = (taskKey, fallbackProvider = "s3") =>
     uploadProviders[taskKey] ||
-    (fallbackProvider === "bunny" ? "bunny" : "s3");
+    normalizeCourseVideoProvider(fallbackProvider);
 
   const setUploadProvider = (taskKey, provider) => {
     setUploadProviders((current) => ({
       ...current,
-      [taskKey]: provider === "bunny" ? "bunny" : "s3",
+      [taskKey]: normalizeCourseVideoProvider(provider),
     }));
+    if (/^\d+-\d+$/.test(taskKey)) {
+      const [sectionIndex, lessonIndex] = taskKey.split('-').map(Number);
+      handleUpdateLesson(sectionIndex, lessonIndex, 'videoProvider', normalizeCourseVideoProvider(provider));
+    }
   };
 
   const handleStartUpload = async (
@@ -436,6 +441,10 @@ const AdminCourses = () => {
     requestedProvider = "s3",
   ) => {
     if (!file) return;
+    if (requestedProvider === 'youtube') {
+      showToast('Chế độ YouTube chỉ nhận link. Hãy chọn S3 hoặc Bunny để tải tệp.', 'error');
+      return;
+    }
     const taskKey = isNew ? `new-${sIdx}` : `${sIdx}-${lIdx}`;
     const provider = requestedProvider === "bunny" ? "bunny" : "s3";
 
@@ -770,7 +779,7 @@ const AdminCourses = () => {
       audios: getLessonAudios(lesson),
       images: getLessonImages(lesson),
       isFreePreview: false,
-      videoProvider: lesson.videoProvider === "bunny" ? "bunny" : "s3",
+      videoProvider: normalizeCourseVideoProvider(lesson.videoProvider, lesson.videoId),
     };
 
     setFormData((current) => {
@@ -2320,6 +2329,13 @@ const AdminCourses = () => {
       quickDrafts,
       () => createLocalId("lesson"),
     );
+    const invalidQuickVideo = quickDrafts.find(draft => draft.videoId.trim() && getCourseVideoValidationError(draft));
+    if (invalidQuickVideo) {
+      showToast(getCourseVideoValidationError(invalidQuickVideo), 'error');
+      setActiveTab('curriculum');
+      setQuickAddExpanded(current => ({ ...current, [invalidQuickVideo.sectionIndex]: true }));
+      return;
+    }
     if (pendingQuickAdd.incomplete.length > 0) {
       const firstSection = pendingQuickAdd.incomplete[0];
       showToast("Bài học đang nhập chưa có video. Vui lòng chọn video hoặc xóa tên bài trước khi lưu.", "error");
@@ -2330,6 +2346,15 @@ const AdminCourses = () => {
     const formDataToSave = pendingQuickAdd.added.length > 0
       ? { ...formData, curriculum: pendingQuickAdd.curriculum }
       : formData;
+
+    const invalidVideoLesson = (formDataToSave.curriculum || [])
+      .flatMap(section => section.lessons || [])
+      .find(lesson => lessonHasVideo(lesson) && getCourseVideoValidationError(lesson));
+    if (invalidVideoLesson) {
+      showToast(`${invalidVideoLesson.title || 'Bài học'}: ${getCourseVideoValidationError(invalidVideoLesson)}`, 'error');
+      setActiveTab('curriculum');
+      return;
+    }
 
     const instructorRows = formData.instructors || [];
     const invalidInstructor = instructorRows.find((row) => !row.name?.trim());
@@ -4098,6 +4123,12 @@ const AdminCourses = () => {
                                       return;
                                     }
 
+                                    const videoError = getCourseVideoValidationError({ videoId, videoProvider: getUploadProvider(`new-${sIdx}`) });
+                                    if (lessonHasVideo(contentType) && videoError) {
+                                      showToast(videoError, 'error');
+                                      return;
+                                    }
+
                                     handleAddLessonToSection(sIdx, {
                                       title,
                                       contentType,
@@ -4129,10 +4160,7 @@ const AdminCourses = () => {
                                 <div className="mb-2 flex items-center justify-between gap-3">
                                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Nguồn lưu video</label>
                                   <div className="flex rounded-xl border border-slate-200 bg-white p-0.5">
-                                    {[
-                                      { value: "s3", label: "S3 cũ" },
-                                      { value: "bunny", label: "Bunny" },
-                                    ].map((option) => {
+                                    {COURSE_VIDEO_PROVIDERS.map((option) => {
                                       const taskKey = `new-${sIdx}`;
                                       const isActive = getUploadProvider(taskKey) === option.value;
                                       return (
@@ -4155,11 +4183,11 @@ const AdminCourses = () => {
                                 <div className="flex gap-2">
                                   <input
                                     type="text"
-                                    placeholder="ID/Link..."
+                                    placeholder={getUploadProvider(`new-${sIdx}`) === 'youtube' ? 'https://www.youtube.com/watch?v=...' : 'ID/Link...'}
                                     className="flex-1 h-11 rounded-2xl bg-white border border-slate-200 px-4 text-sm font-bold focus:ring-4 focus:ring-secret-wax/5 focus:border-secret-wax outline-none transition-all"
                                     id={`lesson-video-${sIdx}`}
                                   />
-                                  <label className="h-11 w-11 flex items-center justify-center rounded-2xl bg-white border border-slate-200 text-slate-400 hover:text-secret-wax hover:border-secret-wax cursor-pointer transition-all">
+                                  {getUploadProvider(`new-${sIdx}`) !== 'youtube' && <label className="h-11 w-11 flex items-center justify-center rounded-2xl bg-white border border-slate-200 text-slate-400 hover:text-secret-wax hover:border-secret-wax cursor-pointer transition-all">
                                     <input
                                       type="file"
                                       className="hidden"
@@ -4177,8 +4205,11 @@ const AdminCourses = () => {
                                     ) : (
                                       <Upload className="w-4 h-4" />
                                     )}
-                                  </label>
+                                  </label>}
                                 </div>
+                                {getUploadProvider(`new-${sIdx}`) === 'youtube' && (
+                                  <p className="mt-2 text-xs leading-relaxed text-slate-500">Dán link video YouTube và bật “Cho phép nhúng”. Có thể dùng video “Không công khai”; ai có link vẫn xem được. Web hạn chế mở sang YouTube, nhưng không thể giấu tuyệt đối link hoặc logo của YouTube.</p>
+                                )}
                               </div>
                               )}
                               <div className="md:col-span-12">
@@ -4295,10 +4326,7 @@ const AdminCourses = () => {
                                       {lessonHasVideo(lesson) && (
                                       <div className="relative group/vid flex items-center gap-1">
                                         <div className="mr-1 flex rounded-xl border border-slate-200 bg-slate-50 p-0.5">
-                                          {[
-                                            { value: "s3", label: "S3" },
-                                            { value: "bunny", label: "Bunny" },
-                                          ].map((option) => (
+                                          {COURSE_VIDEO_PROVIDERS.map((option) => (
                                             <button
                                               key={option.value}
                                               type="button"
@@ -4310,7 +4338,7 @@ const AdminCourses = () => {
                                                   ? "bg-secret-wax text-white shadow-sm"
                                                   : "text-slate-400 hover:bg-white hover:text-slate-700"
                                               }`}
-                                              title={option.value === "bunny" ? "Lưu và phát bằng Bunny Stream" : "Giữ cách lưu S3 hiện tại"}
+                                              title={option.value === 'youtube' ? 'Nhúng video từ link YouTube' : option.value === "bunny" ? "Lưu và phát bằng Bunny Stream" : "Giữ cách lưu S3 hiện tại"}
                                             >
                                               {option.label}
                                             </button>
@@ -4321,9 +4349,9 @@ const AdminCourses = () => {
                                           value={lesson.videoId}
                                           onChange={(e) => handleUpdateLesson(sIdx, lIdx, "videoId", e.target.value)}
                                           className="w-32 bg-slate-50 rounded-xl px-3 py-1.5 text-[10px] font-bold text-slate-500 border-0 focus:ring-2 focus:ring-secret-wax/20 outline-none"
-                                          placeholder="Video ID"
+                                          placeholder={lessonUploadProvider === 'youtube' ? 'Link YouTube' : 'Video ID'}
                                         />
-                                        <label className="p-2 rounded-xl bg-slate-50 text-slate-400 hover:text-secret-wax hover:bg-white transition-all cursor-pointer">
+                                        {lessonUploadProvider !== 'youtube' && <label className="p-2 rounded-xl bg-slate-50 text-slate-400 hover:text-secret-wax hover:bg-white transition-all cursor-pointer">
                                           <input
                                             type="file"
                                             className="hidden"
@@ -4341,7 +4369,7 @@ const AdminCourses = () => {
                                           ) : (
                                             <Upload className="w-4 h-4" />
                                           )}
-                                        </label>
+                                        </label>}
                                       </div>
                                       )}
                                       <button
@@ -4475,16 +4503,16 @@ const AdminCourses = () => {
                                               >
                                                 <div className="grid gap-4 sm:grid-cols-2">
                                                   <div className="space-y-2">
-                                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Video ID / Link</label>
+                                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">{lessonUploadProvider === 'youtube' ? 'Link video YouTube' : 'Video ID / Link'}</label>
                                                     <div className="flex gap-2">
                                                       <input
                                                         type="text"
                                                         value={lesson.videoId || ""}
                                                         onChange={(event) => handleUpdateLesson(sIdx, lIdx, "videoId", event.target.value)}
                                                         className="h-11 min-w-0 flex-1 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-xs font-bold outline-none focus:border-secret-wax focus:bg-white"
-                                                        placeholder="ID Bunny hoặc link S3..."
+                                                        placeholder={lessonUploadProvider === 'youtube' ? 'https://www.youtube.com/watch?v=...' : 'ID Bunny hoặc link S3...'}
                                                       />
-                                                      <label className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-xl bg-secret-wax text-white transition hover:bg-secret-ink">
+                                                      {lessonUploadProvider !== 'youtube' && <label className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-xl bg-secret-wax text-white transition hover:bg-secret-ink">
                                                         <input
                                                           type="file"
                                                           className="hidden"
@@ -4492,10 +4520,10 @@ const AdminCourses = () => {
                                                           onChange={(event) => handleStartUpload(sIdx, lIdx, event.target.files[0], false, lessonUploadProvider)}
                                                         />
                                                         <Upload className="h-4 w-4" />
-                                                      </label>
+                                                      </label>}
                                                     </div>
                                                     <div className="flex rounded-xl border border-slate-200 bg-slate-50 p-0.5">
-                                                      {[{ value: "s3", label: "S3" }, { value: "bunny", label: "Bunny Stream" }].map((option) => (
+                                                      {COURSE_VIDEO_PROVIDERS.map((option) => (
                                                         <button
                                                           key={option.value}
                                                           type="button"
@@ -4510,6 +4538,9 @@ const AdminCourses = () => {
                                                         </button>
                                                       ))}
                                                     </div>
+                                                    {lessonUploadProvider === 'youtube' && (
+                                                      <p className="text-xs leading-relaxed text-slate-500">Bật “Cho phép nhúng” trên YouTube. Dùng “Không công khai” nếu không muốn video xuất hiện trong tìm kiếm; ai có link vẫn xem được. Không thể giấu tuyệt đối link hoặc logo của YouTube.</p>
+                                                    )}
                                                   </div>
                                                   <div className="space-y-2">
                                                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Thời lượng</label>

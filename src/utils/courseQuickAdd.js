@@ -3,6 +3,7 @@ import {
   LESSON_CONTENT_TYPES,
   normalizeLessonContentType,
 } from "./lessonContent.js";
+import { getCourseVideoValidationError, normalizeCourseVideoProvider } from './courseVideo.js';
 
 const text = (value) => typeof value === "string" ? value.trim() : "";
 
@@ -14,6 +15,7 @@ export const createQuickLesson = (draft = {}, createId = () => "") => {
   const videoId = text(draft.videoId);
   const title = text(draft.title) || (videoId ? "Bài học video" : "");
   if (!title || (contentType === LESSON_CONTENT_TYPES.VIDEO && !videoId)) return null;
+  if (videoId && getCourseVideoValidationError(draft)) return null;
 
   return {
     id: text(draft.id) || createId(),
@@ -25,7 +27,7 @@ export const createQuickLesson = (draft = {}, createId = () => "") => {
       contentType === LESSON_CONTENT_TYPES.MIXED
         ? videoId
         : "",
-    videoProvider: draft.videoProvider === "bunny" ? "bunny" : "s3",
+    videoProvider: normalizeCourseVideoProvider(draft.videoProvider, videoId),
     duration:
       contentType === LESSON_CONTENT_TYPES.VIDEO ||
       contentType === LESSON_CONTENT_TYPES.AUDIO ||

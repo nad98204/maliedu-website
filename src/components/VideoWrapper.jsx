@@ -1,5 +1,7 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactPlayer from 'react-player';
+import YouTubeLessonPlayer from './YouTubeLessonPlayer';
+import { getCourseYouTubeId, normalizeCourseVideoProvider } from '../utils/courseVideo';
 import { CheckCircle, ChevronDown, Lock, Play, RefreshCw, Settings, WifiOff } from 'lucide-react';
 
 const PLAYER_LOAD_TIMEOUT_MS = 20_000;
@@ -124,6 +126,8 @@ const VideoWrapper = ({
     const [playerAttempt, setPlayerAttempt] = useState(0);
     const [playerStatus, setPlayerStatus] = useState('loading');
     const [playerError, setPlayerError] = useState('');
+    const lastPlaybackTime = useRef(0);
+    const pendingResumeTime = useRef(0);
     const [isOnline, setIsOnline] = useState(() => (
         typeof navigator === 'undefined' ? true : navigator.onLine
     ));
@@ -134,10 +138,13 @@ const VideoWrapper = ({
     );
     const currentUrl = videoData.qualities[selectedQuality] || videoData.default;
     const playableUrl = getPlayableUrl(currentUrl);
+    const isYouTube = normalizeCourseVideoProvider(videoProvider, playableUrl) === 'youtube';
+    const youtubeId = isYouTube ? getCourseYouTubeId(playableUrl) : '';
     const isFile = playableUrl && isDirectVideoFile(playableUrl);
     const useHLS = playableUrl && isHlsStream(playableUrl);
     const effectiveError = videoError
         || playerError
+        || (isYouTube && !youtubeId ? 'Link video YouTube không hợp lệ. Vui lòng báo quản trị viên kiểm tra bài học.' : '')
         || (!isOnline ? 'Thiết bị đang mất kết nối mạng.' : '')
         || (!videoLoading && !playableUrl ? 'Bài học chưa có đường dẫn video hợp lệ.' : '');
     const activeSections = sections.filter(
@@ -158,6 +165,24 @@ const VideoWrapper = ({
         setPlayerStatus('buffering');
     }, []);
 
+    const handleMediaTimeUpdate = useCallback((event) => {
+        const media = event?.currentTarget;
+        const currentTime = Number(media?.currentTime);
+        if (Number.isFinite(currentTime) && currentTime !== lastPlaybackTime.current) {
+            lastPlaybackTime.current = currentTime;
+            // A download can stall while buffered video is still playing.
+            // Only the playback clock tells us whether viewing has stopped.
+            markPlayerReady();
+        }
+        onProgress?.({ playedSeconds: Number.isFinite(currentTime) ? currentTime : 0 });
+    }, [markPlayerReady, onProgress]);
+
+    const handleMediaStalled = useCallback((event) => {
+        const media = event?.currentTarget;
+        if (media?.paused || media?.ended || media?.readyState >= 3) return;
+        markPlayerBuffering();
+    }, [markPlayerBuffering]);
+
     const markPlayerFailed = useCallback((message, error) => {
         if (error) console.error('Video playback error:', error);
         setPlaying?.(false);
@@ -166,6 +191,7 @@ const VideoWrapper = ({
     }, [setPlaying]);
 
     const handleRetryPlayer = useCallback(() => {
+        pendingResumeTime.current = lastPlaybackTime.current;
         setPlaying?.(false);
         setPlayerError('');
         setPlayerStatus('loading');
@@ -197,12 +223,12 @@ const VideoWrapper = ({
             || !['loading', 'buffering'].includes(playerStatus)
         ) return undefined;
         const timerId = window.setTimeout(() => {
-            markPlayerFailed(
-                'Video tải quá lâu. Hãy kiểm tra mạng rồi bấm “Tải lại video”.',
-            );
+            // A slow connection is recoverable. Keep the media element mounted:
+            // replacing it with an error screen cancels loading and playback.
+            setPlayerStatus('slow');
         }, PLAYER_LOAD_TIMEOUT_MS);
         return () => window.clearTimeout(timerId);
-    }, [markPlayerFailed, playableUrl, playerAttempt, playerStatus, videoLoading]);
+    }, [playableUrl, playerAttempt, playerStatus, videoLoading]);
 
     useEffect(() => {
         if (!playableUrl || typeof document === 'undefined') return;
@@ -241,7 +267,7 @@ const VideoWrapper = ({
                         Khóa cứng aspectRatio và min-height để trình duyệt 
                         không thể render Video mỏng/xẹp (biến dạng).
                     */}
-                    <div className="relative w-full overflow-hidden rounded-xl bg-black shadow-sm" style={{ aspectRatio: '16/9', minHeight: '180px' }}>
+                    <div className="relative w-full overflow-hidden rounded-xl bg-black shadow-sm" style={{ aspectRatio: '16/9', minHeight: isYouTube ? '200px' : '180px' }}>
                         <div className="absolute inset-0 flex items-center justify-center">
                             {videoLoading ? (
                                 <div className="flex flex-col items-center gap-3 text-white/80">
@@ -270,6 +296,20 @@ const VideoWrapper = ({
                                         Tải lại video
                                     </button>
                                 </div>
+                            ) : isYouTube ? (
+                                <YouTubeLessonPlayer
+                                    key={playerKey}
+                                    videoId={youtubeId}
+                                    title={title}
+                                    playing={playing}
+                                    setPlaying={setPlaying}
+                                    onReady={markPlayerReady}
+                                    onBuffering={markPlayerBuffering}
+                                    onError={markPlayerFailed}
+                                    onEnded={onEnded}
+                                    onDuration={onDuration}
+                                    onTimeUpdate={handleMediaTimeUpdate}
+                                />
                             ) : videoProvider === 'bunny' && playableUrl ? (
                                 <iframe
                                     key={playerKey}
@@ -298,15 +338,20 @@ const VideoWrapper = ({
                                     controlsList="nodownload"
                                     onContextMenu={(e) => e.preventDefault()}
                                     onEnded={onEnded}
-                                    onTimeUpdate={(e) => onProgress?.({ playedSeconds: e.target.currentTime })}
+                                    onTimeUpdate={handleMediaTimeUpdate}
                                     onLoadedMetadata={(e) => {
+                                        const media = e.currentTarget;
+                                        if (pendingResumeTime.current > 0 && Number.isFinite(media.duration)) {
+                                            media.currentTime = Math.min(pendingResumeTime.current, Math.max(0, media.duration - 0.1));
+                                            pendingResumeTime.current = 0;
+                                        }
                                         onDuration?.(e.target.duration);
                                         markPlayerReady();
                                     }}
                                     onCanPlay={markPlayerReady}
                                     onLoadStart={markPlayerLoading}
                                     onWaiting={markPlayerBuffering}
-                                    onStalled={markPlayerBuffering}
+                                    onStalled={handleMediaStalled}
                                     onPlaying={markPlayerReady}
                                     onPlay={() => setPlaying?.(true)}
                                     onPause={() => setPlaying?.(false)}
@@ -327,13 +372,11 @@ const VideoWrapper = ({
                                     onError={(error) => markPlayerFailed(getMediaErrorMessage(error), error)}
                                     onEnded={onEnded}
                                     onDurationChange={(event) => onDuration?.(event?.currentTarget?.duration)}
-                                    onTimeUpdate={(event) => onProgress?.({
-                                        playedSeconds: event?.currentTarget?.currentTime || 0,
-                                    })}
+                                    onTimeUpdate={handleMediaTimeUpdate}
                                     onCanPlay={markPlayerReady}
                                     onLoadStart={markPlayerLoading}
                                     onWaiting={markPlayerBuffering}
-                                    onStalled={markPlayerBuffering}
+                                    onStalled={handleMediaStalled}
                                     onPlaying={markPlayerReady}
                                     onPlay={() => setPlaying?.(true)}
                                     onPause={() => setPlaying?.(false)}
@@ -359,6 +402,12 @@ const VideoWrapper = ({
                         </div>
                     </div>
                 </div>
+
+                {!videoLoading && !effectiveError && playerStatus === 'slow' && (
+                    <div role="status" className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm leading-relaxed text-amber-900">
+                        Video đang tải chậm. Bạn có thể chờ thêm; nếu chưa chạy, hãy bấm “Tải lại video” bên dưới.
+                    </div>
+                )}
 
                 {!videoLoading && playableUrl && (
                     <div className="mt-2 flex justify-end px-1">

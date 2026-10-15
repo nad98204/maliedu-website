@@ -19,6 +19,7 @@ import PlayerTabs from '../components/PlayerTabs';
 import QuickLessonResources from '../components/QuickLessonResources';
 import ArticleLessonViewer from '../components/ArticleLessonViewer';
 import VideoWrapper from '../components/VideoWrapper';
+import { normalizeCourseVideoProvider } from '../utils/courseVideo';
 import styles from './CoursePlayer.module.css';
 import {
     getLessonKey,
@@ -351,7 +352,7 @@ const CoursePlayer = () => {
     const afterVideoContentBlocks = videoBlockIndex >= 0
         ? currentLessonContentOrder.slice(videoBlockIndex + 1)
         : currentLessonContentOrder.filter((blockKey) => blockKey !== LESSON_BLOCK_KEYS.VIDEO);
-    const currentVideoProvider = currentLesson?.videoProvider === 'bunny' ? 'bunny' : 's3';
+    const currentVideoProvider = normalizeCourseVideoProvider(currentLesson?.videoProvider, currentLesson?.videoId);
 
     useEffect(() => {
         let cancelled = false;
