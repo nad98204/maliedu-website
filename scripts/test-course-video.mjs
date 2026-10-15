@@ -4,12 +4,15 @@ import { createServer } from 'vite';
 import react from '@vitejs/plugin-react';
 import puppeteer from 'puppeteer';
 import { execFileSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 // Exercise the real component while keeping media requests local and pending.
 // Accelerate only its 20-second watchdog, not React or browser timers.
-test('course video survives delayed data and stalled events', { timeout: 60000 }, async t => {
+test('course video survives delayed data and stalled events', { timeout: 120000 }, async t => {
   const server = await createServer({
     configFile: false,
+    cacheDir: 'node_modules/.vite-test-course-video',
     plugins: [react(), {
       name: 'course-video-regression',
       enforce: 'pre',
@@ -27,13 +30,16 @@ test('course video survives delayed data and stalled events', { timeout: 60000 }
           import React from 'react';
           import { createRoot } from 'react-dom/client';
           import VideoWrapper from '/src/components/VideoWrapper.jsx';
+          import '/src/index.css';
           function TestPlayer() {
             const [playing, setPlaying] = React.useState(false);
             return React.createElement(VideoWrapper, {
               videoUrl: window.__source || window.location.origin + '/__course_video.mp4',
               videoProvider: window.__provider || 's3', currentLessonId: 'lesson-0-4',
-              title: 'Bài học', playing, setPlaying,
-              onEnded: () => { window.__ended = (window.__ended || 0) + 1; }
+              youtubePlaybackMode: window.__mode,
+              title: 'Nguyên Lý 2', playing, setPlaying,
+              onEnded: () => { window.__ended = (window.__ended || 0) + 1; },
+              onMarkComplete: () => { window.__completed = (window.__completed || 0) + 1; }
             });
           }
           createRoot(document.getElementById('root')).render(React.createElement(React.StrictMode, null, React.createElement(TestPlayer)));
@@ -60,11 +66,12 @@ test('course video survives delayed data and stalled events', { timeout: 60000 }
     await server.listen();
     browser = await puppeteer.launch({ channel: 'chrome', headless: true });
     const origin = `http://127.0.0.1:${server.httpServer.address().port}`;
-    const open = async ({ source = '', provider = 's3' } = {}) => {
+    const open = async ({ source = '', provider = 's3', mode, expectError = false } = {}) => {
       const page = await browser.newPage();
-      await page.evaluateOnNewDocument(({ source, provider }) => {
+      await page.evaluateOnNewDocument(({ source, provider, mode }) => {
         window.__source = source;
         window.__provider = provider;
+        window.__mode = mode;
         if (provider === 'youtube') {
           window.__youtubePlayers = [];
           window.YT = { Player: class {
@@ -85,7 +92,7 @@ test('course video survives delayed data and stalled events', { timeout: 60000 }
         }
         const schedule = window.setTimeout.bind(window);
         window.setTimeout = (callback, ms, ...args) => schedule(callback, ms === 20000 ? 500 : ms, ...args);
-      }, { source, provider });
+      }, { source, provider, mode });
       if (provider === 'youtube') {
         await page.setRequestInterception(true);
         page.on('request', request => {
@@ -96,7 +103,7 @@ test('course video survives delayed data and stalled events', { timeout: 60000 }
         });
       }
       await page.goto(`${origin}/__course_video`, { waitUntil: 'domcontentloaded' });
-      await page.waitForSelector(provider === 'youtube' ? 'iframe' : 'video');
+      await page.waitForSelector(expectError ? 'button' : provider === 'youtube' ? (mode === 'external' ? '[data-youtube-external]' : 'iframe') : 'video');
       return page;
     };
     await t.test('slow initial load keeps the media element available to recover', async () => {
@@ -199,6 +206,42 @@ test('course video survives delayed data and stalled events', { timeout: 60000 }
       const page = await open({ source: 'https://youtu.be/M7lc1UVf-VE', provider: 'youtube' });
       await page.evaluate(() => window.__youtubePlayers.at(-1).events.onError({ data: 150 }));
       await page.waitForFunction(() => document.body.textContent.includes('Cho phép nhúng'));
+      await page.close();
+    });
+    await t.test('external YouTube mode shows a safe link without mounting a player or tracking completion', async () => {
+      const page = await open({ source: 'https://youtu.be/M7lc1UVf-VE?si=share', provider: 'youtube', mode: 'external' });
+      if (process.env.COURSE_VIDEO_SCREENSHOTS) await page.screenshot({ path: join(tmpdir(), 'maliedu-youtube-external-desktop.png') });
+      await page.setViewport({ width: 390, height: 844 });
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), 390);
+      if (process.env.COURSE_VIDEO_SCREENSHOTS) await page.screenshot({ path: join(tmpdir(), 'maliedu-youtube-external-mobile.png') });
+      const link = await page.$eval('[data-youtube-external] a', a => ({ href: a.href, target: a.target, rel: a.rel, text: a.textContent }));
+      assert.equal(link.href, 'https://www.youtube.com/watch?v=M7lc1UVf-VE');
+      assert.equal(link.target, '_blank');
+      assert.ok(link.rel.includes('noopener') && link.rel.includes('noreferrer'));
+      assert.ok(link.text.includes('Xem bài học trên YouTube'));
+      assert.equal(await page.$('iframe'), null);
+      assert.equal(await page.$('video'), null);
+      assert.equal(await page.$('script[data-course-youtube-api]'), null);
+      assert.equal(await page.evaluate(() => window.__youtubePlayers.length), 0);
+      await new Promise(resolve => setTimeout(resolve, 800));
+      assert.equal(await page.evaluate(() => document.body.textContent.includes('Video đang tải chậm')), false);
+      assert.equal(await page.evaluate(() => document.body.textContent.includes('Video không chạy? Tải lại')), false);
+      // Exercise the link without navigating or requesting any real YouTube video.
+      await page.$eval('[data-youtube-external] a', a => a.addEventListener('click', event => { event.preventDefault(); window.__clickedUrl = a.href; }, { once: true }));
+      await page.click('[data-youtube-external] a');
+      assert.equal(await page.evaluate(() => window.__clickedUrl), link.href);
+      assert.ok(page.url().startsWith(origin));
+      assert.equal(await page.evaluate(() => window.__completed || 0), 0);
+      assert.equal(await page.evaluate(() => window.__ended || 0), 0);
+      await page.evaluate(() => [...document.querySelectorAll('button')].find(b => b.textContent.includes('Tôi đã học xong bài này')).click());
+      assert.equal(await page.evaluate(() => window.__completed), 1);
+      await page.close();
+    });
+    await t.test('external mode cannot turn invalid input into a clickable arbitrary URL', async () => {
+      const page = await open({ source: 'javascript:alert(1)', provider: 'youtube', mode: 'external', expectError: true });
+      await page.waitForFunction(() => document.body.textContent.includes('Link video YouTube không hợp lệ'));
+      assert.equal(await page.$('[data-youtube-external] a'), null);
+      assert.equal(await page.$('iframe'), null);
       await page.close();
     });
   } finally {

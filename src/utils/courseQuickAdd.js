@@ -3,7 +3,7 @@ import {
   LESSON_CONTENT_TYPES,
   normalizeLessonContentType,
 } from "./lessonContent.js";
-import { getCourseVideoValidationError, normalizeCourseVideoProvider } from './courseVideo.js';
+import { getCourseVideoValidationError, normalizeCourseVideoProvider, normalizeYouTubePlaybackMode } from './courseVideo.js';
 
 const text = (value) => typeof value === "string" ? value.trim() : "";
 
@@ -28,6 +28,9 @@ export const createQuickLesson = (draft = {}, createId = () => "") => {
         ? videoId
         : "",
     videoProvider: normalizeCourseVideoProvider(draft.videoProvider, videoId),
+    ...(normalizeCourseVideoProvider(draft.videoProvider, videoId) === 'youtube'
+      ? { youtubePlaybackMode: normalizeYouTubePlaybackMode(draft.youtubePlaybackMode) }
+      : {}),
     duration:
       contentType === LESSON_CONTENT_TYPES.VIDEO ||
       contentType === LESSON_CONTENT_TYPES.AUDIO ||

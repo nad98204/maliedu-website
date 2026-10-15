@@ -6,9 +6,21 @@ export const COURSE_VIDEO_PROVIDERS = Object.freeze([
   { value: 'youtube', label: 'Link YouTube' },
 ]);
 
+export const YOUTUBE_PLAYBACK_MODES = Object.freeze([
+  { value: 'embed', label: 'Xem trong trang học' },
+  { value: 'external', label: 'Mở trên YouTube (tab mới)' },
+]);
+
+export const normalizeYouTubePlaybackMode = (mode) => mode === 'external' ? 'external' : 'embed';
+
 export const getCourseYouTubeId = (value) => {
   const source = typeof value === 'string' ? value.trim() : '';
   return /^[A-Za-z0-9_-]{11}$/.test(source) ? source : getYouTubeVideoId(source);
+};
+
+export const getCourseYouTubeWatchUrl = (value) => {
+  const id = getCourseYouTubeId(value);
+  return id ? `https://www.youtube.com/watch?v=${id}` : '';
 };
 
 export const normalizeCourseVideoProvider = (provider, source = '') => {

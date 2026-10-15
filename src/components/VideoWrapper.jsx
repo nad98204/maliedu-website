@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactPlayer from 'react-player';
 import YouTubeLessonPlayer from './YouTubeLessonPlayer';
-import { getCourseYouTubeId, normalizeCourseVideoProvider } from '../utils/courseVideo';
-import { CheckCircle, ChevronDown, Lock, Play, RefreshCw, Settings, WifiOff } from 'lucide-react';
+import { getCourseYouTubeId, getCourseYouTubeWatchUrl, normalizeCourseVideoProvider, normalizeYouTubePlaybackMode } from '../utils/courseVideo';
+import { CheckCircle, ChevronDown, ExternalLink, Lock, Play, RefreshCw, Settings, WifiOff } from 'lucide-react';
 
 const PLAYER_LOAD_TIMEOUT_MS = 20_000;
 
@@ -102,6 +102,7 @@ const getMediaErrorMessage = (event) => {
 const VideoWrapper = ({
     videoUrl,
     videoProvider = 's3',
+    youtubePlaybackMode = 'embed',
     videoLoading = false,
     videoError = '',
     onRetryVideo,
@@ -140,6 +141,8 @@ const VideoWrapper = ({
     const playableUrl = getPlayableUrl(currentUrl);
     const isYouTube = normalizeCourseVideoProvider(videoProvider, playableUrl) === 'youtube';
     const youtubeId = isYouTube ? getCourseYouTubeId(playableUrl) : '';
+    const isExternalYouTube = isYouTube && normalizeYouTubePlaybackMode(youtubePlaybackMode) === 'external';
+    const youtubeWatchUrl = isExternalYouTube ? getCourseYouTubeWatchUrl(playableUrl) : '';
     const isFile = playableUrl && isDirectVideoFile(playableUrl);
     const useHLS = playableUrl && isHlsStream(playableUrl);
     const effectiveError = videoError
@@ -218,7 +221,8 @@ const VideoWrapper = ({
 
     useEffect(() => {
         if (
-            videoLoading
+            isExternalYouTube
+            || videoLoading
             || !playableUrl
             || !['loading', 'buffering'].includes(playerStatus)
         ) return undefined;
@@ -228,10 +232,10 @@ const VideoWrapper = ({
             setPlayerStatus('slow');
         }, PLAYER_LOAD_TIMEOUT_MS);
         return () => window.clearTimeout(timerId);
-    }, [playableUrl, playerAttempt, playerStatus, videoLoading]);
+    }, [isExternalYouTube, playableUrl, playerAttempt, playerStatus, videoLoading]);
 
     useEffect(() => {
-        if (!playableUrl || typeof document === 'undefined') return;
+        if (isExternalYouTube || !playableUrl || typeof document === 'undefined') return;
         try {
             const origin = new URL(playableUrl, window.location.origin).origin;
             if (origin === window.location.origin) return;
@@ -247,7 +251,7 @@ const VideoWrapper = ({
         } catch {
             // Invalid URLs are handled by the visible player error state.
         }
-    }, [playableUrl]);
+    }, [isExternalYouTube, playableUrl]);
 
     const playerKey = `${currentLessonId || 'lesson'}-${selectedQuality}-${playerAttempt}-${playableUrl || 'empty'}`;
 
@@ -259,7 +263,7 @@ const VideoWrapper = ({
                 khi keyboard hiện lên và làm layout viewport thay đổi.
             */}
             <div 
-                className="sticky top-16 z-20 -mx-3 shrink-0 bg-slate-100/90 px-3 pb-2 pt-3 backdrop-blur-md md:static md:m-0 md:bg-transparent md:p-0 md:backdrop-blur-none"
+                className={`${isExternalYouTube ? 'mx-0' : 'sticky top-16 z-20 -mx-3'} shrink-0 bg-slate-100/90 px-3 pb-2 pt-3 backdrop-blur-md md:static md:m-0 md:bg-transparent md:p-0 md:backdrop-blur-none`}
                 style={{ transform: 'translateZ(0)' }}
             >
                 <div className="rounded-[24px] border border-slate-200/60 bg-white p-2 shadow-[0_8px_30px_rgb(0,0,0,0.06)] md:rounded-3xl md:p-3">
@@ -267,8 +271,8 @@ const VideoWrapper = ({
                         Khóa cứng aspectRatio và min-height để trình duyệt 
                         không thể render Video mỏng/xẹp (biến dạng).
                     */}
-                    <div className="relative w-full overflow-hidden rounded-xl bg-black shadow-sm" style={{ aspectRatio: '16/9', minHeight: isYouTube ? '200px' : '180px' }}>
-                        <div className="absolute inset-0 flex items-center justify-center">
+                    <div className={`relative w-full overflow-hidden rounded-xl shadow-sm ${isExternalYouTube && !effectiveError ? 'bg-gradient-to-br from-red-50 via-white to-orange-50' : 'bg-black'}`} style={{ aspectRatio: isExternalYouTube ? undefined : '16/9', minHeight: isExternalYouTube ? '300px' : isYouTube ? '200px' : '180px' }}>
+                        <div className={`${isExternalYouTube ? 'min-h-[300px] py-8' : 'absolute inset-0'} flex items-center justify-center`}>
                             {videoLoading ? (
                                 <div className="flex flex-col items-center gap-3 text-white/80">
                                     <div className="h-9 w-9 animate-spin rounded-full border-2 border-white/25 border-t-white" />
@@ -295,6 +299,25 @@ const VideoWrapper = ({
                                         <RefreshCw className="h-4 w-4" />
                                         Tải lại video
                                     </button>
+                                </div>
+                            ) : isExternalYouTube ? (
+                                <div data-youtube-external className="w-full max-w-lg px-5 text-center sm:px-8">
+                                    <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-red-100 text-[#B91C1C]">
+                                        <Play className="h-7 w-7 fill-current" aria-hidden="true" />
+                                    </div>
+                                    <h3 className="text-lg font-extrabold leading-snug text-slate-900 sm:text-xl">{title || 'Bài giảng video'}</h3>
+                                    <p className="mt-2 text-sm leading-relaxed text-slate-600 sm:text-base">Bài học này mở trên YouTube. Xem xong, bạn quay lại trang này để học tiếp.</p>
+                                    <a
+                                        href={youtubeWatchUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="mt-5 inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#B91C1C] px-6 py-3 text-base font-extrabold text-white shadow-md transition hover:bg-red-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-red-700"
+                                    >
+                                        Xem bài học trên YouTube
+                                        <ExternalLink className="h-5 w-5 shrink-0" aria-hidden="true" />
+                                        <span className="sr-only"> (mở trong tab mới)</span>
+                                    </a>
+                                    <p className="mt-3 text-xs leading-relaxed text-slate-500">Mở trong tab mới, không đóng trang học hiện tại.</p>
                                 </div>
                             ) : isYouTube ? (
                                 <YouTubeLessonPlayer
@@ -386,14 +409,14 @@ const VideoWrapper = ({
                                 />
                             )}
 
-                            {!videoLoading && !effectiveError && playerStatus === 'loading' && (
+                            {!isExternalYouTube && !videoLoading && !effectiveError && playerStatus === 'loading' && (
                                 <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/55 text-white/90">
                                     <div className="h-9 w-9 animate-spin rounded-full border-2 border-white/25 border-t-white" />
                                     <p className="text-sm font-bold">Đang tải video...</p>
                                 </div>
                             )}
 
-                            {!videoLoading && !effectiveError && playerStatus === 'buffering' && (
+                            {!isExternalYouTube && !videoLoading && !effectiveError && playerStatus === 'buffering' && (
                                 <div className="pointer-events-none absolute left-3 top-3 inline-flex items-center gap-2 rounded-full bg-black/70 px-3 py-1.5 text-[11px] font-bold text-white shadow-lg">
                                     <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
                                     Mạng chậm, đang tải thêm...
@@ -403,13 +426,13 @@ const VideoWrapper = ({
                     </div>
                 </div>
 
-                {!videoLoading && !effectiveError && playerStatus === 'slow' && (
+                {!isExternalYouTube && !videoLoading && !effectiveError && playerStatus === 'slow' && (
                     <div role="status" className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm leading-relaxed text-amber-900">
                         Video đang tải chậm. Bạn có thể chờ thêm; nếu chưa chạy, hãy bấm “Tải lại video” bên dưới.
                     </div>
                 )}
 
-                {!videoLoading && playableUrl && (
+                {!isExternalYouTube && !videoLoading && playableUrl && (
                     <div className="mt-2 flex justify-end px-1">
                         <button
                             type="button"
@@ -473,7 +496,7 @@ const VideoWrapper = ({
                                 <div className="min-w-0">
                                     <span className="mb-1 flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-[#B91C1C]">
                                         <span className="h-1.5 w-1.5 rounded-full bg-[#B91C1C] animate-pulse"></span>
-                                        Đang phát bài giảng
+                                        {isExternalYouTube ? 'Bài học trên YouTube' : 'Đang phát bài giảng'}
                                     </span>
                                     <h2 className="text-sm font-bold leading-relaxed text-slate-800">
                                         {title || 'Đang cập nhật bài học'}

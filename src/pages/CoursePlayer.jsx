@@ -1100,6 +1100,7 @@ const CoursePlayer = () => {
                                         : currentLesson?.videoId
                                 }
                                 videoProvider={currentVideoProvider}
+                                youtubePlaybackMode={currentLesson?.youtubePlaybackMode}
                                 videoLoading={bunnyPlaybackLoading}
                                 videoError={bunnyPlaybackError}
                                 onRetryVideo={() => {

@@ -2,7 +2,7 @@ import {
   getLessonContentOrder,
   LESSON_BLOCK_KEYS,
 } from "./lessonContent.js";
-import { normalizeCourseVideoProvider } from './courseVideo.js';
+import { normalizeCourseVideoProvider, normalizeYouTubePlaybackMode } from './courseVideo.js';
 
 export const COURSE_CONTENT_COLLECTION = "course_content";
 export const COURSE_ACCESS_COLLECTION = "course_access";
@@ -91,6 +91,7 @@ const normalizePrivateContent = (courseId, course = {}) => {
             ...lesson,
             id: lessonId,
             videoProvider: normalizeCourseVideoProvider(lesson?.videoProvider, lesson?.videoId),
+            youtubePlaybackMode: normalizeYouTubePlaybackMode(lesson?.youtubePlaybackMode),
             contentType: normalizeLessonContentType(lesson),
             contentOrder: getLessonContentOrder(lesson),
             images: Array.isArray(lesson?.images)
@@ -170,6 +171,9 @@ export const buildPublicCurriculum = (course, normalizedCurriculum) => {
         if (contentOrder.includes(LESSON_BLOCK_KEYS.VIDEO) && lesson.videoId) {
           publicLesson.videoId = lesson.videoId;
           publicLesson.videoProvider = normalizeCourseVideoProvider(lesson.videoProvider, lesson.videoId);
+          if (publicLesson.videoProvider === 'youtube') {
+            publicLesson.youtubePlaybackMode = normalizeYouTubePlaybackMode(lesson.youtubePlaybackMode);
+          }
         }
 
         if (

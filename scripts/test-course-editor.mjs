@@ -80,7 +80,7 @@ const plugin = {
 };
 
 test('full-page course editor navigation and responsive layout', { timeout: 120000 }, async t => {
-  const server = await createServer({ configFile: false, plugins: [plugin, react()], server: { host: '127.0.0.1', port: 0 }, logLevel: 'error' });
+  const server = await createServer({ configFile: false, cacheDir: 'node_modules/.vite-test-course-editor', plugins: [plugin, react()], server: { host: '127.0.0.1', port: 0 }, logLevel: 'error' });
   let browser;
   try {
     await server.listen();
@@ -134,6 +134,58 @@ test('full-page course editor navigation and responsive layout', { timeout: 1200
       assert.equal(writes.find(w=>w.ref.name==='courses').value.freeLessonsCount,0);
       await page.close();
     });
+    await t.test('YouTube playback mode can be selected, saved, reopened and switched back', async () => {
+      const page = await open('/admin/courses/k11/edit');
+      await page.waitForSelector('[data-course-editor]');
+      await page.evaluate(() => [...document.querySelectorAll('button')].find(b => b.textContent.includes('Lộ trình bài học')).click());
+      await page.evaluate(() => [...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'Link YouTube').click());
+      const selector = 'select[aria-label="Cách xem YouTube của Bài thử nghiệm"]';
+      await page.waitForSelector(selector);
+      assert.equal(await page.$eval(selector, el => el.value), 'embed');
+      await page.select(selector, 'external');
+      await page.evaluate(() => {
+        const input = [...document.querySelectorAll('input')].find(el => el.value === 'https://test.invalid/video.mp4');
+        const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+        setter.call(input, 'https://youtu.be/M7lc1UVf-VE');
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+      await page.evaluate(() => [...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'Lưu khóa học').click());
+      await page.waitForFunction(() => location.pathname === '/admin/courses');
+      assert.equal(await page.evaluate(() => window.__editorWrites.find(w => w.ref.name === 'course_content').value.curriculum[0].lessons[0].youtubePlaybackMode), 'external');
+      assert.equal(await page.evaluate(() => window.__editorWrites.find(w => w.ref.name === 'courses').value.curriculum[0].lessons[0].videoId), undefined);
+      await page.waitForSelector('button[title="Chỉnh sửa"]');
+      await page.click('button[title="Chỉnh sửa"]');
+      await page.waitForSelector('[data-course-editor]');
+      await page.evaluate(() => [...document.querySelectorAll('button')].find(b => b.textContent.includes('Lộ trình bài học')).click());
+      await page.waitForSelector(selector);
+      assert.equal(await page.$eval(selector, el => el.value), 'external');
+      await page.click('button[title="Chỉnh sửa chi tiết bài học"]');
+      const detailSelector = 'select[aria-label="Cách xem YouTube chi tiết của Bài thử nghiệm"]';
+      await page.waitForSelector(detailSelector);
+      assert.equal(await page.$eval(detailSelector, el => el.value), 'external');
+      await page.select(detailSelector, 'embed');
+      assert.equal(await page.$eval(selector, el => el.value), 'embed');
+      await page.close();
+    });
+    for (const addBeforeSaving of [false, true]) {
+      await t.test(`quick YouTube selection persists when ${addBeforeSaving ? 'adding then saving' : 'saving a pending draft'}`, async () => {
+        const page = await open('/admin/courses/k11/edit');
+        await page.waitForSelector('[data-course-editor]');
+        await page.evaluate(() => [...document.querySelectorAll('button')].find(b => b.textContent.includes('Lộ trình bài học')).click());
+        await page.click('button[title="Thêm bài học mới"]');
+        await page.type('#lesson-title-0', 'YouTube bên ngoài');
+        await page.evaluate(() => [...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'Link YouTube').click());
+        await page.type('#lesson-video-0', 'https://youtu.be/M7lc1UVf-VE');
+        await page.select('select[aria-label="Cách xem YouTube cho bài mới ở phần 1"]', 'external');
+        if (addBeforeSaving) await page.click('button[title="Thêm bài học"]');
+        await page.evaluate(() => [...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'Lưu khóa học').click());
+        await page.waitForFunction(() => location.pathname === '/admin/courses');
+        const lesson = await page.evaluate(() => window.__editorWrites.find(w => w.ref.name === 'course_content').value.curriculum[0].lessons.find(l => l.title === 'YouTube bên ngoài'));
+        assert.equal(lesson.videoProvider, 'youtube');
+        assert.equal(lesson.youtubePlaybackMode, 'external');
+        await page.close();
+      });
+    }
     await t.test('mobile editor has no page overflow and save stays on screen', async () => {
       const page = await open('/admin/courses/k11/edit',390);
       await page.waitForSelector('[data-course-editor]');

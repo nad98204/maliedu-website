@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { getCourseYouTubeId, normalizeCourseVideoProvider, getCourseVideoValidationError } from '../src/utils/courseVideo.js';
+import { getCourseYouTubeId, getCourseYouTubeWatchUrl, normalizeCourseVideoProvider, normalizeYouTubePlaybackMode, getCourseVideoValidationError } from '../src/utils/courseVideo.js';
 import { splitCourseForStorage } from '../src/utils/courseDataPrivacy.js';
-import { createQuickLesson } from '../src/utils/courseQuickAdd.js';
+import { createQuickLesson, mergeQuickLessonDrafts } from '../src/utils/courseQuickAdd.js';
 
 test('accepts watch, short, embed, live, Shorts URLs and plain YouTube IDs', () => {
   const id = 'M7lc1UVf-VE';
@@ -48,5 +48,38 @@ test('paid YouTube links stay private and preview links preserve their provider'
     assert.equal(privateCourse.curriculum[0].lessons[0].videoId, url);
     assert.equal(publicCourse.curriculum[0].lessons[0].videoId, preview ? url : undefined);
     assert.equal(publicCourse.curriculum[0].lessons[0].videoProvider, preview ? 'youtube' : undefined);
+  }
+});
+
+test('external mode accepts only explicit opt-in and builds a trusted watch URL', () => {
+  for (const mode of [undefined, null, '', 'EMBED', 'unknown']) {
+    assert.equal(normalizeYouTubePlaybackMode(mode), 'embed');
+  }
+  assert.equal(normalizeYouTubePlaybackMode('external'), 'external');
+  for (const source of ['M7lc1UVf-VE', 'https://youtu.be/M7lc1UVf-VE?si=share', 'https://www.youtube-nocookie.com/embed/M7lc1UVf-VE']) {
+    assert.equal(getCourseYouTubeWatchUrl(source), 'https://www.youtube.com/watch?v=M7lc1UVf-VE');
+  }
+  for (const source of ['javascript:alert(1)', 'https://evil.test/watch?v=M7lc1UVf-VE', 'https://youtube.com/playlist?list=PLtest']) {
+    assert.equal(getCourseYouTubeWatchUrl(source), '');
+  }
+});
+
+test('quick-add and pending drafts preserve the external playback selection', () => {
+  const lesson = createQuickLesson({ title: 'Mở ngoài', videoProvider: 'youtube', videoId: 'https://youtu.be/M7lc1UVf-VE', youtubePlaybackMode: 'external' });
+  assert.equal(lesson.youtubePlaybackMode, 'external');
+  assert.equal(createQuickLesson({ title: 'Cũ', videoProvider: 'youtube', videoId: 'M7lc1UVf-VE' }).youtubePlaybackMode, 'embed');
+  const pending = mergeQuickLessonDrafts([{ lessons: [] }], [{ sectionIndex: 0, ...lesson }]);
+  assert.equal(pending.curriculum[0].lessons[0].youtubePlaybackMode, 'external');
+});
+
+test('external mode survives private storage and preview projection without exposing paid URLs', () => {
+  for (const preview of [false, true]) {
+    const { publicCourse, privateCourse } = splitCourseForStorage('course', {
+      isForSale: true,
+      curriculum: [{ lessons: [{ id: 'lesson', videoId: 'https://youtu.be/M7lc1UVf-VE', videoProvider: 'youtube', youtubePlaybackMode: 'external', isFreePreview: preview }] }],
+    });
+    assert.equal(privateCourse.curriculum[0].lessons[0].youtubePlaybackMode, 'external');
+    assert.equal(publicCourse.curriculum[0].lessons[0].youtubePlaybackMode, preview ? 'external' : undefined);
+    assert.equal(publicCourse.curriculum[0].lessons[0].videoId, preview ? 'https://youtu.be/M7lc1UVf-VE' : undefined);
   }
 });

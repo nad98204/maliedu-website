@@ -63,7 +63,8 @@ import AdminCategories from "./AdminCategories";
 import AdminCoupons from "./AdminCoupons";
 import AdminInstructors from "./AdminInstructors"; // NEW IMPORT
 import S3VideoUploader from "../../components/S3VideoUploader";
-import { COURSE_VIDEO_PROVIDERS, getCourseVideoValidationError, normalizeCourseVideoProvider } from '../../utils/courseVideo';
+import YouTubePlaybackModeSelect from '../../components/YouTubePlaybackModeSelect';
+import { COURSE_VIDEO_PROVIDERS, getCourseVideoValidationError, normalizeCourseVideoProvider, normalizeYouTubePlaybackMode } from '../../utils/courseVideo';
 import { isCourseEditorPath } from '../../utils/courseEditorRoute';
 import {
   COURSE_CONTENT_COLLECTION,
@@ -297,6 +298,7 @@ const normalizeCurriculumForForm = (curriculum = []) => {
       contentType: normalizeLessonContentType(lesson),
       contentOrder: getLessonContentOrder(lesson),
       videoProvider: normalizeCourseVideoProvider(lesson.videoProvider, lesson.videoId),
+      youtubePlaybackMode: normalizeYouTubePlaybackMode(lesson.youtubePlaybackMode),
       imageProvider: lesson.imageProvider === "bunny" ? "bunny" : "s3",
       audios: getLessonAudios(lesson),
       images: getLessonImages(lesson),
@@ -426,6 +428,7 @@ const AdminCourses = () => {
   const [uploadTasks, setUploadTasks] = useState({}); // { 'key': { fileName, progress, status, error } }
   const [uploadProviders, setUploadProviders] = useState({});
   const [quickLessonTypes, setQuickLessonTypes] = useState({});
+  const [quickYouTubeModes, setQuickYouTubeModes] = useState({});
   const [uploadingLessonImages, setUploadingLessonImages] = useState({});
   const [lessonImageUploadProgress, setLessonImageUploadProgress] = useState({});
   const [uploadingLessonAudio, setUploadingLessonAudio] = useState({});
@@ -793,6 +796,7 @@ const AdminCourses = () => {
       images: getLessonImages(lesson),
       isFreePreview: false,
       videoProvider: normalizeCourseVideoProvider(lesson.videoProvider, lesson.videoId),
+      youtubePlaybackMode: normalizeYouTubePlaybackMode(lesson.youtubePlaybackMode),
     };
 
     setFormData((current) => {
@@ -1974,6 +1978,7 @@ const AdminCourses = () => {
     setExpandedInstructorKey(instructorRows[0]._key);
     setUploadProviders({});
     setQuickLessonTypes({});
+    setQuickYouTubeModes({});
     setUploadingLessonImages({});
     setLessonImageUploadProgress({});
     setUploadingLessonAudio({});
@@ -2036,6 +2041,7 @@ const AdminCourses = () => {
     setExpandedInstructorKey(instructorRows[0]._key);
     setUploadProviders({});
     setQuickLessonTypes({});
+    setQuickYouTubeModes({});
     setUploadingLessonImages({});
     setLessonImageUploadProgress({});
     setUploadingLessonAudio({});
@@ -2121,6 +2127,7 @@ const AdminCourses = () => {
     setExpandedInstructorKey(instructorRows[0]._key);
     setUploadProviders({});
     setQuickLessonTypes({});
+    setQuickYouTubeModes({});
     setUploadingLessonImages({});
     setLessonImageUploadProgress({});
     setUploadingLessonAudio({});
@@ -2384,6 +2391,7 @@ const AdminCourses = () => {
       description: document.getElementById(`lesson-description-${sectionIndex}`)?.value || "",
       contentType: quickLessonTypes[sectionIndex] || LESSON_CONTENT_TYPES.VIDEO,
       videoProvider: getUploadProvider(`new-${sectionIndex}`),
+      youtubePlaybackMode: normalizeYouTubePlaybackMode(quickYouTubeModes[sectionIndex]),
       articleContent: "",
       images: [],
       audios: [],
@@ -4217,6 +4225,7 @@ const AdminCourses = () => {
                                       contentType,
                                       videoId,
                                       videoProvider: getUploadProvider(`new-${sIdx}`),
+                                      youtubePlaybackMode: normalizeYouTubePlaybackMode(quickYouTubeModes[sIdx]),
                                       articleContent: "",
                                       images: [],
                                       description: descriptionInput?.value.trim() || "",
@@ -4291,7 +4300,13 @@ const AdminCourses = () => {
                                   </label>}
                                 </div>
                                 {getUploadProvider(`new-${sIdx}`) === 'youtube' && (
-                                  <p className="mt-2 text-xs leading-relaxed text-slate-500">Dán link video YouTube và bật “Cho phép nhúng”. Có thể dùng video “Không công khai”; ai có link vẫn xem được. Web hạn chế mở sang YouTube, nhưng không thể giấu tuyệt đối link hoặc logo của YouTube.</p>
+                                  <div className="mt-3">
+                                    <YouTubePlaybackModeSelect
+                                      value={quickYouTubeModes[sIdx]}
+                                      onChange={(mode) => setQuickYouTubeModes(current => ({ ...current, [sIdx]: mode }))}
+                                      label={`Cách xem YouTube cho bài mới ở phần ${sIdx + 1}`}
+                                    />
+                                  </div>
                                 )}
                               </div>
                               )}
@@ -4421,7 +4436,7 @@ const AdminCourses = () => {
                                                   ? "bg-secret-wax text-white shadow-sm"
                                                   : "text-slate-400 hover:bg-white hover:text-slate-700"
                                               }`}
-                                              title={option.value === 'youtube' ? 'Nhúng video từ link YouTube' : option.value === "bunny" ? "Lưu và phát bằng Bunny Stream" : "Giữ cách lưu S3 hiện tại"}
+                                              title={option.value === 'youtube' ? 'Dùng link YouTube: xem trong trang học hoặc mở trên YouTube' : option.value === "bunny" ? "Lưu và phát bằng Bunny Stream" : "Giữ cách lưu S3 hiện tại"}
                                             >
                                               {option.label}
                                             </button>
@@ -4454,6 +4469,14 @@ const AdminCourses = () => {
                                           )}
                                         </label>}
                                       </div>
+                                      )}
+                                      {lessonHasVideo(lesson) && lessonUploadProvider === 'youtube' && (
+                                        <YouTubePlaybackModeSelect
+                                          compact
+                                          value={lesson.youtubePlaybackMode}
+                                          onChange={(mode) => handleUpdateLesson(sIdx, lIdx, 'youtubePlaybackMode', mode)}
+                                          label={`Cách xem YouTube của ${lesson.title || 'bài học'}`}
+                                        />
                                       )}
                                       <button
                                         type="button"
@@ -4622,7 +4645,11 @@ const AdminCourses = () => {
                                                       ))}
                                                     </div>
                                                     {lessonUploadProvider === 'youtube' && (
-                                                      <p className="text-xs leading-relaxed text-slate-500">Bật “Cho phép nhúng” trên YouTube. Dùng “Không công khai” nếu không muốn video xuất hiện trong tìm kiếm; ai có link vẫn xem được. Không thể giấu tuyệt đối link hoặc logo của YouTube.</p>
+                                                      <YouTubePlaybackModeSelect
+                                                        value={lesson.youtubePlaybackMode}
+                                                        onChange={(mode) => handleUpdateLesson(sIdx, lIdx, 'youtubePlaybackMode', mode)}
+                                                        label={`Cách xem YouTube chi tiết của ${lesson.title || 'bài học'}`}
+                                                      />
                                                     )}
                                                   </div>
                                                   <div className="space-y-2">
