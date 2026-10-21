@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowRight, ChevronLeft, ChevronRight, Eye, Play, X } from "lucide-react";
-import { trackCtaClick } from "../ctaTracking";
-import { scrollToRegistrationForm } from "../scrollToRegistration";
+import RegistrationCta from "../RegistrationCta";
 
 const STUDENT_VIDEOS = [
   {
@@ -370,13 +369,7 @@ const VideoHocVien = () => {
               Bắt đầu bằng việc đăng ký và nhận hướng dẫn tham gia chương trình.
             </p>
           </div>
-          <a
-            href="#dang-ky"
-            onClick={(e) => {
-              e.preventDefault();
-              trackCtaClick("VideoHocVien");
-              scrollToRegistrationForm();
-            }}
+          <RegistrationCta source="VideoHocVien"
             className="group relative inline-flex w-full max-w-[410px] items-center justify-center gap-2 rounded-full px-4 py-3.5 text-[0.7rem] font-black uppercase tracking-[0.025em] text-[#FFE566] transition-all duration-300 hover:-translate-y-0.5 active:scale-95 min-[380px]:text-[0.77rem] sm:text-sm"
             style={{
               background: "linear-gradient(180deg, #E8393F 0%, #9C0C12 100%)",
@@ -386,7 +379,7 @@ const VideoHocVien = () => {
             <div className="absolute inset-x-0 top-0 h-[2px] rounded-t-full bg-white/20" />
             ĐĂNG KÝ MIỄN PHÍ – NHẬN LINK HỌC
             <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
-          </a>
+          </RegistrationCta>
           <p className="text-[0.68rem] font-medium text-[#7A2113]/60">
             Học online qua Zoom • Nhận hướng dẫn tham gia
           </p>

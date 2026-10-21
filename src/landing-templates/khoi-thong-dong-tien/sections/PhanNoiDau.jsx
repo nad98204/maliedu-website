@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight, Sparkles } from "lucide-react";
-import { trackCtaClick } from "../ctaTracking";
-import { scrollToRegistrationForm } from "../scrollToRegistration";
+import RegistrationCta from "../RegistrationCta";
 
 /* ─── Design Tokens (cùng palette BannerChinh) ─────────────────
    Primary:   #7A2113  (đỏ nâu)
@@ -96,13 +95,7 @@ const TransformBlock = () => (
       </div>
 
       <div className="relative flex justify-center">
-        <a
-          href="#dang-ky"
-          onClick={(e) => {
-            e.preventDefault();
-            trackCtaClick("PhanNoiDau");
-            scrollToRegistrationForm();
-          }}
+        <RegistrationCta source="PhanNoiDau"
           className="inline-flex w-full max-w-[360px] items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-white/40 px-3 py-3.5 text-[0.68rem] font-black uppercase tracking-[0.015em] text-[#5A120B] transition-all duration-300 hover:-translate-y-[3px] hover:shadow-[0_14px_36px_rgba(25,3,2,0.38)] active:translate-y-0 min-[380px]:text-[0.72rem] sm:w-auto sm:px-7 sm:text-sm sm:tracking-[0.035em]"
           style={{
             background: "linear-gradient(180deg, #FFE99A 0%, #E6B93E 100%)",
@@ -111,7 +104,7 @@ const TransformBlock = () => (
         >
           ĐĂNG KÝ MIỄN PHÍ – NHẬN LINK HỌC
           <ArrowRight className="h-4 w-4 shrink-0 text-[#7A2113] sm:h-5 sm:w-5" />
-        </a>
+        </RegistrationCta>
       </div>
     </div>
   </div>

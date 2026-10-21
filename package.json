@@ -15,6 +15,7 @@
     "migrate:course-content": "node scripts/migrate-course-content.mjs",
     "test:affiliate": "node --test functions/_lib/affiliate.test.js",
     "test:landing": "node scripts/test-landing-performance.mjs",
+    "test:leader-registration": "node scripts/test-leader-registration.mjs",
     "test:course-instructors": "node --test scripts/test-course-instructors.mjs",
     "test:course-quick-add": "node --test scripts/test-course-quick-add.mjs",
     "test:course-video": "node --test scripts/test-course-video.mjs",

@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowRight, ChevronLeft, ChevronRight, X } from "lucide-react";
-import { trackCtaClick } from "../ctaTracking";
-import { scrollToRegistrationForm } from "../scrollToRegistration";
+import RegistrationCta from "../RegistrationCta";
 
 const RESULT_ASSET_BASE = "/assets/landing/khoi-thong-dong-tien";
 const RESULTS = [
@@ -216,13 +215,7 @@ export default function KetQuaHocVien() {
 
         {/* CTA */}
         <div className="flex flex-col items-center gap-2.5 px-5 pt-2 sm:px-6">
-          <a
-            href="#dang-ky"
-            onClick={(e) => {
-              e.preventDefault();
-              trackCtaClick("KetQuaHocVien");
-              scrollToRegistrationForm();
-            }}
+          <RegistrationCta source="KetQuaHocVien"
             className="inline-flex w-full max-w-[390px] items-center justify-center gap-2 rounded-full px-4 py-3.5 text-[0.7rem] font-black uppercase tracking-[0.025em] text-[#FFE566] transition hover:-translate-y-[2px] active:scale-95 min-[380px]:text-[0.76rem] sm:px-10 sm:py-4 sm:text-sm"
             style={{
               background: "linear-gradient(180deg, #E8393F 0%, #9C0C12 100%)",
@@ -231,7 +224,7 @@ export default function KetQuaHocVien() {
           >
             ĐĂNG KÝ MIỄN PHÍ – NHẬN LINK HỌC
             <ArrowRight className="w-5 h-5 text-[#FFE566]" />
-          </a>
+          </RegistrationCta>
         </div>
       </div>
 

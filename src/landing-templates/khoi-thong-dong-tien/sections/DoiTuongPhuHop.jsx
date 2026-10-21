@@ -7,8 +7,7 @@ import {
   Sparkles,
   Users,
 } from "lucide-react";
-import { trackCtaClick } from "../ctaTracking";
-import { scrollToRegistrationForm } from "../scrollToRegistration";
+import RegistrationCta from "../RegistrationCta";
 
 /* ─── Floating Gold Particles ───────────────────────────── */
 const GOLD_PARTICLES = Array.from({ length: 18 }, (_, i) => ({
@@ -279,13 +278,7 @@ const DoiTuongPhuHop = ({ content } = {}) => {
                 className="absolute inset-0 rounded-full blur-xl opacity-35"
                 style={{ background: "#C8282E" }}
               />
-              <a
-                href="#dang-ky"
-                onClick={(e) => {
-                  e.preventDefault();
-                  trackCtaClick("DoiTuongPhuHop");
-                  scrollToRegistrationForm();
-                }}
+              <RegistrationCta source="DoiTuongPhuHop"
                 className="group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-full py-3.5 sm:py-4 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
                 style={{
                   background: "linear-gradient(180deg, #E8393F 0%, #9C0C12 100%)",
@@ -297,7 +290,7 @@ const DoiTuongPhuHop = ({ content } = {}) => {
                   ĐĂNG KÝ MIỄN PHÍ – NHẬN LINK HỌC
                 </span>
                 <ArrowRight className="h-4 w-4 flex-none text-[#FFE566] transition-transform group-hover:translate-x-1 sm:h-5 sm:w-5" />
-              </a>
+              </RegistrationCta>
             </div>
 
             <div className="flex items-center justify-center gap-2 text-center text-[0.72rem] font-medium leading-relaxed text-[#7A2113]/75 sm:text-xs">
@@ -449,13 +442,7 @@ const DoiTuongPhuHop = ({ content } = {}) => {
               className="absolute inset-0 rounded-full blur-xl opacity-40"
               style={{ background: "#C8282E" }}
             />
-            <a
-              href="#dang-ky"
-              onClick={(e) => {
-                e.preventDefault();
-                trackCtaClick("DoiTuongPhuHop");
-                scrollToRegistrationForm();
-              }}
+            <RegistrationCta source="DoiTuongPhuHop"
               className="group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-full py-4 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] sm:py-[18px]"
               style={{
                 background: "linear-gradient(180deg, #E8393F 0%, #9C0C12 100%)",
@@ -468,7 +455,7 @@ const DoiTuongPhuHop = ({ content } = {}) => {
                 ĐĂNG KÝ MIỄN PHÍ – NHẬN LINK HỌC
               </span>
               <ArrowRight className="h-4 w-4 flex-none text-[#FFE566] transition-transform group-hover:translate-x-1 sm:h-5 sm:w-5" />
-            </a>
+            </RegistrationCta>
           </div>
 
           <div className="flex items-center justify-center gap-2 text-center text-[0.72rem] font-medium leading-relaxed text-[#7A2113]/75 sm:text-sm">

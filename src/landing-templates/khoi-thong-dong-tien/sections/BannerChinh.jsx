@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowRight, Calendar, Clock, Sparkles } from "lucide-react";
 import { useKhoiThongLandingConfig } from "../landingConfig";
-import { trackCtaClick } from "../ctaTracking";
-import { scrollToRegistrationForm } from "../scrollToRegistration";
+import RegistrationCta from "../RegistrationCta";
 import { HERO_TITLE_SRCSET, HERO_TITLE_SIZES, HERO_TITLE_WEBP, HERO_TITLE_WEBP_SRCSET, HERO_POSTER_WEBP, HERO_POSTER_WEBP_SRCSET, HERO_POSTER_SRCSET, HERO_POSTER_SIZES } from "../heroAssets";
 
 const YOUTUBE_VIDEO_ID = "gPdub90aL9k";
@@ -299,13 +298,7 @@ const CompactHero = ({ content, landingConfig }) => {
               <div className="order-4 sm:order-3"><Countdown eventStart={landingConfig.eventStart} /></div>
 
               {/* CTA Button */}
-              <a
-                href="#dang-ky"
-                onClick={(event) => {
-                  event.preventDefault();
-                  trackCtaClick("BannerChinh");
-                  scrollToRegistrationForm();
-                }}
+              <RegistrationCta source="BannerChinh"
                 className="order-2 sm:order-4 group relative flex min-h-[52px] w-full items-center justify-center gap-2 overflow-hidden rounded-full py-3.5 sm:py-4 px-2 sm:px-6 font-black uppercase text-[13px] min-[375px]:text-sm sm:text-base tracking-normal sm:tracking-wider text-white transition-all duration-300 hover:scale-[1.015] active:scale-[0.985] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#7A2113]"
                 style={{
                   background: "linear-gradient(180deg, #BA141A 0%, #7A0A0E 100%)",
@@ -315,7 +308,7 @@ const CompactHero = ({ content, landingConfig }) => {
                 <span className="absolute inset-0 translate-x-[-100%] skew-x-[-20deg] bg-white/20 transition-transform duration-700 group-hover:translate-x-[200%]" />
                 <span>ĐĂNG KÝ MIỄN PHÍ NGAY</span>
                 <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
-              </a>
+              </RegistrationCta>
             </div>
           </div>
         </div>
@@ -441,13 +434,7 @@ const BannerChinh = ({ content, configPath } = {}) => {
           <div className="relative w-full max-w-[360px] lg:max-w-[400px] mx-auto">
             <div className="absolute inset-0 rounded-full blur-xl opacity-50 transition-opacity hover:opacity-70"
               style={{ background: "#C8282E" }} />
-            <a
-              href="#dang-ky"
-              onClick={(e) => {
-                e.preventDefault();
-                trackCtaClick("BannerChinh");
-                scrollToRegistrationForm();
-              }}
+            <RegistrationCta source="BannerChinh"
               className="group relative flex w-full items-center justify-center overflow-hidden rounded-full px-3 py-4 transition-all duration-300 hover:scale-[1.03] active:scale-[0.98] lg:py-4.5"
               style={{
                 background: "linear-gradient(180deg, #E8393F 0%, #9C0C12 100%)",
@@ -458,7 +445,7 @@ const BannerChinh = ({ content, configPath } = {}) => {
               <span className="whitespace-nowrap text-[0.88rem] font-black uppercase tracking-[0.025em] text-[#FFE566] drop-shadow sm:text-[1.03rem] sm:tracking-[0.04em] lg:text-[1.08rem]">
                 ĐĂNG KÝ MIỄN PHÍ – NHẬN LINK HỌC
               </span>
-            </a>
+            </RegistrationCta>
           </div>
 
           <div className="w-full max-w-[360px] overflow-hidden rounded-2xl border border-[#D4B572]/55 bg-white/80 text-center shadow-sm backdrop-blur-md">

@@ -1,0 +1,53 @@
+.leader-registration-dialog {
+  position: fixed;
+  inset: 0;
+  margin: 0;
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  height: 100dvh;
+  max-height: none;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  background: transparent;
+  color: inherit;
+}
+
+.leader-registration-dialog::backdrop {
+  background: rgba(28, 7, 5, 0.72);
+  backdrop-filter: blur(5px);
+}
+
+.leader-registration-panel {
+  max-height: 94vh;
+  max-height: 94%;
+}
+
+.leader-registration-dialog[open] .leader-registration-panel {
+  animation: leader-registration-enter 180ms ease-out;
+}
+
+.leader-registration-body {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  scrollbar-width: thin;
+  scrollbar-color: #c9961a #52110c;
+}
+
+.leader-registration-body input { font-size: 16px; }
+.leader-registration-body form label { font-size: 12px; }
+.leader-registration-body [role="group"] > button { min-height: 44px; font-size: 12px; }
+.leader-registration-body [data-invalid="true"]:focus { outline: 2px solid #ff9d9d; outline-offset: 4px; }
+
+@keyframes leader-registration-enter {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (min-width: 640px) {
+  .leader-registration-panel { max-height: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .leader-registration-dialog[open] .leader-registration-panel { animation: none; }
+}

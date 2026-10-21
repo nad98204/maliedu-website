@@ -1,6 +1,5 @@
 import { ArrowRight, CheckCircle2 } from "lucide-react";
-import { trackCtaClick } from "../ctaTracking";
-import { scrollToRegistrationForm } from "../scrollToRegistration";
+import RegistrationCta from "../RegistrationCta";
 
 const LANDING_ASSET_BASE = "/assets/landing/khoi-thong-dong-tien";
 const IMG_PORTRAIT = `${LANDING_ASSET_BASE}/founder-portrait.webp`;
@@ -38,13 +37,7 @@ const BARRIERS = [
 
 function CTA() {
   return (
-    <a
-      href="#dang-ky"
-      onClick={(event) => {
-        event.preventDefault();
-        trackCtaClick("CauChuyenNguoiSangLap");
-        scrollToRegistrationForm();
-      }}
+    <RegistrationCta source="CauChuyenNguoiSangLap"
       className="group inline-flex w-full max-w-[420px] items-center justify-center gap-2 rounded-full px-4 py-4 text-[0.7rem] font-black uppercase tracking-[0.025em] text-[#FFE566] transition hover:-translate-y-0.5 active:scale-[0.98] min-[380px]:text-[0.78rem] sm:text-sm"
       style={{
         background: "linear-gradient(180deg, #ED3B41 0%, #A30D13 100%)",
@@ -53,7 +46,7 @@ function CTA() {
     >
       ĐĂNG KÝ MIỄN PHÍ – NHẬN LINK HỌC
       <ArrowRight className="h-4 w-4 flex-none transition-transform group-hover:translate-x-1 sm:h-5 sm:w-5" />
-    </a>
+    </RegistrationCta>
   );
 }
 

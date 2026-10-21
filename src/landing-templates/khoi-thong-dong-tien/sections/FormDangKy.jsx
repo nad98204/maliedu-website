@@ -1,5 +1,5 @@
 import { ArrowRight, Phone, Sparkles, User, UserPlus, X } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { toast } from "react-hot-toast";
 import { useNavigate, useSearchParams } from "react-router";
 import { submitToCRM } from "../../../services/crmService";
@@ -199,6 +199,10 @@ const CustomRadio = ({
       )}
     </label>
     <div
+      role="group"
+      aria-label={label}
+      data-invalid={error || undefined}
+      tabIndex={error ? -1 : undefined}
       className={
         layout === "grid"
           ? "grid grid-cols-2 gap-2"
@@ -209,6 +213,7 @@ const CustomRadio = ({
         <button
           key={opt}
           type="button"
+          aria-pressed={value === opt}
           onClick={() => onChange(opt)}
           className={`group flex items-center gap-1.5 px-2.5 py-2 sm:py-2.5 rounded-lg border text-[10px] sm:text-[12px] transition-all duration-300 text-left ${
             value === opt
@@ -240,15 +245,20 @@ const CustomRadio = ({
 const FormDangKy = ({
   targetFunnel,
   source_key: initialSourceKey,
+  compact = false,
+  onSubmittingChange,
 }) => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const formId = useId();
+  const formRef = useRef(null);
   const [formState, setFormState] = useState({ name: "", phone: "", referrer: "", otherReferrer: "", hasLearnedLOA: "" });
   const [errors, setErrors] = useState({});
+  const [submitError, setSubmitError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [remoteConfig, setRemoteConfig] = useState(DEFAULT_REMOTE_CONFIG);
   const [leaderOwners, setLeaderOwners] = useState([]);
-  const [crmActivated, setCrmActivated] = useState(false);
+  const [crmActivated, setCrmActivated] = useState(compact);
   /** Khi có mã UTM khóa Leader: ô tên người giới thiệu thật (học viên…) chỉ mở khi user chủ động bấm */
   const [showAlternateReferrerInput, setShowAlternateReferrerInput] = useState(false);
 
@@ -413,6 +423,7 @@ const FormDangKy = ({
   const handleSubmit = async (event) => {
     event.preventDefault();
     if (isSubmitting) return;
+    setSubmitError("");
 
     // Validation
     const newErrors = {};
@@ -435,7 +446,14 @@ const FormDangKy = ({
     }
 
     if (Object.keys(newErrors).length > 0) {
+      const focusedBeforeValidation = document.activeElement;
       setErrors(newErrors);
+      requestAnimationFrame(() => {
+        if (document.activeElement !== focusedBeforeValidation) return;
+        const invalid = formRef.current?.querySelector('[aria-invalid="true"], [data-invalid="true"]');
+        invalid?.focus({ preventScroll: true });
+        invalid?.scrollIntoView({ block: "nearest" });
+      });
       const msgs = [];
       if (newErrors.name) msgs.push("họ và tên");
       if (newErrors.phone) msgs.push("số điện thoại hợp lệ");
@@ -450,6 +468,7 @@ const FormDangKy = ({
     }
 
     setIsSubmitting(true);
+    onSubmittingChange?.(true);
 
     try {
       engageCrm();
@@ -660,16 +679,18 @@ const FormDangKy = ({
       }
       navigate(`/cam-on-khoi-thong?${thankYouParams.toString()}`);
     } catch (error) {
+      setSubmitError(error.message || "Chưa gửi được đăng ký. Bạn vui lòng thử lại.");
       toast.error("Lỗi: " + (error.message || "Không xác định"));
     } finally {
       setIsSubmitting(false);
+      onSubmittingChange?.(false);
     }
   };
 
   return (
     <section
-      className="relative overflow-hidden rounded-3xl py-10 sm:py-14"
-      style={{
+      className={compact ? "relative" : "relative overflow-hidden rounded-3xl py-10 sm:py-14"}
+      style={compact ? undefined : {
         background: "linear-gradient(145deg, #7D2015 0%, #52110C 56%, #350A07 100%)",
         border: "1px solid rgba(212,181,114,0.75)",
         boxShadow: "0 28px 70px rgba(73,15,9,0.3), inset 0 1px 0 rgba(255,255,255,0.08)",
@@ -692,8 +713,8 @@ const FormDangKy = ({
         <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-[#C9961A] to-transparent opacity-30" />
       </div>
 
-      <div className="relative max-w-5xl mx-auto px-4 sm:px-8">
-        <div className="mb-6 space-y-3 text-center sm:mb-10 sm:space-y-4">
+      <div className={compact ? "relative" : "relative max-w-5xl mx-auto px-4 sm:px-8"}>
+        {!compact && <div className="mb-6 space-y-3 text-center sm:mb-10 sm:space-y-4">
           <div className="inline-flex items-center gap-2 rounded-full border border-[#FFE388]/35 bg-white/[0.07] px-4 py-1.5 text-[0.58rem] font-extrabold uppercase tracking-[0.17em] text-[#FFE388] backdrop-blur-sm sm:px-5 sm:py-2 sm:text-[11px]">
             <Sparkles className="h-3.5 w-3.5" />
             Đăng ký tham gia miễn phí
@@ -711,11 +732,11 @@ const FormDangKy = ({
           <p className="mx-auto max-w-md text-[0.76rem] leading-relaxed text-white/65 sm:text-base">
             Điền thông tin để nhận lịch học và link tham gia qua Zoom.
           </p>
-        </div>
+        </div>}
 
         <div
-          className={`${isLeader ? "max-w-xl mx-auto" : ""} rounded-3xl overflow-hidden`}
-          style={{
+          className={compact ? "" : `${isLeader ? "max-w-xl mx-auto" : ""} rounded-3xl overflow-hidden`}
+          style={compact ? undefined : {
             background: isLeader
               ? "linear-gradient(135deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.03) 100%)"
               : "linear-gradient(145deg, #FFFCF5 0%, #FFF5DE 100%)",
@@ -727,7 +748,7 @@ const FormDangKy = ({
           }}
         >
           <div className={`flex flex-col-reverse ${isLeader ? "" : "md:flex-row md:items-stretch"} capitalize-none`}>
-            <div className="flex flex-1 flex-col justify-center p-5 sm:p-10">
+            <div className={`flex flex-1 flex-col justify-center ${compact ? "p-5 sm:p-7" : "p-5 sm:p-10"}`}>
               {remoteConfig.is_maintenance ? (
                 <div className="rounded-2xl border border-amber-400/30 bg-amber-400/10 p-6 text-center space-y-3">
                   <div className="text-amber-400 font-bold text-lg uppercase tracking-wider">Thông báo bảo trì</div>
@@ -736,8 +757,8 @@ const FormDangKy = ({
                   </p>
                 </div>
               ) : (
-                <form className="space-y-4 sm:space-y-6" onSubmit={handleSubmit}>
-                  <div className={`flex items-center justify-between gap-3 rounded-2xl px-3.5 py-3 ${isLeader ? "border border-[#C9961A]/20 bg-white/[0.04]" : "border border-[#D4B572]/35 bg-white/70"}`}>
+                <form ref={formRef} noValidate={compact} className={compact ? "space-y-4" : "space-y-4 sm:space-y-6"} onSubmit={handleSubmit} aria-busy={isSubmitting}>
+                  {!compact && <div className={`flex items-center justify-between gap-3 rounded-2xl px-3.5 py-3 ${isLeader ? "border border-[#C9961A]/20 bg-white/[0.04]" : "border border-[#D4B572]/35 bg-white/70"}`}>
                     <div className="flex items-center gap-2">
                       <span className={`flex h-8 w-8 items-center justify-center rounded-xl ${isLeader ? "bg-[#C9961A]/15" : "bg-[#7A2113]"}`}>
                         <Sparkles className={`h-4 w-4 ${isLeader ? "text-[#C9961A]" : "text-[#FFE388]"}`} />
@@ -754,11 +775,11 @@ const FormDangKy = ({
                     <span className={`rounded-full px-2.5 py-1 text-[0.55rem] font-black uppercase tracking-[0.1em] ${isLeader ? "bg-[#C9961A]/15 text-[#FFE566]" : "bg-[#C9961A]/12 text-[#9A6610]"}`}>
                       Miễn phí
                     </span>
-                  </div>
+                  </div>}
 
                   <div className="grid grid-cols-1 gap-3 sm:gap-5">
                     <div className="space-y-1">
-                      <label className={`flex flex-wrap items-center gap-x-1 text-[10px] font-black uppercase tracking-wider sm:text-xs ${isLeader ? "text-[#C9961A]/90" : "text-[#6B2A17]"}`}>
+                      <label htmlFor={`${formId}-name`} className={`flex flex-wrap items-center gap-x-1 text-[10px] font-black uppercase tracking-wider sm:text-xs ${isLeader ? "text-[#C9961A]/90" : "text-[#6B2A17]"}`}>
                         <span className="flex items-center gap-1.5">
                           <User className="w-3 h-3 shrink-0" /> Họ và tên
                         </span>
@@ -767,6 +788,7 @@ const FormDangKy = ({
                         </span>
                       </label>
                       <input
+                        id={`${formId}-name`}
                         type="text"
                         value={formState.name}
                         onChange={handleChange("name")}
@@ -775,8 +797,9 @@ const FormDangKy = ({
                         minLength={2}
                         autoComplete="name"
                         aria-invalid={errors.name ? true : undefined}
+                        aria-describedby={errors.name ? `${formId}-name-error` : undefined}
                         aria-required
-                        className={`w-full rounded-xl px-4 py-3 text-sm transition-all duration-200 focus:outline-none sm:py-3.5 ${isLeader ? "text-white placeholder:text-white/30" : "bg-white text-[#3A2208] placeholder:text-[#8A725A]/55 shadow-sm"}`}
+                        className={`w-full rounded-xl px-4 py-3 ${compact ? "text-base" : "text-sm"} transition-all duration-200 focus:outline-none sm:py-3.5 ${isLeader ? "text-white placeholder:text-white/30" : "bg-white text-[#3A2208] placeholder:text-[#8A725A]/55 shadow-sm"}`}
                         style={{
                           background: isLeader ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.92)",
                           border: errors.name
@@ -800,14 +823,14 @@ const FormDangKy = ({
                         }}
                       />
                       {errors.name && (
-                        <p className="text-[#E8393F] text-[9px] font-bold uppercase tracking-widest italic mt-1 ml-1">
+                        <p id={`${formId}-name-error`} className={`text-xs font-medium mt-1 ml-1 ${isLeader ? "text-[#FF9D9D]" : "text-[#C21D26]"}`}>
                           * Nhập họ và tên (ít nhất 2 ký tự)
                         </p>
                       )}
                     </div>
 
                     <div className="space-y-1">
-                      <label className={`flex flex-wrap items-center gap-x-1 text-[10px] font-black uppercase tracking-wider sm:text-xs ${isLeader ? "text-[#C9961A]/90" : "text-[#6B2A17]"}`}>
+                      <label htmlFor={`${formId}-phone`} className={`flex flex-wrap items-center gap-x-1 text-[10px] font-black uppercase tracking-wider sm:text-xs ${isLeader ? "text-[#C9961A]/90" : "text-[#6B2A17]"}`}>
                         <span className="flex items-center gap-1.5">
                           <Phone className="w-3 h-3 shrink-0" /> Số điện thoại
                         </span>
@@ -816,6 +839,7 @@ const FormDangKy = ({
                         </span>
                       </label>
                       <input
+                        id={`${formId}-phone`}
                         type="tel"
                         value={formState.phone}
                         onChange={handleChange("phone")}
@@ -823,9 +847,10 @@ const FormDangKy = ({
                         required
                         autoComplete="tel"
                         aria-invalid={errors.phone ? true : undefined}
+                        aria-describedby={errors.phone ? `${formId}-phone-error` : undefined}
                         aria-required
                         inputMode="numeric"
-                        className={`w-full rounded-xl px-4 py-3 text-sm transition-all duration-200 focus:outline-none sm:py-3.5 ${isLeader ? "text-white placeholder:text-white/30" : "bg-white text-[#3A2208] placeholder:text-[#8A725A]/55 shadow-sm"}`}
+                        className={`w-full rounded-xl px-4 py-3 ${compact ? "text-base" : "text-sm"} transition-all duration-200 focus:outline-none sm:py-3.5 ${isLeader ? "text-white placeholder:text-white/30" : "bg-white text-[#3A2208] placeholder:text-[#8A725A]/55 shadow-sm"}`}
                         style={{
                           background: isLeader ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.92)",
                           border: errors.phone
@@ -849,7 +874,7 @@ const FormDangKy = ({
                         }}
                       />
                       {errors.phone && (
-                        <p className="text-[#E8393F] text-[9px] font-bold uppercase tracking-widest italic mt-1 ml-1">
+                        <p id={`${formId}-phone-error`} className={`text-xs font-medium mt-1 ml-1 ${isLeader ? "text-[#FF9D9D]" : "text-[#C21D26]"}`}>
                           * Nhập số điện thoại (9–11 chữ số)
                         </p>
                       )}
@@ -914,6 +939,7 @@ const FormDangKy = ({
                                 <div className="flex min-h-[42px] flex-1 w-full items-center gap-1 rounded-lg border border-[#C9961A]/45 bg-white/[0.08] py-1 pl-2 pr-1 shadow-[inset_0_1px_0_rgba(201,150,26,0.12)]">
                                   <input
                                     type="text"
+                                    aria-label="Tên người khác giới thiệu bạn"
                                     value={formState.otherReferrer}
                                     onChange={handleChange("otherReferrer")}
                                     placeholder="Tên người giới thiệu"
@@ -962,15 +988,18 @@ const FormDangKy = ({
 
                       {!lockedLeaderName && formState.referrer === OTHER_REFERRER_OPTION && (
                         <div className="rounded-xl border border-[#C9961A]/35 bg-white/[0.04] px-3 py-2.5 space-y-1.5 shadow-[inset_0_1px_0_rgba(201,150,26,0.12),0_8px_24px_rgba(0,0,0,0.15)]">
-                          <label className="flex items-center gap-1.5 text-[10px] sm:text-xs font-black uppercase tracking-wider text-[#C9961A]/90">
+                          <label htmlFor={`${formId}-referrer`} className="flex items-center gap-1.5 text-[10px] sm:text-xs font-black uppercase tracking-wider text-[#C9961A]/90">
                             <User className="w-3 h-3" /> Tên người giới thiệu
                           </label>
                           <input
+                            id={`${formId}-referrer`}
                             type="text"
                             value={formState.otherReferrer}
                             onChange={handleChange("otherReferrer")}
                             placeholder="Nhập tên người đã giới thiệu bạn"
                             required
+                            aria-invalid={errors.otherReferrer ? true : undefined}
+                            aria-describedby={errors.otherReferrer ? `${formId}-referrer-error` : undefined}
                             className="w-full rounded-lg px-3 py-2 sm:py-2.5 text-sm text-white placeholder:text-white/30 transition-all duration-200 focus:outline-none"
                             style={{
                               background: "rgba(255,255,255,0.06)",
@@ -986,7 +1015,7 @@ const FormDangKy = ({
                             }}
                           />
                           {errors.otherReferrer && (
-                            <p className="text-[#E8393F] text-[9px] font-bold uppercase tracking-widest animate-pulse italic mt-1 ml-1">
+                            <p id={`${formId}-referrer-error`} className="text-xs font-medium text-[#FF9D9D] mt-1 ml-1">
                               * Vui lòng nhập tên người giới thiệu
                             </p>
                           )}
@@ -1005,6 +1034,8 @@ const FormDangKy = ({
                       />
                     </div>
                   )}
+
+                  {submitError && <p role="alert" className="rounded-xl border border-[#FF9D9D]/40 bg-[#FF9D9D]/10 px-4 py-3 text-sm leading-relaxed text-[#FFD0D0]">{submitError}</p>}
 
                   <button
                     type="submit"

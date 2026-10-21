@@ -1,6 +1,5 @@
 import { ArrowRight } from "lucide-react";
-import { trackCtaClick } from "../ctaTracking";
-import { scrollToRegistrationForm } from "../scrollToRegistration";
+import RegistrationCta from "../RegistrationCta";
 
 const TREE_IMG = "/assets/landing/khoi-thong-dong-tien/money-tree.webp";
 
@@ -189,13 +188,7 @@ const LichTrinhHoc = ({ content } = {}) => {
                 className="absolute inset-0 rounded-full blur-xl opacity-35"
                 style={{ background: "#C8282E" }}
               />
-              <a
-                href="#dang-ky"
-                onClick={(e) => {
-                  e.preventDefault();
-                  trackCtaClick("LichTrinhHoc");
-                  scrollToRegistrationForm();
-                }}
+              <RegistrationCta source="LichTrinhHoc"
                 className="group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-full py-3.5 sm:py-4 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
                 style={{
                   background: "linear-gradient(180deg, #E8393F 0%, #9C0C12 100%)",
@@ -207,7 +200,7 @@ const LichTrinhHoc = ({ content } = {}) => {
                   ĐĂNG KÝ MIỄN PHÍ – NHẬN LINK HỌC
                 </span>
                 <ArrowRight className="h-4 w-4 flex-none text-[#FFE566] transition-transform group-hover:translate-x-1 sm:h-5 sm:w-5" />
-              </a>
+              </RegistrationCta>
             </div>
 
             <div className="flex items-center justify-center gap-2 text-center text-[0.72rem] font-medium leading-relaxed text-[#7A2113]/75 sm:text-xs">
