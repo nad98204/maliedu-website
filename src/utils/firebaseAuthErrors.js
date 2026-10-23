@@ -53,6 +53,18 @@ export const normalizeFirebaseAuthCode = (err) => {
     return "auth/invalid-email";
   }
 
+  if (rawError.includes("MISSING_EMAIL")) {
+    return "auth/missing-email";
+  }
+
+  if (rawError.includes("EXPIRED_OOB_CODE")) {
+    return "auth/expired-action-code";
+  }
+
+  if (rawError.includes("INVALID_OOB_CODE")) {
+    return "auth/invalid-action-code";
+  }
+
   if (rawError.includes("EMAIL_EXISTS")) {
     return "auth/email-already-in-use";
   }
@@ -87,6 +99,7 @@ export const getFirebaseAuthMessage = (err, options = {}) => {
   const hostname =
     options.hostname ||
     (typeof window !== "undefined" ? window.location.hostname : "ten-mien-hien-tai");
+  const mode = options.mode || "default";
   const code = normalizeFirebaseAuthCode(err);
 
   switch (code) {
@@ -110,13 +123,22 @@ export const getFirebaseAuthMessage = (err, options = {}) => {
     case "auth/invalid-login-credentials":
     case "auth/wrong-password":
     case "auth/user-not-found":
+      if (mode === "reset-password") {
+        return "Không tìm thấy tài khoản nào ứng với địa chỉ email này.";
+      }
       return "Email hoặc mật khẩu không đúng.";
+    case "auth/missing-email":
+      return "Vui lòng nhập địa chỉ email của bạn.";
     case "auth/invalid-email":
       return "Email không đúng định dạng.";
+    case "auth/expired-action-code":
+      return "Đường dẫn đặt lại mật khẩu đã hết hạn. Vui lòng gửi lại yêu cầu mới.";
+    case "auth/invalid-action-code":
+      return "Đường dẫn đặt lại mật khẩu không hợp lệ hoặc đã được sử dụng.";
     case "auth/email-already-in-use":
       return "Email này đã được sử dụng.";
     case "auth/too-many-requests":
-      return "Bạn thử đăng nhập quá nhiều lần. Vui lòng chờ ít phút rồi thử lại.";
+      return "Bạn đã gửi yêu cầu quá nhiều lần. Vui lòng chờ ít phút rồi thử lại.";
     case "auth/network-request-failed":
       return "Lỗi kết nối mạng. Vui lòng kiểm tra internet và thử lại.";
     case "auth/operation-not-allowed":

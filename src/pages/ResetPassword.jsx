@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router";
 import { confirmPasswordReset, verifyPasswordResetCode } from "firebase/auth";
 import { auth } from "../firebase";
+import { getFirebaseAuthMessage } from "../utils/firebaseAuthErrors";
 import { Lock, Eye, EyeOff, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
 import { MALI_LOGO_URL } from "../constants/brandAssets.js";
 
@@ -19,25 +20,29 @@ const ResetPassword = () => {
 
     const [isVerifying, setIsVerifying] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [error, setError] = useState("");
+    const [linkError, setLinkError] = useState("");
+    const [formError, setFormError] = useState("");
     const [success, setSuccess] = useState(false);
 
     // 1. Verify Code on Mount
     useEffect(() => {
         if (!oobCode) {
-            setError("Đường dẫn không hợp lệ hoặc đã hết hạn.");
+            setLinkError("Đường dẫn không hợp lệ hoặc đã hết hạn.");
             setIsVerifying(false);
             return;
         }
 
         verifyPasswordResetCode(auth, oobCode)
-            .then((email) => {
-                setEmail(email);
+            .then((verifiedEmail) => {
+                setEmail(verifiedEmail);
                 setIsVerifying(false);
             })
-            .catch((error) => {
-                console.error(error);
-                setError("Đường dẫn đặt lại mật khẩu đã hết hạn hoặc không hợp lệ.");
+            .catch((err) => {
+                console.error(err);
+                setLinkError(
+                    getFirebaseAuthMessage(err, { mode: "reset-password" }) ||
+                        "Đường dẫn đặt lại mật khẩu đã hết hạn hoặc không hợp lệ."
+                );
                 setIsVerifying(false);
             });
     }, [oobCode]);
@@ -45,23 +50,24 @@ const ResetPassword = () => {
     // 2. Handle Password Reset
     const handleSubmit = async (e) => {
         e.preventDefault();
+        setFormError("");
+
         if (newPassword !== confirmPassword) {
-            return setError("Mật khẩu nhập lại không khớp.");
+            return setFormError("Mật khẩu nhập lại không khớp.");
         }
         if (newPassword.length < 6) {
-            return setError("Mật khẩu phải có ít nhất 6 ký tự.");
+            return setFormError("Mật khẩu phải có ít nhất 6 ký tự.");
         }
 
         setIsSubmitting(true);
-        setError("");
 
         try {
             await confirmPasswordReset(auth, oobCode, newPassword);
             setSuccess(true);
-            setTimeout(() => navigate("/admin/login"), 3000); // Redirect to login after 3s
+            setTimeout(() => navigate("/admin/login"), 3000);
         } catch (err) {
             console.error(err);
-            setError("Đã có lỗi xảy ra. Vui lòng thử lại.");
+            setFormError(getFirebaseAuthMessage(err, { mode: "reset-password" }));
         } finally {
             setIsSubmitting(false);
         }
@@ -100,26 +106,42 @@ const ResetPassword = () => {
                             <p className="text-slate-500">
                                 Mật khẩu của bạn đã được thay đổi. Đang chuyển hướng về trang đăng nhập...
                             </p>
-                            <button
-                                onClick={() => navigate("/admin/login")}
-                                className="inline-block mt-4 px-6 py-2 bg-slate-900 text-white rounded-lg font-bold hover:bg-slate-800 transition"
-                            >
-                                Đăng nhập ngay
-                            </button>
+                            <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
+                                <button
+                                    onClick={() => navigate("/admin/login")}
+                                    className="px-6 py-2.5 bg-slate-900 text-white rounded-lg font-bold hover:bg-slate-800 transition"
+                                >
+                                    Đăng nhập ngay
+                                </button>
+                                <button
+                                    onClick={() => navigate("/")}
+                                    className="px-6 py-2.5 border border-slate-300 text-slate-700 rounded-lg font-bold hover:bg-slate-50 transition"
+                                >
+                                    Về trang chủ
+                                </button>
+                            </div>
                         </div>
-                    ) : error ? (
+                    ) : linkError ? (
                         <div className="text-center space-y-4 animate-fade-in">
                             <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto">
                                 <AlertCircle className="w-8 h-8" />
                             </div>
                             <h2 className="text-xl font-bold text-slate-800">Liên kết lỗi</h2>
-                            <p className="text-slate-500">{error}</p>
-                            <button
-                                onClick={() => navigate("/admin/login")}
-                                className="inline-block mt-4 px-6 py-2 border border-slate-300 rounded-lg font-bold hover:bg-slate-50 transition"
-                            >
-                                Quay lại trang chủ
-                            </button>
+                            <p className="text-slate-500">{linkError}</p>
+                            <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
+                                <button
+                                    onClick={() => navigate("/admin/login")}
+                                    className="px-6 py-2.5 bg-secret-wax text-white rounded-lg font-bold hover:bg-secret-ink transition"
+                                >
+                                    Đăng nhập / Gửi lại
+                                </button>
+                                <button
+                                    onClick={() => navigate("/")}
+                                    className="px-6 py-2.5 border border-slate-300 text-slate-700 rounded-lg font-bold hover:bg-slate-50 transition"
+                                >
+                                    Về trang chủ
+                                </button>
+                            </div>
                         </div>
                     ) : (
                         /* Reset Form */
@@ -158,7 +180,7 @@ const ResetPassword = () => {
                                     <div className="relative">
                                         <Lock className="absolute left-3 top-3.5 h-5 w-5 text-slate-400" />
                                         <input
-                                            type="password"
+                                            type={showPassword ? "text" : "password"}
                                             value={confirmPassword}
                                             onChange={(e) => setConfirmPassword(e.target.value)}
                                             className="w-full pl-10 pr-12 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-secret-wax/20 focus:border-secret-wax outline-none transition-all"
@@ -168,6 +190,13 @@ const ResetPassword = () => {
                                     </div>
                                 </div>
                             </div>
+
+                            {formError && (
+                                <div className="flex items-center gap-2 rounded-lg bg-red-50 p-3 text-sm text-red-600 border border-red-100">
+                                    <AlertCircle className="h-4 w-4 shrink-0 text-red-600" />
+                                    <span>{formError}</span>
+                                </div>
+                            )}
 
                             <button
                                 type="submit"

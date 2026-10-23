@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { X, Mail, Lock, User, ArrowRight } from 'lucide-react';
+import { X, Mail, Lock, User, ArrowRight, ArrowLeft, CheckCircle2 } from 'lucide-react';
 import {
     signInWithEmailAndPassword,
-    createUserWithEmailAndPassword
+    createUserWithEmailAndPassword,
+    sendPasswordResetEmail
 } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 
@@ -25,10 +26,12 @@ const syncGoogleUserProfile = async (user) => {
 
 const AuthModal = ({ isOpen, onClose }) => {
     const [isLogin, setIsLogin] = useState(true);
+    const [isForgotPassword, setIsForgotPassword] = useState(false);
     const [showBrowserWarning, setShowBrowserWarning] = useState(false);
     const [googleLoading, setGoogleLoading] = useState(false);
     const [emailLoading, setEmailLoading] = useState(false);
     const [error, setError] = useState('');
+    const [resetSentMessage, setResetSentMessage] = useState('');
 
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -40,6 +43,8 @@ const AuthModal = ({ isOpen, onClose }) => {
         }
 
         setError('');
+        setResetSentMessage('');
+        setIsForgotPassword(false);
         setShowBrowserWarning(false);
         setGoogleLoading(false);
         setEmailLoading(false);
@@ -63,6 +68,7 @@ const AuthModal = ({ isOpen, onClose }) => {
 
         setGoogleLoading(true);
         setError('');
+        setResetSentMessage('');
 
         try {
             warmUpGoogleSignIn();
@@ -79,6 +85,36 @@ const AuthModal = ({ isOpen, onClose }) => {
         }
     };
 
+    const handlePasswordReset = async (e) => {
+        e.preventDefault();
+
+        if (googleLoading || emailLoading) {
+            return;
+        }
+
+        const trimmedEmail = email.trim();
+        if (!trimmedEmail) {
+            setError('Vui lòng nhập địa chỉ email của bạn.');
+            return;
+        }
+
+        setEmailLoading(true);
+        setError('');
+        setResetSentMessage('');
+
+        try {
+            await sendPasswordResetEmail(auth, trimmedEmail);
+            setResetSentMessage(
+                `Đã gửi liên kết đặt lại mật khẩu tới ${trimmedEmail}. Vui lòng kiểm tra hộp thư đến (hoặc mục Thư rác / Spam).`
+            );
+        } catch (err) {
+            console.error('Password reset failed:', err?.code, err?.message, err);
+            setError(getFirebaseAuthMessage(err, { mode: 'reset-password' }));
+        } finally {
+            setEmailLoading(false);
+        }
+    };
+
     const handleEmailAuth = async (e) => {
         e.preventDefault();
 
@@ -88,6 +124,7 @@ const AuthModal = ({ isOpen, onClose }) => {
 
         setEmailLoading(true);
         setError('');
+        setResetSentMessage('');
 
         try {
             if (isLogin) {
@@ -133,129 +170,224 @@ const AuthModal = ({ isOpen, onClose }) => {
                 <div className="p-8">
                     <div className="mb-8 text-center">
                         <h2 className="mb-2 text-2xl font-bold text-slate-900">
-                            {isLogin ? 'Chào mừng trở lại' : 'Tạo tài khoản mới'}
+                            {isForgotPassword
+                                ? 'Quên mật khẩu?'
+                                : isLogin
+                                  ? 'Chào mừng trở lại'
+                                  : 'Tạo tài khoản mới'}
                         </h2>
                         <p className="text-sm text-slate-500">
-                            {isLogin
-                                ? 'Đăng nhập để tiếp tục việc học của bạn'
-                                : 'Tham gia cùng cộng đồng học viên Mali Edu'}
+                            {isForgotPassword
+                                ? 'Nhập email của bạn để nhận liên kết đặt lại mật khẩu'
+                                : isLogin
+                                  ? 'Đăng nhập để tiếp tục việc học của bạn'
+                                  : 'Tham gia cùng cộng đồng học viên Mali Edu'}
                         </p>
                     </div>
 
-                    <button
-                        type="button"
-                        onClick={handleGoogleLogin}
-                        onMouseEnter={warmUpGoogleSignIn}
-                        onFocus={warmUpGoogleSignIn}
-                        onTouchStart={warmUpGoogleSignIn}
-                        disabled={googleLoading || emailLoading}
-                        className="relative mb-6 flex w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 font-bold text-slate-700 transition-all hover:bg-slate-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500"
-                    >
-                        {googleLoading ? (
-                            <div className="h-5 w-5 animate-spin rounded-full border-2 border-slate-300 border-t-slate-700" />
-                        ) : (
-                            <img
-                                src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
-                                alt="Google"
-                                className="h-5 w-5"
-                            />
-                        )}
-                        <span>{googleLoading ? 'Đang kết nối Google...' : 'Tiếp tục với Google'}</span>
-                    </button>
+                    {isForgotPassword ? (
+                        <>
+                            <form onSubmit={handlePasswordReset} className="space-y-4">
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold uppercase text-slate-700">Email</label>
+                                    <div className="relative">
+                                        <Mail className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
+                                        <input
+                                            type="email"
+                                            value={email}
+                                            onChange={(e) => setEmail(e.target.value)}
+                                            className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-10 pr-4 font-medium transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-secret-wax"
+                                            placeholder="email@example.com"
+                                            required
+                                            autoFocus
+                                        />
+                                    </div>
+                                </div>
 
-                    <div className="relative mb-6">
-                        <div className="absolute inset-0 flex items-center">
-                            <div className="w-full border-t border-slate-200" />
-                        </div>
-                        <div className="relative flex justify-center text-xs uppercase">
-                            <span className="bg-white px-2 text-slate-400">Hoặc</span>
-                        </div>
-                    </div>
+                                {error && (
+                                    <div className="flex items-center gap-2 rounded-lg bg-red-50 p-3 text-sm text-red-600">
+                                        <span className="block h-1.5 w-1.5 shrink-0 rounded-full bg-red-600" />
+                                        {error}
+                                    </div>
+                                )}
 
-                    <form onSubmit={handleEmailAuth} className="space-y-4">
-                        {!isLogin && (
-                            <div className="space-y-1">
-                                <label className="text-xs font-bold uppercase text-slate-700">Họ và tên</label>
-                                <div className="relative">
-                                    <User className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
-                                    <input
-                                        type="text"
-                                        value={fullName}
-                                        onChange={(e) => setFullName(e.target.value)}
-                                        className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-10 pr-4 font-medium transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-secret-wax"
-                                        placeholder="Nguyễn Văn A"
-                                        required={!isLogin}
+                                {resetSentMessage && (
+                                    <div className="flex items-start gap-2.5 rounded-lg border border-emerald-200 bg-emerald-50 p-3.5 text-sm text-emerald-800">
+                                        <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
+                                        <span>{resetSentMessage}</span>
+                                    </div>
+                                )}
+
+                                <button
+                                    type="submit"
+                                    disabled={googleLoading || emailLoading}
+                                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 py-3.5 font-bold text-white shadow-lg shadow-slate-900/20 transition-all hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-700"
+                                >
+                                    {emailLoading ? (
+                                        <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                                    ) : (
+                                        <>
+                                            {resetSentMessage ? 'Gửi lại liên kết' : 'Gửi liên kết đặt lại mật khẩu'}
+                                            <ArrowRight className="h-4 w-4" />
+                                        </>
+                                    )}
+                                </button>
+                            </form>
+
+                            <div className="mt-6 text-center text-sm">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setIsForgotPassword(false);
+                                        setError('');
+                                        setResetSentMessage('');
+                                    }}
+                                    disabled={googleLoading || emailLoading}
+                                    className="inline-flex items-center gap-1.5 font-bold text-secret-wax transition-colors hover:text-secret-ink disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                    <ArrowLeft className="h-4 w-4" />
+                                    Quay lại đăng nhập
+                                </button>
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            <button
+                                type="button"
+                                onClick={handleGoogleLogin}
+                                onMouseEnter={warmUpGoogleSignIn}
+                                onFocus={warmUpGoogleSignIn}
+                                onTouchStart={warmUpGoogleSignIn}
+                                disabled={googleLoading || emailLoading}
+                                className="relative mb-6 flex w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 font-bold text-slate-700 transition-all hover:bg-slate-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500"
+                            >
+                                {googleLoading ? (
+                                    <div className="h-5 w-5 animate-spin rounded-full border-2 border-slate-300 border-t-slate-700" />
+                                ) : (
+                                    <img
+                                        src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+                                        alt="Google"
+                                        className="h-5 w-5"
                                     />
+                                )}
+                                <span>{googleLoading ? 'Đang kết nối Google...' : 'Tiếp tục với Google'}</span>
+                            </button>
+
+                            <div className="relative mb-6">
+                                <div className="absolute inset-0 flex items-center">
+                                    <div className="w-full border-t border-slate-200" />
+                                </div>
+                                <div className="relative flex justify-center text-xs uppercase">
+                                    <span className="bg-white px-2 text-slate-400">Hoặc</span>
                                 </div>
                             </div>
-                        )}
 
-                        <div className="space-y-1">
-                            <label className="text-xs font-bold uppercase text-slate-700">Email</label>
-                            <div className="relative">
-                                <Mail className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
-                                <input
-                                    type="email"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-10 pr-4 font-medium transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-secret-wax"
-                                    placeholder="email@example.com"
-                                    required
-                                />
+                            <form onSubmit={handleEmailAuth} className="space-y-4">
+                                {!isLogin && (
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-bold uppercase text-slate-700">Họ và tên</label>
+                                        <div className="relative">
+                                            <User className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
+                                            <input
+                                                type="text"
+                                                value={fullName}
+                                                onChange={(e) => setFullName(e.target.value)}
+                                                className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-10 pr-4 font-medium transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-secret-wax"
+                                                placeholder="Nguyễn Văn A"
+                                                required={!isLogin}
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold uppercase text-slate-700">Email</label>
+                                    <div className="relative">
+                                        <Mail className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
+                                        <input
+                                            type="email"
+                                            value={email}
+                                            onChange={(e) => setEmail(e.target.value)}
+                                            className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-10 pr-4 font-medium transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-secret-wax"
+                                            placeholder="email@example.com"
+                                            required
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="space-y-1">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-xs font-bold uppercase text-slate-700">Mật khẩu</label>
+                                        {isLogin && (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setIsForgotPassword(true);
+                                                    setError('');
+                                                    setResetSentMessage('');
+                                                }}
+                                                disabled={googleLoading || emailLoading}
+                                                className="text-xs font-bold text-secret-wax transition-colors hover:text-secret-ink disabled:cursor-not-allowed disabled:opacity-60"
+                                            >
+                                                Quên mật khẩu?
+                                            </button>
+                                        )}
+                                    </div>
+                                    <div className="relative">
+                                        <Lock className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
+                                        <input
+                                            type="password"
+                                            value={password}
+                                            onChange={(e) => setPassword(e.target.value)}
+                                            className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-10 pr-4 font-medium transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-secret-wax"
+                                            placeholder="••••••••"
+                                            required
+                                        />
+                                    </div>
+                                </div>
+
+                                {error && (
+                                    <div className="flex items-center gap-2 rounded-lg bg-red-50 p-3 text-sm text-red-600">
+                                        <span className="block h-1.5 w-1.5 shrink-0 rounded-full bg-red-600" />
+                                        {error}
+                                    </div>
+                                )}
+
+                                <button
+                                    type="submit"
+                                    disabled={googleLoading || emailLoading}
+                                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 py-3.5 font-bold text-white shadow-lg shadow-slate-900/20 transition-all hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-700"
+                                >
+                                    {emailLoading ? (
+                                        <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                                    ) : (
+                                        <>
+                                            {isLogin ? 'Đăng nhập ngay' : 'Đăng ký ngay'}
+                                            <ArrowRight className="h-4 w-4" />
+                                        </>
+                                    )}
+                                </button>
+                            </form>
+
+                            <div className="mt-6 text-center text-sm">
+                                <span className="text-slate-500">
+                                    {isLogin ? 'Chưa có tài khoản? ' : 'Đã có tài khoản? '}
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setIsLogin(!isLogin);
+                                        setError('');
+                                        setResetSentMessage('');
+                                    }}
+                                    disabled={googleLoading || emailLoading}
+                                    className="font-bold text-secret-wax transition-colors hover:text-secret-ink disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                    {isLogin ? 'Đăng ký miễn phí' : 'Đăng nhập ngay'}
+                                </button>
                             </div>
-                        </div>
-
-                        <div className="space-y-1">
-                            <label className="text-xs font-bold uppercase text-slate-700">Mật khẩu</label>
-                            <div className="relative">
-                                <Lock className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
-                                <input
-                                    type="password"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-10 pr-4 font-medium transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-secret-wax"
-                                    placeholder="••••••••"
-                                    required
-                                />
-                            </div>
-                        </div>
-
-                        {error && (
-                            <div className="flex items-center gap-2 rounded-lg bg-red-50 p-3 text-sm text-red-600">
-                                <span className="block h-1.5 w-1.5 shrink-0 rounded-full bg-red-600" />
-                                {error}
-                            </div>
-                        )}
-
-                        <button
-                            type="submit"
-                            disabled={googleLoading || emailLoading}
-                            className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 py-3.5 font-bold text-white shadow-lg shadow-slate-900/20 transition-all hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-700"
-                        >
-                            {emailLoading ? (
-                                <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                            ) : (
-                                <>
-                                    {isLogin ? 'Đăng nhập ngay' : 'Đăng ký ngay'}
-                                    <ArrowRight className="h-4 w-4" />
-                                </>
-                            )}
-                        </button>
-                    </form>
-
-                    <div className="mt-6 text-center text-sm">
-                        <span className="text-slate-500">
-                            {isLogin ? 'Chưa có tài khoản? ' : 'Đã có tài khoản? '}
-                        </span>
-                        <button
-                            type="button"
-                            onClick={() => setIsLogin(!isLogin)}
-                            disabled={googleLoading || emailLoading}
-                            className="font-bold text-secret-wax transition-colors hover:text-secret-ink disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                            {isLogin ? 'Đăng ký miễn phí' : 'Đăng nhập ngay'}
-                        </button>
-                    </div>
+                        </>
+                    )}
                 </div>
             </div>
 
