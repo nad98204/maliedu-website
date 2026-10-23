@@ -10,6 +10,17 @@ const getRawFirebaseError = (err) => {
     .toUpperCase();
 };
 
+export const getPasswordResetActionCodeSettings = (path = "/") => {
+  if (typeof window === "undefined" || !window.location?.origin) {
+    return undefined;
+  }
+
+  return {
+    url: `${window.location.origin}${path}`,
+    handleCodeInApp: false,
+  };
+};
+
 export const normalizeFirebaseAuthCode = (err) => {
   if (typeof err?.code === "string" && err.code.startsWith("auth/")) {
     return err.code;

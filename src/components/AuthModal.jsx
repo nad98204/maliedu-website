@@ -10,7 +10,7 @@ import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { signInWithGoogle } from '../utils/googleAuthFlow';
 import { ensureUserProfile } from '../utils/userService';
-import { getFirebaseAuthMessage } from '../utils/firebaseAuthErrors';
+import { getFirebaseAuthMessage, getPasswordResetActionCodeSettings } from '../utils/firebaseAuthErrors';
 import { warmUpGoogleSignIn } from '../utils/googleAuthWarmup';
 
 import { isInAppBrowser } from '../utils/browserDetection';
@@ -103,7 +103,20 @@ const AuthModal = ({ isOpen, onClose }) => {
         setResetSentMessage('');
 
         try {
-            await sendPasswordResetEmail(auth, trimmedEmail);
+            try {
+                await sendPasswordResetEmail(
+                    auth,
+                    trimmedEmail,
+                    getPasswordResetActionCodeSettings('/')
+                );
+            } catch (firstErr) {
+                if (String(firstErr?.code || '').includes('continue-uri')) {
+                    await sendPasswordResetEmail(auth, trimmedEmail);
+                } else {
+                    throw firstErr;
+                }
+            }
+
             setResetSentMessage(
                 `Đã gửi liên kết đặt lại mật khẩu tới ${trimmedEmail}. Vui lòng kiểm tra hộp thư đến (hoặc mục Thư rác / Spam).`
             );

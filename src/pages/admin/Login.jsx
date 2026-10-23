@@ -6,7 +6,7 @@ import { ArrowLeft, CheckCircle2 } from "lucide-react";
 import { auth } from "../../firebase";
 import { completeAdminLogin } from "../../utils/adminLoginFlow";
 import { signInWithGoogle } from "../../utils/googleAuthFlow";
-import { getFirebaseAuthMessage } from "../../utils/firebaseAuthErrors";
+import { getFirebaseAuthMessage, getPasswordResetActionCodeSettings } from "../../utils/firebaseAuthErrors";
 import { isInAppBrowser } from "../../utils/browserDetection";
 import InAppBrowserModal from "../../components/InAppBrowserModal";
 import { MALI_LOGO_URL } from "../../constants/brandAssets.js";
@@ -55,7 +55,20 @@ const Login = () => {
     setIsSubmitting(true);
 
     try {
-      await sendPasswordResetEmail(auth, trimmedEmail);
+      try {
+        await sendPasswordResetEmail(
+          auth,
+          trimmedEmail,
+          getPasswordResetActionCodeSettings("/admin/login")
+        );
+      } catch (firstErr) {
+        if (String(firstErr?.code || "").includes("continue-uri")) {
+          await sendPasswordResetEmail(auth, trimmedEmail);
+        } else {
+          throw firstErr;
+        }
+      }
+
       setResetSentMessage(
         `Đã gửi liên kết đặt lại mật khẩu tới ${trimmedEmail}. Vui lòng kiểm tra hộp thư đến (hoặc mục Thư rác / Spam).`
       );
