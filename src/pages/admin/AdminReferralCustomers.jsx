@@ -17,6 +17,7 @@ import {
   RefreshCw,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   ClipboardCopy,
   Download,
   ExternalLink,
@@ -369,6 +370,7 @@ const AdminReferralCustomers = () => {
   const [isExportingLeads, setIsExportingLeads] = useState(false);
   const [isSavingPartner, setIsSavingPartner] = useState(false);
   const [activeView, setActiveView] = useState(storedFilters.activeView);
+  const [courseToolsOpen, setCourseToolsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState(storedFilters.searchTerm);
   const [statusFilter, setStatusFilter] = useState(storedFilters.statusFilter);
   const [partnerFilter, setPartnerFilter] = useState(storedFilters.partnerFilter);
@@ -960,7 +962,18 @@ const AdminReferralCustomers = () => {
               </p>
             </div>
 
-            <div className="flex rounded-2xl border border-slate-200 bg-slate-100 p-1.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <button type="button" onClick={reloadReferralData} disabled={isLoadingLeads || isLoading}
+                className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold disabled:opacity-50">
+                <RefreshCw className="h-4 w-4" /> Làm mới data
+              </button>
+              <button type="button" aria-expanded={courseToolsOpen} aria-controls="referral-course-tools"
+                onClick={() => setCourseToolsOpen(open => !open)}
+                className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold">
+                <GraduationCap className="h-4 w-4" /> Quản lý khóa học
+                <ChevronDown className={`h-4 w-4 transition-transform ${courseToolsOpen ? 'rotate-180' : ''}`} />
+              </button>
+              <div className="flex rounded-2xl border border-slate-200 bg-slate-100 p-1.5">
               <button
                 type="button"
                 onClick={() => setActiveView("customers")}
@@ -987,21 +1000,19 @@ const AdminReferralCustomers = () => {
                   Nhân viên
                 </button>
               ) : null}
+              </div>
             </div>
           </div>
         </header>
 
-        <section className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
+        <div id="referral-course-tools" hidden={!courseToolsOpen} className="space-y-3">
+        <section className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
           <div>
             <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Đợt đang nhận đăng ký</p>
             <p className="mt-1 text-lg font-black">{runsConfig.runs.find(run => run.id === runsConfig.activeRunId)?.name}</p>
             <p className="mt-1 text-sm text-slate-600">Các đợt đã kết thúc vẫn xem được data và xuất Excel qua bộ lọc khóa học.</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={reloadReferralData} disabled={isLoadingLeads || isLoading}
-              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold disabled:opacity-50">
-              <RefreshCw className="h-4 w-4" /> Làm mới data
-            </button>
             {isSuperAdmin ? <button type="button" disabled={!runsLoaded || isClosingRun}
               onClick={() => {
                 setClosingRun(runsConfig.runs.find(run => run.id === runsConfig.activeRunId));
@@ -1015,10 +1026,11 @@ const AdminReferralCustomers = () => {
           </div>
         </section>
 
-        <section className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-amber-200 bg-amber-50 p-5">
+        <section className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
           <div><p className="text-xs font-black uppercase tracking-wide text-amber-800">Khóa 21 ngày · Lưu data tại website</p><p className="mt-1 text-lg font-black">{GRATITUDE_REFERRAL_COURSE.name}</p><p className="mt-1 text-sm text-slate-600">Dùng mã nhân viên hiện có. Mỗi người có link riêng cho khóa này; khách vào trực tiếp ghi nhận cho Công ty.</p></div>
-          <div className="flex flex-wrap gap-2"><button type="button" className="rounded-xl border border-amber-200 bg-white px-4 py-3 text-sm font-bold" onClick={() => { setCourseFilter(GRATITUDE_REFERRAL_COURSE.id); setPartnerFilter('all'); setActiveView('customers'); resetPagination(); }}>Xem data 21 ngày</button><button type="button" className="rounded-xl bg-secret-wax px-4 py-3 text-sm font-bold text-white" onClick={() => { setLinkCourseId(GRATITUDE_REFERRAL_COURSE.id); setActiveView(isSuperAdmin ? 'partners' : 'customers'); }}>Link nhân viên 21 ngày</button></div>
+          <div className="flex flex-wrap gap-2"><button type="button" className="rounded-xl border border-amber-200 bg-white px-4 py-3 text-sm font-bold" onClick={() => { setCourseFilter(GRATITUDE_REFERRAL_COURSE.id); setPartnerFilter('all'); setActiveView('customers'); resetPagination(); setCourseToolsOpen(false); }}>Xem data 21 ngày</button><button type="button" className="rounded-xl bg-secret-wax px-4 py-3 text-sm font-bold text-white" onClick={() => { setLinkCourseId(GRATITUDE_REFERRAL_COURSE.id); setActiveView(isSuperAdmin ? 'partners' : 'customers'); setCourseToolsOpen(false); }}>Link nhân viên 21 ngày</button></div>
         </section>
+        </div>
 
         {dataError ? <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
           Chưa tải đủ data: {dataError} Nhấn “Làm mới data” để thử lại.

@@ -55,7 +55,14 @@ try {
   await page.waitForFunction(() => document.body.innerText.includes('Học viên 21 ngày mẫu'));
   assert.ok(await page.$eval('[role="alert"]', el => el.innerText.includes('Chinh Phục')));
   assert.ok(await page.$$eval('select option', options => options.some(option => option.value === '21-ngay-long-biet-on')));
+  assert.equal(await page.$eval('#referral-course-tools', el => el.getBoundingClientRect().height), 0, 'course tools start collapsed');
+  await page.screenshot({ path: directory + '/compact-header.png', fullPage: true });
+  await page.click('[aria-controls="referral-course-tools"]');
+  assert.equal(await page.$eval('[aria-controls="referral-course-tools"]', el => el.getAttribute('aria-expanded')), 'true');
+  assert.ok(await page.$eval('#referral-course-tools', el => el.getBoundingClientRect().height > 0));
+  await page.screenshot({ path: directory + '/course-tools.png', fullPage: true });
   await page.evaluate(() => [...document.querySelectorAll('button')].find(button => button.textContent === 'Xem data 21 ngày').click());
+  assert.equal(await page.$eval('#referral-course-tools', el => el.hidden), true, 'choosing data closes the tools');
   await page.waitForFunction(() => document.querySelector('tbody')?.innerText.includes('Học viên 21 ngày mẫu'));
   assert.equal(await page.$$eval('tbody tr', rows => rows.length), 1, 'the registration and its mirror are one row');
   assert.ok(await page.$eval('tbody', el => el.innerText.includes('Nhân viên mẫu A')));
@@ -63,6 +70,7 @@ try {
   assert.equal(await page.$eval('tbody select', el => el.value), 'contacted');
   assert.equal(await page.$eval('tbody', el => el.innerText.includes('Học viên khóa cũ mẫu')), false);
   await page.screenshot({ path: directory + '/customers.png', fullPage: true });
+  await page.click('[aria-controls="referral-course-tools"]');
   await page.evaluate(() => [...document.querySelectorAll('button')].find(button => button.textContent === 'Link nhân viên 21 ngày').click());
   await page.waitForSelector('select[aria-label="Khóa dùng link nhân viên"]');
   assert.equal(await page.$eval('select[aria-label="Khóa dùng link nhân viên"]', el => el.value), '21-ngay-long-biet-on');
@@ -79,6 +87,12 @@ try {
   assert.ok(writes.some(write => write.path === 'users/staff-b' && write.data.referralCode === partner.data.code));
   await page.waitForFunction(code => [...document.querySelectorAll('a')].some(a => a.href.includes('/dao-tao/21-ngay-long-biet-on?ref=' + code)), {}, partner.data.code);
   await page.screenshot({ path: directory + '/employee-links.png', fullPage: true });
+  await page.setViewport({ width: 390, height: 844 });
+  await page.click('[aria-controls="referral-course-tools"]');
+  assert.ok(await page.$eval('#referral-course-tools', el => el.getBoundingClientRect().height > 0));
+  await page.click('[aria-controls="referral-course-tools"]');
+  assert.equal(await page.$eval('#referral-course-tools', el => el.getBoundingClientRect().height), 0);
+  await page.screenshot({ path: directory + '/compact-mobile.png', fullPage: true });
   assert.deepEqual(errors, []);
   console.log('PASS referral UI: 21-day filter, employee attribution, no duplicate rows, existing notes, partial outage, company/employee links and new code creation');
 } finally { await browser.close(); }
