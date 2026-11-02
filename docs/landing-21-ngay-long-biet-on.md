@@ -36,6 +36,6 @@ Mọi nút đăng ký mở form dạng hộp thoại ngay tại vị trí đang 
 - Bản xem cục bộ: `npm run dev -- --port 5173`.
 - Khi đưa lên thật cần triển khai cả Firebase Functions `uploadApi`, `uploadApiFallback` và frontend/Pages qua luồng hiện có. Chỉ deploy frontend thì endpoint đăng ký mới chưa tồn tại trên backend đang chạy.
 
-Phát hành theo yêu cầu người dùng ngày 02/11/2026: triển khai backend trước frontend. Tên miền chính là `https://luathapdan.vn`, Cloudflare Pages `maliedu-website`, nhánh production `main`. Thanh điều hướng mobile hiển thị chữ theo hai hàng, nhãn ngắn: Dành cho ai, Hành trình, Nhận được gì, Người chia sẻ, Lời hẹn, Đăng ký. Nội dung chương trình là giải đáp câu hỏi trong các buổi học; không quảng bá coaching trực tiếp.
+Phát hành theo yêu cầu người dùng ngày 02/11/2026: triển khai backend trước frontend. Tên miền chính là `https://luathapdan.vn`, Cloudflare Pages `maliedu-website`, nhánh production `main`. Theo yêu cầu bổ sung, mobile ẩn toàn bộ thanh điều hướng phía trên; vẫn có nút đăng ký ở nội dung và cố định cuối màn hình. Máy tính giữ thanh điều hướng với nhãn ngắn. Nội dung chương trình là giải đáp câu hỏi trong các buổi học; không quảng bá coaching trực tiếp.
 
 Môi trường local hiện không có `.env` public S3. Khi kiểm tra build, truyền tạm `VITE_S3_ENDPOINT=https://s3-hn1-api.longvan.vn` và `VITE_S3_BUCKET=video-khoa-hoc` từ đường dẫn media đang có trong mã nguồn; không tạo hay thay đổi thông tin bí mật.

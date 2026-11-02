@@ -44,14 +44,15 @@ try {
     if (width === 1440) await page.screenshot({ path: '.cache/gratitude-tests/preview-desktop.png' });
     await page.screenshot({ path: `.cache/gratitude-tests/landing-${width}.png`, fullPage: true });
     assert.equal(await page.$('.g21-menu'), null);
-    assert.equal(await page.$$eval('.g21-links a', links => links.every(link => {
+    assert.equal(await page.$eval('.g21-header', header => getComputedStyle(header).display !== 'none'), width > 720);
+    if (width > 720) assert.equal(await page.$$eval('.g21-links a', links => links.every(link => {
       const bounds = link.getBoundingClientRect();
       const header = document.querySelector('.g21-header').getBoundingClientRect();
       return bounds.width > 0 && bounds.height > 0 && bounds.top >= header.top && bounds.bottom <= header.bottom;
     })), true, 'navigation text is visible without opening a menu');
-    if (width === 390) await page.screenshot({ path: '.cache/gratitude-tests/mobile-text-navigation.png' });
+    if (width === 390) await page.screenshot({ path: '.cache/gratitude-tests/mobile-no-navigation.png' });
     const triggers = ['.g21-hero [data-registration-trigger]', '.g21-register-prompt [data-registration-trigger]', '.g21-invite [data-registration-trigger]',
-      '.g21-nav-cta', ...(width <= 720 ? ['.g21-mobile-cta'] : [])];
+      ...(width > 720 ? ['.g21-nav-cta'] : ['.g21-mobile-cta'])];
     for (const trigger of triggers) {
       const button = await page.$(trigger);
       await button.evaluate(el => el.scrollIntoView({ block: 'center', behavior: 'instant' }));
