@@ -8,7 +8,7 @@ export const GRATITUDE_COURSE = Object.freeze({
   timezone: 'Asia/Ho_Chi_Minh',
   days: 21,
   price: 0,
-  zaloUrl: 'https://zalo.me/g/xxoif3llvmgmr2tm4irv',
+  zaloUrl: 'https://zalo.me/g/oycqyorw5kgzftwyyyvl',
 });
 
 const fail = (status, message) => { throw Object.assign(new Error(message), { status }); };

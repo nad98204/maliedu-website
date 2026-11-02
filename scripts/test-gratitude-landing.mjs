@@ -22,7 +22,7 @@ try {
       if (url.pathname === '/api/community-registrations') {
         posts.push(JSON.parse(request.postData()));
         return request.respond({ status, contentType: 'application/json', body: JSON.stringify(status === 200
-          ? { success: true, courseId: '21-ngay-long-biet-on', zaloUrl: 'https://zalo.me/g/xxoif3llvmgmr2tm4irv' }
+          ? { success: true, courseId: '21-ngay-long-biet-on', zaloUrl: 'https://zalo.me/g/oycqyorw5kgzftwyyyvl' }
           : { error: 'Chưa thể lưu đăng ký. Vui lòng thử lại.' }) });
       }
       if (url.origin === origin || ['data:', 'blob:'].includes(url.protocol)) return request.continue();
@@ -103,7 +103,7 @@ try {
     assert.equal(Object.hasOwn(posts.at(-1), 'email'), false);
     assert.equal(posts.at(-1).utm.utm_source, 'kiem-thu');
     assert.equal(posts.at(-1).referralCode, 'nhan-vien-a');
-    assert.equal(await page.$eval('.g21-success a', el => el.href), 'https://zalo.me/g/xxoif3llvmgmr2tm4irv');
+    assert.equal(await page.$eval('.g21-success a', el => el.href), 'https://zalo.me/g/oycqyorw5kgzftwyyyvl');
     assert.equal(await page.evaluate(() => document.activeElement.className), 'g21-success');
     assert.deepEqual(errors, []);
     await page.screenshot({ path: `.cache/gratitude-tests/success-${width}.png`, fullPage: false });

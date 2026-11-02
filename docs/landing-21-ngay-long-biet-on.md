@@ -4,7 +4,7 @@
 - Bản mẫu: `/landing/danh-thuc-long-biet-on`.
 - Quản trị danh sách: `/admin/community-registrations`, mục **Đăng ký 21 ngày**.
 - Chương trình: `21-ngay-long-biet-on`, miễn phí, bắt đầu 29/10/2026, 05:00 giờ Việt Nam, 21 ngày đến 18/11/2026.
-- Nhóm Zalo: https://zalo.me/g/xxoif3llvmgmr2tm4irv.
+- Nhóm Zalo: https://zalo.me/g/oycqyorw5kgzftwyyyvl.
 
 ## Nội dung và hình ảnh
 
