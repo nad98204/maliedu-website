@@ -12,6 +12,7 @@ import khoiThongConfig from "../../../landing-templates/khoi-thong-dong-tien/con
 import khoiThongThuongHieuConfig from "../../../landing-templates/khoi-thong-dong-tien-thuonghieu/config.json";
 import { HERO_TITLE_WEBP as khoiThongPreview } from "../../../landing-templates/khoi-thong-dong-tien/heroAssets";
 import biMatLuatHapDanConfig from "../../../landing-templates/bi-mat-luat-hap-dan/config.json";
+import gratitudeConfig from "../../../landing-templates/danh-thuc-long-biet-on/config.json";
 
 /**
  * Admin Landing Builder
@@ -21,6 +22,11 @@ const AdminLandingBuilder = () => {
     // Load templates trực tiếp khi khởi tạo state
     const [templates, setTemplates] = useState(() => {
         return [
+            {
+                id: gratitudeConfig.id,
+                component: LandingTemplates.DanhThucLongBietOn,
+                config: { ...gratitudeConfig, folderId: null }
+            },
             {
                 id: 'khoi-thong-dong-tien',
                 component: LandingTemplates.KhoiThongDongTien,

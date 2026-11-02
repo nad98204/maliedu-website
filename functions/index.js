@@ -20,6 +20,7 @@ import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { hashData, normalizeNameForHash, sendMetaCapiEvent } from "./capi_helper.js";
 import { createAdminLandingHandlers } from "./_lib/adminLandings.js";
 import { createAdminStudentHandler } from "./_lib/adminStudents.js";
+import { createCommunityRegistrationHandlers } from "./_lib/communityRegistrations.js";
 import { createHypnosisHandlers, grantHypnosisOrderAccess, hypnosisMedia, hypnosisSecurityReady, hypnosisPrice, hasHypnosisAdminModule } from "./_lib/hypnosis.js";
 import {
   createAffiliateHandlers,
@@ -122,6 +123,8 @@ const PUBLIC_BANK_SETTING_FIELDS = [
   "transferPrefix",
 ];
 const RATE_LIMIT_POLICIES = new Map([
+  ["/api/community-registrations", { limit: 8, windowMs: 10 * 60 * 1000 }],
+  ["/api/admin/community-registrations", { limit: 120, windowMs: 60 * 1000 }],
   ["/api/crm-leads", { limit: 8, windowMs: 10 * 60 * 1000 }],
   ["/api/orders", { limit: 10, windowMs: 10 * 60 * 1000 }],
   ["/api/affiliate", { limit: 240, windowMs: 60 * 60 * 1000 }],
@@ -1228,7 +1231,13 @@ const hypnosisHandlers = createHypnosisHandlers({
   json: createJsonResponse,
 });
 
+const communityRegistrationHandlers = createCommunityRegistrationHandlers({
+  getDb: getFirestoreDb, fieldValue: FieldValue, json: createJsonResponse,
+});
+
 const ROUTES = new Map([
+  ["POST /api/community-registrations", communityRegistrationHandlers.register],
+  ["GET /api/admin/community-registrations", communityRegistrationHandlers.list],
   ["GET /api/hypnosis/catalog", hypnosisHandlers.catalog],
   ["GET /api/hypnosis/library", hypnosisHandlers.library],
   ["POST /api/hypnosis/claim", hypnosisHandlers.claim],
@@ -1624,6 +1633,7 @@ const createUploadApi = (region) => onRequest(
         || PROTECTED_BUNNY_STREAM_PATHS.has(normalizedPath)
         || PROTECTED_ADMIN_LANDING_PATHS.has(normalizedPath)
         || normalizedPath === PROTECTED_ADMIN_STUDENT_PATH
+        || normalizedPath === "/api/admin/community-registrations"
       ) {
         adminUser = await requireAdminRequest(request);
       }

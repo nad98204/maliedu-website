@@ -204,6 +204,7 @@ const landingCss = await readFile(path.join(distDir, assets["src/styles/landing.
 const { renderLanding } = await import(pathToFileURL(path.join(projectRoot, ".seo-build/ssr/landing-ssr.js")));
 
 const addRouteResources = (html, routePath) => {
+  const gratitude = ["/dao-tao/21-ngay-long-biet-on", "/landing/danh-thuc-long-biet-on"].includes(routePath);
   const landing = isKhoiThongStylePath(routePath) || isSecretLandingPath(routePath);
   const cssEntry = assets[landing ? "src/styles/landing.css" : "src/index.css"];
   if (!cssEntry) throw new Error(`Missing stylesheet for ${routePath}`);
@@ -212,6 +213,21 @@ const addRouteResources = (html, routePath) => {
   const links = [landing
     ? `<style data-landing-css>${landingCss}</style>`
     : `<link rel="stylesheet" crossorigin href="/${cssEntry.file}">`];
+  if (gratitude) {
+    const styles = new Set();
+    const visited = new Set();
+    const collectStyles = key => {
+      if (visited.has(key)) return;
+      visited.add(key);
+      const entry = assets[key];
+      for (const css of entry?.css || []) styles.add(css);
+      for (const dependency of entry?.imports || []) collectStyles(dependency);
+    };
+    collectStyles('src/landing-templates/danh-thuc-long-biet-on/DanhThucLongBietOn.jsx');
+    if (!styles.size) throw new Error('Missing 21-day landing stylesheet');
+    for (const css of styles) links.push(`<link rel="stylesheet" crossorigin href="/${css}">`);
+    links.push('<link rel="preload" as="image" href="/assets/landing/21-ngay-long-biet-on/banner.jpg" fetchpriority="high">');
+  }
   if (landing) {
     html = html.replace(/<link\b[^>]*href="https:\/\/(?:s3-hn1-api\.longvan\.vn|fonts\.gstatic\.com|fonts\.googleapis\.com)[^"]*"[^>]*>\s*/g, "");
   }
@@ -236,7 +252,8 @@ await writeFile(path.join(distDir, "spa.html"), addRouteResources(createSpaShell
 for (const route of manifest.routes) {
   const outputPath = outputPathForRoute(route.path);
   const hasHero = isKhoiThongStylePath(route.path) && route.path !== "/cam-on-khoi-thong";
-  const rendered = hasHero || isSecretLandingPath(route.path) ? await renderLanding(route.path) : null;
+  const gratitude = ["/dao-tao/21-ngay-long-biet-on", "/landing/danh-thuc-long-biet-on"].includes(route.path);
+  const rendered = hasHero || isSecretLandingPath(route.path) || gratitude ? await renderLanding(route.path) : null;
   let html = addRouteResources(applySeoToHtml(baseHtml, rendered ? { ...route, prerenderBodyHtml: rendered } : route), route.path);
   if (rendered) html = html.replace("</head>", '<meta name="landing-hydrated-html" content="true">\n</head>');
   await mkdir(path.dirname(outputPath), { recursive: true });

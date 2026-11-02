@@ -210,6 +210,12 @@ const AdminLayout = () => {
               {!isCollapsed && <span className="truncate">Quản lý Data Ads</span>}
             </NavLink>
           )}
+          {hasAccess("community-registrations") && (
+            <NavLink to="/admin/community-registrations" className={getNavClasses} title={isCollapsed ? "Đăng ký 21 ngày" : ""}>
+              <Users className="h-4 w-4 shrink-0 transition-colors" />
+              {!isCollapsed && <span className="truncate">Đăng ký 21 ngày</span>}
+            </NavLink>
+          )}
           {hasAccess("referral-customers") && (
             <NavLink to="/admin/referral-customers" className={getNavClasses} title={isCollapsed ? "Khách hàng giới thiệu" : ""}>
               <Sheet className="h-4 w-4 shrink-0 transition-colors" />

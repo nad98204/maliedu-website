@@ -12,6 +12,7 @@
 // EXAMPLE TEMPLATE (Xóa khi không cần)
 // ============================================
 export { default as ExampleTemplate } from './example-template/ExampleTemplate';
+export { default as DanhThucLongBietOn } from './danh-thuc-long-biet-on/DanhThucLongBietOn';
 
 // ============================================
 // PRODUCTION TEMPLATES

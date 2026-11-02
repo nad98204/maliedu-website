@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { DEFAULT_REFERRAL_RUNS, finishReferralRun, mergeReferralLeads, resolveReferralRun } from '../src/utils/referralCourseRuns.js';
+import { DEFAULT_REFERRAL_RUNS, GRATITUDE_REFERRAL_COURSE, getReferralCourseOptions, finishReferralRun, mergeReferralLeads, resolveReferralRun } from '../src/utils/referralCourseRuns.js';
 import { createTestDb } from './helpers/intake-test-db.mjs';
 import { parseLead } from '../workers/lead-intake/payload.js';
 import { persistLead, listLeads, referralLead } from '../workers/lead-intake/store.js';
@@ -8,6 +8,26 @@ import { handleRequest } from '../workers/lead-intake/index.js';
 
 const cutoff = Date.parse('2026-10-07T12:00:00+07:00');
 const config = finishReferralRun(DEFAULT_REFERRAL_RUNS, 'chinh-phuc-muc-tieu', '10-11-12/10/2026', cutoff);
+
+test('the 21-day course has its own path and never changes existing goal-run partitions', () => {
+  const options = getReferralCourseOptions(config);
+  assert.equal(options[0].id, GRATITUDE_REFERRAL_COURSE.id);
+  assert.equal(options[0].path, '/dao-tao/21-ngay-long-biet-on');
+  assert.equal(options.length, 3);
+  assert.equal(config.runs.length, 2);
+  assert.equal(resolveReferralRun({ courseId: GRATITUDE_REFERRAL_COURSE.id, createdAt: cutoff + 100 }, config), GRATITUDE_REFERRAL_COURSE.id);
+  const link = new URL(options[0].path, 'https://example.test');
+  link.searchParams.set('ref', 'employee-a');
+  assert.equal(link.pathname, '/dao-tao/21-ngay-long-biet-on');
+  const lead = { id: 'community_test', source: GRATITUDE_REFERRAL_COURSE.id, courseId: GRATITUDE_REFERRAL_COURSE.id, referralCode: 'employee-a', createdAt: cutoff + 100, status: 'new' };
+  const merged = mergeReferralLeads([{ ...lead, status: 'contacted', note: 'Keep note' }], [lead], config);
+  assert.equal(merged.length, 1);
+  assert.equal(merged[0].courseId, GRATITUDE_REFERRAL_COURSE.id);
+  assert.equal(merged[0].source, GRATITUDE_REFERRAL_COURSE.id);
+  assert.equal(merged[0].referralCode, 'employee-a');
+  assert.equal(merged[0].status, 'contacted');
+  assert.equal(merged[0].note, 'Keep note');
+});
 
 test('ending a run preserves its history and partitions registrations at the confirmed boundary', () => {
   assert.equal(DEFAULT_REFERRAL_RUNS.runs[0].status, 'active');

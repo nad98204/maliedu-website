@@ -1,0 +1,15 @@
+{
+  "id": "danh-thuc-long-biet-on",
+  "courseId": "21-ngay-long-biet-on",
+  "name": "THỬ THÁCH 21 NGÀY ĐÁNH THỨC PHÉP MÀU LÒNG BIẾT ƠN!",
+  "description": "Hành trình miễn phí thực hành biết ơn, thiết lập mục tiêu và rèn kỷ luật lúc 5h00 mỗi sáng.",
+  "category": "event",
+  "thumbnail": "/assets/landing/21-ngay-long-biet-on/banner.jpg",
+  "slug": "/dao-tao/21-ngay-long-biet-on",
+  "createdAt": "2026-11-02",
+  "status": "active",
+  "startDate": "2026-10-29",
+  "endDate": "2026-11-18",
+  "zaloUrl": "https://zalo.me/g/xxoif3llvmgmr2tm4irv",
+  "features": ["Hoàn toàn miễn phí", "5h00 mỗi sáng", "21 ngày liên tục", "Lưu đăng ký tại website"]
+}

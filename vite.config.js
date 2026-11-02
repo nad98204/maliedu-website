@@ -19,6 +19,39 @@ const cloudflareApiPlugin = () => ({
         }
         
         const basePath = req.url.split('?')[0]; 
+        if (['/api/community-registrations', '/api/admin/community-registrations', '/api/admin/referral-leads'].includes(basePath)) {
+          try {
+            const bodyBuffer = Buffer.concat(bodyChunks);
+            if (bodyBuffer.length > 32768) {
+              res.writeHead(413, { 'content-type': 'application/json', 'cache-control': 'no-store' });
+              res.end(JSON.stringify({ error: 'Dữ liệu gửi quá lớn.' }));
+              return;
+            }
+            const request = new Request('http://localhost' + req.url, {
+              method: req.method, headers: new Headers(req.headers),
+              body: bodyBuffer.length ? bodyBuffer : undefined,
+            });
+            let response;
+            if (basePath === '/api/admin/referral-leads') {
+              // Read-only proxy to the existing durable intake. Production checks
+              // the forwarded Firebase token; no Worker write binding is created.
+              if (req.method !== 'GET') response = Response.json({ error: 'Method not allowed' }, { status: 405 });
+              else response = await fetch('https://luathapdan.vn' + req.url, {
+                headers: { authorization: request.headers.get('authorization') || '' },
+                redirect: 'error', signal: AbortSignal.timeout(20000),
+              });
+            } else {
+              const { communityDevApi } = await import('./scripts/community-dev-api.mjs');
+              response = await communityDevApi({ request, clientIp: req.socket.remoteAddress });
+            }
+            res.writeHead(response.status, { 'content-type': 'application/json', 'cache-control': 'no-store' });
+            res.end(await response.text());
+          } catch {
+            res.writeHead(503, { 'content-type': 'application/json', 'cache-control': 'no-store' });
+            res.end(JSON.stringify({ error: 'Chưa kết nối được nguồn dữ liệu website. Vui lòng làm mới để thử lại.' }));
+          }
+          return;
+        }
         const functionPath = path.join(process.cwd(), 'functions', basePath + '.js');
         
         if (fs.existsSync(functionPath)) {

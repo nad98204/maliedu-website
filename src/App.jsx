@@ -26,6 +26,8 @@ const AdminLayout = lazy(() => import("./layouts/AdminLayout"));
 
 // Lazy Loaded Pages
 const Home = lazy(() => import("./pages/Home"));
+const DanhThucLongBietOn = lazy(() => import("./landing-templates/danh-thuc-long-biet-on/DanhThucLongBietOn"));
+const AdminCommunityRegistrations = lazy(() => import("./pages/admin/AdminCommunityRegistrations"));
 const GioiThieu = lazy(() => import("./pages/GioiThieu"));
 const DaoTao = lazy(() => import("./pages/DaoTao"));
 const Testimonials = lazy(() => import("./pages/Testimonials"));
@@ -104,6 +106,7 @@ const AppShell = () => {
   useAffiliateTracker();
   const isPlayerRoute = location.pathname.startsWith('/bai-giang/');
   const hideChromePaths = [
+    "/dao-tao/21-ngay-long-biet-on",
     "/dao-tao/khoi-thong-dong-tien",
     "/dao-tao/luat-hap-dan",
     "/dao-tao/vut-toc-muc-tieu",
@@ -139,6 +142,7 @@ const AppShell = () => {
         <Suspense fallback={<PageLoader />}>
           <Routes>
             {/* Landing / Checkout Simple Routes */}
+            <Route path="/dao-tao/21-ngay-long-biet-on" element={<DanhThucLongBietOn />} />
             <Route path="/dao-tao/khoi-thong-dong-tien" element={<KhoiThongDongTien targetFunnel="ads" source_key="1768973703248" />} />
             <Route path="/dao-tao/khoi-thong-dong-tien-leader" element={<KhoiThongDongTienLeader />} />
             <Route path="/dao-tao/khoi-thong-dong-tien-thuonghieu" element={<KhoiThongDongTienThuongHieu targetFunnel="thuonghieu" source_key="thuonghieu_web" />} />
@@ -208,6 +212,7 @@ const AppShell = () => {
               <Route path="orders" element={<AdminOrders />} />
               <Route path="reviews" element={<AdminReviews />} />
               <Route path="students" element={<AdminStudents />} />
+              <Route path="community-registrations" element={<AdminCommunityRegistrations />} />
               <Route path="data-ads" element={<AdminDataAds />} />
               <Route path="referral-customers" element={<AdminReferralCustomers />} />
               <Route path="instructors" element={<AdminInstructors />} />

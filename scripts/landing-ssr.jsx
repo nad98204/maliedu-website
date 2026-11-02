@@ -7,6 +7,7 @@ import { AppContent } from "../src/App";
 
 export function renderLanding(pathname) {
   return new Promise((resolve, reject) => {
+    let piped = false;
     const output = new PassThrough();
     const tree = <HelmetProvider context={{}}>
       <StaticRouter location={pathname}><AppContent /></StaticRouter>
@@ -20,7 +21,11 @@ export function renderLanding(pathname) {
     const stream = renderToPipeableStream(
       tree,
       {
-        onAllReady() { stream.pipe(output); },
+        onAllReady() {
+          if (piped) return;
+          piped = true;
+          stream.pipe(output);
+        },
         onError(error) { reject(error); },
       },
     );

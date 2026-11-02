@@ -34,43 +34,25 @@ const rawPrivateKey = process.env.FIREBASE_PRIVATE_KEY;
 
 let db = null;
 let usePublicFirestore = false;
-if (projectId && clientEmail && rawPrivateKey) {
-  let admin;
+if ((projectId && clientEmail && rawPrivateKey) || process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+  let appSdk;
+  let firestoreSdk;
   try {
-    admin = require("firebase-admin");
+    appSdk = require("firebase-admin/app");
+    firestoreSdk = require("firebase-admin/firestore");
   } catch {
     throw new Error(
       "firebase-admin chưa được cài đặt. Chạy npm install trước khi sinh sitemap.",
     );
   }
-  const privateKey = rawPrivateKey.replace(/\\n/g, "\n");
-  if (!admin.apps.length) {
-    admin.initializeApp({
-      credential: admin.credential.cert({
-        projectId,
-        clientEmail,
-        privateKey,
-      }),
-    });
-  }
-  db = admin.firestore();
-  console.log(`[sitemap] Đã kết nối Firestore project ${projectId}.`);
-} else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-  let admin;
-  try {
-    admin = require("firebase-admin");
-  } catch {
-    throw new Error(
-      "firebase-admin chưa được cài đặt. Chạy npm install trước khi sinh sitemap.",
-    );
-  }
-  if (!admin.apps.length) {
-    admin.initializeApp({
-      credential: admin.credential.applicationDefault(),
-    });
-  }
-  db = admin.firestore();
-  console.log("[sitemap] Đã kết nối Firestore bằng Application Default Credentials.");
+  const credential = projectId && clientEmail && rawPrivateKey
+    ? appSdk.cert({ projectId, clientEmail, privateKey: rawPrivateKey.replace(/\\n/g, "\n") })
+    : appSdk.applicationDefault();
+  const app = appSdk.getApps()[0] || appSdk.initializeApp({
+    credential, projectId: projectId || FIREBASE_PUBLIC_CONFIG.projectId,
+  });
+  db = firestoreSdk.getFirestore(app);
+  console.log(`[sitemap] Đã kết nối Firestore project ${app.options.projectId}.`);
 } else {
   usePublicFirestore = true;
   console.log(

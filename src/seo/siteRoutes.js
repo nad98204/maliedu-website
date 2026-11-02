@@ -136,6 +136,19 @@ export const ROUTE_SEO = {
     url: "/dao-tao/bi-mat-luat-hap-dan",
     lastmod: "2026-09-08",
   }),
+  "/dao-tao/21-ngay-long-biet-on": indexable({
+    title: "21 ngày đánh thức phép màu lòng biết ơn | Miễn phí",
+    description: "Hành trình miễn phí thực hành biết ơn, thiết lập mục tiêu và rèn kỷ luật lúc 5h00 mỗi sáng cùng Nguyễn Mong Thành và Mong Coaching.",
+    image: "/assets/landing/21-ngay-long-biet-on/banner.jpg",
+    url: "/dao-tao/21-ngay-long-biet-on",
+    lastmod: "2026-11-02",
+  }),
+  "/landing/danh-thuc-long-biet-on": noindex({
+    title: "21 ngày đánh thức phép màu lòng biết ơn | Miễn phí",
+    description: "Hành trình 21 ngày thực hành lòng biết ơn cùng Thành.",
+    image: "/assets/landing/21-ngay-long-biet-on/banner.jpg",
+    url: "/dao-tao/21-ngay-long-biet-on",
+  }),
   "/landing/bi-mat-luat-hap-dan": {
     title: "Ứng dụng Luật Hấp Dẫn để Khơi Thông Dòng Tiền",
     description: "4 buổi học online miễn phí cùng Mali Edu.",

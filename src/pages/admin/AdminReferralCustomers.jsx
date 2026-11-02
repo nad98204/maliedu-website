@@ -34,9 +34,11 @@ import { auth, db } from "../../firebase";
 import { isSuperAdminEmail } from "../../utils/adminAccess";
 import { normalizeLeadSearchText } from "../../utils/leadSearch";
 import { loadReferralIntake } from '../../services/referralLeadsService';
-import { DEFAULT_REFERRAL_RUNS, REFERRAL_RUNS_DOCUMENT, finishReferralRun, mergeReferralLeads } from '../../utils/referralCourseRuns';
+import { loadCommunityRegistrations } from '../../services/adminCommunityRegistrationService';
+import { DEFAULT_REFERRAL_RUNS, REFERRAL_RUNS_DOCUMENT, GRATITUDE_REFERRAL_COURSE, getReferralCourseOptions, finishReferralRun, mergeReferralLeads } from '../../utils/referralCourseRuns';
 
 const COURSE_OPTIONS = [
+  GRATITUDE_REFERRAL_COURSE,
   {
     id: "chinh-phuc-muc-tieu",
     name: "Chinh Phục Mục Tiêu",
@@ -346,12 +348,9 @@ const getStoredReferralCustomerFilters = () => {
 
 const AdminReferralCustomers = () => {
   const [runsConfig, setRunsConfig] = useState(DEFAULT_REFERRAL_RUNS);
-  const COURSE_OPTIONS = useMemo(() => [...runsConfig.runs].reverse().map(run => ({
-    ...run, name: run.name + (run.status === 'ended' ? ' — Đã kết thúc' : ''),
-    path: '/dao-tao/chinh-phuc-muc-tieu', sources: ['chinh-phuc-muc-tieu'],
-  })), [runsConfig]);
-  const [dataSources, setDataSources] = useState({ history: [], intake: [] });
-  const allReferralLeads = useMemo(() => mergeReferralLeads(dataSources.history, dataSources.intake, runsConfig), [dataSources, runsConfig]);
+  const COURSE_OPTIONS = useMemo(() => getReferralCourseOptions(runsConfig), [runsConfig]);
+  const [dataSources, setDataSources] = useState({ history: [], intake: [], community: [] });
+  const allReferralLeads = useMemo(() => mergeReferralLeads(dataSources.history, [...dataSources.intake, ...dataSources.community], runsConfig), [dataSources, runsConfig]);
   const [dataError, setDataError] = useState('');
   const [closingRun, setClosingRun] = useState(null);
   const [nextRunName, setNextRunName] = useState('Chinh Phục Mục Tiêu — 10–11–12/10/2026');
@@ -530,20 +529,29 @@ const AdminReferralCustomers = () => {
     if (!currentUser) return;
     setIsLoadingLeads(true);
     try {
-      const [history, intake] = await Promise.all([
-        getDocs(query(collection(db, 'leads'), orderBy('createdAt', 'desc'))), loadReferralIntake(),
+      const results = await Promise.allSettled([
+        getDocs(query(collection(db, 'leads'), orderBy('createdAt', 'desc'))), loadReferralIntake(), loadCommunityRegistrations(),
       ]);
-      setDataSources({ history: history.docs.map(mapLeadDoc), intake });
-      setDataError('');
+      setDataSources(previous => ({
+        history: results[0].status === 'fulfilled' ? results[0].value.docs.map(mapLeadDoc) : previous.history,
+        intake: results[1].status === 'fulfilled' ? results[1].value : previous.intake,
+        community: results[2].status === 'fulfilled' ? results[2].value.registrations.map(row => ({ ...row,
+          id: 'community_' + row.id, source: GRATITUDE_REFERRAL_COURSE.id,
+          courseId: GRATITUDE_REFERRAL_COURSE.id, sourceUrl: row.pagePath || GRATITUDE_REFERRAL_COURSE.path,
+          utmSource: row.utm?.utm_source || '',
+        })) : previous.community,
+      }));
+      const names = ['Dữ liệu đã lưu tại website', 'Đăng ký Chinh Phục Mục Tiêu mới', 'Đăng ký 21 ngày'];
+      setDataError(results.flatMap((result, i) => result.status === 'rejected' ? [`${names[i]}: ${result.reason.message}`] : []).join(' · '));
     } catch (error) { setDataError(error.message); }
     finally { setIsLoadingLeads(false); }
   }, [currentUser]);
 
   useEffect(() => {
     if (!runsLoaded) return;
-    if (!runsConfig.runs.some(run => run.id === linkCourseId)) setLinkCourseId(runsConfig.activeRunId);
-    if (courseFilter !== 'all' && !runsConfig.runs.some(run => run.id === courseFilter)) setCourseFilter(runsConfig.activeRunId);
-  }, [runsLoaded, runsConfig, linkCourseId, courseFilter]);
+    if (!COURSE_OPTIONS.some(course => course.id === linkCourseId)) setLinkCourseId(GRATITUDE_REFERRAL_COURSE.id);
+    if (courseFilter !== 'all' && !COURSE_OPTIONS.some(course => course.id === courseFilter)) setCourseFilter('all');
+  }, [runsLoaded, runsConfig, COURSE_OPTIONS, linkCourseId, courseFilter]);
 
   useEffect(() => {
     reloadReferralData();
@@ -1007,6 +1015,11 @@ const AdminReferralCustomers = () => {
           </div>
         </section>
 
+        <section className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-amber-200 bg-amber-50 p-5">
+          <div><p className="text-xs font-black uppercase tracking-wide text-amber-800">Khóa 21 ngày · Lưu data tại website</p><p className="mt-1 text-lg font-black">{GRATITUDE_REFERRAL_COURSE.name}</p><p className="mt-1 text-sm text-slate-600">Dùng mã nhân viên hiện có. Mỗi người có link riêng cho khóa này; khách vào trực tiếp ghi nhận cho Công ty.</p></div>
+          <div className="flex flex-wrap gap-2"><button type="button" className="rounded-xl border border-amber-200 bg-white px-4 py-3 text-sm font-bold" onClick={() => { setCourseFilter(GRATITUDE_REFERRAL_COURSE.id); setPartnerFilter('all'); setActiveView('customers'); resetPagination(); }}>Xem data 21 ngày</button><button type="button" className="rounded-xl bg-secret-wax px-4 py-3 text-sm font-bold text-white" onClick={() => { setLinkCourseId(GRATITUDE_REFERRAL_COURSE.id); setActiveView(isSuperAdmin ? 'partners' : 'customers'); }}>Link nhân viên 21 ngày</button></div>
+        </section>
+
         {dataError ? <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
           Chưa tải đủ data: {dataError} Nhấn “Làm mới data” để thử lại.
         </div> : null}
@@ -1414,6 +1427,8 @@ const AdminReferralCustomers = () => {
                     <UserPlus className="h-5 w-5 text-secret-wax" />
                     Tạo mã cho nhân viên
                   </h2>
+                  <p className="mt-3 text-sm leading-relaxed text-slate-500">Mã nhân viên dùng chung; link và thống kê tách theo khóa. Nhân viên đã có mã chỉ cần chọn khóa trong danh sách bên cạnh để lấy link.</p>
+                  <label className="mt-4 block text-sm font-bold">Khóa dùng link<select aria-label="Khóa dùng link nhân viên" value={linkCourseId} onChange={event => setLinkCourseId(event.target.value)} className="mt-2 min-h-12 w-full rounded-xl border border-slate-200 bg-white px-3">{COURSE_OPTIONS.map(course => <option key={course.id} value={course.id}>{course.name}</option>)}</select></label>
                   <div className="mt-5 space-y-4">
                     <div>
                       <label className="mb-2 block text-sm font-black text-slate-700">

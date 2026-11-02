@@ -8,6 +8,7 @@ export const ADMIN_MODULES = [
   { key: "orders", label: "Đơn hàng", path: "/admin/orders" },
   { key: "reviews", label: "Đánh giá", path: "/admin/reviews" },
   { key: "students", label: "Học viên", path: "/admin/students" },
+  { key: "community-registrations", label: "Đăng ký 21 ngày", path: "/admin/community-registrations" },
   { key: "data-ads", label: "Quản lý Data Ads", path: "/admin/data-ads" },
   { key: "instructors", label: "Giảng viên", path: "/admin/instructors" },
   { key: "recruitment", label: "Tuyển dụng", path: "/admin/recruitment" },
