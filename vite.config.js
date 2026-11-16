@@ -5,6 +5,7 @@ import fsPromises from 'fs/promises'
 import path from 'path'
 import process from 'process'
 import { Buffer } from 'node:buffer'
+import { clientBundleSafety, isServerOnlyModule } from './scripts/client-bundle-safety.mjs'
 
 const cloudflareApiPlugin = () => ({
   name: 'cloudflare-api',
@@ -114,11 +115,15 @@ const cloudflareApiPlugin = () => ({
 /**
  * Entry CSS do Vite chèn: rel=stylesheet chặn first paint → preload as=style + onload.
  */
-const nonBlockingEntryCssPlugin = () => ({
+const nonBlockingEntryCssPlugin = () => {
+  let distDir;
+  return ({
   name: 'non-blocking-entry-css',
   apply: 'build',
+  configResolved(config) {
+    distDir = path.resolve(config.root, config.build.outDir)
+  },
   async closeBundle() {
-    const distDir = path.resolve(process.cwd(), 'dist')
     const indexPath = path.join(distDir, 'index.html')
     if (!fs.existsSync(indexPath)) return
     let html = await fsPromises.readFile(indexPath, 'utf-8')
@@ -134,11 +139,12 @@ const nonBlockingEntryCssPlugin = () => ({
     )
     await fsPromises.writeFile(indexPath, html, 'utf-8')
   },
-})
+  })
+}
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), cloudflareApiPlugin(), nonBlockingEntryCssPlugin()],
+  plugins: [react(), cloudflareApiPlugin(), nonBlockingEntryCssPlugin(), clientBundleSafety()],
   server: {
     proxy: {
       '/s3-proxy': {
@@ -155,7 +161,7 @@ export default defineConfig({
     manifest: true,
     // Exclude functions folder from client bundle (Cloudflare Workers code)
     rollupOptions: {
-      external: (id) => id.includes('/functions/') || id.includes('\\functions\\')
+      external: isServerOnlyModule
     }
   },
   optimizeDeps: {

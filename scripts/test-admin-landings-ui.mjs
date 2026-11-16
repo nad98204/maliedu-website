@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
-import { createServer } from 'vite';
+import { build, createServer, preview } from 'vite';
 import puppeteer from 'puppeteer';
 
 // Isolated UI test: no authenticated browser profile and no production requests.
@@ -34,7 +34,9 @@ await fs.mkdir('.cache', { recursive: true });
 await fs.writeFile('.cache/admin-landings-entry.jsx', `import React from 'react';import {createRoot} from 'react-dom/client';import {Toaster} from 'react-hot-toast';import AdminLandings from '/src/pages/admin/AdminLandings.jsx';import '/src/index.css';createRoot(document.getElementById('root')).render(<><Toaster/><AdminLandings/></>);`);
 const output = path.resolve(process.env.LANDING_UI_OUTPUT || '.cache/admin-landings-ui');
 await fs.mkdir(output, { recursive: true });
-const server = await createServer({ server: { host: '127.0.0.1', port: 4187, strictPort: true, hmr: false }, plugins: [{
+const production = process.argv.includes('--production');
+const testHtml = '<html lang="vi"><head><meta name="viewport" content="width=device-width,initial-scale=1" /></head><body><div id="root"></div><script type="module" src="/.cache/admin-landings-entry.jsx"></script></body></html>';
+const fixturePlugin = {
   name: 'isolated-landing-fixtures', enforce: 'pre',
   resolveId(id, importer) {
     const owner = importer?.replace(/\\/g, '/');
@@ -48,11 +50,22 @@ const server = await createServer({ server: { host: '127.0.0.1', port: 4187, str
   configureServer(vite) {
     vite.middlewares.use('/__landing-test', async (_req, res) => {
       res.setHeader('Content-Type', 'text/html');
-      res.end(await vite.transformIndexHtml('/__landing-test', '<html lang="vi"><head><meta name="viewport" content="width=device-width,initial-scale=1" /></head><body><div id="root"></div><script type="module" src="/.cache/admin-landings-entry.jsx"></script></body></html>'));
+      res.end(await vite.transformIndexHtml('/__landing-test', testHtml));
     });
   },
-}] });
-await server.listen();
+};
+let server;
+let testPath = '/__landing-test';
+if (production) {
+  await fs.writeFile('.cache/admin-landings-fixture.html', testHtml);
+  const outDir = '.cache/admin-landings-dist';
+  await build({ plugins: [fixturePlugin], build: { outDir, rollupOptions: { input: path.resolve('.cache/admin-landings-fixture.html') } } });
+  server = await preview({ build: { outDir }, preview: { host: '127.0.0.1', port: 4187, strictPort: true } });
+  testPath = '/.cache/admin-landings-fixture.html';
+} else {
+  server = await createServer({ server: { host: '127.0.0.1', port: 4187, strictPort: true, hmr: false }, plugins: [fixturePlugin] });
+  await server.listen();
+}
 const executablePath = [process.env.CHROME_PATH, 'C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'].filter(Boolean).find(existsSync);
 const browser = await puppeteer.launch({ headless: true, ...(executablePath ? { executablePath } : {}) });
 try {
@@ -62,7 +75,7 @@ try {
   const errors = [];
   page.on('pageerror', error => { errors.push(error.message); console.error('pageerror:', error.message); });
   await page.setViewport({ width: 1440, height: 1100, deviceScaleFactor: 1 });
-  await page.goto('http://127.0.0.1:4187/__landing-test', { waitUntil: 'networkidle0' });
+  await page.goto('http://127.0.0.1:4187' + testPath, { waitUntil: 'networkidle0' });
   try { await page.waitForSelector('#batch-main-landing', { timeout: 15000 }); }
   catch (error) { console.error(await page.$eval('body', row => row.innerText.slice(0, 1500))); await page.screenshot({ path: path.join(output, 'failure.png'), fullPage: true }); throw error; }
   const clickText = text => page.evaluate(value => {
@@ -94,8 +107,9 @@ try {
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Mobile has no horizontal overflow');
   await page.screenshot({ path: path.join(output, 'mobile.png'), fullPage: true });
   assert.deepEqual(errors, []);
-  console.log(JSON.stringify({ passed: true, viewports: [1440, 390], screenshots: output, checked: ['no blur save', 'review/cancel', 'guarded save', 'stale edit feedback', 'past schedule warning', 'responsive overflow'] }));
+  console.log(JSON.stringify({ passed: true, mode: production ? 'production' : 'development', viewports: [1440, 390], screenshots: output, checked: ['no blur save', 'review/cancel', 'guarded save', 'stale edit feedback', 'past schedule warning', 'responsive overflow'] }));
 } finally {
   await browser.close();
-  await server.close();
+  if (production) await new Promise((resolve, reject) => server.httpServer.close(error => error ? reject(error) : resolve()));
+  else await server.close();
 }
