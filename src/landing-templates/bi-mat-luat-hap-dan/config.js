@@ -1,3 +1,5 @@
+import { assertLandingRegistrationConfig } from '../../utils/landingRegistrationConfig.js';
+
 export const SECRET_LANDING_ID = "bi-mat-luat-hap-dan";
 export const SECRET_LANDING_PATH = "/dao-tao/bi-mat-luat-hap-dan";
 export const SECRET_LANDING_NAME = "Ứng dụng Luật Hấp Dẫn để Khơi Thông Dòng Tiền";
@@ -16,6 +18,7 @@ export function validateSecretContact({ name = "", phone = "" }) {
 
 // Use the exact admin source mapping; never invent a K or fall back to organic_web.
 export function buildSecretLead({ contact, config, url, browserData = {}, eventIds = {} }) {
+  assertLandingRegistrationConfig(config);
   if (!config?.landingPageId || !config.active_source_key || !/^K\d+$/i.test(config.course_k || "")) {
     throw new Error("Lớp học đang được cập nhật. Bạn vui lòng thử lại sau ít phút.");
   }

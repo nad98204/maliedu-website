@@ -3,6 +3,7 @@ import { CRM_FIREBASE_PUBLIC_CONFIG } from "../constants/crmFirebasePublicConfig
 const FIRESTORE_DOCUMENTS_URL = `https://firestore.googleapis.com/v1/projects/${CRM_FIREBASE_PUBLIC_CONFIG.projectId}/databases/(default)/documents`;
 
 const requestCache = new Map();
+const CONFIG_CACHE_TTL_MS = 5 * 60 * 1000;
 
 const decodeFirestoreValue = (value = {}) => {
   if ("nullValue" in value) return null;
@@ -50,15 +51,16 @@ const encodeFirestoreValue = (value) => {
 };
 
 const cachedRequest = (key, request, fresh = false) => {
-  if (fresh) requestCache.delete(key);
-  if (!requestCache.has(key)) {
-    const promise = request().catch((error) => {
-      requestCache.delete(key);
+  const cached = requestCache.get(key);
+  if (fresh || !cached || Date.now() - cached.createdAt >= CONFIG_CACHE_TTL_MS) {
+    const entry = { createdAt: Date.now() };
+    entry.promise = request().catch((error) => {
+      if (requestCache.get(key) === entry) requestCache.delete(key);
       throw error;
     });
-    requestCache.set(key, promise);
+    requestCache.set(key, entry);
   }
-  return requestCache.get(key);
+  return requestCache.get(key).promise;
 };
 
 const assertOk = async (response) => {

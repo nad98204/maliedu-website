@@ -11,6 +11,7 @@ import {
 } from "firebase/firestore";
 import { get as getRealtimeValue, ref } from "firebase/database";
 import { auth } from "../firebase";
+import { getLandingHealth, assertRoutingBatch, assertExpectedRouting } from '../../functions/_lib/landingHealth.js';
 
 const MAX_BULK_UPDATES = 100;
 const FUNNEL_TYPES = new Set(["ads", "leader", "brand", "organic"]);
@@ -233,6 +234,7 @@ const normalizeFullLandingInput = (input = {}) => {
 
   const targetCourseId = requiredText(input.targetCourseId, "Khóa học", 160);
   const courseK = normalizeLandingCourseK(input.courseK || input.targetK);
+  assertRoutingBatch(input.sourceKey, courseK);
   const zaloLink = optionalHttpUrl(input.zaloLink, "Link Zalo Group");
   const thankYouZaloLink = optionalHttpUrl(input.thankYouZaloLink || zaloLink, "Link Zalo trang cảm ơn");
   const fbPixel = String(input.fbPixel || "").trim();
@@ -328,6 +330,8 @@ export const getAdminLandingWorkspace = async ({
 
   return {
     courses,
+    checkedAt: new Date().toISOString(),
+    health: getLandingHealth(landings, Object.fromEntries(sourceEntries)),
     crmUsers: Object.values(userSnapshot?.val?.() || {}).filter((user) => user?.isActive !== false),
     landings,
     schedule,
@@ -486,6 +490,9 @@ const normalizeRoutingUpdate = (update = {}) => {
     funnelType,
     targetFunnel: getLandingTargetFunnel(funnelType),
     courseK: update.courseK ? normalizeLandingCourseK(update.courseK) : null,
+    expectedSourceKey: update.expectedSourceKey,
+    expectedCourseK: update.expectedCourseK,
+    expectedFunnel: update.expectedFunnel,
   };
 };
 
@@ -572,6 +579,8 @@ export const updateLandingRoutingBatch = async ({ firestore, updates }) => {
           ? nextSourceSnapshot.data()
           : {};
       const courseK = update.courseK || normalizeLandingCourseK(data.course_k || sourceData.targetK || "K41");
+      assertExpectedRouting(data, update);
+      assertRoutingBatch(update.sourceKey, courseK);
       const landing = {
         landingId: update.landingId,
         name: requiredText(data.name, "Tên Landing", 160),

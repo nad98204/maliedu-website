@@ -1,6 +1,7 @@
 import { fail, json, parseLead, readJson } from './payload.js';
 import { requireDataAdsAdmin, requireModuleAdmin } from './googleAuth.js';
-import { listLeads, persistLead, publicLead, referralLead, retryLead } from './store.js';
+import { getLead, listLeads, persistLead, publicLead, referralLead, retryLead } from './store.js';
+import { validateManagedLanding } from './landingConfig.js';
 import { sweepPending, syncLead } from './sync.js';
 
 export async function handleRequest(request, env, context) {
@@ -9,6 +10,8 @@ export async function handleRequest(request, env, context) {
     const path = new URL(request.url).pathname.replace(/\/+$/, '');
     if (path === '/api/crm-leads' && request.method === 'POST') {
       const lead = await parseLead(request);
+      // A previously accepted receipt keeps its immutable K even if settings change.
+      if (!await getLead(env.LEAD_DB, lead.id)) await validateManagedLanding(lead);
       const stored = await persistLead(env.LEAD_DB, lead);
       // Success is tied to the durable database commit, never the best-effort
       // immediate send. The scheduled sweeper survives process/browser exits.

@@ -1,4 +1,5 @@
 import { FieldValue } from "firebase-admin/firestore";
+import { getLandingHealth, assertRoutingBatch, assertExpectedRouting } from './landingHealth.js';
 
 const MAX_BULK_UPDATES = 100;
 const MAX_REPAIR_OPERATIONS = 400;
@@ -152,6 +153,8 @@ const normalizeEventValue = (value) => {
 const normalizeLandingInput = (input = {}) => {
   const funnelType = normalizeFunnelType(input.funnelType || input.targetFunnel);
   const courseK = normalizeCourseK(input.courseK || input.targetK);
+  assertRoutingBatch(input.sourceKey, courseK);
+  if (input.targetK && normalizeCourseK(input.targetK) !== courseK) throw new AdminLandingError(400, 'validation/batch-mismatch', 'Khóa K và khóa đích phải giống nhau.');
   const zaloLink = optionalHttpUrl(input.zaloLink, "Link Zalo Group");
   const fbPixel = String(input.fbPixel || "").trim();
   if (fbPixel && !/^\d{5,30}$/.test(fbPixel)) {
@@ -192,6 +195,9 @@ const normalizeRoutingUpdate = (input = {}) => {
     funnelType,
     targetFunnel: getTargetFunnel(funnelType),
     courseK: input.courseK ? normalizeCourseK(input.courseK) : null,
+    expectedSourceKey: input.expectedSourceKey,
+    expectedCourseK: input.expectedCourseK,
+    expectedFunnel: input.expectedFunnel,
   };
 };
 
@@ -369,10 +375,13 @@ const getWorkspace = async ({ crmFirestore, crmDatabase, scheduleDocumentId }) =
       .find((item) => item.eventStart || item.ctaScheduleLabel || item.thankYouCountdownSeconds) || null;
   }
 
+  const landings = landingSnapshot.docs.map(sanitizeLanding);
   return {
+    checkedAt: new Date().toISOString(),
+    health: getLandingHealth(landings, sourceConfigs),
     courses,
     crmUsers,
-    landings: landingSnapshot.docs.map(sanitizeLanding),
+    landings,
     schedule: schedule ? serializeValue(schedule) : null,
     sourceConfigs,
   };
@@ -554,6 +563,8 @@ const updateRouting = async ({ crmFirestore, adminUser, rawUpdates }) => {
           ? nextSourceSnapshot.data() || {}
           : {};
       const courseK = update.courseK || normalizeCourseK(data.course_k || sourceData.targetK || "K41");
+      assertExpectedRouting(data, update);
+      assertRoutingBatch(update.sourceKey, courseK);
       const landing = {
         landingId: update.landingId,
         name: requiredText(data.name, "Tên Landing", 160),

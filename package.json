@@ -75,7 +75,8 @@
     "postcss": "^8.5.25",
     "puppeteer": "^24.37.5",
     "tailwindcss": "^3.4.17",
-    "vite": "npm:rolldown-vite@7.2.5"
+    "vite": "npm:rolldown-vite@7.2.5",
+    "wrangler": "^4.163.0"
   },
   "overrides": {
     "brace-expansion": "5.0.8",

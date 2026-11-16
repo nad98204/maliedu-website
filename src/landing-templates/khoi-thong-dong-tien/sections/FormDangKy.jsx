@@ -3,9 +3,9 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { toast } from "react-hot-toast";
 import { useNavigate, useSearchParams } from "react-router";
 import { submitToCRM } from "../../../services/crmService";
+import { assertLandingRegistrationConfig } from "../../../utils/landingRegistrationConfig";
 import {
   findPublicLandingConfig,
-  getPublicFirestoreDocument,
   normalizePublicLandingPath as normalizePath,
 } from "../../../utils/publicFirestore";
 import {
@@ -31,7 +31,7 @@ const DEFAULT_REMOTE_CONFIG = {
   isLoading: false,
   fbCurrency: "VND",
   fbEventValue: 0,
-  course_k: "K41", // Giá trị mặc định
+  course_k: "",
 };
 
 const normalizeFunnelType = (value = "") => {
@@ -62,8 +62,8 @@ const resolveRouteFunnel = (normalizedPath = "") => {
 };
 
 /** Firestore CRM REST — chỉ lấy các trường cấu hình công khai cần cho form. */
-const fetchLandingRemoteConfig = async () => {
-  const match = await findPublicLandingConfig({ path: window.location.pathname });
+const fetchLandingRemoteConfig = async ({ fresh = false } = {}) => {
+  const match = await findPublicLandingConfig({ path: window.location.pathname, fresh });
 
   if (match) {
     return {
@@ -74,27 +74,7 @@ const fetchLandingRemoteConfig = async () => {
     };
   }
 
-  const publicConfig = await getPublicFirestoreDocument(
-    "public_settings",
-    "landing_config",
-    [
-      "active_source_key",
-      "course_k",
-      "fbCurrency",
-      "fbEventValue",
-      "fbPixel",
-      "funnel_type",
-      "is_maintenance",
-      "targetFunnel",
-    ],
-  );
-  return publicConfig
-    ? {
-        ...DEFAULT_REMOTE_CONFIG,
-        ...publicConfig,
-        isLoading: false,
-      }
-    : { ...DEFAULT_REMOTE_CONFIG, isLoading: false };
+  throw new Error('Chưa tải được cấu hình lớp học. Bạn vui lòng giữ thông tin trên form và thử lại.');
 };
 
 const OPTIONS_REFERRER = [
@@ -275,11 +255,11 @@ const FormDangKy = ({
   const lockedLeaderName = matchedUtmLeaderName;
   
   // --- PHÂN LUỒNG NGHIÊM NGẶT (Strict Routing Protocol) ---
-  // Ưu tiên Props (Hardcoded) > Cấu hình Admin (Remote) > Logic đường dẫn (URL)
+  // Cấu hình quản trị quyết định phễu; props/URL chỉ dùng khi hiển thị ban đầu.
   const propFunnel = normalizeFunnelType(targetFunnel);
   const remoteFunnel = normalizeFunnelType(remoteConfig.targetFunnel || remoteConfig.funnel_type);
   const routeFunnel = resolveRouteFunnel(currentPathNormalized);
-  const finalFunnel = propFunnel || remoteFunnel || routeFunnel;
+  const finalFunnel = remoteConfig.landingPageId ? remoteFunnel : propFunnel || routeFunnel;
   const isLeader = finalFunnel === "leader";
   const finalSourceKey = remoteConfig.active_source_key || initialSourceKey || "organic_web";
 
@@ -473,19 +453,15 @@ const FormDangKy = ({
     try {
       engageCrm();
       
-      let cfg = remoteConfig;
-      try {
-        cfg = await fetchLandingRemoteConfig();
-        setRemoteConfig(cfg);
-      } catch {
-        /* dùng remoteConfig hiện tại */
-      }
+      const cfg = assertLandingRegistrationConfig(await fetchLandingRemoteConfig({ fresh: true }));
+      setRemoteConfig(cfg);
 
       const cfgRemoteFunnel = normalizeFunnelType(cfg.targetFunnel || cfg.funnel_type);
 
       // --- PHẦN 1: PHÂN LUỒNG & CHUẨN BỊ DATA ---
-      const currentFunnel = propFunnel || cfgRemoteFunnel || routeFunnel;
-      const baseKey = cfg.active_source_key || initialSourceKey || "organic_web";
+      const currentFunnel = cfgRemoteFunnel;
+      if (currentFunnel !== finalFunnel) throw new Error('Thông tin lớp học vừa thay đổi. Bạn kiểm tra lại các mục trên form rồi bấm gửi lại nhé.');
+      const baseKey = cfg.active_source_key;
       const linkSenderName = String(searchParams.get("l") || "").trim();
       
       const typedOtherReferrer = formState.otherReferrer.trim();
@@ -515,9 +491,8 @@ const FormDangKy = ({
         funnelChannel = "ads_funnel";
       }
 
-      const currentBatch = cfg.course_k || "K41";
-      const batchSuffix = `_k${currentBatch.toLowerCase().replace(/k/g, "")}`;
-      const submissionSourceKey = baseKey.toLowerCase().match(/_k\d+$/i) ? baseKey : `${baseKey}${batchSuffix}`;
+      const currentBatch = cfg.course_k;
+      const submissionSourceKey = baseKey;
       const fallbackUtmSource = utmOwnerSlug || finalTargetFunnel;
       const fallbackUtmMedium =
         finalTargetFunnel === "leader"

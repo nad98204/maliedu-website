@@ -12,7 +12,7 @@ const input = { contact, config, url: `https://luathapdan.vn${SECRET_LANDING_PAT
 const originalFetch = globalThis.fetch;
 let server, submitToCRM, resolveConfig;
 before(async () => {
-  server = await createServer({ configFile: false, server: { middlewareMode: true }, appType: "custom" });
+  server = await createServer({ configFile: false, server: { middlewareMode: true, hmr: false }, optimizeDeps: { noDiscovery: true }, appType: "custom" });
   ({ submitToCRM } = await server.ssrLoadModule("/src/services/crmService.js"));
   ({ resolveKhoiThongLandingConfig: resolveConfig } = await server.ssrLoadModule("/src/landing-templates/khoi-thong-dong-tien/landingConfig.js"));
 });

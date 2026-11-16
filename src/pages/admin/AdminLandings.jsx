@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { crmFirestore, crmRealtimeDB } from "../../firebase";
 import { toast } from "react-hot-toast";
 import {
@@ -23,6 +23,10 @@ import {
     Clock3, ShieldCheck
 } from "lucide-react";
 
+import LandingRoutingEditor from '../../components/admin/LandingRoutingEditor';
+import LandingChangeReview from '../../components/admin/LandingChangeReview';
+import { getLandingHealth } from '../../../functions/_lib/landingHealth.js';
+
 const DEFAULT_SCHEDULE_LOCAL = KHOI_THONG_DONG_TIEN_CONFIG.eventStart.slice(0, 16);
 const DEFAULT_SCHEDULE_LABEL = KHOI_THONG_DONG_TIEN_CONFIG.ctaScheduleLabel;
 
@@ -44,8 +48,16 @@ const AdminLandings = () => {
     const [isSavingSchedule, setIsSavingSchedule] = useState(false);
     const [isSavingLanding, setIsSavingLanding] = useState(false);
     const [activeMenuId, setActiveMenuId] = useState(null);
-    const [courseKDrafts, setCourseKDrafts] = useState({});
+    const [review, setReview] = useState(null);
+    const [isApplyingReview, setIsApplyingReview] = useState(false);
+    const [lastCheckedAt, setLastCheckedAt] = useState(null);
+    const [sourceAudit, setSourceAudit] = useState(null);
+    const [savedSchedule, setSavedSchedule] = useState('');
+    const refreshGeneration = useRef(0);
+    const scheduleDirty = JSON.stringify(scheduleConfig) !== savedSchedule;
+    const scheduleExpired = scheduleConfig.eventStart && new Date(scheduleConfig.eventStart + ':00+07:00').getTime() < Date.now();
     const [sourceConfigs, setSourceConfigs] = useState({});
+    const health = getLandingHealth(landings, sourceConfigs);
     const [formError, setFormError] = useState("");
     const [isRepairingSources, setIsRepairingSources] = useState(false);
 
@@ -107,8 +119,6 @@ const AdminLandings = () => {
         return FUNNEL_OPTIONS.find((item) => item.value === normalized)?.target || "ADS";
     };
 
-    const getFunnelOption = (value = "ads") =>
-        FUNNEL_OPTIONS.find((item) => item.value === normalizeFunnelType(value)) || FUNNEL_OPTIONS[0];
 
     const getLandingFunnelType = (landing = {}) =>
         normalizeFunnelType(landing.funnel_type || landing.targetFunnel || "ads");
@@ -187,6 +197,7 @@ const AdminLandings = () => {
     };
 
     const refreshCrmData = async ({ notify = true, showLoading = true } = {}) => {
+        const generation = ++refreshGeneration.current;
         if (showLoading) setIsLoading(true);
         try {
             const workspace = await getAdminLandingWorkspace({
@@ -194,6 +205,8 @@ const AdminLandings = () => {
                 realtimeDatabase: crmRealtimeDB,
                 scheduleDocumentId: KHOI_THONG_SCHEDULE_CONFIG_DOC_ID,
             });
+            if (generation !== refreshGeneration.current) return;
+            setLastCheckedAt(workspace.checkedAt || new Date().toISOString());
             setCourses(workspace.courses || []);
             setCrmUsers(workspace.crmUsers || []);
             setLandings(workspace.landings || []);
@@ -205,18 +218,20 @@ const AdminLandings = () => {
                 const defaultEventStartMs = new Date(KHOI_THONG_DONG_TIEN_CONFIG.eventStart).getTime();
                 const hasCurrentRemoteSchedule = Number.isFinite(remoteEventStartMs) && remoteEventStartMs >= defaultEventStartMs;
 
-                setScheduleConfig({
+                const nextSchedule = {
                     eventStart: hasCurrentRemoteSchedule ? normalizeDatetimeLocal(data.eventStart) : DEFAULT_SCHEDULE_LOCAL,
                     ctaScheduleLabel: hasCurrentRemoteSchedule ? data.ctaScheduleLabel || DEFAULT_SCHEDULE_LABEL : DEFAULT_SCHEDULE_LABEL,
                     thankYouCountdownSeconds: String(data.thankYouCountdownSeconds || 300),
                     thankYouZaloLink: data.thankYouZaloLink || data.zaloLink || "",
-                });
+                };
+                setScheduleConfig(nextSchedule);
+                setSavedSchedule(JSON.stringify(nextSchedule));
             }
             if (notify) toast.success("Đã đồng bộ dữ liệu Khóa K từ CRM!");
         } catch (e) {
             toast.error("Lỗi đồng bộ: " + e.message);
         } finally {
-            setIsLoading(false);
+            if (generation === refreshGeneration.current) setIsLoading(false);
         }
     };
 
@@ -237,6 +252,7 @@ const AdminLandings = () => {
                 ...prev,
                 thankYouCountdownSeconds: String(result.thankYouCountdownSeconds),
             }));
+            setSavedSchedule(JSON.stringify({ ...scheduleConfig, thankYouCountdownSeconds: String(result.thankYouCountdownSeconds) }));
             toast.success("Đã lưu lịch học chung cho các landing Khơi Thông Dòng Tiền!");
         } catch (e) {
             toast.error("Lỗi lưu lịch học chung: " + e.message);
@@ -435,31 +451,6 @@ const AdminLandings = () => {
         }
     };
 
-    const handleQuickFunnelChange = async (landingId, nextFunnelType) => {
-        const landing = landings.find((item) => item.id === landingId);
-        if (!landing) return;
-
-        const funnelType = normalizeFunnelType(nextFunnelType);
-        const uniqueResult = getUniqueSourceKey(landing.active_source_key || "organic_web", funnelType, landingId);
-
-        try {
-            await updateLandingRoutingBatch({
-                firestore: crmFirestore,
-                updates: [{
-                    landingId,
-                    sourceKey: uniqueResult.sourceKey,
-                    funnelType,
-                }],
-            });
-            await refreshCrmData({ notify: false, showLoading: false });
-            toast.success(uniqueResult.changed
-                ? `Đã đổi phễu và tách mã: ${uniqueResult.sourceKey}`
-                : "Đã cập nhật phễu đích và CRM");
-        } catch (e) {
-            toast.error("Lỗi cập nhật phễu: " + e.message);
-        }
-    };
-
     if (isLoading && landings.length === 0) {
         return (
             <div className="min-h-[520px] bg-[#F5F7FB] p-4 md:p-8" aria-busy="true" aria-label="Đang tải danh sách landing page">
@@ -484,7 +475,7 @@ const AdminLandings = () => {
 
     const handleQuickEditKAll = async () => {
         if (!quickEditK) return toast.error("Vui lòng nhập Khóa K mới!");
-        if (!window.confirm(`Đồng bộ TOÀN BỘ Landing Page sang ${quickEditK}?`)) return;
+        if (!/^K\d+$/.test(quickEditK.trim())) return toast.error("Nhập khóa theo dạng K58.");
 
         setIsLoading(true);
         const suffix = `_k${quickEditK.toLowerCase().replace('k', '')}`;
@@ -503,10 +494,7 @@ const AdminLandings = () => {
                     courseK: quickEditK,
                 };
             });
-            await updateLandingRoutingBatch({ firestore: crmFirestore, updates });
-            await refreshCrmData({ notify: false, showLoading: false });
-            toast.success("Đã đồng bộ khóa K cho Landing và CRM!");
-            setIsQuickEditing(false);
+            queueRoutingReview(updates, "Xem trước đổi khóa K hàng loạt");
         } catch (e) {
             toast.error("Lỗi: " + e.message);
         } finally {
@@ -514,49 +502,31 @@ const AdminLandings = () => {
         }
     };
 
-    const handleQuickEditSingleK = async (landingId, newK) => {
-        const landing = landings.find(l => l.id === landingId);
-        if (!landing) return;
-
-        const normalizedK = String(newK || "").trim().toUpperCase();
-        const currentK = String(landing.course_k || "").trim().toUpperCase();
-        const clearDraft = () => setCourseKDrafts((current) => {
-            const next = { ...current };
-            delete next[landingId];
-            return next;
+    const queueRoutingReview = (updates, title) => {
+        const guarded = updates.map(update => {
+            const current = landings.find(row => row.id === update.landingId);
+            return { ...update, expectedSourceKey: current.active_source_key, expectedCourseK: current.course_k, expectedFunnel: getLandingFunnelType(current) };
         });
-
-        if (normalizedK === currentK) {
-            clearDraft();
-            return;
-        }
-        if (!/^K\d+$/.test(normalizedK)) {
-            toast.error("Khóa K phải có định dạng như K51.");
-            clearDraft();
-            return;
-        }
-
-        const base = String(landing?.active_source_key || "").split('_k')[0];
-        const suffix = `_k${normalizedK.toLowerCase().replace('k', '')}`;
-        const funnelType = getLandingFunnelType(landing);
-        const newKey = getUniqueSourceKey(`${base}${suffix}`, funnelType, landingId).sourceKey;
-
+        setReview({ updates: guarded, title });
+    };
+    const reviewSingleLanding = (landing, draft) => {
+        const base = String(landing.active_source_key || '').replace(/_k\d+$/i, '');
+        const nextKey = getUniqueSourceKey(base + '_' + draft.courseK.toLowerCase(), draft.funnelType, landing.id).sourceKey;
+        queueRoutingReview([{ landingId: landing.id, sourceKey: nextKey, ...draft }], 'Kiểm tra cấu hình trước khi lưu');
+    };
+    const applyReviewedRouting = async () => {
+        if (isApplyingReview) return;
+        setIsApplyingReview(true);
         try {
-            await updateLandingRoutingBatch({
-                firestore: crmFirestore,
-                updates: [{ landingId, sourceKey: newKey, funnelType, courseK: normalizedK }],
-            });
+            await updateLandingRoutingBatch({ firestore: crmFirestore, updates: review.updates });
+            setReview(null); setIsQuickEditing(false);
             await refreshCrmData({ notify: false, showLoading: false });
-            toast.success(`Đã chuyển Landing sang ${normalizedK}.`);
-        } catch (e) {
-            toast.error("Lỗi cập nhật khóa K: " + e.message);
-        } finally {
-            clearDraft();
-        }
+            toast.success('Đã lưu cấu hình Landing và CRM');
+        } catch (error) { setReview(current => current && ({ ...current, error: error.message })); }
+        finally { setIsApplyingReview(false); }
     };
 
     const handleRestoreStandardCodes = async () => {
-        if (!window.confirm("Khôi phục mã chuẩn (Ads: 03248, Leader: 83248)?")) return;
         setIsLoading(true);
         try {
             const reservedKeys = new Set();
@@ -581,9 +551,7 @@ const AdminLandings = () => {
                     courseK: l.course_k || "K41",
                 };
             });
-            await updateLandingRoutingBatch({ firestore: crmFirestore, updates });
-            await refreshCrmData({ notify: false, showLoading: false });
-            toast.success("Đã khôi phục mã nguồn chuẩn cho các phễu!");
+            queueRoutingReview(updates, "Xem trước chuẩn hóa mã nguồn");
         } catch (e) {
             toast.error("Lỗi: " + e.message);
         } finally {
@@ -596,40 +564,16 @@ const AdminLandings = () => {
         setIsRepairingSources(true);
         try {
             const preview = await repairAdminLandingSources({ firestore: crmFirestore, apply: false });
-            const summary = preview.summary || {};
-            if (summary.conflicts > 0) {
-                toast.error(`Có ${summary.conflicts} mã nguồn đang bị nhiều Landing dùng chung. Vui lòng tách mã trước.`);
-                return;
-            }
-
-            const repairable = Number(summary.claimable || 0) + Number(summary.orphans || 0);
-            if (repairable === 0) {
-                const suffix = summary.missingSources
-                    ? ` Còn ${summary.missingSources} Landing thiếu cấu hình nguồn và cần mở chỉnh sửa để bổ sung.`
-                    : "";
-                toast.success(`Dữ liệu Landing và CRM đang nhất quán.${suffix}`);
-                return;
-            }
-
-            const confirmed = window.confirm(
-                `Tìm thấy ${summary.claimable || 0} cấu hình cần gắn lại và ${summary.orphans || 0} cấu hình mồ côi có chủ sở hữu cũ. Tiến hành sửa?`,
-            );
-            if (!confirmed) return;
-
-            const result = await repairAdminLandingSources({ firestore: crmFirestore, apply: true });
+            setSourceAudit(preview.summary || {});
             await refreshCrmData({ notify: false, showLoading: false });
-            toast.success(
-                `Đã gắn lại ${result.summary?.claimable || 0} và xóa ${result.summary?.orphans || 0} cấu hình mồ côi.`,
-            );
-        } catch (error) {
-            toast.error("Không thể rà soát cấu hình nguồn: " + error.message);
-        } finally {
-            setIsRepairingSources(false);
-        }
+            toast.success('Đã rà soát. Kết quả được hiển thị bên dưới; chưa thay đổi dữ liệu.');
+        } catch (error) { toast.error(error.message); }
+        finally { setIsRepairingSources(false); }
     };
 
     return (
         <div className="relative min-h-full bg-[#F5F7FB] text-slate-900">
+            {review && <LandingChangeReview review={review} landings={landings} busy={isApplyingReview} onClose={() => setReview(null)} onApply={applyReviewedRouting} />}
             {/* CREATE / EDIT DRAWER */}
             {showCreateForm && (
                 <>
@@ -984,48 +928,20 @@ const AdminLandings = () => {
 
             {/* PAGE CONTENT */}
             <main className="mx-auto w-full max-w-[1680px] p-4 pb-12 md:p-6 lg:p-8">
-                {/* Page header */}
-                <section className="relative mb-5 overflow-hidden rounded-[28px] bg-gradient-to-br from-slate-950 via-slate-900 to-[#5f2020] px-5 py-6 text-white shadow-[0_22px_55px_rgba(15,23,42,0.16)] md:px-7 md:py-7">
-                    <div className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full bg-amber-300/10 blur-3xl" />
-                    <div className="pointer-events-none absolute -bottom-28 left-1/3 h-56 w-56 rounded-full bg-rose-400/10 blur-3xl" />
-                    <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-                        <div className="flex items-start gap-4">
-                            <div className="hidden h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/10 sm:flex">
-                                <Globe size={27} />
-                            </div>
-                            <div>
-                                <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-[10px] font-extrabold uppercase tracking-[0.16em] text-amber-100">
-                                    <ShieldCheck size={13} /> Trung tâm quản lý phễu
-                                </div>
-                                <h1 className="text-2xl font-black tracking-tight md:text-3xl">Landing Pages</h1>
-                                <p className="mt-1 max-w-2xl text-xs leading-5 text-white/60 md:text-sm">
-                                    Quản lý lịch học, nguồn chiến dịch và đích đến CRM tại một nơi.
-                                </p>
-                            </div>
-                        </div>
-                        <button
-                            type="button"
-                            onClick={handleAddNew}
-                            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-extrabold text-slate-900 shadow-xl shadow-slate-950/20 transition-all hover:-translate-y-0.5 hover:bg-amber-50 lg:w-auto"
-                        >
-                            <Plus size={18} />
-                            Tạo Landing mới
-                            <ArrowUpRight size={16} className="text-[#8B2E2E]" />
-                        </button>
-                    </div>
-                    <div className="relative mt-6 grid grid-cols-2 gap-3 border-t border-white/10 pt-5 sm:flex sm:flex-wrap sm:gap-6">
-                        <div>
-                            <p className="text-[10px] font-bold uppercase tracking-wider text-white/45">Tổng landing</p>
-                            <p className="mt-1 text-lg font-black">{landings.length}</p>
-                        </div>
-                        <div>
-                            <p className="text-[10px] font-bold uppercase tracking-wider text-white/45">Đang hoạt động</p>
-                            <p className="mt-1 text-lg font-black text-emerald-300">{landings.filter((landing) => !landing.is_maintenance).length}</p>
-                        </div>
-                        <div className="col-span-2 flex items-center gap-2 text-xs font-semibold text-white/55 sm:ml-auto">
-                            <Clock3 size={15} /> Dữ liệu được đồng bộ trực tiếp với CRM
+                <section className="mb-5 rounded-2xl border border-slate-200 bg-white p-5 md:p-6">
+                    <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
+                        <div><p className="text-xs font-bold uppercase tracking-wider text-[#8B2E2E]">Marketing / Cấu hình nhận lead</p>
+                            <h1 className="mt-2 text-2xl font-extrabold tracking-tight text-slate-950">Quản lý Landing</h1>
+                            <p className="mt-1 text-sm text-slate-500">Lịch học, khóa K và phễu nhận lead trong cùng một màn hình.</p></div>
+                        <div className="flex gap-2">
+                            <button type="button" disabled={isLoading || isApplyingReview} onClick={() => refreshCrmData()} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 px-4 text-sm font-semibold text-slate-600 disabled:opacity-50"><RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />Làm mới</button>
+                            <button type="button" onClick={handleAddNew} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#8B2E2E] px-4 text-sm font-bold text-white hover:bg-[#722525]"><Plus size={16} />Tạo landing</button>
                         </div>
                     </div>
+                    <div className="mt-5 grid grid-cols-2 gap-3 border-t border-slate-100 pt-4 lg:grid-cols-4">
+                        {[['Tổng landing', landings.length], ['Đang nhận đăng ký', landings.filter(row => !row.is_maintenance).length], ['Khớp cấu hình CRM', health.healthy], ['Cần kiểm tra', health.total - health.healthy]].map(([label, count]) => <div key={label} className="rounded-xl bg-slate-50 px-4 py-3"><p className="text-xs font-medium text-slate-500">{label}</p><p className="mt-1 text-xl font-extrabold text-slate-900">{count}</p></div>)}
+                    </div>
+                    <p className="mt-3 flex items-center gap-1.5 text-xs text-slate-500"><Clock3 size={13} />{lastCheckedAt ? 'Kiểm tra lúc ' + new Date(lastCheckedAt).toLocaleTimeString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' }) : 'Chưa tải được cấu hình'} · Bấm Làm mới để lấy dữ liệu hiện tại.</p>
                 </section>
 
                 {/* Toolbar: Tabs & Search */}
@@ -1088,20 +1004,21 @@ const AdminLandings = () => {
                         <button
                             type="button"
                             onClick={handleSaveScheduleConfig}
-                            disabled={isSavingSchedule}
+                            disabled={isSavingSchedule || !scheduleDirty}
                             className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-[#8B2E2E] px-4 py-2.5 text-xs font-bold text-white shadow-md shadow-[#8B2E2E]/15 transition-all hover:bg-[#722525] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                         >
                             <Save size={14} />
-                            {isSavingSchedule ? "Đang lưu..." : "Lưu lịch chung"}
+                            {isSavingSchedule ? "Đang lưu..." : scheduleDirty ? "Lưu lịch chung" : "Đã lưu lịch chung"}
                         </button>
                     </div>
+                    {scheduleExpired && <div role="status" className="mb-4 flex gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-900"><AlertTriangle size={18} className="mt-1 shrink-0" /><span>Lịch học đã qua thời gian bắt đầu. Kiểm tra lịch đợt mới trước khi mở chiến dịch. Giờ hiển thị và lưu theo UTC+7.</span></div>}
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
                         <div>
-                            <label className="block text-xs font-semibold text-slate-500 mb-2">Thời gian bắt đầu</label>
+                            <label htmlFor="landing-event-start" className="block text-xs font-semibold text-slate-600 mb-2">Thời gian bắt đầu</label>
                             <div className="relative">
                                 <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                                 <input
-                                    type="datetime-local"
+                                    id="landing-event-start" type="datetime-local"
                                     className="w-full rounded-xl border border-slate-200 bg-slate-50/60 py-3 pl-11 pr-4 text-sm font-medium text-slate-700 outline-none transition-all focus:border-[#8B2E2E]/40 focus:bg-white focus:ring-4 focus:ring-[#8B2E2E]/[0.07]"
                                     value={scheduleConfig.eventStart || ""}
                                     onChange={e => setScheduleConfig({ ...scheduleConfig, eventStart: e.target.value })}
@@ -1109,34 +1026,34 @@ const AdminLandings = () => {
                             </div>
                         </div>
                         <div>
-                            <label className="block text-xs font-semibold text-slate-500 mb-2">Dòng thời gian trên nút CTA</label>
+                            <label htmlFor="landing-cta-label" className="block text-xs font-semibold text-slate-600 mb-2">Dòng thời gian trên nút CTA</label>
                             <input
                                 type="text"
                                 className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-3 text-sm font-medium text-slate-700 outline-none transition-all focus:border-[#8B2E2E]/40 focus:bg-white focus:ring-4 focus:ring-[#8B2E2E]/[0.07]"
-                                placeholder={DEFAULT_SCHEDULE_LABEL}
+                                id="landing-cta-label" placeholder={DEFAULT_SCHEDULE_LABEL}
                                 value={scheduleConfig.ctaScheduleLabel || ""}
                                 onChange={e => setScheduleConfig({ ...scheduleConfig, ctaScheduleLabel: e.target.value })}
                             />
                         </div>
                         <div>
-                            <label className="block text-xs font-semibold text-slate-500 mb-2">Đếm ngược cảm ơn (giây)</label>
+                            <label htmlFor="landing-countdown" className="block text-xs font-semibold text-slate-600 mb-2">Đếm ngược cảm ơn (giây)</label>
                             <input
                                 type="number"
                                 min="1"
                                 className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-3 text-sm font-medium text-slate-700 outline-none transition-all focus:border-[#8B2E2E]/40 focus:bg-white focus:ring-4 focus:ring-[#8B2E2E]/[0.07]"
-                                placeholder="300"
+                                id="landing-countdown" placeholder="300"
                                 value={scheduleConfig.thankYouCountdownSeconds || ""}
                                 onChange={e => setScheduleConfig({ ...scheduleConfig, thankYouCountdownSeconds: e.target.value })}
                             />
                         </div>
                         <div>
-                            <label className="block text-xs font-semibold text-slate-500 mb-2">Link Zalo trang cảm ơn</label>
+                            <label htmlFor="landing-zalo" className="block text-xs font-semibold text-slate-600 mb-2">Link Zalo trang cảm ơn</label>
                             <div className="relative">
                                 <Link className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                                 <input
                                     type="text"
                                     className="w-full rounded-xl border border-slate-200 bg-slate-50/60 py-3 pl-11 pr-4 text-sm font-medium text-slate-700 outline-none transition-all focus:border-[#8B2E2E]/40 focus:bg-white focus:ring-4 focus:ring-[#8B2E2E]/[0.07]"
-                                    placeholder="https://zalo.me/g/..."
+                                    id="landing-zalo" placeholder="https://zalo.me/g/..."
                                     value={scheduleConfig.thankYouZaloLink || ""}
                                     onChange={e => setScheduleConfig({ ...scheduleConfig, thankYouZaloLink: e.target.value })}
                                 />
@@ -1166,7 +1083,7 @@ const AdminLandings = () => {
                             title="Khôi phục mã 03248 (Ads) và 83248 (Leader) dựa theo tên trang"
                         >
                             <RefreshCw size={15} className={isLoading ? "animate-spin" : ""} />
-                            Sửa mã chuẩn
+                            Xem trước mã chuẩn
                         </button>
                         {isQuickEditing ? (
                             <div className="flex min-w-0 items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-1.5 animate-in fade-in zoom-in duration-200">
@@ -1182,7 +1099,7 @@ const AdminLandings = () => {
                                     onClick={handleQuickEditKAll}
                                     className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-emerald-700"
                                 >
-                                    Lưu
+                                    Xem trước
                                 </button>
                                 <button 
                                     type="button"
@@ -1208,13 +1125,14 @@ const AdminLandings = () => {
                             onClick={handleRepairSourceConfigs}
                             disabled={isRepairingSources}
                             className="flex items-center justify-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-xs font-bold text-sky-700 transition-all hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-60 md:text-sm"
-                            title="Kiểm tra Landing và source_configs, chỉ xóa cấu hình mồ côi có chủ sở hữu cũ"
+                            title="Kiểm tra cấu hình hiện tại, không tự sửa hoặc xóa dữ liệu"
                         >
                             <Database size={15} className={isRepairingSources ? "animate-pulse" : ""} />
                             {isRepairingSources ? "Đang rà soát..." : "Rà soát đồng bộ"}
                         </button>
                     </div>
 
+                    {sourceAudit && <div role="status" className="mb-4 rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm leading-6 text-sky-900">Kết quả rà soát: {sourceAudit.conflicts || 0} mã trùng · {sourceAudit.missingSources || 0} landing thiếu nguồn · {sourceAudit.claimable || 0} nguồn cần gắn chủ sở hữu · {sourceAudit.orphans || 0} nguồn cũ cần xem xét. Mở Sửa chi tiết để kiểm tra từng landing.</div>}
                     {filteredLandings.length > 0 ? (
                         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
                             {filteredLandings.map(landing => {
@@ -1248,8 +1166,8 @@ const AdminLandings = () => {
                                                     <iconConfig.icon size={22} />
                                                 </div>
                                                 <div className="min-w-0 flex-1">
-                                                    <div className="flex min-w-0 items-center gap-2">
-                                                        <h4 className="truncate text-sm font-extrabold text-slate-900 md:text-base">{landing.name}</h4>
+                                                    <div className="flex min-w-0 flex-wrap items-start gap-x-2 gap-y-1">
+                                                        <h4 className="break-words text-sm font-extrabold text-slate-900 md:text-base">{landing.name}</h4>
                                                         <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wide ${landing.is_maintenance ? 'bg-rose-50 text-rose-600' : 'bg-emerald-50 text-emerald-600'}`}>
                                                             {landing.is_maintenance ? 'Bảo trì' : 'Hoạt động'}
                                                         </span>
@@ -1319,56 +1237,9 @@ const AdminLandings = () => {
                                             </div>
                                         </div>
 
-                                        {/* Bottom row: Khóa K, Mã nguồn, Đích đến (phễu) */}
-                                        <div className="mt-4 grid grid-cols-1 gap-3 border-t border-slate-100 pt-4 sm:grid-cols-3">
-                                            {/* Khóa K */}
-                                            <div className="flex flex-col items-start w-full min-w-0">
-                                                <span className="block text-[11px] font-semibold text-slate-400 mb-1 tracking-tight truncate w-full">Khóa K</span>
-                                                <input 
-                                                    type="text"
-                                                    value={courseKDrafts[landing.id] ?? landing.course_k ?? ""}
-                                                    onChange={(e) => setCourseKDrafts((current) => ({
-                                                        ...current,
-                                                        [landing.id]: e.target.value.toUpperCase(),
-                                                    }))}
-                                                    onBlur={(e) => handleQuickEditSingleK(landing.id, e.currentTarget.value)}
-                                                    onKeyDown={(e) => {
-                                                        if (e.key === "Enter") e.currentTarget.blur();
-                                                        if (e.key === "Escape") {
-                                                            setCourseKDrafts((current) => {
-                                                                const next = { ...current };
-                                                                delete next[landing.id];
-                                                                return next;
-                                                            });
-                                                            e.currentTarget.blur();
-                                                        }
-                                                    }}
-                                                    className="w-full rounded-lg border border-indigo-100 bg-indigo-50 px-2 py-2 text-center text-xs font-black uppercase text-indigo-700 outline-none focus:ring-2 focus:ring-indigo-100"
-                                                />
-                                            </div>
-
-                                            {/* Mã nguồn */}
-                                            <div className="flex flex-col items-start w-full min-w-0">
-                                                <span className="block text-[11px] font-semibold text-slate-400 mb-1 tracking-tight truncate w-full">Mã nguồn</span>
-                                                <span className="block w-full truncate rounded-lg bg-slate-100 px-2 py-2 text-center font-mono text-[11px] font-bold text-slate-500" title={landing.active_source_key}>
-                                                    {landing.active_source_key}
-                                                </span>
-                                            </div>
-
-                                            {/* Đích đến */}
-                                            <div className="flex flex-col items-start w-full min-w-0">
-                                                <span className="block text-[11px] font-semibold text-slate-400 mb-1 tracking-tight truncate w-full">Đích đến (phễu)</span>
-                                                <select
-                                                    className={`w-full cursor-pointer rounded-lg border px-2 py-2 text-[11px] font-bold outline-none transition-all ${getFunnelOption(getLandingFunnelType(landing)).tone}`}
-                                                    value={getLandingFunnelType(landing)}
-                                                    onChange={(e) => handleQuickFunnelChange(landing.id, e.target.value)}
-                                                >
-                                                    {FUNNEL_OPTIONS.map((option) => (
-                                                        <option key={option.value} value={option.value}>{option.label}</option>
-                                                    ))}
-                                                </select>
-                                            </div>
-                                        </div>
+                                        <LandingRoutingEditor landing={landing} options={FUNNEL_OPTIONS} currentFunnel={funnelType}
+                                            health={health.byId[landing.id]} busy={isApplyingReview || isSavingLanding}
+                                            onReview={draft => reviewSingleLanding(landing, draft)} />
                                     </div>
                                 );
                             })}
